@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
