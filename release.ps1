@@ -1,11 +1,15 @@
 # Builds the installer and publishes a GitHub release with the setup.exe as the asset.
-# Usage: .\release.ps1 [-SkipBuild]
-#   -SkipBuild reuses dist\LightWeaver-<version>-setup.exe from a previous build.
+# Usage: .\release.ps1 [-SkipBuild] [-NotesFile <path>]
+#   -SkipBuild  reuses dist\LightWeaver-<version>-setup.exe from a previous build.
+#   -NotesFile  publishes these release notes instead of deriving them from commit subjects.
+#               Prefer it: commit subjects are written for whoever maintains the code, and they
+#               read like build plumbing to everyone else.
 # Publishing goes through the gh CLI, which must already be authenticated (gh auth status).
 # If a release for the version's tag already exists, its release entry is replaced
 # (the tag itself is kept for history).
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$NotesFile
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -14,6 +18,26 @@ $repo = 'oss96/LightWeaver-Windows'
 $csproj = Join-Path $root 'src\LightWeaver\LightWeaver.csproj'
 $version = (Select-String -Path $csproj -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
 if (-not $version) { Write-Error 'No <Version> found in LightWeaver.csproj' }
+
+if ($NotesFile) {
+    if (-not (Test-Path -LiteralPath $NotesFile)) { Write-Error "No such notes file: $NotesFile" }
+    $body = [IO.File]::ReadAllText($NotesFile).TrimEnd()
+    if (-not $body) { Write-Error "$NotesFile is empty" }
+} else {
+    # Changelog: commits since the previous release tag (best-effort). Convenience only - these
+    # are commit subjects, written for whoever maintains the code. Prefer -NotesFile for anything
+    # that ends up on a public release page.
+    Push-Location $root
+    try {
+        # Exclude the version being released: if its tag was pushed before this script runs
+        # (the release/X.Y.Z + tag flow), describe would return it and the range would be empty,
+        # so the changelog silently degraded to the "LightWeaver <version>" fallback (0.3.1).
+        $lastTag = cmd /c "git describe --tags --abbrev=0 --exclude=$version 2>nul"
+        $range = if ($lastTag) { "$lastTag..HEAD" } else { 'HEAD' }
+        $log = cmd /c "git log --pretty=format:`"- %s`" $range 2>nul" | Select-Object -First 40
+        $body = if ($log) { ($log -join "`n") } else { "LightWeaver $version" }
+    } finally { Pop-Location }
+}
 
 $setup = Join-Path $root "dist\LightWeaver-$version-setup.exe"
 if (-not $SkipBuild) {
@@ -26,18 +50,6 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Write-Error 'The gh C
 # cmd isolates gh's stderr (PS 5.1 turns native stderr into terminating errors).
 cmd /c "gh auth status >nul 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Error 'gh is not authenticated - run: gh auth login' }
-
-# Changelog: commits since the previous release tag (best-effort).
-Push-Location $root
-try {
-    # Exclude the version being released: if its tag was pushed before this script runs
-    # (the release/X.Y.Z + tag flow), describe would return it and the range would be empty,
-    # so the changelog silently degraded to the "LightWeaver <version>" fallback (0.3.1).
-    $lastTag = cmd /c "git describe --tags --abbrev=0 --exclude=$version 2>nul"
-    $range = if ($lastTag) { "$lastTag..HEAD" } else { 'HEAD' }
-    $log = cmd /c "git log --pretty=format:`"- %s`" $range 2>nul" | Select-Object -First 40
-    $body = if ($log) { ($log -join "`n") } else { "LightWeaver $version" }
-} finally { Pop-Location }
 
 # Replace an existing release entry for this tag (keep the tag itself: no --cleanup-tag).
 cmd /c "gh release view $version --repo $repo >nul 2>&1"
