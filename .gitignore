@@ -505,9 +505,9 @@ $RECYCLE.BIN/
 # Ignored so a half-finished session file can never ride along in a commit.
 SESSION-PROGRESS.md
 
-# Maintainer-only material lives in the private companion repository
-# (LightWeaver-Windows-internal). Its bootstrap.ps1 creates these junctions and files; a public
-# clone simply does not have them.
+# Maintainer-only material lives in a private companion repository, linked into this checkout
+# by that repository's own bootstrap script. A public clone simply does not have it, and needs
+# nothing from it.
 .claude/skills/
 .claude/internal/
 CLAUDE.local.md
