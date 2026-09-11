@@ -1,0 +1,50 @@
+<UserControl x:Class="LightWeaver.Views.SearchResultsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:LightWeaver.Views"
+             mc:Ignorable="d">
+    <Grid>
+        <!-- M3.5: type-grouped sections (Movies / Shows / Episodes / ...). Groups stack
+             vertically; each group's items wrap in their own WrapPanel, so portrait and
+             landscape cards no longer share a ragged mixed row. Cards use the shared
+             LwMediaGridItem container (no default ListBoxItem chrome; top-aligned rows). -->
+        <ListBox x:Name="ItemsGrid"
+                 Background="Transparent" BorderThickness="0"
+                 ItemTemplateSelector="{StaticResource MediaCardSelector}"
+                 ItemContainerStyle="{StaticResource LwMediaGridItem}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 SelectionChanged="OnSelection"
+                 Padding="32,2,12,2"
+                 AutomationProperties.AutomationId="SearchGrid">
+            <!-- 8 px of the inset moved to the panel's Margin so the card hover scale is not
+                 clipped by the ScrollViewer; the two cancel. See LibraryView for the measurement. -->
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" Margin="8" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource LwTypeTitle}"
+                                       Margin="0,16,0,10" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                    <GroupStyle.Panel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </GroupStyle.Panel>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+        </ListBox>
+        <TextBlock x:Name="StatusText" Text="Searching…" Opacity="0.6"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   AutomationProperties.AutomationId="SearchStatus" />
+        <views:EmptyState x:Name="EmptyView" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,128 @@
+<UserControl x:Class="LightWeaver.Views.DownloadsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:LightWeaver.Views"
+             xmlns:img="clr-namespace:LightWeaver.Imaging"
+             xmlns:theme="clr-namespace:LightWeaver.Theme"
+             AutomationProperties.AutomationId="DownloadsView">
+    <!-- Downloads management screen (Phase 7 M20): rows over the woven-light storm
+         ladder; live progress binds to per-row view models (no list rebuild per tick). -->
+    <DockPanel Margin="40,28,40,0">
+        <!-- No in-content title (M4.1): the browse header's BrowseTitle already names the
+             page, like every other library screen. Header actions are pill buttons matching
+             the library-header language (M4.2). -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,18">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button x:Name="PauseAllButton" Style="{StaticResource LwButtonSecondary}" Height="34"
+                        Content="Pause all" Margin="0,0,10,0" Click="OnPauseAll"
+                        AutomationProperties.AutomationId="DownloadsPauseAll" />
+                <Button x:Name="ClearCompletedButton" Style="{StaticResource LwButtonSecondary}" Height="34"
+                        Content="Clear completed" Margin="0,0,10,0" Click="OnClearCompleted"
+                        AutomationProperties.AutomationId="DownloadsClearCompleted" />
+                <Button x:Name="DeleteAllButton" Style="{StaticResource LwButtonDestructive}" Height="34"
+                        Content="Delete all" Click="OnDeleteAll"
+                        AutomationProperties.AutomationId="DownloadsDeleteAll" />
+            </StackPanel>
+        </Grid>
+
+        <Grid>
+            <views:EmptyState x:Name="Empty" VerticalAlignment="Center" />
+            <!-- Non-virtualized on purpose: N is small and UIA must see every row -->
+            <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="Rows" Margin="0,0,12,28"
+                              AutomationProperties.AutomationId="DownloadsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type views:DownloadRow}">
+                            <Border Background="{StaticResource LwStorm2Brush}"
+                                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1"
+                                    CornerRadius="{StaticResource LwR2}" Padding="14,12" Margin="0,0,0,10"
+                                    AutomationProperties.AutomationId="DownloadRow">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- P10 M6: 4 -> LwR1 (8), plus a real round clip (ClipToBounds
+                                         does not follow CornerRadius). No stroke, so inner = outer.
+                                         The clip sits on a Grid, not on the Image: this thumb's slot
+                                         (45x66) is not the poster's 2:3, so the UniformToFill Image
+                                         reports a size LARGER than its slot and a clip built from it
+                                         would trim nothing. Measured here. -->
+                                    <Border Width="45" Height="66" CornerRadius="{StaticResource LwR1}"
+                                            Background="{StaticResource LwStorm1Brush}" Margin="0,0,14,0">
+                                        <Grid theme:RoundedClip.Radius="8">
+                                            <Image img:CachedImage.DecodeWidth="90"
+                                                   img:CachedImage.SourceUrl="{Binding PosterUrl}"
+                                                   Stretch="UniformToFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource LwText1Brush}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   AutomationProperties.AutomationId="DownloadRowTitle" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="12.5" Margin="0,1,0,0"
+                                                   Foreground="{StaticResource LwText3Brush}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding HasSubtitle, Converter={StaticResource BoolToVisibleConverter}}" />
+                                        <TextBlock Text="{Binding StatusText}" FontFamily="{StaticResource LwFontMono}"
+                                                   FontSize="11.5" Margin="0,5,0,0"
+                                                   Foreground="{StaticResource LwText2Brush}"
+                                                   AutomationProperties.AutomationId="DownloadRowStatus" />
+                                        <!-- P10 M6: the literal 1.5 was already the exact stadium
+                                             for a 3 px track; routed through LwRFullFromHeight so
+                                             it stays one if the height ever changes. Identical
+                                             pixels. The INNER ProgressBar fill is still a square
+                                             rect — its clip wrapper is M8 task 1. -->
+                                        <Border Height="3" Margin="0,7,18,0"
+                                                CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                                                theme:RoundedClip.Radius="1.5"
+                                                Background="{StaticResource LwStorm0Brush}"
+                                                Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVisibleConverter}}">
+                                            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                                                         Height="3" BorderThickness="0" Background="Transparent"
+                                                         Foreground="{StaticResource LwProgressFillBrush}"
+                                                         AutomationProperties.AutomationId="DownloadRowProgress" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
+                                                FontSize="19" Content="{StaticResource IconPlay}" ToolTip="Play"
+                                                Click="OnRowPlay" Tag="{Binding}"
+                                                Visibility="{Binding CanPlay, Converter={StaticResource BoolToVisibleConverter}}"
+                                                AutomationProperties.AutomationId="DownloadRowPlay" />
+                                        <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
+                                                FontSize="19" Content="{StaticResource IconPause}" ToolTip="Pause"
+                                                Click="OnRowPause" Tag="{Binding}"
+                                                Visibility="{Binding CanPause, Converter={StaticResource BoolToVisibleConverter}}"
+                                                AutomationProperties.AutomationId="DownloadRowPause" />
+                                        <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
+                                                FontSize="19" Content="{StaticResource IconDownload}" ToolTip="Resume"
+                                                Click="OnRowResume" Tag="{Binding}"
+                                                Visibility="{Binding CanResume, Converter={StaticResource BoolToVisibleConverter}}"
+                                                AutomationProperties.AutomationId="DownloadRowResume" />
+                                        <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
+                                                FontSize="19" Content="{StaticResource IconClose}" ToolTip="Cancel download"
+                                                Click="OnRowRemove" Tag="{Binding}"
+                                                Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibleConverter}}"
+                                                AutomationProperties.AutomationId="DownloadRowCancel" />
+                                        <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
+                                                FontSize="19" Content="{StaticResource IconDelete}" ToolTip="Delete download"
+                                                Click="OnRowRemove" Tag="{Binding}"
+                                                Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibleConverter}}"
+                                                AutomationProperties.AutomationId="DownloadRowDelete" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</UserControl>

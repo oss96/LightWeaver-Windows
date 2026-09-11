@@ -1,0 +1,54 @@
+<Window x:Class="LightWeaver.Views.SwitchServerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Switch user or server" Width="460" Height="400"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        Background="{StaticResource LwStorm1Brush}"
+        Foreground="{StaticResource LwText1Brush}"
+        FontFamily="{StaticResource LwFontUi}">
+    <!-- Restyled to the woven-light modal-card language (M23). -->
+    <Border Style="{StaticResource LwModalCard}" Margin="12" Effect="{x:Null}">
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
+                        Margin="0,16,0,0">
+                <Button x:Name="AddServerButton" Content="Add server…" Style="{StaticResource LwButtonSecondary}"
+                        Click="OnAddServer" AutomationProperties.AutomationId="AddServerButton" />
+                <Button x:Name="SwitchButton" Content="Switch" Style="{StaticResource LwButtonPrimary}"
+                        MinWidth="92" Margin="10,0,0,0" IsDefault="True" IsEnabled="False" Click="OnSwitch"
+                        AutomationProperties.AutomationId="SwitchButton" />
+                <Button Content="Cancel" Style="{StaticResource LwButtonGhost}" Margin="10,0,0,0" IsCancel="True"
+                        AutomationProperties.AutomationId="SwitchCancelButton" />
+            </StackPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Saved profiles"
+                       FontFamily="{StaticResource LwFontDisplay}" FontSize="19"
+                       Foreground="{StaticResource LwText1Brush}" Margin="2,0,0,10" />
+            <!-- P10 M8 task 3, the half GenresView's fix left unaudited. Measured on the live
+                 switcher: the stock Fluent container drew hover and selection as a hard
+                 90-degree block behind the row, the same defect as the genre tiles. Reusing
+                 LwFlyoutListItem rather than writing a second container style - it is already
+                 the app's list-row language (transparent chrome, LwR1, ghost hover/selected
+                 fills) and the rows set their own Foreground and FontSize, so the style's
+                 text setters do not reach them. -->
+            <ListBox x:Name="ProfilesList" SelectionChanged="OnSelectionChanged"
+                     MouseDoubleClick="OnDoubleClick"
+                     Background="Transparent" BorderThickness="0"
+                     ItemContainerStyle="{StaticResource LwFlyoutListItem}"
+                     AutomationProperties.AutomationId="ProfilesList">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="4,7">
+                            <TextBlock DockPanel.Dock="Left" Width="20" Text="{Binding ActiveMark}"
+                                       Foreground="{StaticResource LwGarnetLitBrush}" VerticalAlignment="Center" />
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource LwText1Brush}" />
+                                <TextBlock Text="{Binding Detail}" FontSize="12"
+                                           Foreground="{StaticResource LwText3Brush}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+    </Border>
+</Window>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LightWeaver — Advanced Search redesign — states</title>
+<style>
+  :root{
+    --storm0:#07080D; --storm1:#0C0E16; --storm2:#121522; --storm3:#191D2E; --storm4:#222741;
+    --hairline:rgba(168,186,230,.08); --stroke:rgba(168,186,230,.16);
+    --t1:#E9EDF7; --t2:#AAB2C8; --t3:#79809A; --t4:#4A5068;
+    --light-core:#DDF1FA; --light:#8ECEEB;
+    --light-haze:rgba(142,206,235,.34); --light-dim:rgba(142,206,235,.14);
+    --garnet:#A62339; --garnet-lit:#D14560; --emerald:#1FA873;
+    --chip-fill:rgba(142,206,235,.10); --chip-border:rgba(168,186,230,.35);
+    --f-display:'Marcellus',Georgia,serif;
+    --f-ui:'Source Sans 3','Segoe UI',sans-serif;
+    --f-mono:'JetBrains Mono',Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#020204;font-family:var(--f-ui);color:var(--t1);padding:24px;display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+  h1{font:20px var(--f-mono);color:var(--t2);font-weight:400;margin-bottom:4px}
+  .label{font:13px var(--f-mono);color:var(--t3);margin-top:18px}
+  .frame{background:var(--storm1);border:1px solid #1c2030;border-radius:6px;overflow:hidden;display:flex}
+  .rail{background:var(--storm1);border-right:1px solid var(--hairline);padding:22px 12px;flex-shrink:0}
+  .rail.full{width:232px}
+  .rail.slim{width:64px}
+  .navitem{height:40px;margin:1px 0;border-radius:8px;display:flex;align-items:center;gap:12px;padding:0 12px;color:var(--t2);font-size:14.5px}
+  .rail.slim .navitem{justify-content:center;padding:0}
+  .navitem svg{width:20px;height:20px;flex-shrink:0}
+  .content{flex:1;display:flex;flex-direction:column;min-width:0}
+  .pagehead{padding:20px 28px 8px 40px;display:flex;align-items:center;gap:6px}
+  .ghostbtn{width:38px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--t2)}
+  .ghostbtn.disabled{color:var(--t4)}
+  .ghostbtn svg{width:18px;height:18px}
+  .pagetitle{font:20px var(--f-display);margin-left:8px}
+  .filterband{padding:10px 40px 14px 40px;border-bottom:1px solid var(--hairline)}
+  .frow{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .frow + .frow{margin-top:12px}
+  .facet{display:flex;flex-direction:column;gap:5px}
+  .fcaption{font:600 11.5px/1 var(--f-ui);letter-spacing:.08em;color:var(--t3);padding-left:2px;text-transform:uppercase}
+  .field{height:38px;background:var(--storm2);border:1px solid var(--stroke);border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:14px;gap:8px;position:relative}
+  .field .ph{color:var(--t3)}
+  .field .chev{margin-left:auto;color:var(--t3);font-size:11px}
+  .field.activef{border-color:var(--light-haze);box-shadow:0 0 12px rgba(142,206,235,.14)}
+  .field.focus{border-color:rgba(221,241,250,.65);box-shadow:0 0 12px rgba(142,206,235,.35)}
+  .countbadge{min-width:18px;height:18px;border-radius:999px;background:var(--chip-fill);border:1px solid var(--chip-border);color:var(--light-core);font:600 11px/16px var(--f-ui);text-align:center;padding:0 5px;margin-left:auto}
+  .countbadge + .chev{margin-left:8px}
+  .searchfield input{background:none;border:none;outline:none;color:var(--t1);font:14px var(--f-ui);flex:1}
+  .searchfield input::placeholder{color:var(--t3)}
+  .searchfield svg{width:16px;height:16px;color:var(--t3)}
+  .segmented{height:38px;background:var(--storm2);border:1px solid var(--stroke);border-radius:8px;padding:3px;display:flex;gap:2px}
+  .seg{height:30px;border-radius:6px;padding:0 14px;display:flex;align-items:center;font-size:13px;color:var(--t2)}
+  .seg.on{background:var(--storm4);color:var(--t1);box-shadow:0 0 12px rgba(142,206,235,.12)}
+  .yearwrap{display:flex;align-items:center;gap:6px}
+  .yearbox{width:74px;justify-content:center}
+  .yearbox .ph{font-size:14px}
+  .yeardash{color:var(--t3)}
+  .orderbtn{height:38px;border-radius:8px;background:var(--storm2);border:1px solid var(--stroke);display:flex;align-items:center;gap:7px;padding:0 12px;color:var(--t2);font-size:13px}
+  .orderbtn svg{width:14px;height:14px}
+  .summary{margin-left:auto;font:12.5px var(--f-mono);color:var(--t3);align-self:flex-end;padding-bottom:11px}
+  .summary b{color:var(--t2);font-weight:400}
+  .results{flex:1;overflow:hidden;padding:6px 40px 30px 40px;position:relative}
+  /* context chip (pre-filtered person/genre) */
+  .ctxchip{height:38px;border-radius:999px;border:1px solid rgba(209,69,96,.45);background:rgba(209,69,96,.10);display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;font-size:13.5px;color:#eeb9c4;box-shadow:0 0 14px rgba(209,69,96,.15)}
+  .ctxchip .x{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#eeb9c4;font-size:13px;cursor:pointer}
+  .ctxchip .x:hover{background:rgba(209,69,96,.25)}
+  .ctxchip .k{font:600 11px var(--f-ui);letter-spacing:.06em;color:var(--t3);text-transform:uppercase}
+  /* empty / prompt states */
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 0 60px}
+  .gem{width:34px;height:34px;border-radius:9px;border:1px solid rgba(209,69,96,.30);background:radial-gradient(circle at 32% 28%,rgba(209,69,96,.7),rgba(166,35,57,.7) 70%);box-shadow:0 0 22px rgba(209,69,96,.3)}
+  .empty h3{font:21px var(--f-display);font-weight:400;margin-top:16px}
+  .empty p{font:13.5px var(--f-ui);color:var(--t3);margin-top:6px;max-width:420px;text-align:center}
+  .starters{display:flex;gap:10px;margin-top:20px}
+  .starter{height:34px;border-radius:999px;border:1px solid var(--chip-border);background:var(--chip-fill);display:flex;align-items:center;padding:0 16px;font-size:13.5px;color:var(--light-core);cursor:pointer}
+  .starter:hover{box-shadow:0 0 12px rgba(142,206,235,.25)}
+  .linkbtn{margin-top:18px;font-size:13.5px;color:var(--light);cursor:pointer}
+  /* multiselect popup */
+  .popup{position:absolute;top:44px;left:0;width:240px;background:var(--storm3);border:1px solid var(--stroke);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.55);padding:6px;z-index:5}
+  .prow{height:34px;border-radius:4px;display:flex;align-items:center;gap:10px;padding:0 10px;font-size:13.5px;color:var(--t1)}
+  .prow:hover{background:rgba(142,206,235,.08)}
+  .cb{width:16px;height:16px;border-radius:4px;border:1px solid var(--stroke);flex-shrink:0}
+  .cb.on{background:var(--light-dim);border-color:var(--light-haze);display:flex;align-items:center;justify-content:center}
+  .cb.on::after{content:"✓";font-size:11px;color:var(--light-core)}
+  .pfoot{border-top:1px solid var(--hairline);margin-top:4px;padding:8px 10px 4px;font-size:12.5px;color:var(--light);cursor:pointer}
+  /* skeleton */
+  .skelgrid{display:flex;gap:16px;flex-wrap:wrap}
+  .skel{border-radius:8px;background:var(--storm2);opacity:.55;animation:breathe 2.4s ease-in-out infinite alternate}
+  @keyframes breathe{from{opacity:.4}to{opacity:.9}}
+  .skelcard{display:flex;flex-direction:column;gap:9px}
+  /* cards (compact reuse) */
+  .grid{display:flex;flex-wrap:wrap;gap:16px}
+  .pcard{width:152px}
+  .pcard .art{width:152px;height:228px;border-radius:8px;border:1px solid var(--hairline);position:relative;overflow:hidden;background:var(--storm2);display:flex;align-items:center;justify-content:center;font:64px var(--f-display);color:rgba(233,237,247,.16)}
+  .cardname{font:600 14px var(--f-ui);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cardsub{font:12.5px var(--f-ui);color:var(--t3);margin-top:1px}
+  .sechead{display:flex;align-items:baseline;gap:12px;margin:14px 0 14px}
+  .sechead h2{font:22px var(--f-display);font-weight:400}
+  .sechead .cnt{font:12.5px var(--f-mono);color:var(--t3)}
+  .sechead .only{margin-left:auto;font:13px var(--f-ui);color:var(--light)}
+</style>
+</head>
+<body>
+<h1>Advanced Search — required states (b–g)</h1>
+
+<!-- (a) INITIAL / NO-QUERY -->
+<div class="label">STATE a — initial / no query (P7): no auto-dump; inviting prompt + starter chips. A query runs only once a term or any filter is set.</div>
+<div class="frame" style="width:1200px;height:520px">
+  <div class="rail full"><div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div></div>
+  <div class="content">
+    <div class="pagehead"><div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></div><div class="ghostbtn disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></div><div class="pagetitle">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield focus" style="width:300px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Title, keyword…"></div></div>
+        <div class="facet"><div class="fcaption">Type</div><div class="field" style="width:170px"><span class="ph">All types</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">Genre</div><div class="field" style="width:210px"><span class="ph">Any genre</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">Watched</div><div class="segmented"><div class="seg on">All</div><div class="seg">Unwatched</div><div class="seg">Watched</div></div></div>
+      </div>
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Year</div><div class="yearwrap"><div class="field yearbox"><span class="ph">From</span></div><span class="yeardash">–</span><div class="field yearbox"><span class="ph">To</span></div></div></div>
+        <div class="facet"><div class="fcaption">Sort</div><div class="field" style="width:170px"><span>Name</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">&nbsp;</div><div class="orderbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M12 20l-4-4M12 20l4-4"/></svg>A–Z</div></div>
+      </div>
+    </div>
+    <div class="empty">
+      <div class="gem"></div>
+      <h3>Search everything</h3>
+      <p>Combine a title with type, genre, year and watched filters — across all of your libraries at once.</p>
+      <div class="starters"><div class="starter">Browse movies</div><div class="starter">Browse series</div><div class="starter">Browse episodes</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- (b) MULTISELECT OPEN -->
+<div class="label">STATE b — multi-select (Genre) open, partially selected (P9): checkbox rows, count badge on the closed field, Clear footer.</div>
+<div class="frame" style="width:1200px;height:360px">
+  <div class="rail full"><div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div></div>
+  <div class="content">
+    <div class="pagehead"><div class="pagetitle" style="margin-left:0">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield" style="width:300px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Title, keyword…"></div></div>
+        <div class="facet"><div class="fcaption">Type</div><div class="field" style="width:170px"><span class="ph">All types</span><span class="chev">▾</span></div></div>
+        <div class="facet" style="position:relative">
+          <div class="fcaption">Genre</div>
+          <div class="field focus" style="width:210px"><span>Action, Sci-Fi</span><span class="countbadge">2</span><span class="chev">▴</span></div>
+          <div class="popup" style="top:64px">
+            <div class="prow"><span class="cb on"></span>Action</div>
+            <div class="prow"><span class="cb"></span>Adventure</div>
+            <div class="prow"><span class="cb"></span>Comedy</div>
+            <div class="prow"><span class="cb"></span>Drama</div>
+            <div class="prow"><span class="cb on"></span>Sci-Fi</div>
+            <div class="prow"><span class="cb"></span>Thriller</div>
+            <div class="pfoot">Clear selection</div>
+          </div>
+        </div>
+        <div class="facet"><div class="fcaption">Watched</div><div class="segmented"><div class="seg on">All</div><div class="seg">Unwatched</div><div class="seg">Watched</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- (c) ZERO RESULTS -->
+<div class="label">STATE c — zero results: shared woven-light empty state + a "Clear filters" recovery action.</div>
+<div class="frame" style="width:1200px;height:430px">
+  <div class="rail full"><div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div></div>
+  <div class="content">
+    <div class="pagehead"><div class="pagetitle" style="margin-left:0">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield activef" style="width:300px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input value="zzyzx"></div></div>
+        <div class="facet"><div class="fcaption">Genre</div><div class="field activef" style="width:210px"><span>Western</span><span class="countbadge">1</span><span class="chev">▾</span></div></div>
+        <div class="facet" style="margin-left:auto"><div class="fcaption">&nbsp;</div><div class="summary" style="padding-bottom:11px"><b>0 results</b></div></div>
+      </div>
+    </div>
+    <div class="empty">
+      <div class="gem"></div>
+      <h3>Nothing here</h3>
+      <p>No items match these filters — try loosening them.</p>
+      <div class="linkbtn">Clear all filters</div>
+    </div>
+  </div>
+</div>
+
+<!-- (d) SKELETON / LOADING -->
+<div class="label">STATE d — loading: M25 skeleton grid (storm-2 blocks, 2.4 s breathe), filter band stays interactive.</div>
+<div class="frame" style="width:1200px;height:430px">
+  <div class="rail full"><div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div></div>
+  <div class="content">
+    <div class="pagehead"><div class="pagetitle" style="margin-left:0">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield activef" style="width:300px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input value="star"></div></div>
+        <div class="facet"><div class="fcaption">Type</div><div class="field" style="width:170px"><span class="ph">All types</span><span class="chev">▾</span></div></div>
+      </div>
+    </div>
+    <div class="results">
+      <div class="skelgrid" style="margin-top:14px">
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px"></div><div class="skel" style="width:110px;height:13px"></div><div class="skel" style="width:60px;height:11px"></div></div>
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px;animation-delay:.2s"></div><div class="skel" style="width:120px;height:13px"></div><div class="skel" style="width:52px;height:11px"></div></div>
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px;animation-delay:.4s"></div><div class="skel" style="width:96px;height:13px"></div><div class="skel" style="width:64px;height:11px"></div></div>
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px;animation-delay:.6s"></div><div class="skel" style="width:124px;height:13px"></div><div class="skel" style="width:58px;height:11px"></div></div>
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px;animation-delay:.8s"></div><div class="skel" style="width:104px;height:13px"></div><div class="skel" style="width:66px;height:11px"></div></div>
+        <div class="skelcard"><div class="skel" style="width:152px;height:228px;animation-delay:1s"></div><div class="skel" style="width:116px;height:13px"></div><div class="skel" style="width:54px;height:11px"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- (e) NARROW 1040, RAIL COLLAPSED -->
+<div class="label">STATE e — narrow ~1040px, rail collapsed to 64: same two-row band; SEARCH shrinks (300→220), GENRE (210→180); summary drops to its own line under row B if it no longer fits. Grid reflows to fewer columns.</div>
+<div class="frame" style="width:1040px;height:560px">
+  <div class="rail slim">
+    <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg></div>
+    <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg></div>
+    <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg></div>
+  </div>
+  <div class="content">
+    <div class="pagehead"><div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></div><div class="ghostbtn disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></div><div class="pagetitle">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield activef" style="width:220px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input value="star"></div></div>
+        <div class="facet"><div class="fcaption">Type</div><div class="field" style="width:150px"><span class="ph">All types</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">Genre</div><div class="field activef" style="width:180px"><span>Action</span><span class="countbadge">+1</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">Watched</div><div class="segmented"><div class="seg on">All</div><div class="seg">Unwatched</div><div class="seg">Watched</div></div></div>
+      </div>
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Year</div><div class="yearwrap"><div class="field yearbox"><span class="ph">From</span></div><span class="yeardash">–</span><div class="field yearbox"><span class="ph">To</span></div></div></div>
+        <div class="facet"><div class="fcaption">Sort</div><div class="field" style="width:160px"><span>Name</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">&nbsp;</div><div class="orderbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M12 20l-4-4M12 20l4-4"/></svg>A–Z</div></div>
+        <div class="summary"><b>212 results</b> · 34 movies · 8 series · 170 episodes</div>
+      </div>
+    </div>
+    <div class="results">
+      <div class="sechead"><h2>Movies</h2><span class="cnt">34</span><span class="only">Show only movies →</span></div>
+      <div class="grid">
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#1d2438,#0e1018)">S</div><div class="cardname">Stardust</div><div class="cardsub">2007</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#2a2030,#0e1018)">I</div><div class="cardname">Interstellar</div><div class="cardsub">2014</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#16283a,#0e1018)">S</div><div class="cardname">A Star Is Born</div><div class="cardsub">2018</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#233042,#0e1018)">S</div><div class="cardname">Star Trek</div><div class="cardsub">2009</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#33222a,#0e1018)">R</div><div class="cardname">Rogue One</div><div class="cardsub">2016</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- (f) PRE-FILTERED (PERSON) -->
+<div class="label">STATE f — opened pre-filtered on a person (M5 deep link): the seed shows as a removable garnet context chip — previously the person filter was invisible. Genre deep links (M6) render the same chip with "GENRE".</div>
+<div class="frame" style="width:1200px;height:560px">
+  <div class="rail full"><div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div></div>
+  <div class="content">
+    <div class="pagehead"><div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></div><div class="ghostbtn disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></div><div class="pagetitle">Advanced search</div></div>
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Person</div><div class="ctxchip"><span>Eminem</span><span class="x">✕</span></div></div>
+        <div class="facet"><div class="fcaption">Search</div><div class="field searchfield" style="width:260px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Title, keyword…"></div></div>
+        <div class="facet"><div class="fcaption">Type</div><div class="field" style="width:170px"><span class="ph">All types</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">Watched</div><div class="segmented"><div class="seg on">All</div><div class="seg">Unwatched</div><div class="seg">Watched</div></div></div>
+      </div>
+      <div class="frow">
+        <div class="facet"><div class="fcaption">Year</div><div class="yearwrap"><div class="field yearbox"><span class="ph">From</span></div><span class="yeardash">–</span><div class="field yearbox"><span class="ph">To</span></div></div></div>
+        <div class="facet"><div class="fcaption">Sort</div><div class="field" style="width:170px"><span>Name</span><span class="chev">▾</span></div></div>
+        <div class="facet"><div class="fcaption">&nbsp;</div><div class="orderbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M12 20l-4-4M12 20l4-4"/></svg>A–Z</div></div>
+        <div class="summary"><b>4 results</b> · 3 movies · 1 series</div>
+      </div>
+    </div>
+    <div class="results">
+      <div class="sechead"><h2>Movies</h2><span class="cnt">3</span><span class="only">Show only movies →</span></div>
+      <div class="grid">
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#2b2530,#0e1018)">8</div><div class="cardname">8 Mile</div><div class="cardsub">2002</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#20262e,#0e1018)">S</div><div class="cardname">Southpaw</div><div class="cardsub">2015</div></div>
+        <div class="pcard"><div class="art" style="background:linear-gradient(160deg,#252c3a,#0e1018)">B</div><div class="cardname">Bodied</div><div class="cardsub">2017</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

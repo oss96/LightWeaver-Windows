@@ -1,0 +1,31 @@
+<UserControl x:Class="LightWeaver.Views.EmptyState"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False">
+    <!-- Woven-light empty state (Phase 7 M24): the login gem mark (dimmed) + a
+         Marcellus headline + a quiet subline. One shared component for every
+         "nothing to show" dead end. -->
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <!-- P10 M6: 9 -> LwR2 (12). A 34 px mark; the login mark's LwR3 would be over half. -->
+        <Border Width="34" Height="34" CornerRadius="{StaticResource LwR2}" HorizontalAlignment="Center"
+                BorderBrush="#4DD14560" BorderThickness="1">
+            <Border.Background>
+                <RadialGradientBrush Center="0.32,0.28" GradientOrigin="0.32,0.28" RadiusX="0.85" RadiusY="0.85">
+                    <GradientStop Color="#B3D14560" Offset="0" />
+                    <GradientStop Color="#B3A62339" Offset="0.7" />
+                </RadialGradientBrush>
+            </Border.Background>
+            <Border.Effect>
+                <DropShadowEffect Color="#FFD14560" BlurRadius="22" ShadowDepth="0" Opacity="0.3" />
+            </Border.Effect>
+        </Border>
+        <TextBlock x:Name="HeadlineText" FontFamily="{StaticResource LwFontDisplay}" FontSize="21"
+                   Foreground="{StaticResource LwText1Brush}" HorizontalAlignment="Center"
+                   Margin="0,16,0,0" TextAlignment="Center"
+                   AutomationProperties.AutomationId="EmptyHeadline" />
+        <TextBlock x:Name="SublineText" FontFamily="{StaticResource LwFontUi}" FontSize="13.5"
+                   Foreground="{StaticResource LwText3Brush}" HorizontalAlignment="Center"
+                   Margin="0,6,0,0" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="380"
+                   AutomationProperties.AutomationId="EmptySubline" />
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,71 @@
+<UserControl x:Class="LightWeaver.Views.ModalHost"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="Collapsed" Focusable="True">
+    <!-- Modal overlay layer (Phase 7 M23): an in-app scrim + card, NOT a top-level
+         window, so the app stays visible behind the soft scrim. Confirm/alert only. -->
+    <Grid>
+        <Border Background="{StaticResource LwScrimBrush}" MouseLeftButtonDown="OnScrimClick" />
+        <Border x:Name="Card" Style="{StaticResource LwModalCard}" Width="440"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="CardRise" />
+            </Border.RenderTransform>
+            <StackPanel>
+                <TextBlock x:Name="TitleText" FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                           Foreground="{StaticResource LwText1Brush}" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="ModalTitle" />
+                <TextBlock x:Name="BodyText" FontFamily="{StaticResource LwFontUi}" FontSize="14"
+                           Foreground="{StaticResource LwText2Brush}" TextWrapping="Wrap"
+                           Margin="0,10,0,0" AutomationProperties.AutomationId="ModalBody" />
+                <!-- Choice mode (M20 resolution picker): a single-select option list.
+                     Rows reuse the track-popup selection language (garnet-lit border). -->
+                <ListBox x:Name="ChoiceList" Visibility="Collapsed" Margin="0,14,0,0"
+                         MaxHeight="260" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         AutomationProperties.AutomationId="ModalChoiceList">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <!-- P10 M6: 6 -> LwR1 (8), the flyout/menu row step. -->
+                                        <Border x:Name="RowChrome" CornerRadius="{StaticResource LwR1}" Padding="12,9"
+                                                Margin="0,2" Background="Transparent"
+                                                BorderThickness="1.5" BorderBrush="Transparent">
+                                            <TextBlock x:Name="RowText" Text="{TemplateBinding Content}"
+                                                       FontFamily="{StaticResource LwFontUi}" FontSize="14"
+                                                       Foreground="{StaticResource LwText2Brush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="RowChrome" Property="Background"
+                                                        Value="{StaticResource LwGhostHoverFillBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="RowChrome" Property="BorderBrush"
+                                                        Value="{StaticResource LwGarnetLitBrush}" />
+                                                <Setter TargetName="RowChrome" Property="Background" Value="#22D14560" />
+                                                <Setter TargetName="RowText" Property="Foreground"
+                                                        Value="{StaticResource LwText1Brush}" />
+                                                <Setter TargetName="RowText" Property="FontWeight" Value="SemiBold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                    <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource LwButtonGhost}"
+                            Click="OnCancel" AutomationProperties.AutomationId="ModalCancelButton" />
+                    <Button x:Name="ConfirmButton" Style="{StaticResource LwButtonPrimary}"
+                            Margin="10,0,0,0" MinWidth="96" Click="OnConfirm"
+                            AutomationProperties.AutomationId="ModalConfirmButton" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

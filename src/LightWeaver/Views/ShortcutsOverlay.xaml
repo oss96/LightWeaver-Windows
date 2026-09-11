@@ -1,0 +1,92 @@
+<UserControl x:Class="LightWeaver.Views.ShortcutsOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="Collapsed" Focusable="True"
+             AutomationProperties.AutomationId="ShortcutsOverlay">
+    <!-- Keyboard-shortcuts panel (Phase 10 M9). Hosted in BOTH MainWindow and OverlayWindow:
+         mpv owns a child HWND, so WPF content cannot draw over the video and a single instance
+         in the shell could never be seen while playing (TECHNICAL.md, airspace).
+         Content comes from AppShortcuts.BuildRows on every open, so a rebind made in Settings
+         is reflected without a relaunch. -->
+    <UserControl.Resources>
+        <!-- One shortcut: function left, keys right in the mono face (the reference's key
+             column). The hairline is the row separator, dropped on the last row by the
+             group template's own trimming, which the flat list cannot know about. -->
+        <DataTemplate x:Key="ShortcutRowTemplate">
+            <!-- Row rhythm is deliberately tight: at 1920x1080 the whole table has to fit
+                 without scrolling, and it does at this height (measured). Smaller windows
+                 scroll, which is what the ScrollViewer below is for. -->
+            <Border BorderThickness="0,0,0,1" BorderBrush="{StaticResource LwStrokeBrush}"
+                    Padding="0,5,0,5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" MinWidth="88" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Function}" TextWrapping="Wrap"
+                               FontFamily="{StaticResource LwFontUi}" FontSize="13.5"
+                               Foreground="{StaticResource LwText1Brush}"
+                               VerticalAlignment="Center" Margin="0,0,18,0"
+                               AutomationProperties.AutomationId="ShortcutFunction" />
+                    <TextBlock Grid.Column="1" Text="{Binding Keys}"
+                               FontFamily="{StaticResource LwFontMono}" FontSize="12.5"
+                               Foreground="{StaticResource LwText2Brush}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="ShortcutChord" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ShortcutGroupTemplate">
+            <StackPanel Margin="0,0,0,18">
+                <TextBlock Text="{Binding Title}" FontFamily="{StaticResource LwFontUi}"
+                           FontSize="11.5" FontWeight="SemiBold"
+                           Foreground="{StaticResource LwText3Brush}"
+                           AutomationProperties.AutomationId="ShortcutGroupTitle" />
+                <ItemsControl ItemsSource="{Binding Rows}" Margin="0,6,0,0"
+                              ItemTemplate="{StaticResource ShortcutRowTemplate}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border Background="{StaticResource LwScrimBrush}" MouseLeftButtonDown="OnScrimClick" />
+        <Border x:Name="Card" Style="{StaticResource LwModalCard}"
+                MaxWidth="920" Margin="24" RenderTransformOrigin="0.5,0.5"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="CardRise" />
+            </Border.RenderTransform>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Keyboard shortcuts"
+                           FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                           Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,20"
+                           AutomationProperties.AutomationId="ShortcutsTitle" />
+                <!-- Dismiss docks before the scroller so it stays reachable when the list
+                     scrolls — at the 700x480 window minimum the columns do scroll. -->
+                <Button DockPanel.Dock="Bottom" x:Name="DismissButton" Content="Dismiss"
+                        Style="{StaticResource LwButtonGhost}" HorizontalAlignment="Right"
+                        Margin="0,16,0,0" Click="OnDismiss"
+                        AutomationProperties.AutomationId="ShortcutsDismissButton" />
+                <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="ShortcutsScroller">
+                    <!-- The right inset reserves the scrollbar's lane. The Fluent theme's
+                         vertical scrollbar is an OVERLAY: it does not narrow the content, it
+                         draws on top of it, which put a thumb straight through the chord column
+                         (F11, Ctrl+O and Shift+? all overdrawn in the first capture). -->
+                    <Grid x:Name="Columns" Margin="0,0,16,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ItemsControl x:Name="LeftColumn" Margin="0,0,22,0"
+                                      ItemTemplate="{StaticResource ShortcutGroupTemplate}" />
+                        <ItemsControl x:Name="RightColumn" Grid.Column="1" Margin="22,0,0,0"
+                                      ItemTemplate="{StaticResource ShortcutGroupTemplate}" />
+                    </Grid>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,722 @@
+<UserControl x:Class="LightWeaver.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             AutomationProperties.AutomationId="SettingsPage">
+    <!-- S6 Settings — sectioned rows (title + technical subtitle left, control right),
+         grouped in storm-2 cards with hairline dividers; Marcellus section headings.
+         Phase 9 M6: an in-app browse destination rather than a floating window. No Width/
+         Height/MinWidth here - the shell's own 700x480 minimum governs, and the browse
+         layer supplies the background. The section heading is kept: the browse header names
+         the frame "Settings" too, but this page is long and scrolls, so an in-page title is
+         still the anchor when the header scrolls out of mind. -->
+    <UserControl.Resources>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource LwFontDisplay}" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            <Setter Property="Margin" Value="2,26,0,0" />
+        </Style>
+        <Style x:Key="GroupLabel" TargetType="TextBlock" BasedOn="{StaticResource LwTypeLabel}">
+            <Setter Property="Margin" Value="3,22,0,8" />
+        </Style>
+        <Style x:Key="SettingCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource LwStorm2Brush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LwHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource LwR3}" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style x:Key="SettingRow" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource LwHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="18,11" />
+            <Setter Property="MinHeight" Value="60" />
+        </Style>
+        <Style x:Key="RowTitle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+            <Setter Property="FontSize" Value="14.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="RowSub" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource LwText3Brush}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="RowSubMono" TargetType="TextBlock" BasedOn="{StaticResource RowSub}">
+            <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+            <Setter Property="FontSize" Value="11.5" />
+        </Style>
+        <Style x:Key="RowToggle" TargetType="CheckBox" BasedOn="{StaticResource LwToggleSwitch}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+        <Style x:Key="RowField" TargetType="TextBox" BasedOn="{StaticResource LwTextField}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Width" Value="90" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+        <Style x:Key="RowCombo" TargetType="ComboBox" BasedOn="{StaticResource LwDropdown}">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+        <!-- Masked secret field (OMDB key) + its peek reveal twin -->
+        <Style x:Key="RowSecretField" TargetType="PasswordBox" BasedOn="{StaticResource LwPasswordField}">
+            <Setter Property="Height" Value="34" />
+        </Style>
+        <Style x:Key="RowRevealField" TargetType="TextBox" BasedOn="{StaticResource LwTextField}">
+            <Setter Property="Height" Value="34" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="40,8,40,32">
+        <StackPanel>
+            <TextBlock Text="Settings" Style="{StaticResource SectionTitle}" />
+            <TextBlock Text="Changes save immediately. Language and auto-skip apply from the next playback."
+                       Style="{StaticResource RowSub}" Margin="2,4,0,0" />
+
+            <!-- ===== Updates ===== -->
+            <TextBlock Text="UPDATES" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="UpdatePolicyBox" Style="{StaticResource RowCombo}" Width="210"
+                                      SelectionChanged="OnChanged" AutomationProperties.AutomationId="UpdatePolicyBox"
+                                      AutomationProperties.Name="Update handling policy" />
+                            <StackPanel>
+                                <TextBlock Text="Update handling" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Manual is the default; every option still checks automatically" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <StackPanel>
+                            <TextBlock Text="Update status" Style="{StaticResource RowTitle}" />
+                            <TextBlock x:Name="UpdateVersionText" Style="{StaticResource RowSubMono}" AutomationProperties.AutomationId="UpdateVersionText" />
+                            <TextBlock x:Name="UpdateStatusText" Text="No update check has run yet." Style="{StaticResource RowSub}" AutomationProperties.AutomationId="UpdateStatusText" />
+                            <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100" Height="5" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.AutomationId="UpdateDownloadProgress" AutomationProperties.Name="Update download progress" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <StackPanel Orientation="Horizontal" Margin="2,6,2,6">
+                            <Button x:Name="CheckForUpdatesButton" Content="Check for updates" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Click="OnCheckForUpdates" AutomationProperties.AutomationId="CheckForUpdatesButton" AutomationProperties.Name="Check for updates" />
+                            <Button x:Name="DownloadUpdateButton" Content="Download" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnDownloadUpdate" IsEnabled="False" AutomationProperties.AutomationId="DownloadUpdateButton" AutomationProperties.Name="Download update" />
+                            <Button x:Name="OpenReleasePageButton" Content="Open release page" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnOpenReleasePage" Visibility="Collapsed" AutomationProperties.AutomationId="OpenReleasePageButton" AutomationProperties.Name="Open update release page" />
+                            <Button x:Name="InstallUpdateButton" Content="Install now" Style="{StaticResource LwButtonPrimary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnInstallUpdate" Visibility="Collapsed" AutomationProperties.AutomationId="InstallUpdateButton" AutomationProperties.Name="Install update now" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Playback ===== -->
+            <TextBlock Text="PLAYBACK" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="HwdecBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="HwdecBox" />
+                            <StackPanel>
+                                <TextBlock Text="Hardware decoding" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="d3d11va" Style="{StaticResource RowSubMono}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="RtxVsrBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="RtxVsrBox" />
+                            <StackPanel>
+                                <TextBlock Text="RTX Video Super Resolution" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Enabled by default on RTX GPUs" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="RtxHdrBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="RtxHdrBox" />
+                            <StackPanel>
+                                <TextBlock Text="RTX Video HDR" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Tone-maps SDR to HDR by default" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="MaxLumaBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="MaxLumaBox" />
+                            <StackPanel>
+                                <TextBlock Text="RTX HDR peak brightness" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="nits · match the NVIDIA App value for your display"
+                                           Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="MaxBitrateBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="MaxBitrateBox" />
+                            <StackPanel>
+                                <TextBlock Text="Max streaming bitrate" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Mbps · 0 = unlimited · above the cap transcodes on the server"
+                                           Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <StackPanel>
+                            <TextBlock Text="Video buffer" Style="{StaticResource RowTitle}" />
+                            <TextBlock x:Name="VideoBufferHint" Text="Stores upcoming video to smooth brief network dips. Recommended works for most streams."
+                                       AutomationProperties.AutomationId="VideoBufferHint"
+                                       Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                            <TextBlock Text="Less memory suits constrained devices. More read-ahead can help intermittent dips but uses more RAM."
+                                       Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                            <TextBlock Text="More read-ahead cannot fix a consistently slow connection."
+                                       Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                            <ComboBox x:Name="VideoBufferPresetBox" Style="{StaticResource RowCombo}" Width="180"
+                                      HorizontalAlignment="Left" Margin="0,8,0,0"
+                                      SelectionChanged="OnVideoBufferPresetChanged"
+                                      AutomationProperties.AutomationId="VideoBufferPresetBox">
+                                <ComboBoxItem Tag="128">Recommended</ComboBoxItem>
+                                <ComboBoxItem Tag="32">Less memory</ComboBoxItem>
+                                <ComboBoxItem Tag="512">More read-ahead</ComboBoxItem>
+                                <ComboBoxItem Tag="custom">Custom</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                    <Expander x:Name="VideoBufferAdvancedExpander" Header="Advanced video buffer"
+                              Margin="28,0,28,12" IsExpanded="False"
+                              AutomationProperties.AutomationId="VideoBufferAdvancedExpander">
+                        <StackPanel Margin="0,8,0,0">
+                            <DockPanel LastChildFill="True">
+                                <TextBox x:Name="VideoBufferBox" Style="{StaticResource RowField}" Width="80"
+                                         TextChanged="OnChanged" AutomationProperties.AutomationId="VideoBufferBox" />
+                                <TextBlock Text="Custom size (32–1024 MiB)" Style="{StaticResource RowTitle}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock x:Name="VideoBufferCustomError" Margin="0,6,0,0"
+                                       Foreground="{StaticResource LwEmberLitBrush}" Style="{StaticResource RowSub}"
+                                       TextWrapping="Wrap" Visibility="Collapsed"
+                                       AutomationProperties.AutomationId="VideoBufferCustomError" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Subtitles ===== -->
+            <TextBlock Text="SUBTITLES" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="SubScaleLabel" DockPanel.Dock="Right" Width="44"
+                                       Foreground="{StaticResource LwText2Brush}" FontFamily="{StaticResource LwFontMono}"
+                                       TextAlignment="Right" VerticalAlignment="Center" />
+                            <Slider x:Name="SubScaleSlider" Style="{StaticResource LwSlider}"
+                                    DockPanel.Dock="Right" Width="150" Minimum="0.5" Maximum="2.0"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
+                                    AutomationProperties.AutomationId="SubScaleSlider" />
+                            <TextBlock Text="Size" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="SubLangBox" Style="{StaticResource RowCombo}" Width="180"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="SubLangBox" />
+                            <TextBlock Text="Preferred language" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="SubFontBox" Style="{StaticResource RowCombo}" Width="180" IsEditable="True"
+                                      SelectionChanged="OnChanged" KeyUp="OnChanged"
+                                      AutomationProperties.AutomationId="SubFontBox" />
+                            <StackPanel>
+                                <TextBlock Text="Font" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Empty = player default" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubFontSizeBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubFontSizeBox" />
+                            <TextBlock Text="Font size (text subs, default 38)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubColorBox" Style="{StaticResource RowField}" Width="110"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubColorBox" />
+                            <TextBlock Text="Text color (#RRGGBB, empty = white)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubBorderColorBox" Style="{StaticResource RowField}" Width="110"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubBorderColorBox" />
+                            <TextBlock Text="Border color (#RRGGBB, empty = black)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubBorderSizeBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubBorderSizeBox" />
+                            <TextBlock Text="Border size (default 3)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubShadowBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubShadowBox" />
+                            <TextBlock Text="Shadow offset (0 = none)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SubPositionBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SubPositionBox" />
+                            <TextBlock Text="Vertical position (100 = bottom, smaller = higher)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Audio ===== -->
+            <TextBlock Text="AUDIO" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="AudioLangBox" Style="{StaticResource RowCombo}" Width="180"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="AudioLangBox" />
+                            <TextBlock Text="Preferred language" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="AudioDeviceBox" Style="{StaticResource RowCombo}" Width="220"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="AudioDeviceBox" />
+                            <StackPanel>
+                                <TextBlock Text="Output device" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="AudioDeviceHint" Text="Devices are listed once playback has started."
+                                           Style="{StaticResource RowSub}" Visibility="Collapsed" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="PassthroughBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="PassthroughBox" />
+                            <StackPanel>
+                                <TextBlock Text="Passthrough" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Bitstream AC3/EAC3/DTS/TrueHD to the device" Style="{StaticResource RowSub}" />
+                                <!-- What the SELECTED output will actually accept, asked of WASAPI
+                                     directly (AudioPassthroughProbe). Collapsed when nothing can
+                                     honestly be said. Bitstreaming is all-or-nothing per device,
+                                     and before this the toggle looked active while doing nothing. -->
+                                <TextBlock x:Name="PassthroughCapabilityText" Style="{StaticResource RowSub}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                                           Foreground="{StaticResource LwText3Brush}"
+                                           AutomationProperties.AutomationId="PassthroughCapability" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="NormalizationBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="NormalizationBox" />
+                            <StackPanel>
+                                <TextBlock Text="Volume normalization" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="dynaudnorm · mutually exclusive with passthrough" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== External metadata ===== -->
+            <TextBlock Text="EXTERNAL METADATA" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <!-- Masked by default; the eye button toggles a plain-text reveal. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                        VerticalAlignment="Center" Margin="16,0,0,0">
+                                <Grid Width="150">
+                                    <PasswordBox x:Name="OmdbKeyBox" Style="{StaticResource RowSecretField}"
+                                                 PasswordChanged="OnChanged"
+                                                 AutomationProperties.AutomationId="OmdbKeyBox" />
+                                    <TextBox x:Name="OmdbKeyReveal" Style="{StaticResource RowRevealField}"
+                                             Visibility="Collapsed" TextChanged="OnChanged"
+                                             AutomationProperties.AutomationId="OmdbKeyReveal" />
+                                </Grid>
+                                <Button x:Name="OmdbKeyPeek" Style="{StaticResource LwIconButton}"
+                                        Width="34" Height="34" FontFamily="{StaticResource LwFontIcon}"
+                                        FontSize="18" Margin="6,0,0,0" Click="OnToggleOmdbPeek"
+                                        Content="{StaticResource IconVisible}" ToolTip="Show / hide the key"
+                                        AutomationProperties.Name="Show or hide the key"
+                                        AutomationProperties.AutomationId="OmdbKeyPeek" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="OMDB API key" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="IMDb / Rotten Tomatoes / Metacritic scores on the detail view · omdbapi.com"
+                                           Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Behavior ===== -->
+            <TextBlock Text="BEHAVIOR" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="AutoSkipIntroBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="AutoSkipIntroBox" />
+                            <TextBlock Text="Automatically skip intros and recaps" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="AutoSkipCreditsBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="AutoSkipCreditsBox" />
+                            <TextBlock Text="Automatically skip credits" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="AutoPlayNextBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="AutoPlayNextBox" />
+                            <StackPanel>
+                                <TextBlock Text="Auto-play the next episode" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Off still shows the Up Next card — it just waits for you to press Play"
+                                           Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="AutoPlayCountdownBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="AutoPlayCountdownBox" />
+                            <TextBlock Text="Auto-play countdown (seconds)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SkipForwardBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SkipForwardBox" />
+                            <TextBlock Text="Jump forward (seconds, Right arrow)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="SkipBackwardBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="SkipBackwardBox" />
+                            <TextBlock Text="Jump back (seconds, Left arrow)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="LargeSkipBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="LargeSkipBox" />
+                            <TextBlock Text="Large jump (seconds, Ctrl+Left/Right arrows)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Downloads (Phase 7 M20) ===== -->
+            <TextBlock Text="DOWNLOADS" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <!-- Phase 9 M5: the path is picked, not typed. The box stays as the path
+                         DISPLAY (read-only) so a mistyped folder can't be saved; Browse opens the
+                         native folder picker and Clear restores the app-data default. -->
+                    <Border Style="{StaticResource SettingRow}">
+                        <!-- Label docked LEFT, buttons docked RIGHT, and the path box takes
+                             whatever is between (LastChildFill). The other rows put a
+                             fixed-width field on the right and let the label fill, but that
+                             shape does not survive here: box 260 + Browse + Clear needs ~475 px,
+                             more than the whole card has at the 480 px window minimum, and the
+                             row was pushed clean out of the card - a blank DOWNLOADS box.
+                             Filling instead lets the path shrink and keeps every control
+                             reachable; the full path stays available as the box's tooltip. -->
+                        <DockPanel LastChildFill="True">
+                            <!-- Docked right in declaration order (buttons outermost, then the
+                                 path box), with the LABEL as the fill child so it - not the
+                                 controls - absorbs the squeeze and wraps. The controls keep a
+                                 real minimum, so nothing is ever pushed out of the card. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="DownloadBrowseButton" Style="{StaticResource LwButtonSecondary}"
+                                        Height="34" Padding="14,0" Content="Browse..."
+                                        Click="OnBrowseDownloadDir" ToolTip="Choose the download folder"
+                                        AutomationProperties.AutomationId="DownloadBrowseButton" />
+                                <Button x:Name="DownloadClearButton" Style="{StaticResource LwButtonGhost}"
+                                        Height="34" Padding="12,0" Margin="6,0,0,0" Content="Clear"
+                                        Click="OnClearDownloadDir" ToolTip="Use the app-data downloads folder"
+                                        AutomationProperties.AutomationId="DownloadClearButton" />
+                            </StackPanel>
+                            <TextBox x:Name="DownloadDirBox" Style="{StaticResource RowField}"
+                                     DockPanel.Dock="Right"
+                                     Width="Auto" MinWidth="120" MaxWidth="260" Margin="12,0,8,0"
+                                     IsReadOnly="True" TextChanged="OnChanged"
+                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                     AutomationProperties.AutomationId="DownloadDirBox" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Download folder" Style="{StaticResource RowTitle}"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Empty = LightWeaver's app-data downloads folder"
+                                           Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="MaxParallelBox" Style="{StaticResource RowCombo}" Width="80"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="MaxParallelBox" />
+                            <StackPanel>
+                                <TextBlock Text="Simultaneous downloads" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Additional items wait as Queued" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="DefaultResolutionBox" Style="{StaticResource RowCombo}" Width="120"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="DefaultResolutionBox" />
+                            <StackPanel>
+                                <TextBlock Text="Preferred download quality" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Preselected in the picker; sources below the tier offer Original only" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Storage (Phase 7 M21): cache readouts + clears + image cap ===== -->
+            <TextBlock Text="STORAGE" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="ImageCacheSizeLabel" DockPanel.Dock="Right" Width="72"
+                                       Foreground="{StaticResource LwText2Brush}" FontFamily="{StaticResource LwFontMono}"
+                                       TextAlignment="Right" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="ImageCacheSizeLabel" />
+                            <Slider x:Name="ImageCacheSizeSlider" Style="{StaticResource LwSlider}"
+                                    DockPanel.Dock="Right" Width="150" Minimum="100" Maximum="2000"
+                                    TickFrequency="100" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
+                                    AutomationProperties.AutomationId="ImageCacheSizeSlider" />
+                            <StackPanel>
+                                <TextBlock Text="Image cache limit" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="LRU eviction trims the poster/thumbnail cache to this" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="FolderCacheSizeLabel" DockPanel.Dock="Right" Width="72"
+                                       Foreground="{StaticResource LwText2Brush}" FontFamily="{StaticResource LwFontMono}"
+                                       TextAlignment="Right" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="FolderCacheSizeLabel" />
+                            <Slider x:Name="FolderCacheSizeSlider" Style="{StaticResource LwSlider}"
+                                    DockPanel.Dock="Right" Width="150" Minimum="500" Maximum="20000"
+                                    TickFrequency="500" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
+                                    AutomationProperties.AutomationId="FolderCacheSizeSlider" />
+                            <StackPanel>
+                                <TextBlock Text="Folder cache limit" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Maximum items cached per library folder" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="ImageCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Click="OnClearImageCache" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ImageCacheClearButton" />
+                            <StackPanel>
+                                <TextBlock Text="Images (posters, thumbnails, trickplay)" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="ImageCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                           AutomationProperties.AutomationId="ImageCacheReadout" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="MetadataCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Click="OnClearMetadataCache" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="MetadataCacheClearButton" />
+                            <StackPanel>
+                                <TextBlock Text="Media info" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="MetadataCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                           AutomationProperties.AutomationId="MetadataCacheReadout" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="ExternalCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Click="OnClearExternalCache" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ExternalCacheClearButton" />
+                            <StackPanel>
+                                <TextBlock Text="External metadata (OMDB)" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="ExternalCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                           AutomationProperties.AutomationId="ExternalCacheReadout" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <Button x:Name="ClearAllCacheButton" Content="Clear all caches"
+                                Style="{StaticResource LwButtonDestructive}" Height="32" Padding="14,0"
+                                HorizontalAlignment="Left" Margin="2,6,0,6" Click="OnClearAllCaches"
+                                AutomationProperties.AutomationId="ClearAllCacheButton" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Shortcuts (Phase 7 M16) — rows generated in code from PlayerAction ===== -->
+            <TextBlock Text="SHORTCUTS" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <!-- Transport mapping (M17): what Media Next/Previous (and the
+                         overlay next/prev pair) do. -->
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="TransportNextBox" Style="{StaticResource RowCombo}" Width="180"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="TransportNextBox" />
+                            <StackPanel>
+                                <TextBlock Text="Media Next does" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="media key + the player's next button" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <ComboBox x:Name="TransportPrevBox" Style="{StaticResource RowCombo}" Width="180"
+                                      SelectionChanged="OnChanged"
+                                      AutomationProperties.AutomationId="TransportPrevBox" />
+                            <StackPanel>
+                                <TextBlock Text="Media Previous does" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="media key + the player's previous button" Style="{StaticResource RowSub}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border x:Name="TransportSeekRow" Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <TextBox x:Name="TransportSeekBox" Style="{StaticResource RowField}" Width="80"
+                                     TextChanged="OnChanged"
+                                     AutomationProperties.AutomationId="TransportSeekBox" />
+                            <TextBlock Text="Transport seek amount (seconds)" Style="{StaticResource RowTitle}" />
+                        </DockPanel>
+                    </Border>
+                    <TextBlock Text="Keyboard shortcuts · click a binding, then press the new key (Esc cancels). Assigning a key in use unbinds it from the other action."
+                               Style="{StaticResource RowSub}" Margin="2,8,2,4" TextWrapping="Wrap" />
+                    <StackPanel x:Name="ShortcutsHost" />
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <Button x:Name="ShortcutsResetButton" Content="Reset to defaults"
+                                Style="{StaticResource LwButtonSecondary}" HorizontalAlignment="Left"
+                                Margin="2,6,0,6" Click="OnShortcutsReset"
+                                AutomationProperties.AutomationId="ShortcutsResetButton" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Diagnostics: the log folder and how much goes into it =====
+                 Crash and playback-failure files are written whatever this says - they are the
+                 evidence that cannot be collected after the fact. The toggle only decides
+                 whether the running commentary is kept too. -->
+            <TextBlock Text="DIAGNOSTICS" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <StackPanel>
+                    <Border Style="{StaticResource SettingRow}">
+                        <DockPanel LastChildFill="True">
+                            <CheckBox x:Name="VerboseLoggingBox" Style="{StaticResource RowToggle}"
+                                      Checked="OnChanged" Unchecked="OnChanged"
+                                      AutomationProperties.AutomationId="VerboseLoggingBox" />
+                            <StackPanel>
+                                <TextBlock Text="Verbose logging" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="Keeps full mpv output and playback/session events on disk · off, only crashes and playback failures are written"
+                                           Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="LogsClearButton" DockPanel.Dock="Right" Content="Clear"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Click="OnClearLogs" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="LogsClearButton" />
+                            <Button x:Name="LogsOpenButton" DockPanel.Dock="Right" Content="Open folder"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Margin="0,0,8,0" Click="OnOpenLogsFolder" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="LogsOpenButton" />
+                            <!-- "Open folder" tells you where the logs are; this is for handing
+                                 them to someone else. One zip, so there is nothing to explain
+                                 about which of four files matters. -->
+                            <Button x:Name="LogsExportButton" DockPanel.Dock="Right" Content="Export…"
+                                    Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
+                                    Margin="0,0,8,0" Click="OnExportLogs" VerticalAlignment="Center"
+                                    ToolTip="Save all log files as one zip"
+                                    AutomationProperties.AutomationId="LogsExportButton" />
+                            <StackPanel>
+                                <TextBlock Text="Log files" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="LogsReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                           AutomationProperties.AutomationId="LogsReadout" />
+                                <TextBlock x:Name="LogsPath" Style="{StaticResource RowSub}" TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="LogsPath" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

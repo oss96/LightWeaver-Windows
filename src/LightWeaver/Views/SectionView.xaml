@@ -1,0 +1,55 @@
+<UserControl x:Class="LightWeaver.Views.SectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:LightWeaver.Views"
+             mc:Ignorable="d"
+             AutomationProperties.AutomationId="SectionView">
+    <!-- Full-screen "see all" listing behind a Home rail (Phase 7): one paged grid,
+         parameterized by a section query. Modeled on the AdvancedSearchView results
+         grid (infinite scroll, generation-guarded loads, composed empty state). -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="CountText" Grid.Row="0" Style="{StaticResource LwTypeMono}"
+                   Foreground="{StaticResource LwText3Brush}" Margin="42,16,0,0"
+                   AutomationProperties.AutomationId="SectionCount" />
+
+        <ListBox x:Name="ItemsGrid" Grid.Row="1" Margin="0,0,30,0"
+                 Background="Transparent" BorderThickness="0"
+                 ItemTemplateSelector="{StaticResource MediaCardSelector}"
+                 ItemContainerStyle="{StaticResource LwMediaGridItem}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 VirtualizingPanel.IsVirtualizing="True"
+                 SelectionChanged="OnSelection"
+                 Padding="32,2,12,2"
+                 AutomationProperties.AutomationId="SectionGrid">
+            <!-- 8 px of the inset moved to the panel's Margin so the card hover scale is not
+                 clipped by the ScrollViewer; the two cancel. See LibraryView for the measurement. -->
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" Margin="8" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+        </ListBox>
+
+        <!-- M25 skeletons while the first page loads -->
+        <ScrollViewer Grid.Row="1" x:Name="SkeletonScroll" Padding="40,10,20,10"
+                      VerticalScrollBarVisibility="Disabled" Visibility="Collapsed">
+            <StackPanel x:Name="SkeletonHost" />
+        </ScrollViewer>
+
+        <TextBlock x:Name="StatusText" Grid.Row="1" Text="Loading…"
+                   Style="{StaticResource LwTypeBody}" Foreground="{StaticResource LwText3Brush}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
+                   AutomationProperties.AutomationId="SectionStatus" />
+        <local:EmptyState x:Name="EmptyView" Grid.Row="1" />
+        <!-- "Loading more" pill for the infinite-scroll append (2026-08-02) -->
+        <local:LoadMoreIndicator x:Name="MoreLoading" Grid.Row="1" />
+    </Grid>
+</UserControl>

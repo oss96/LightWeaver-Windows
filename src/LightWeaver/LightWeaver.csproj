@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Windows SDK contract needed for SMTC (WinRT interop); min OS stays Win10 1809+ -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Version>1.2.0</Version>
+    <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- mpv_wait_event returns mpv_event*; events are read via pointer casts -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Bundled libmpv (not in git); falls back to PATH search when absent -->
+    <None Include="..\..\native\win-x64\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\native\win-x64\libmpv-2.dll')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Woven-light bundled fonts (SIL OFL): Marcellus, Source Sans 3, JetBrains Mono (~1.2 MB) -->
+    <Resource Include="Theme\Fonts\*.ttf" />
+    <!-- Icon font (Apache 2.0): Material Icons Round — the app-wide icon source (Theme/Icons.xaml) -->
+    <Resource Include="Theme\Fonts\*.otf" />
+    <!-- Provider logos for the detail-view rating chips (IMDb, Rotten Tomatoes) -->
+    <Resource Include="Theme\Logos\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Sdk" Version="2025.10.21" />
+    <!-- Pin above the vulnerable 1.20.1 transitive (NU1903); stay on 1.x for SDK compat -->
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
+  </ItemGroup>
+
+</Project>
+

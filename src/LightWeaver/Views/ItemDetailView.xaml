@@ -1,0 +1,403 @@
+<UserControl x:Class="LightWeaver.Views.ItemDetailView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:img="clr-namespace:LightWeaver.Imaging"
+             xmlns:jf="clr-namespace:LightWeaver.Jellyfin"
+             xmlns:theme="clr-namespace:LightWeaver.Theme"
+             xmlns:views="clr-namespace:LightWeaver.Views"
+             mc:Ignorable="d"
+             Background="{StaticResource LwStorm1Brush}">
+    <UserControl.Resources>
+
+        <!-- Legibility shadow for the display title sitting over backdrop art -->
+        <DropShadowEffect x:Key="DetailTitleShadow" Color="#FF07080D" Opacity="0.8"
+                          BlurRadius="18" ShadowDepth="2" Direction="270" />
+
+        <!-- Episode row (season list on an episode detail): still + progress | number · title · runtime · desc -->
+        <DataTemplate x:Key="DetailEpisodeRow" DataType="{x:Type jf:MediaItem}">
+            <Border Background="{StaticResource LwStorm2Brush}"
+                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource LwR3}" Padding="9" Cursor="Hand">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!-- P10 M6: 6 -> LwR1 (8), and round-clipped for real — ClipToBounds does
+                         not follow CornerRadius, so this still (thumb + resume bar) had square
+                         corners. No BorderThickness here, so the inner radius equals the outer. -->
+                    <Border x:Name="Thumb" Grid.Column="0" Width="132" Height="74"
+                            CornerRadius="{StaticResource LwR1}"
+                            Background="{StaticResource LwStorm3Brush}"
+                            VerticalAlignment="Center">
+                        <Grid theme:RoundedClip.Radius="8">
+                            <Image img:CachedImage.DecodeWidth="264"
+                                   img:CachedImage.SourceUrl="{Binding ThumbUrl}"
+                                   Stretch="UniformToFill" />
+                            <Border Height="3" VerticalAlignment="Bottom"
+                                    Background="{StaticResource LwStorm0Brush}"
+                                    Visibility="{Binding ResumePositionTicks,
+                                                 Converter={StaticResource PositiveToVisibleConverter}}">
+                                <ProgressBar Value="{Binding PlayedPercentage, Mode=OneWay, TargetNullValue=0}"
+                                             Maximum="100" Height="3" Foreground="{StaticResource LwProgressFillBrush}"
+                                             Background="Transparent" BorderThickness="0" />
+                            </Border>
+                            <Border Style="{StaticResource LwWatchedBadge}">
+                                <TextBlock Text="{StaticResource IconCheck}" FontFamily="{StaticResource LwFontIcon}"
+                                           FontSize="14" Foreground="White" AutomationProperties.AutomationId="WatchedBadge"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <!-- Hover play: revealed only while the THUMBNAIL is hovered
+                                 (not the rest of the row); plays this episode directly. -->
+                            <Border x:Name="HoverPlay" Background="{StaticResource LwScrimBrush}"
+                                    Opacity="0" IsHitTestVisible="False">
+                                <Button Style="{StaticResource LwCardActionButton}"
+                                        Width="34" Height="34" FontSize="20"
+                                        Foreground="{StaticResource LwText1Brush}"
+                                        Content="{StaticResource IconPlay}" ToolTip="Play episode"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Click="OnEpisodeHoverPlay"
+                                        AutomationProperties.AutomationId="EpisodeHoverPlay" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="14,0,2,0" VerticalAlignment="Center">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding IndexNumber}" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource LwFontMono}" FontSize="12"
+                                       Foreground="{StaticResource LwText3Brush}" Margin="0,0,9,0" />
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                       FontSize="14.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource LwText1Brush}" />
+                            <TextBlock Grid.Column="2" Text="{Binding RuntimeDisplay}" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource LwFontMono}" FontSize="12"
+                                       Foreground="{StaticResource LwText4Brush}" Margin="10,0,0,0" />
+                        </Grid>
+                        <TextBlock Text="{Binding Overview}" FontSize="13" Margin="0,3,0,0"
+                                   Foreground="{StaticResource LwText2Brush}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Thumb" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="HoverPlay" Property="IsHitTestVisible" Value="True" />
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="HoverPlay"
+                                                 Storyboard.TargetProperty="Opacity" To="1"
+                                                 Duration="{StaticResource LwDurInstant}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="HoverPlay"
+                                                 Storyboard.TargetProperty="Opacity" To="0"
+                                                 Duration="{StaticResource LwDurGlowIn}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Episode-list container: the card is the whole row; kill the ListBox chrome.
+             The episode you're currently viewing (IsSelected) gets a garnet-lit border +
+             bloom and is made non-interactive (you're already here). -->
+        <Style x:Key="DetailEpisodeItem" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Wrap" CornerRadius="{StaticResource LwR3}"
+                                BorderBrush="Transparent" BorderThickness="1.5">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Wrap" Property="BorderBrush"
+                                        Value="{StaticResource LwGarnetLitBrush}" />
+                                <Setter TargetName="Wrap" Property="Effect"
+                                        Value="{StaticResource LwGlowGarnet}" />
+                                <Setter Property="IsHitTestVisible" Value="False" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cast card: circular avatar + name / role, ellipsised inside a 2-col grid cell -->
+        <DataTemplate x:Key="DetailCastItem" DataType="{x:Type jf:PersonEntry}">
+            <Grid Margin="0,0,12,14" HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <!-- Radius 20 on a 40x40 box = a true circle: unchanged by P10 M6 (decision d).
+                     The CLIP is new, though, and it is not cosmetic: with only ClipToBounds the
+                     "circular avatar" rendered as a square photo with a round hairline drawn
+                     over it. 19 = 20 minus the 1 px hairline. -->
+                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20"
+                        Background="{StaticResource LwStorm3Brush}"
+                        BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
+                    <!-- Clip on the Grid, not the Image: a UniformToFill Image whose source
+                         aspect differs from its slot reports a size larger than the slot, and a
+                         clip built from that trims nothing (a square headshot happens to clip
+                         correctly, a non-square one would not). -->
+                    <Grid theme:RoundedClip.Radius="19">
+                        <Image img:CachedImage.DecodeWidth="120"
+                               img:CachedImage.SourceUrl="{Binding ImageUrl}" Stretch="UniformToFill" />
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource LwText1Brush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding RoleDisplay}" FontSize="11.5" Margin="0,1,0,0"
+                               Foreground="{StaticResource LwText3Brush}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <Style x:Key="DetailCastItemContainer" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="PersonTile" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- ===== Backdrop that dissolves into the base (no hard hero edge) ===== -->
+        <Grid VerticalAlignment="Top" Height="460">
+            <!-- storm-gradient placeholder so the top reads as art even without a backdrop -->
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0.35,0" EndPoint="0.9,1">
+                        <GradientStop Color="#FF1B2138" Offset="0" />
+                        <GradientStop Color="{StaticResource LwStorm1Color}" Offset="0.7" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <Image x:Name="BackdropImage" Stretch="UniformToFill" VerticalAlignment="Top" />
+            <!-- horizontal scrim: ensures high title and metadata contrast over light backdrops -->
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#D90C0E16" Offset="0" />
+                        <GradientStop Color="#8C0C0E16" Offset="0.5" />
+                        <GradientStop Color="#000C0E16" Offset="0.85" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- vertical dissolve to base: soft, ends fully on storm-1 -->
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#190C0E16" Offset="0" />
+                        <GradientStop Color="#8C0C0E16" Offset="0.55" />
+                        <GradientStop Color="{StaticResource LwStorm1Color}" Offset="0.96" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+        </Grid>
+
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="48,40,48,56" MaxWidth="1180" HorizontalAlignment="Left">
+
+                <!-- ===== Hero: poster + info ===== -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!-- The app's largest single piece of artwork, and it had the same square
+                         corners as the cards for the same reason (P10 M6). 11 = LwR2 minus the
+                         1 px stroke. The clip is on the Grid, not the Image — a UniformToFill
+                         Image reports the stretched content size, not its slot, so a non-2:3
+                         poster would defeat a clip attached to the Image. -->
+                    <Border Grid.Column="0" Width="210" Height="315" CornerRadius="{StaticResource LwR2}"
+                            VerticalAlignment="Top"
+                            Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            Effect="{StaticResource LwElevation3}">
+                        <Grid theme:RoundedClip.Radius="11">
+                            <Image x:Name="PosterImage" Stretch="UniformToFill" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="36,12,0,0">
+                        <TextBlock x:Name="EyebrowText" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource LwLightBaseBrush}" TextWrapping="Wrap" />
+                        <!-- Font/line-height step down responsively (UpdateTitleScale) and
+                             cap at 2 lines so a long episode title can't push the metadata
+                             and action row below the fold at 700 px (M5.2). -->
+                        <TextBlock x:Name="TitleText" FontFamily="{StaticResource LwFontDisplay}"
+                                   FontSize="48" Foreground="{StaticResource LwText1Brush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0" LineHeight="52"
+                                   LineStackingStrategy="BlockLineHeight"
+                                   TextTrimming="CharacterEllipsis"
+                                   Effect="{StaticResource DetailTitleShadow}"
+                                   AutomationProperties.AutomationId="DetailTitle" />
+
+                        <!-- year · runtime · rating box · community score · gem pills -->
+                        <WrapPanel x:Name="MetaRow" Orientation="Horizontal" Margin="0,12,0,0" />
+
+                        <!-- IMDb / Rotten Tomatoes / Metacritic chips (OMDB); hidden until fetched -->
+                        <WrapPanel x:Name="RatingsRow" Orientation="Horizontal" Margin="0,10,0,0"
+                                   Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="DetailRatingsRow" />
+
+                        <!-- Resume / From-start / Play + favorite / watched / more.
+                             P10 M11: a WrapPanel, not a StackPanel. At the 700x480 window
+                             minimum the horizontal stack ran Download and More clean off the
+                             right edge with no way to reach them - nothing here scrolls
+                             sideways. Wrapping is the same treatment LibraryView's SortPanel
+                             already uses, which is why that header survives the minimum. -->
+                        <WrapPanel Orientation="Horizontal" Margin="0,24,0,0"
+                                   AutomationProperties.AutomationId="DetailActionRow">
+                            <Button x:Name="ResumeButton" Style="{StaticResource LwButtonPrimary}"
+                                    Height="42" Margin="0,0,12,8" Click="OnResume" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="ResumeButton" />
+                            <Button x:Name="PlayButton" Style="{StaticResource LwButtonSecondary}"
+                                    Height="42" Margin="0,0,12,8" Click="OnPlay"
+
+                                    AutomationProperties.AutomationId="PlayButton" />
+                            <Button x:Name="TrailerButton" Style="{StaticResource LwButtonSecondary}"
+                                    Height="42" Margin="0,0,12,8" Click="OnTrailer" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="DetailTrailerButton" />
+                            <Button x:Name="FavoriteButton" Style="{StaticResource LwIconButton}"
+                                    FontFamily="{StaticResource LwFontIcon}" FontSize="20"
+                                    Margin="0,0,8,8" Click="OnToggleFavorite"
+                                    AutomationProperties.AutomationId="FavoriteToggle" />
+                            <Button x:Name="WatchedButton" Style="{StaticResource LwIconButton}"
+                                    FontFamily="{StaticResource LwFontIcon}" FontSize="20"
+                                    Margin="0,0,8,8" Click="OnToggleWatched"
+                                    AutomationProperties.AutomationId="WatchedToggle" />
+                            <Button x:Name="DownloadButton" Style="{StaticResource LwIconButton}"
+                                    Margin="0,0,8,8" Click="OnDownload"
+                                    AutomationProperties.AutomationId="DetailDownloadButton">
+                                <Grid>
+                                    <TextBlock x:Name="DownloadGlyph"
+                                               FontFamily="{StaticResource LwFontIcon}" FontSize="20" />
+                                    <Grid x:Name="DownloadSpinner" Visibility="Collapsed">
+                                        <views:ActivityDots />
+                                        <!-- ActivityDots intentionally has no UIA peer. This transparent
+                                             non-empty marker makes the click-wait state observable. -->
+                                        <TextBlock Text="Loading" Foreground="Transparent" FontSize="1"
+                                                   AutomationProperties.AutomationId="DownloadOptionsLoading" />
+                                    </Grid>
+                                </Grid>
+                            </Button>
+                            <!-- Episodes only, and only when the episode knows its series -
+                                 RenderActions decides via HasOverflowActions. Collapsed here as
+                                 the default (same as TrailerButton) so it cannot flash for a
+                                 movie in the frame before RenderActions runs. -->
+                            <Button x:Name="MoreButton" Style="{StaticResource LwIconButton}"
+                                    FontFamily="{StaticResource LwFontIcon}" FontSize="20"
+                                    Content="{StaticResource IconMore}" Click="OnMore"
+                                    AutomationProperties.Name="More"
+                                    Margin="0,0,0,8" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="DetailMoreButton" />
+                        </WrapPanel>
+
+                        <TextBlock x:Name="OverviewText" Margin="0,22,0,0" MaxWidth="660"
+                                   HorizontalAlignment="Left" TextWrapping="Wrap"
+                                   FontSize="14.5" LineHeight="23" LineStackingStrategy="BlockLineHeight"
+                                   Foreground="{StaticResource LwText2Brush}" />
+                        <TextBlock x:Name="GenresText" Margin="0,14,0,0" FontSize="12.5"
+                                   Foreground="{StaticResource LwText3Brush}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ===== Season episode list (left) + cast (right) ===== -->
+                <Grid Margin="0,34,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="EpisodesColumn" Width="*" />
+                        <ColumnDefinition x:Name="CastColumn" Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel x:Name="SeasonSection" Grid.Column="0" Margin="0,0,48,0"
+                                Visibility="Collapsed">
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="SeasonHeader" Grid.Column="0" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                                       Foreground="{StaticResource LwText1Brush}" />
+                            <TextBlock x:Name="SeasonViewAll" Grid.Column="1" VerticalAlignment="Center" />
+                        </Grid>
+                        <ListBox x:Name="EpisodesList" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 PreviewMouseWheel="OnContentWheel"
+                                 RequestBringIntoView="OnSuppressBringIntoView"
+                                 ItemTemplate="{StaticResource DetailEpisodeRow}"
+                                 ItemContainerStyle="{StaticResource DetailEpisodeItem}"
+                                 SelectionChanged="OnEpisodeSelection"
+                                 AutomationProperties.AutomationId="DetailEpisodesList" />
+                        <!-- Row-shaped skeleton while the season fills in (2026-08-02) -->
+                        <ContentControl x:Name="SeasonSkeleton" Visibility="Collapsed" IsHitTestVisible="False" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="CastSection" Grid.Column="1" Visibility="Collapsed">
+                        <TextBlock Text="Cast &amp; Crew" FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                                   Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,14" />
+                        <ListBox x:Name="PeopleRow" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 PreviewMouseWheel="OnContentWheel"
+                                 ItemTemplate="{StaticResource DetailCastItem}"
+                                 ItemContainerStyle="{StaticResource DetailCastItemContainer}"
+                                 SelectionChanged="OnPersonSelection"
+                                 AutomationProperties.AutomationId="PeopleRow">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="2" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ===== More like this ===== -->
+                <StackPanel x:Name="SimilarSection" Visibility="Collapsed" Margin="0,30,0,0">
+                    <TextBlock Text="More like this" FontFamily="{StaticResource LwFontDisplay}"
+                               FontSize="22" Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,10" />
+                    <ListBox x:Name="SimilarRow" Style="{StaticResource MediaRowListBox}"
+                             SelectionChanged="OnSimilarSelection"
+                             PreviewMouseWheel="OnContentWheel"
+                             AutomationProperties.AutomationId="SimilarRow" />
+                    <!-- Card-shaped skeleton while the rail fills in (2026-08-02). The real
+                         "More like this" header is already above it, so the skeleton is built
+                         withTitle:false rather than drawing a second placeholder heading. -->
+                    <ContentControl x:Name="SimilarSkeleton" Visibility="Collapsed" IsHitTestVisible="False" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

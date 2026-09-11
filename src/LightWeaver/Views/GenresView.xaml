@@ -1,0 +1,84 @@
+<UserControl x:Class="LightWeaver.Views.GenresView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:LightWeaver.Views"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <!-- P10 M8 task 3, decided by pixels rather than by prediction. The stock Fluent
+             ListBoxItem drew hover and selection as a hard 90-degree block behind the rounded
+             tile - and because the tile carries Margin="6", that square block is visibly LARGER
+             than the tile it frames. Measured at 7x in M6 and re-confirmed at 4x on the current
+             build; it was equally square against the old r8, just less conspicuous.
+
+             The container box is the tile plus its 6 px gutter (212 x 102), so the concentric
+             radius is the tile's 12 + 6 = 18. LwR3 (16) is the ladder step nearest that, and the
+             2 px shortfall is not resolvable by eye at this size - worth more than putting an
+             off-ladder literal here. -->
+        <Style x:Key="GenreTileItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Chrome" Background="Transparent"
+                                CornerRadius="{StaticResource LwR3}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <ListBox x:Name="GenreGrid"
+                 Background="Transparent" BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 SelectionChanged="OnSelection"
+                 Padding="18,10"
+                 ItemContainerStyle="{StaticResource GenreTileItem}"
+                 AutomationProperties.AutomationId="GenreGrid">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <!-- P10 M6: 8 -> LwR2 (12). Genre tiles are cards. -->
+                    <Border Width="200" Height="90" Margin="6" CornerRadius="{StaticResource LwR2}"
+                            Background="#22FFFFFF">
+                        <TextBlock Text="{Binding}" FontSize="17" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="10,0" />
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <!-- Tile-shaped skeleton while the genres load (2026-08-02). Every other browse
+             screen speaks skeleton; this one used to answer with a centred "Loading..."
+             label, which is a different language for the same moment. StatusText stays as
+             the ERROR surface only - hence Collapsed by default now. -->
+        <ScrollViewer x:Name="SkeletonHost" Visibility="Collapsed"
+                      VerticalScrollBarVisibility="Disabled" />
+        <TextBlock x:Name="StatusText" Text="Loading…" Opacity="0.6" Visibility="Collapsed"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   AutomationProperties.AutomationId="GenreStatus" />
+        <views:EmptyState x:Name="EmptyView" />
+    </Grid>
+</UserControl>

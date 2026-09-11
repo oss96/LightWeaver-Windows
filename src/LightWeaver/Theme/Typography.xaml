@@ -1,0 +1,89 @@
+<!--
+  Woven-light design tokens: bundled fonts + type ladder.
+  Marcellus (display — media titles and page/section headings only; never controls or body copy),
+  Source Sans 3 (UI), JetBrains Mono (technical). All SIL OFL, shipped as embedded TTFs
+  (Theme/Fonts, ~1.2 MB total). Fallback: Segoe UI / Segoe UI Variable.
+  Note: WPF has no letter-spacing; the spec's tracking values are approximated by casing only.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <FontFamily x:Key="LwFontDisplay">pack://application:,,,/Theme/Fonts/#Marcellus, Segoe UI Variable Display, Segoe UI</FontFamily>
+    <FontFamily x:Key="LwFontUi">pack://application:,,,/Theme/Fonts/#Source Sans 3, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="LwFontMono">pack://application:,,,/Theme/Fonts/#JetBrains Mono, Cascadia Mono, Consolas</FontFamily>
+
+    <!-- Type ladder — TextBlock styles (keyed; opt-in) -->
+    <Style x:Key="LwTypeDisplayXL" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontDisplay}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="56" />
+        <Setter Property="LineHeight" Value="62" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeDisplay" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontDisplay}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="34" />
+        <Setter Property="LineHeight" Value="42" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontDisplay}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="LineHeight" Value="32" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeHeading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="LineHeight" Value="26" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeBody" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="LineHeight" Value="23" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+    </Style>
+
+    <!-- Label: 12.5/18 · 600 · uppercase (apply casing at the call site; WPF has no text-transform) -->
+    <Style x:Key="LwTypeLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="LineHeight" Value="18" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText3Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeCaption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="LineHeight" Value="19" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+    </Style>
+
+    <Style x:Key="LwTypeMono" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="LineHeight" Value="19" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+    </Style>
+
+</ResourceDictionary>

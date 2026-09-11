@@ -1,0 +1,88 @@
+<!--
+  App-wide icon source. Icons are Google's Material Icons (Rounded style), bundled as the
+  static OTF `Theme/Fonts/MaterialIconsRound-Regular.otf` (Apache 2.0) and referenced by
+  codepoint. Themable: glyphs inherit the control's Foreground like any text.
+
+  ADDING AN ICON (the future workflow):
+    1. Find the name at https://fonts.google.com/icons (set style = "Rounded").
+    2. Look its codepoint up in `Theme/Fonts/MaterialIconsRound.codepoints` (name -> hex).
+    3. Add a <sys:String x:Key="IconXxx">&#xHHHH;</sys:String> row below.
+    4. Use it: set FontFamily="{StaticResource LwFontIcon}" and the string as Text/Content.
+
+  Rendering notes: the static Rounded OTF is used (not the 15 MB variable Material Symbols)
+  because WPF renders variable fonts only at their default instance. Fill vs. outline is
+  therefore chosen per glyph (e.g. favorite vs. favorite_border), not via a fill axis.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <FontFamily x:Key="LwFontIcon">pack://application:,,,/Theme/Fonts/#Material Icons Round</FontFamily>
+
+    <!-- Navigation rail / library types -->
+    <sys:String x:Key="IconHome">&#xE88A;</sys:String>          <!-- home -->
+    <sys:String x:Key="IconMovies">&#xE02C;</sys:String>        <!-- movie -->
+    <sys:String x:Key="IconSeries">&#xE333;</sys:String>        <!-- tv -->
+    <sys:String x:Key="IconCollections">&#xE04A;</sys:String>   <!-- video_library -->
+    <sys:String x:Key="IconPlaylists">&#xE05F;</sys:String>     <!-- playlist_play -->
+    <sys:String x:Key="IconMusic">&#xE030;</sys:String>         <!-- library_music -->
+    <sys:String x:Key="IconFolder">&#xE2C7;</sys:String>        <!-- folder -->
+    <sys:String x:Key="IconSettings">&#xE8B8;</sys:String>      <!-- settings -->
+    <sys:String x:Key="IconSearch">&#xE8B6;</sys:String>        <!-- search -->
+    <sys:String x:Key="IconTune">&#xE429;</sys:String>          <!-- tune (advanced filters) -->
+
+    <!-- Generic UI -->
+    <sys:String x:Key="IconBack">&#xE5C4;</sys:String>          <!-- arrow_back -->
+    <sys:String x:Key="IconForward">&#xE5C8;</sys:String>       <!-- arrow_forward -->
+    <sys:String x:Key="IconMore">&#xEAE1;</sys:String>          <!-- more_horiz -->
+    <sys:String x:Key="IconClose">&#xE5CD;</sys:String>         <!-- close -->
+    <sys:String x:Key="IconExpandMore">&#xE5CF;</sys:String>    <!-- expand_more -->
+    <sys:String x:Key="IconExpandLess">&#xE5CE;</sys:String>    <!-- expand_less -->
+    <sys:String x:Key="IconChevronRight">&#xE5CC;</sys:String>  <!-- chevron_right (see-all) -->
+    <sys:String x:Key="IconCheck">&#xE5CA;</sys:String>         <!-- check -->
+    <sys:String x:Key="IconSortAsc">&#xE5D8;</sys:String>       <!-- arrow_upward -->
+    <sys:String x:Key="IconSortDesc">&#xE5DB;</sys:String>      <!-- arrow_downward -->
+
+    <!-- Detail actions -->
+    <sys:String x:Key="IconFavorite">&#xE87D;</sys:String>        <!-- favorite (filled) -->
+    <sys:String x:Key="IconFavoriteBorder">&#xE87E;</sys:String>  <!-- favorite_border -->
+    <sys:String x:Key="IconWatched">&#xE86C;</sys:String>         <!-- check_circle (filled = watched) -->
+    <sys:String x:Key="IconWatchedBorder">&#xE92D;</sys:String>   <!-- check_circle_outline (= unwatched) -->
+    <sys:String x:Key="IconTrailer">&#xF06A;</sys:String>         <!-- smart_display -->
+
+    <!-- Downloads (M20) -->
+    <sys:String x:Key="IconDownload">&#xF090;</sys:String>        <!-- download -->
+    <sys:String x:Key="IconDownloadDone">&#xF091;</sys:String>    <!-- download_done -->
+    <sys:String x:Key="IconDelete">&#xE872;</sys:String>          <!-- delete -->
+    <sys:String x:Key="IconClearAll">&#xE0B8;</sys:String>        <!-- clear_all -->
+    <sys:String x:Key="IconError">&#xE001;</sys:String>           <!-- error_outline -->
+
+    <!-- Player OSD transport -->
+    <sys:String x:Key="IconPlay">&#xE037;</sys:String>          <!-- play_arrow -->
+    <sys:String x:Key="IconPause">&#xE034;</sys:String>         <!-- pause -->
+    <sys:String x:Key="IconJumpBack">&#xE020;</sys:String>      <!-- fast_rewind -->
+    <sys:String x:Key="IconJumpForward">&#xE01F;</sys:String>   <!-- fast_forward -->
+    <!-- P10: one next/previous pair, so the conventional skip glyphs carry it. The old
+         IconEpisodePrev/Next (keyboard_double_arrow_*) went with the second pair - a
+         double arrow reads as "fast forward", which is not what the button does. -->
+    <sys:String x:Key="IconPrev">&#xE045;</sys:String>          <!-- skip_previous -->
+    <sys:String x:Key="IconNext">&#xE044;</sys:String>          <!-- skip_next -->
+    <sys:String x:Key="IconPrevChapter">&#xE5DC;</sys:String>   <!-- first_page -->
+    <sys:String x:Key="IconNextChapter">&#xE5DD;</sys:String>   <!-- last_page -->
+    <sys:String x:Key="IconVolume">&#xE050;</sys:String>        <!-- volume_up -->
+    <sys:String x:Key="IconMute">&#xE04F;</sys:String>          <!-- volume_off -->
+    <sys:String x:Key="IconAudioDevice">&#xE32E;</sys:String>   <!-- speaker_group (output picker) -->
+    <sys:String x:Key="IconMiniPlayer">&#xE911;</sys:String>    <!-- picture_in_picture_alt -->
+    <sys:String x:Key="IconMiniRestore">&#xE5D0;</sys:String>   <!-- fullscreen -->
+    <!-- The OSD fullscreen toggle (2026-08-05). E5D0 is Material's own "fullscreen" glyph, which
+         MiniRestore above already borrows for "leave mini-player" - a separate button, so the
+         shared codepoint is intentional rather than a collision. -->
+    <sys:String x:Key="IconFullscreen">&#xE5D0;</sys:String>    <!-- fullscreen -->
+    <sys:String x:Key="IconFullscreenExit">&#xE5D1;</sys:String><!-- fullscreen_exit -->
+    <sys:String x:Key="IconResizeGrip">&#xF1E4;</sys:String>    <!-- south_east (mini resize) -->
+    <sys:String x:Key="IconInfo">&#xE88E;</sys:String>          <!-- info -->
+    <sys:String x:Key="IconKeyboard">&#xE312;</sys:String>      <!-- keyboard (shortcuts panel) -->
+    <sys:String x:Key="IconVisible">&#xE8F4;</sys:String>       <!-- visibility (peek: show) -->
+    <sys:String x:Key="IconHidden">&#xE8F5;</sys:String>        <!-- visibility_off (peek: hide) -->
+
+</ResourceDictionary>

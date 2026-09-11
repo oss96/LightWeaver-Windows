@@ -1,0 +1,82 @@
+<!--
+  Woven-light design tokens: spacing scale (4-px base) + radius ladder.
+  Card gutters 16, rail gaps 20, section stacks 40-64.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:theme="clr-namespace:LightWeaver.Theme">
+
+    <!-- Spacing scale (doubles, for widths/gaps) -->
+    <sys:Double x:Key="LwSp1">4</sys:Double>
+    <sys:Double x:Key="LwSp2">8</sys:Double>
+    <sys:Double x:Key="LwSp3">12</sys:Double>
+    <sys:Double x:Key="LwSp4">16</sys:Double>
+    <sys:Double x:Key="LwSp5">20</sys:Double>
+    <sys:Double x:Key="LwSp6">24</sys:Double>
+    <sys:Double x:Key="LwSp7">32</sys:Double>
+    <sys:Double x:Key="LwSp8">40</sys:Double>
+    <sys:Double x:Key="LwSp9">48</sys:Double>
+    <sys:Double x:Key="LwSp10">64</sys:Double>
+
+    <!-- Uniform Thickness variants (for Margin/Padding) -->
+    <Thickness x:Key="LwPad1">4</Thickness>
+    <Thickness x:Key="LwPad2">8</Thickness>
+    <Thickness x:Key="LwPad3">12</Thickness>
+    <Thickness x:Key="LwPad4">16</Thickness>
+    <Thickness x:Key="LwPad5">20</Thickness>
+    <Thickness x:Key="LwPad6">24</Thickness>
+    <Thickness x:Key="LwPad7">32</Thickness>
+    <Thickness x:Key="LwPad8">40</Thickness>
+    <Thickness x:Key="LwPad9">48</Thickness>
+    <Thickness x:Key="LwPad10">64</Thickness>
+
+    <!-- Radius ladder — Material 3 shape scale (Phase 10 M5).
+         Deliberate approximation: these are rounded rects with circular-arc corners, NOT
+         true superellipse squircles. A genuine squircle needs a Path/Geometry or a
+         per-component clip, which would bypass this token layer and every Border that
+         consumes it — the cascade is worth more than the curvature. -->
+    <CornerRadius x:Key="LwR1">8</CornerRadius>    <!-- M3 small: inputs, menu/flyout rows, thumbs, skeletons, small chrome -->
+    <CornerRadius x:Key="LwR2">12</CornerRadius>   <!-- M3 medium: cards, secondary containers, popovers/flyouts -->
+    <CornerRadius x:Key="LwR3">16</CornerRadius>   <!-- M3 large: modal inner surfaces, large popovers, brand marks -->
+    <CornerRadius x:Key="LwR4">28</CornerRadius>   <!-- M3 extra-large: modal-weight cards (sign-in card, Up-Next card) -->
+    <!-- LwRFull and LwRPill share the value 999 but are semantically distinct on purpose:
+         a later change to the chip family must not drag every button with it.
+
+         FOOT-GUN, measured in M5: 999 only reads as "fully round" on a SQUARE element (it
+         renders a circle). WPF's Border resolves corner overlap per EDGE, clamping the
+         horizontal arc radius to width/2 and the vertical one to height/2 INDEPENDENTLY, so on
+         anything wider than tall 999 draws a lens/ellipse, not a stadium. Measured on the
+         510x60 login button: top edge sagging 28 px at the ends, only 24 % of columns flat
+         (a stadium needs 88 %).
+         The one value that gives a true stadium is exactly height/2 — which the shared
+         templates cannot hard-code, because they serve 28..44 px consumers. Bind
+         LwRFullFromHeight to the element's own ActualHeight instead; it yields height/2, i.e.
+         a stadium when wide and a circle when square. -->
+    <CornerRadius x:Key="LwRFull">999</CornerRadius> <!-- M3 full — SQUARE consumers only (circle) -->
+    <!-- Same clamp, same conclusion: before M5 EVERY LwRPill consumer wider than tall was an
+         ellipse, not a stadium (measured on the OSD's 68x24 RTX VSR toggle: 33 % of its top row
+         flat, against the ~65 % a stadium needs). M5 therefore moved the wide chip/pill/badge
+         consumers onto LwRFullFromHeight as well — LwChip, LwGemPill*, LwSearchField, the OSD
+         status pills and gem toggle, AdvancedSearch's starter + seed chips, CheckDropdown's
+         count badge.
+         This token REMAINS, for the square consumers only, where 999 clamps to a true circle:
+         AdvancedSearch's 22x22 seed-remove button. MediaTemplates' 22x22 state badges and the
+         circular avatars use literals for the same reason.
+         It is also why MainWindow's SearchPill does NOT use this token: 19 (= 38/2) is the
+         CORRECT value for that 360x38 pill and 999 would regress it into a lens. M6 routed it
+         through LwRFullFromHeight, which yields the same 19 and survives a height change. -->
+    <CornerRadius x:Key="LwRPill">999</CornerRadius> <!-- M3 full — SQUARE consumers only (circle) -->
+    <theme:HalfHeightRadiusConverter x:Key="LwRFullFromHeight" />  <!-- M3 full, any aspect: bind to ActualHeight -->
+
+    <!-- Motion durations (documented tokens; consume in animations) -->
+    <Duration x:Key="LwDurInstant">0:0:0.120</Duration> <!-- press feedback, toggle knob travel -->
+    <Duration x:Key="LwDurGlowIn">0:0:0.240</Duration>  <!-- glow arrives fast -->
+    <Duration x:Key="LwDurGlowOut">0:0:0.420</Duration> <!-- ...and decays slowly -->
+    <Duration x:Key="LwDurDrift">0:0:0.480</Duration>   <!-- modal entry, row load-in, backdrop cross-fade -->
+    <Duration x:Key="LwDurAmbient">0:0:2.400</Duration> <!-- skeleton pulse -->
+    <!-- The activity indicator's timing is NOT a token: Views/ActivityDots assembles its
+         storyboard in code (keyframe values come from dependency properties), so a Duration
+         here would be a second source of truth. It is 1.05 s per dot, staggered 140 ms. -->
+
+</ResourceDictionary>

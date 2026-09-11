@@ -1,0 +1,1592 @@
+<!--
+  Woven-light component styles (keyed, opt-in — nothing here restyles controls implicitly).
+  Rule: rest is quiet, hover admits light, pressed absorbs it, focus is an infused ring
+  (glow shadow, never a dotted rectangle), disabled is drained.
+  Depends on Colors.xaml, Effects.xaml, Typography.xaml, Metrics.xaml being merged first.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:theme="clr-namespace:LightWeaver.Theme"
+                    xmlns:views="clr-namespace:LightWeaver.Views">
+
+    <BooleanToVisibilityConverter x:Key="BoolToVisibleConverter" />
+
+    <!-- ============ Buttons — h 36 · pad 0 18 · r full · 14/600 ============ -->
+
+    <!-- Shared skeleton: Border chrome + centered content.
+         P10 M5: fully round, Material's button shape. The radius is BOUND to the Border's own
+         ActualHeight (height/2) rather than set to LwRFull, for two measured reasons: this one
+         template serves consumers from 28 px (LwCardActionButton) to 42 px (LwIconButton), and
+         a constant 999 renders a lens rather than a stadium on anything wider than tall — see
+         the foot-gun note in Metrics.xaml. height/2 gives a stadium when wide and a circle when
+         square, which is exactly what M3 asks of text buttons and icon buttons respectively. -->
+    <ControlTemplate x:Key="LwButtonTemplate" TargetType="Button">
+        <Border x:Name="Chrome"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                Padding="{TemplateBinding Padding}"
+                SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                              RecognizesAccessKey="True"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+        </Border>
+    </ControlTemplate>
+
+    <Style x:Key="LwButtonBase" TargetType="Button">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template" Value="{StaticResource LwButtonTemplate}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <!-- Primary — garnet. One per view, max (Play, Connect, Save). -->
+    <Style x:Key="LwButtonPrimary" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="{StaticResource LwPrimaryFillBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwPrimaryBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwPrimaryHoverFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwPrimaryHoverBorderBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowGarnet}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwPrimaryPressedFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwPrimaryPressedBorderBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwPrimaryPressedTextBrush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="Background" Value="{StaticResource LwStorm3Brush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Secondary — default action weight -->
+    <Style x:Key="LwButtonSecondary" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="Background" Value="{StaticResource LwStorm3Brush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwStrokeBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwSecondaryHoverFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwSecondaryHoverBorderBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwStorm4Brush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwStrokeBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="Background" Value="{StaticResource LwSecondaryDisabledFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Ghost — toolbars, inline actions, OSD -->
+    <Style x:Key="LwButtonGhost" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Destructive — ember. Outline at rest; fills only on intent. -->
+    <Style x:Key="LwButtonDestructive" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Foreground" Value="{StaticResource LwEmberLitBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwEmberBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwEmberHoverFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwEmberHoverBorderBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwEmberHoverTextBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowEmber}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwEmberPressedFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwEmberPressedBorderBrush}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Effect" Value="{x:Null}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ Icon button — 42-sq · r full (circle) · storm-3 glass + stroke ============ -->
+    <!-- Detail-view favorite / watched / more. Glyph colour is owned by the caller
+         (garnet heart, emerald check, …) so hover only lifts the chrome, not the glyph. -->
+    <Style x:Key="LwIconButton" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Width" Value="42" />
+        <Setter Property="Height" Value="42" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="Background" Value="{StaticResource LwIconButtonFillBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwIconButtonBorderBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwSecondaryHoverFillBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwSecondaryHoverBorderBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwStorm4Brush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ Card hover action bar (Phase 7 M10) ============ -->
+    <!-- Bottom-right of the card artwork; hidden until the card is hovered or holds
+         keyboard focus. Hidden state is also non-hit-testable so it never swallows the
+         card's own click. The reveal binds to the ancestor ListBoxItem (the card
+         container), composing with its hover-lift scale. -->
+    <Style x:Key="LwCardActionBar" TargetType="Border">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="0,0,6,9" />
+        <!-- P10 M6: was the literal 8; LwR1 is now 8, so this is a pure tokenization with
+             zero pixel change. Stays a step below the card's LwR2 (12) it floats inside. -->
+        <Setter Property="CornerRadius" Value="{StaticResource LwR1}" />
+        <Setter Property="Background" Value="{StaticResource LwScrimBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwHairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="2" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="IsHitTestVisible" Value="True" />
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1"
+                                             Duration="{StaticResource LwDurInstant}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0"
+                                             Duration="{StaticResource LwDurGlowIn}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="IsHitTestVisible" Value="True" />
+                <Setter Property="Opacity" Value="1" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Center hover play button over card artwork (Phase 10) -->
+    <Style x:Key="LwCardHoverPlay" TargetType="Border">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="Background" Value="{StaticResource LwScrimBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwHairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility"
+                Value="{Binding IsPlayable, Converter={StaticResource BoolToVisibleConverter}}" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="IsHitTestVisible" Value="True" />
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1"
+                                             Duration="{StaticResource LwDurInstant}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0"
+                                             Duration="{StaticResource LwDurGlowIn}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Small glyph button inside the card action bar. Low-luminance; hover lifts to a
+         storm fill (glow would fight the card's own hover state). NOT focusable: keyboard
+         focus entering a ListBoxItem's subtree makes the Selector select that item, and
+         row selection is the cards' navigate signal - a focusable action button would
+         open the detail view it sits on (seen live). -->
+    <Style x:Key="LwCardActionButton" TargetType="Button" BasedOn="{StaticResource LwButtonBase}">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontIcon}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwStorm4Brush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwStorm2Brush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ Skeleton loaders (Phase 7 M25) ============ -->
+    <!-- Storm-2 placeholder blocks breathing on the ambient token (2.4 s, autoreverse).
+         Card-shaped skeletons are composed in code (SkeletonFactory) from this block. -->
+    <Style x:Key="LwSkeletonBlock" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource LwStorm2Brush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwR1}" />  <!-- P10 M6: 6 -> 8 -->
+        <Setter Property="Opacity" Value="0.55" />
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0.4" To="0.9"
+                                         Duration="{StaticResource LwDurAmbient}" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ Activity indicator ============ -->
+    <!-- There is no style here any more. `LwBufferingIndicator` (Phase 7 M26) and its small
+         sibling `LwActivityRingSmall` (2026-08-02) were a breathing stormlight ring, and both
+         were retired on 2026-08-03: the browse layer needed the same indicator at 18 px, and
+         at that size a 0.92->1.08 swell over 2.4 s is a 1.4 px change spread across two and a
+         half seconds - it read as a static circle, and review rejected it.
+         The replacement is `Views/ActivityDots`, a control rather than a style, because three
+         staggered dots cannot be expressed as setters on one Ellipse. Both the player overlay
+         and the browse pills use it; the player passes a larger dot and a 0.55 opacity ceiling
+         for the HDR glow budget the old comment here recorded. -->
+
+    <!-- ============ Modal card (Phase 7 M23) ============ -->
+    <!-- Spec: w440, storm-3 card, r12, elevation-3, over the app-wide scrim. -->
+    <!-- P10 M5: LwR3 -> LwR4 (16 -> 28). Material reserves the extra-large step for
+         modal-weight surfaces, and this is the only shared one; the sign-in card and the
+         Up-Next card are per-screen literals and follow in M6. -->
+    <Style x:Key="LwModalCard" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource LwStorm3Brush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwR4}" />
+        <Setter Property="Padding" Value="26,22,26,22" />
+        <Setter Property="Effect" Value="{StaticResource LwElevation3}" />
+    </Style>
+
+    <!-- ============ Segmented control (Phase 7 M22) ============ -->
+    <!-- Small mutually-exclusive sets, all options visible; the storm-4 thumb slides
+         under the selection (240 ms, code-driven in LwSegmentedControl). Spec: container
+         r full/pad3, segments h30/r full — P10 M5, M3 segmented buttons are stadiums.
+         Concentric by construction: the h30 thumb's 15 px stadium sits inside the container's
+         19 px one (30 + 2x3 pad + 2x1 border = h38), so inner = outer - gap holds. -->
+    <Style x:Key="LwSegmented" TargetType="views:LwSegmentedControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="views:LwSegmentedControl">
+                    <Border Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Padding="3">
+                        <Grid>
+                            <Border x:Name="Thumb" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                    Width="0" Height="30"
+                                    CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                                    Background="{StaticResource LwStorm4Brush}"
+                                    Effect="{StaticResource LwGlowToggleOn}"
+                                    RenderTransformOrigin="0,0">
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="ThumbTx" />
+                                </Border.RenderTransform>
+                            </Border>
+                            <ItemsPresenter />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Height" Value="30" />
+                    <Setter Property="Padding" Value="12,0" />
+                    <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True" />
+                                <Condition Property="IsSelected" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </MultiTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Toggle switch — 40×22 · knob 16 ============ -->
+    <!-- On-state is infused stormlight, not a gem. -->
+    <Style x:Key="LwToggleSwitch" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <!-- P10 M5: the literal 11 was already a hand-computed half-height
+                             stadium; the height-bound radius says so declaratively and resolves
+                             to exactly 11, so the pixels are unchanged. (LwRFull's 999 would
+                             NOT be: on a 40x22 track it draws a lens — see Metrics.xaml.) -->
+                        <Border x:Name="Track" Width="40" Height="22"
+                                CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                                Background="{StaticResource LwToggleOffTrackBrush}"
+                                BorderBrush="{StaticResource LwToggleOffBorderBrush}"
+                                BorderThickness="1" VerticalAlignment="Center"
+                                SnapsToDevicePixels="True">
+                            <Ellipse x:Name="Knob" Width="16" Height="16"
+                                     Fill="{StaticResource LwToggleOffKnobBrush}"
+                                     HorizontalAlignment="Left" Margin="2,0,0,0" />
+                        </Border>
+                        <ContentPresenter x:Name="Label" Margin="10,0,0,0" VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource LwToggleOnTrackBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource LwToggleOnBorderBrush}" />
+                            <Setter TargetName="Track" Property="Effect" Value="{StaticResource LwGlowToggleOn}" />
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource LwToggleOnKnobBrush}" />
+                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Knob" Property="Margin" Value="0,0,2,0" />
+                            <Setter TargetName="Knob" Property="Effect" Value="{StaticResource LwGlowKnob}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsChecked" Value="True" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource LwToggleOnHoverTrackBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource LwToggleOnHoverBorderBrush}" />
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource LwToggleOnHoverKnobBrush}" />
+                        </MultiTrigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                            <Setter TargetName="Track" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsChecked" Value="False" />
+                                <Condition Property="IsKeyboardFocused" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource LwToggleOffFocusKnobBrush}" />
+                        </MultiTrigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource LwToggleDisabledTrackBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                            <Setter TargetName="Track" Property="Effect" Value="{x:Null}" />
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource LwToggleDisabledKnobBrush}" />
+                            <Setter TargetName="Knob" Property="Effect" Value="{x:Null}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Gem pill / chip — h 22 · pad 3 10 · r full · mono 10.5 caps ============ -->
+    <!-- Tinted glass over dark: fill <= 0.10a, border ~0.35a, lit text. -->
+    <!-- P10 M5: the chip family joins the height-bound radius. LwRPill's 999 made every chip
+         wider than 22 px an ellipse, never a stadium (measured); the chip width is content-
+         driven so only height/2 = 11 can be right for all of them. -->
+    <Style x:Key="LwChip" TargetType="ContentControl">
+        <Setter Property="Height" Value="22" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="{StaticResource LwChipFillBrush}"
+                            BorderBrush="{StaticResource LwChipBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Padding="10,0" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Slider — track 4 px · garnet played fill · infused 12 px handle ============ -->
+    <Style x:Key="LwSliderRepeatButton" TargetType="RepeatButton">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LwSliderThumb" TargetType="Thumb">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Ellipse Width="12" Height="12"
+                             Fill="{StaticResource LwGarnetLitBrush}"
+                             Effect="{StaticResource LwGlowKnobGarnet}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LwSlider" TargetType="Slider">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="MinHeight" Value="24" /> <!-- full-row hit target -->
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <!-- P10 M5, decided by pixels: both radii below stay LITERAL.
+                         The 4 px track's `2` is already the exact half-height stadium, so no
+                         token can improve it; LwRFull's 999 would actively break it (WPF clamps
+                         the horizontal arc to width/2, turning a ~700 px seek bar into one long
+                         lens — the same defect measured on the login button). The played fill's
+                         `2,0,0,2` is asymmetric on purpose: its right end butts against the
+                         thumb and must stay square, which no scalar token can express. -->
+                    <Grid Background="Transparent" VerticalAlignment="Center">
+                        <Border x:Name="TrackRest" Height="4" CornerRadius="2"
+                                Background="{StaticResource LwStorm4Brush}" VerticalAlignment="Center" />
+                        <Track x:Name="PART_Track" VerticalAlignment="Center">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource LwSliderRepeatButton}"
+                                              Command="{x:Static Slider.DecreaseLarge}">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Height="24" VerticalAlignment="Center">
+                                                <Border Height="4" CornerRadius="2,0,0,2"
+                                                        Background="{StaticResource LwProgressFillBrush}"
+                                                        VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource LwSliderRepeatButton}"
+                                              Command="{x:Static Slider.IncreaseLarge}" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource LwSliderThumb}" />
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="TrackRest" Property="Background" Value="{StaticResource LwToggleDisabledTrackBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Flyout chrome — overlay surface (storm-3, elevation-2) ============ -->
+    <!-- Popup backplate for preview-bar flyouts and menus. -->
+    <Style x:Key="LwFlyoutBorder" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource LwStorm3Brush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwR2}" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="Effect" Value="{StaticResource LwElevation2}" />
+    </Style>
+
+    <!-- Flyout list item — h 32 · r 4 · stormlight wash on hover, lit dot + wash when selected -->
+    <Style x:Key="LwFlyoutListItem" TargetType="ListBoxItem">
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{StaticResource LwR1}"
+                            Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Nav item — h 34 · r full · stormlight wash marks where you are ============ -->
+    <Style x:Key="LwNavButton" TargetType="Button">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template" Value="{StaticResource LwButtonTemplate}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                <Setter Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                <Setter Property="Effect" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ Navigation rail item — h 40 · r full · icon 20 stroke 1.6 ============ -->
+    <!-- Active = stormlight wash (0.08a) + 2px light bar with bloom + lit glyph. The gem
+         marks actions; the light marks where you are. Collapses to icon-only at 64px via
+         the inherited theme:NavRail.IsCollapsed flag on the rail container. Tag = glyph
+         Geometry; Content = label string.
+         P10 M5: fully round — Material's nav indicator is a pill. One template, two aspect
+         ratios, so the radius binds to ActualHeight (h40 -> 20): expanded (208x40) is a
+         stadium, collapsed (40x40) a circle, which is M3's collapsed indicator. -->
+    <ControlTemplate x:Key="LwNavRailItemTemplate" TargetType="RadioButton">
+        <Border x:Name="Chrome" Background="Transparent"
+                CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                SnapsToDevicePixels="True">
+            <Grid>
+                <Border x:Name="Bar" Width="2" Height="20" CornerRadius="1" HorizontalAlignment="Left"
+                        Background="{StaticResource LwLightCoreBrush}" Effect="{StaticResource LwGlowFocus}"
+                        Visibility="Collapsed" />
+                <StackPanel x:Name="ItemContent" Orientation="Horizontal" Margin="10,0"
+                            VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <TextBlock x:Name="Glyph" Text="{TemplateBinding Tag}" Width="20"
+                               FontFamily="{StaticResource LwFontIcon}" FontSize="20" TextAlignment="Center"
+                               VerticalAlignment="Center" Foreground="{StaticResource LwText2Brush}" />
+                    <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Margin="12,0,0,0"
+                               VerticalAlignment="Center" FontSize="14"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource LwText2Brush}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                <Setter TargetName="Glyph" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Glyph" Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                <Setter TargetName="Label" Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+            </Trigger>
+            <Trigger Property="theme:NavRail.IsCollapsed" Value="True">
+                <Setter TargetName="ItemContent" Property="HorizontalAlignment" Value="Center" />
+                <Setter TargetName="ItemContent" Property="Margin" Value="0" />
+                <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                <!-- M4.4: collapsed rail reads as a single filled-wash item — hide the 2px
+                     left bar (declared after the IsChecked trigger, so it wins when both). -->
+                <Setter TargetName="Bar" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="LwNavRailItem" TargetType="RadioButton">
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template" Value="{StaticResource LwNavRailItemTemplate}" />
+    </Style>
+
+    <!-- Action variant (Settings) — same look, no checked "you are here" state. -->
+    <Style x:Key="LwNavRailButton" TargetType="Button">
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <!-- P10 M5: fully round, matching LwNavRailItemTemplate's pill. -->
+                    <Border x:Name="Chrome" Background="Transparent"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <StackPanel x:Name="ItemContent" Orientation="Horizontal" Margin="10,0"
+                                    VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <TextBlock x:Name="Glyph" Text="{TemplateBinding Tag}" Width="20"
+                                       FontFamily="{StaticResource LwFontIcon}" FontSize="20" TextAlignment="Center"
+                                       VerticalAlignment="Center" Foreground="{StaticResource LwText2Brush}" />
+                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Margin="12,0,0,0"
+                                       VerticalAlignment="Center" FontSize="14"
+                                       Foreground="{StaticResource LwText2Brush}" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter TargetName="Glyph" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+                        </Trigger>
+                        <Trigger Property="theme:NavRail.IsCollapsed" Value="True">
+                            <Setter TargetName="ItemContent" Property="HorizontalAlignment" Value="Center" />
+                            <Setter TargetName="ItemContent" Property="Margin" Value="0" />
+                            <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Text fields ============ -->
+    <!-- Field: h 38 · r 8 · storm-2 · stroke border · focus = infused ring + glow -->
+    <Style x:Key="LwTextField" TargetType="TextBox">
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource LwLightCoreBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <!-- P10 M7: height-bound, not a static LwR2. A fixed radius renders as a
+                         different silhouette on every control height, which is what made the
+                         Advanced Search facet row look unrelated to itself - at h38 the same 12
+                         read as a rounded rect beside stadium chips, while in Settings it read
+                         as a rounded rect at h40 and a stadium at h34. Text inputs join the
+                         full-round family on the precedent of LwSearchField, itself a text input
+                         and a stadium since M5. -->
+                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderBrush}" />
+                            <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwSecondaryDisabledFillBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Search field: pill r full · storm-2.
+         P10 M5: height-bound (h38 -> 19). This is the widest LwRPill consumer in the app and
+         the one where 999's per-edge clamp was most visible — a ~300 px input rendered as a
+         lens. 19 is also exactly what MainWindow's SearchPill hand-computes, so the header
+         search and this style finally agree by construction rather than by coincidence. -->
+    <Style x:Key="LwSearchField" TargetType="TextBox" BasedOn="{StaticResource LwTextField}">
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderBrush}" />
+                            <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Context menu — item h 32 r 4 · storm-3 elevation-2 ============ -->
+    <Style x:Key="LwMenuItem" TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{StaticResource LwR1}"
+                            Padding="10,0" MinHeight="32" SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" ContentSource="Header" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                            <TextBlock Grid.Column="1" Text="{TemplateBinding InputGestureText}"
+                                       VerticalAlignment="Center" Margin="18,0,0,0"
+                                       FontFamily="{StaticResource LwFontMono}" FontSize="11"
+                                       Foreground="{StaticResource LwText3Brush}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LwContextMenu" TargetType="ContextMenu">
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="MinWidth" Value="220" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{StaticResource LwStorm3Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource LwR2}" Padding="5"
+                            Effect="{StaticResource LwElevation2}" SnapsToDevicePixels="True">
+                        <ItemsPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource LwMenuItem}" />
+    </Style>
+
+    <!-- Menu separator — hairline rule inset to match the spec's 5,8 margins. -->
+    <Style x:Key="LwMenuSeparator" TargetType="Separator">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Margin="8,5" Background="{StaticResource LwStrokeBrush}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Dropdown (ComboBox) — h 34 r 8 · storm-2 · chevron ============ -->
+    <Style x:Key="LwComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{StaticResource LwR1}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Type-ahead suggestion row (Advanced Search's PERSON facet, 2026-08-05). The combo-row
+         look, on a ListBoxItem, with one load-bearing difference: Focusable="False". A
+         focusable row takes keyboard focus when clicked, which fires the anchor TextBox's
+         LostKeyboardFocus, which closes the popup - BEFORE the click has committed the
+         selection. So the row is unclickable-into by design; the caret never leaves the box and
+         the arrow keys drive SelectedIndex from the box's own key handler. -->
+    <Style x:Key="LwSuggestItem" TargetType="ListBoxItem">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{StaticResource LwR1}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostPressedFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Multi-select check row (CheckDropdown): a check glyph lights when the row is selected. -->
+    <Style x:Key="LwCheckItem" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <!-- ASS redesign P9: a real 16-sq checkbox instead of the bare tick —
+                         multi-select must read as multi-select at a glance. -->
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{StaticResource LwR1}"
+                            Padding="8,7" SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <!-- P10 M6: radius 4 STAYS LITERAL, deliberately off the ladder.
+                                 Material's checkbox is extra-small (2 dp on a 18 dp box); this
+                                 box is 16 px, and LwR1 (now 8) would round it halfway to a
+                                 circle and stop reading as a checkbox. -->
+                            <Border x:Name="CheckBoxSq" Grid.Column="0" Width="16" Height="16"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    CornerRadius="4" BorderThickness="1"
+                                    BorderBrush="{StaticResource LwStrokeBrush}" Background="Transparent">
+                                <TextBlock x:Name="Tick" Text="{StaticResource IconCheck}"
+                                           FontFamily="{StaticResource LwFontIcon}" FontSize="13"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Opacity="0" Foreground="{StaticResource LwLightCoreBrush}" />
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Tick" Property="Opacity" Value="1" />
+                            <Setter TargetName="CheckBoxSq" Property="Background" Value="{StaticResource LwLightDimBrush}" />
+                            <Setter TargetName="CheckBoxSq" Property="BorderBrush" Value="{StaticResource LwLightHazeBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LwDropdown" TargetType="ComboBox">
+        <!-- P10 M7: 34 -> 38 to match LwTextField / LwPasswordField / LwSegmented /
+             OrderToggle, so a filter row is one row height instead of four. -->
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource LwComboBoxItem}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <!-- P10 M7: VerticalAlignment/VerticalContentAlignment must be forced
+                             Stretch for the same reason the horizontal pair already was - the
+                             Fluent theme centres button-family controls, so this chrome sized
+                             itself to its content and rendered 20 DIP tall inside a 38 DIP
+                             ComboBox. Measured on the Advanced Search SORT facet: chrome 30 px
+                             against the 57 px text field beside it. -->
+                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                      VerticalAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                                            SnapsToDevicePixels="True">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Margin="6,0,8,0" Text="{StaticResource IconExpandMore}"
+                                                       FontFamily="{StaticResource LwFontIcon}" FontSize="18"
+                                                       Foreground="{StaticResource LwText3Brush}" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                          Margin="12,0,32,0" VerticalAlignment="Center"
+                                          HorizontalAlignment="Left" />
+                        <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom"
+                               IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade"
+                               Focusable="False" VerticalOffset="4">
+                            <Border Background="{StaticResource LwStorm3Brush}"
+                                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                                    CornerRadius="{StaticResource LwR2}" Padding="5"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    Effect="{StaticResource LwElevation2}" SnapsToDevicePixels="True">
+                                <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Icon toggle (sort-order arrow, view switch) — h 34 r full · storm-2, lit when on -->
+    <Style x:Key="LwIconToggle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwStorm4Brush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Password field — mirrors LwTextField (storm-2, r8, focus glow) -->
+    <Style x:Key="LwPasswordField" TargetType="PasswordBox">
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource LwLightCoreBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <!-- P10 M7: height-bound, not a static LwR2. A fixed radius renders as a
+                         different silhouette on every control height, which is what made the
+                         Advanced Search facet row look unrelated to itself - at h38 the same 12
+                         read as a rounded rect beside stadium chips, while in Settings it read
+                         as a rounded rect at h40 and a stadium at h34. Text inputs join the
+                         full-round family on the precedent of LwSearchField, itself a text input
+                         and a stadium since M5. -->
+                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderBrush}" />
+                            <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Text link — stormlight-blue inline action (Quick Connect / Change) -->
+    <Style x:Key="LwLinkButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{StaticResource LwLightBaseBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource LwLightCoreBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Section-header see-all link (Phase 7): the Home rail headers are Buttons whose
+         content is the Marcellus title; a quiet chevron sits after the text and lights
+         with the title on hover. Keeps the resting look identical to the old TextBlock. -->
+    <Style x:Key="LwSectionHeaderLink" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{TemplateBinding Content}" Style="{StaticResource LwTypeTitle}" />
+                            <TextBlock x:Name="Chevron" Text="{StaticResource IconChevronRight}"
+                                       FontFamily="{StaticResource LwFontIcon}" FontSize="22"
+                                       Foreground="{StaticResource LwText3Brush}" Opacity="0.4"
+                                       VerticalAlignment="Center" Margin="6,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chevron" Property="Opacity" Value="1" />
+                            <Setter TargetName="Chevron" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Gem pill — media-feature badge (h 22 · r full · mono 10.5) ============ -->
+    <!-- Two tints: stormlight (blue — resolution/audio) and topaz (HDR). Lit text + soft glow. -->
+    <!-- P10 M5: height-bound radius (h22 -> 11). Content-sized width ("4K", "DOLBY DIGITAL+"),
+         so a constant could never be half-height for all of them. -->
+    <Style x:Key="LwGemPillStormlight" TargetType="ContentControl">
+        <Setter Property="Height" Value="22" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="#FFBFE4F5" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="#148ECEEB" BorderBrush="#4D8ECEEB" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Padding="10,0" SnapsToDevicePixels="True"
+                            Effect="{StaticResource LwGlowToggleOn}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LwGemPillTopaz" TargetType="ContentControl" BasedOn="{StaticResource LwGemPillStormlight}">
+        <Setter Property="Foreground" Value="#FFEFC685" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="#17E9B25C" BorderBrush="#59E9B25C" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Padding="10,0" SnapsToDevicePixels="True">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#FFE9B25C" Opacity="0.3" BlurRadius="12" ShadowDepth="0" />
+                        </Border.Effect>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Rating chip — bordered box (TV-MA etc.) -->
+    <Style x:Key="LwRatingChip" TargetType="ContentControl">
+        <Setter Property="Height" Value="20" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="Transparent" BorderBrush="#40A8BAE6" BorderThickness="1"
+                            CornerRadius="{StaticResource LwR1}" Padding="6,0" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Tooltip — storm-3 overlay, small caption ============ -->
+    <Style x:Key="LwToolTip" TargetType="ToolTip">
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{StaticResource LwStorm3Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource LwR1}" Padding="10,6"
+                            Effect="{StaticResource LwElevation2}">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Player OSD (S5) — low-luminance chrome over live video ============ -->
+    <!-- HDR safety: glyphs <= text-1, fills <= stormlight 0.10, glow accents kept soft. -->
+    <Style x:Key="LwOsdButton" TargetType="Button">
+        <Setter Property="Height" Value="40" />
+        <Setter Property="MinWidth" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontIcon}" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <!-- P10 M5: fully round via the height-bound radius (h40 -> 20). The
+                         40-square glyph buttons become circles, LwOsdPillButton's wider text
+                         variant a stadium — one template, both aspect ratios. -->
+                    <Border x:Name="Chrome" Background="Transparent"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                          TextElement.FontSize="{TemplateBinding FontSize}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Play/pause — larger, stormlight fill + soft glow -->
+    <Style x:Key="LwOsdPlayButton" TargetType="Button" BasedOn="{StaticResource LwOsdButton}">
+        <Setter Property="Height" Value="44" />
+        <Setter Property="MinWidth" Value="44" />
+        <Setter Property="Width" Value="44" />
+        <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" SnapsToDevicePixels="True"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Background="{StaticResource LwChipFillBrush}" Effect="{StaticResource LwGlowPillBlue}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontSize="{TemplateBinding FontSize}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGemBlueFillBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Passive OSD status pills (playback status badges) — non-interactive gem-language
+         pills shown under the now-playing title only while their state is active.
+         Label, not ContentControl: a bare ContentControl has no automation peer, so its
+         AutomationId would never reach UIA. Quieter than the LwOsdGemToggle buttons. -->
+    <!-- P10 M5: height-bound radius (h20 -> 10). These labels are the OSD's widest pills
+         ("RTX HDR", "REMUX"); at LwRPill they were ellipses. -->
+    <Style x:Key="LwOsdStatusPillBlue" TargetType="Label">
+        <Setter Property="Height" Value="20" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Label">
+                    <Border CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Background="{StaticResource LwGemBlueFillBrush}"
+                            BorderBrush="{StaticResource LwGemBlueBorderBrush}"
+                            BorderThickness="1" Padding="9,0" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{StaticResource LwGemBlueTextBrush}"
+                                          TextElement.FontFamily="{StaticResource LwFontMono}"
+                                          TextElement.FontSize="10"
+                                          Effect="{StaticResource LwGlowPillBlue}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Amber status pill — retained as a future warning affordance only. Phase 8 M2.1
+         retired its one consumer (BadgeHdr, now blue) so passive info pills read as a
+         single blue-gem language. Kept (not deleted) as the reserved warning style. -->
+    <Style x:Key="LwOsdStatusPillAmber" TargetType="Label" BasedOn="{StaticResource LwOsdStatusPillBlue}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Label">
+                    <Border CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Background="{StaticResource LwGemAmberFillBrush}"
+                            BorderBrush="{StaticResource LwGemAmberBorderBrush}"
+                            BorderThickness="1" Padding="9,0" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{StaticResource LwGemAmberTextBrush}"
+                                          TextElement.FontFamily="{StaticResource LwFontMono}"
+                                          TextElement.FontSize="10"
+                                          Effect="{StaticResource LwGlowPillAmber}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Feature gem pill toggle (RTX HDR / RTX VSR) — mono pill, lit blue gem when on.
+         P10 M5: height-bound radius (h24 -> 12). This is the pill the LwRPill defect was
+         measured on: 68x24 at radius 999 showed only 33 % of its top row flat where a
+         stadium needs ~65 %. -->
+    <Style x:Key="LwOsdGemToggle" TargetType="ToggleButton">
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="11,0" />
+        <Setter Property="Foreground" Value="{StaticResource LwText3Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chrome"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            Background="Transparent" BorderThickness="1"
+                            BorderBrush="{StaticResource LwStrokeBrush}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                          TextElement.FontSize="{TemplateBinding FontSize}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                        </Trigger>
+                        <!-- Checked = interactive garnet chip (Phase 8 M1); passive info pills stay blue. -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGarnetChipFillBrush}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwGarnetChipBorderBrush}" />
+                            <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowPillGarnet}" />
+                            <Setter Property="Foreground" Value="{StaticResource LwGarnetChipTextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- OSD text-pill button (Audio / Subs / Video / Speed / Queue) — mono, low-lum -->
+    <Style x:Key="LwOsdPillButton" TargetType="Button" BasedOn="{StaticResource LwOsdButton}">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontMono}" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="MinWidth" Value="0" />
+    </Style>
+
+    <!-- OSD flyout backplate (track/speed/queue popups) — storm-3, elevation-2 -->
+    <Style x:Key="LwOsdFlyout" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource LwStorm3Brush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwR2}" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="Effect" Value="{StaticResource LwElevation2}" />
+    </Style>
+
+    <!-- Section heading inside a multi-section OSD flyout (P10 M11 — the merged Tracks
+         flyout). Same eyebrow language as the shortcuts panel's group titles, so the two
+         grouped surfaces read alike. -->
+    <Style x:Key="LwOsdFlyoutSectionHeader" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFontUi}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource LwText3Brush}" />
+        <Setter Property="Margin" Value="10,10,0,4" />
+    </Style>
+
+    <!-- Row container for every OSD flyout list (Phase 9 M3).
+         The default Fluent ListBoxItem does not stretch its content and adds its own chrome
+         and padding, so the garnet selection border inside the row templates hugged the text
+         and stopped short of the right edge — the "doesn't extend to the right, too tall"
+         part of the audio-device report. A bare stretched ContentPresenter hands the full row
+         width to the template and lets the template own all padding.
+         Selection here is DATA state (TrackOption/AudioDeviceOption.IsSelected from mpv), not
+         ListBoxItem.IsSelected, so no selected/hover chrome is wanted at the container level;
+         the lists exist to be clicked once and closed. -->
+    <Style x:Key="LwOsdFlyoutItem" TargetType="ListBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <!-- Background must stay hit-testable: a null background would make the
+                         gaps between glyphs fall through to the video window. -->
+                    <Border Background="Transparent" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

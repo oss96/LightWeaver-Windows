@@ -1,0 +1,163 @@
+<!--
+  Woven-light design tokens: colors & brushes.
+  Source of truth: design/LightWeaver Jellyfin design system/LightWeaver Design Spec.dc.html (v1.0).
+  Surface ladder is a cold indigo storm; interaction is stormlight; accents are gemstones.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============ Surface ladder — highstorm night ============ -->
+    <Color x:Key="LwStorm0Color">#FF07080D</Color> <!-- Void — window frame, behind video, letterbox -->
+    <Color x:Key="LwStorm1Color">#FF0C0E16</Color> <!-- Base — page background of every screen -->
+    <Color x:Key="LwStorm2Color">#FF121522</Color> <!-- Raised — cards, nav rail, fields, episode rows -->
+    <Color x:Key="LwStorm3Color">#FF191D2E</Color> <!-- Overlay — context menus, popovers, modals, tooltips -->
+    <Color x:Key="LwStorm4Color">#FF222741</Color> <!-- Highest — pressed fills, active track fills -->
+    <Color x:Key="LwHairlineColor">#14A8BAE6</Color> <!-- rgba(168,186,230,0.08) — section rules, card borders at rest -->
+    <Color x:Key="LwStrokeColor">#29A8BAE6</Color>   <!-- rgba(168,186,230,0.16) — control borders, dividers -->
+
+    <SolidColorBrush x:Key="LwStorm0Brush" Color="{StaticResource LwStorm0Color}" />
+    <SolidColorBrush x:Key="LwStorm1Brush" Color="{StaticResource LwStorm1Color}" />
+    <SolidColorBrush x:Key="LwStorm2Brush" Color="{StaticResource LwStorm2Color}" />
+    <SolidColorBrush x:Key="LwStorm3Brush" Color="{StaticResource LwStorm3Color}" />
+    <SolidColorBrush x:Key="LwStorm4Brush" Color="{StaticResource LwStorm4Color}" />
+    <SolidColorBrush x:Key="LwHairlineBrush" Color="{StaticResource LwHairlineColor}" />
+    <SolidColorBrush x:Key="LwStrokeBrush" Color="{StaticResource LwStrokeColor}" />
+
+    <!-- ============ Text ladder — AA on storm-1 / storm-2 ============ -->
+    <Color x:Key="LwText1Color">#FFE9EDF7</Color> <!-- Primary — titles, values, control labels -->
+    <Color x:Key="LwText2Color">#FFAAB2C8</Color> <!-- Secondary — metadata, descriptions, inactive nav -->
+    <Color x:Key="LwText3Color">#FF79809A</Color> <!-- Tertiary — captions, placeholders, timestamps -->
+    <Color x:Key="LwText4Color">#FF4A5068</Color> <!-- Disabled -->
+
+    <SolidColorBrush x:Key="LwText1Brush" Color="{StaticResource LwText1Color}" />
+    <SolidColorBrush x:Key="LwText2Brush" Color="{StaticResource LwText2Color}" />
+    <SolidColorBrush x:Key="LwText3Brush" Color="{StaticResource LwText3Color}" />
+    <SolidColorBrush x:Key="LwText4Brush" Color="{StaticResource LwText4Color}" />
+
+    <!-- ============ Stormlight — the interaction language ============ -->
+    <Color x:Key="LwLightCoreColor">#FFDDF1FA</Color> <!-- Focus rings, active glyphs, seek handle -->
+    <Color x:Key="LwLightHazeColor">#578ECEEB</Color> <!-- rgba(142,206,235,0.34) — bloom around focus/hover -->
+    <Color x:Key="LwLightDimColor">#248ECEEB</Color>  <!-- rgba(142,206,235,0.14) — ambient tints, buffered range -->
+    <Color x:Key="LwLightBaseColor">#FF8ECEEB</Color> <!-- glow source color (full alpha; use via effects) -->
+
+    <SolidColorBrush x:Key="LwLightCoreBrush" Color="{StaticResource LwLightCoreColor}" />
+    <SolidColorBrush x:Key="LwLightHazeBrush" Color="{StaticResource LwLightHazeColor}" />
+    <SolidColorBrush x:Key="LwLightDimBrush" Color="{StaticResource LwLightDimColor}" />
+    <SolidColorBrush x:Key="LwLightBaseBrush" Color="{StaticResource LwLightBaseColor}" /> <!-- eyebrows, accent links -->
+
+    <!-- ============ Gemstone accents — lit from within ============ -->
+    <!-- Each gem: -core (fills), -lit (text/icons on dark, hover fills). Never flat large surfaces. -->
+    <Color x:Key="LwGarnetColor">#FFA62339</Color>
+    <Color x:Key="LwGarnetLitColor">#FFD14560</Color>
+    <Color x:Key="LwSapphireColor">#FF3E74D8</Color>
+    <Color x:Key="LwSapphireLitColor">#FF6C9AF0</Color>
+    <Color x:Key="LwEmeraldColor">#FF1FA873</Color>
+    <Color x:Key="LwEmeraldLitColor">#FF46C795</Color>
+    <Color x:Key="LwTopazColor">#FFC98F35</Color>
+    <Color x:Key="LwTopazLitColor">#FFE9B25C</Color>
+    <Color x:Key="LwEmberColor">#FFC93A2E</Color>
+    <Color x:Key="LwEmberLitColor">#FFE8705C</Color>
+
+    <SolidColorBrush x:Key="LwGarnetBrush" Color="{StaticResource LwGarnetColor}" />
+    <SolidColorBrush x:Key="LwGarnetLitBrush" Color="{StaticResource LwGarnetLitColor}" />
+    <SolidColorBrush x:Key="LwSapphireBrush" Color="{StaticResource LwSapphireColor}" />
+    <SolidColorBrush x:Key="LwSapphireLitBrush" Color="{StaticResource LwSapphireLitColor}" />
+    <SolidColorBrush x:Key="LwEmeraldBrush" Color="{StaticResource LwEmeraldColor}" />
+    <SolidColorBrush x:Key="LwEmeraldLitBrush" Color="{StaticResource LwEmeraldLitColor}" />
+    <SolidColorBrush x:Key="LwTopazBrush" Color="{StaticResource LwTopazColor}" />
+    <SolidColorBrush x:Key="LwTopazLitBrush" Color="{StaticResource LwTopazLitColor}" />
+    <SolidColorBrush x:Key="LwEmberBrush" Color="{StaticResource LwEmberColor}" />
+    <SolidColorBrush x:Key="LwEmberLitBrush" Color="{StaticResource LwEmberLitColor}" />
+
+    <!-- ============ Button-state fills (from component sheet) ============ -->
+    <!-- Primary (garnet): gradient fills; one per view, max. -->
+    <LinearGradientBrush x:Key="LwPrimaryFillBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFB32A42" Offset="0" />
+        <GradientStop Color="#FFA62339" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="LwPrimaryHoverFillBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFC93551" Offset="0" />
+        <GradientStop Color="#FFB32A42" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="LwPrimaryPressedFillBrush" Color="#FF8A1D30" />
+    <SolidColorBrush x:Key="LwPrimaryBorderBrush" Color="#1AFFFFFF" />        <!-- rgba(255,255,255,0.10) -->
+    <SolidColorBrush x:Key="LwPrimaryHoverBorderBrush" Color="#24FFFFFF" />   <!-- rgba(255,255,255,0.14) -->
+    <SolidColorBrush x:Key="LwPrimaryPressedBorderBrush" Color="#0FFFFFFF" /> <!-- rgba(255,255,255,0.06) -->
+    <SolidColorBrush x:Key="LwPrimaryPressedTextBrush" Color="#D9FFFFFF" />   <!-- rgba(255,255,255,0.85) -->
+
+    <!-- Secondary -->
+    <SolidColorBrush x:Key="LwSecondaryHoverFillBrush" Color="#FF1E2334" />
+    <SolidColorBrush x:Key="LwSecondaryHoverBorderBrush" Color="#4DA8BAE6" /> <!-- rgba(168,186,230,0.30) -->
+    <SolidColorBrush x:Key="LwSecondaryDisabledFillBrush" Color="#FF10131E" />
+    <SolidColorBrush x:Key="LwDisabledBorderBrush" Color="#14A8BAE6" />       <!-- rgba(168,186,230,0.08) -->
+
+    <!-- Ghost -->
+    <SolidColorBrush x:Key="LwGhostHoverFillBrush" Color="#148ECEEB" />   <!-- rgba(142,206,235,0.08) -->
+    <SolidColorBrush x:Key="LwGhostPressedFillBrush" Color="#218ECEEB" /> <!-- rgba(142,206,235,0.13) -->
+
+    <!-- Destructive (ember): outline at rest, fills only on intent -->
+    <SolidColorBrush x:Key="LwEmberBorderBrush" Color="#59E8705C" />        <!-- rgba(232,112,92,0.35) -->
+    <SolidColorBrush x:Key="LwEmberHoverFillBrush" Color="#38C93A2E" />     <!-- rgba(201,58,46,0.22) -->
+    <SolidColorBrush x:Key="LwEmberHoverBorderBrush" Color="#8CE8705C" />   <!-- rgba(232,112,92,0.55) -->
+    <SolidColorBrush x:Key="LwEmberHoverTextBrush" Color="#FFFFD9D2" />
+    <SolidColorBrush x:Key="LwEmberPressedFillBrush" Color="#FF9E2E24" />
+    <SolidColorBrush x:Key="LwEmberPressedBorderBrush" Color="#66E8705C" /> <!-- rgba(232,112,92,0.4) -->
+
+    <!-- Focus ring (all button kinds): infused light border + glow-focus effect -->
+    <SolidColorBrush x:Key="LwFocusBorderBrush" Color="#A6DDF1FA" />       <!-- rgba(221,241,250,0.65) -->
+    <SolidColorBrush x:Key="LwFocusBorderSoftBrush" Color="#8CDDF1FA" />   <!-- rgba(221,241,250,0.55) -->
+
+    <!-- Toggle switch -->
+    <SolidColorBrush x:Key="LwToggleOffTrackBrush" Color="#FF222741" />
+    <SolidColorBrush x:Key="LwToggleOffBorderBrush" Color="#2EA8BAE6" />   <!-- rgba(168,186,230,0.18) -->
+    <SolidColorBrush x:Key="LwToggleOffKnobBrush" Color="#FF79809A" />
+    <!-- On-state is the single garnet interactive accent (Phase 8 M1) — was stormlight blue. -->
+    <SolidColorBrush x:Key="LwToggleOnTrackBrush" Color="#4DA62339" />     <!-- garnet 0.30a -->
+    <SolidColorBrush x:Key="LwToggleOnBorderBrush" Color="#73D14560" />    <!-- garnet-lit 0.45a -->
+    <SolidColorBrush x:Key="LwToggleOnKnobBrush" Color="#FFEDB5C0" />      <!-- garnet-lit / white blend -->
+    <SolidColorBrush x:Key="LwToggleOnHoverTrackBrush" Color="#61A62339" /> <!-- garnet 0.38a -->
+    <SolidColorBrush x:Key="LwToggleOnHoverBorderBrush" Color="#99D14560" /> <!-- garnet-lit 0.6a -->
+    <SolidColorBrush x:Key="LwToggleOnHoverKnobBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="LwToggleOffFocusKnobBrush" Color="#FFAAB2C8" />
+    <SolidColorBrush x:Key="LwToggleDisabledTrackBrush" Color="#FF10131E" />
+    <SolidColorBrush x:Key="LwToggleDisabledKnobBrush" Color="#FF2C3146" />
+
+    <!-- Gem pills / chips: tinted glass over dark — fill <= 0.10a, border ~0.35a -->
+    <SolidColorBrush x:Key="LwChipFillBrush" Color="#1A8ECEEB" />          <!-- ~0.10a stormlight glass -->
+    <SolidColorBrush x:Key="LwChipBorderBrush" Color="#59A8BAE6" />        <!-- ~0.35a -->
+    <!-- Garnet chip glass (Advanced Search seed/context chip — ASS redesign). Same 0.10a
+         glass recipe as LwChipFillBrush, in the garnet identity; no garnet chip fill existed. -->
+    <SolidColorBrush x:Key="LwGarnetChipFillBrush" Color="#1AD14560" />    <!-- garnet-lit 0.10a -->
+    <SolidColorBrush x:Key="LwGarnetChipBorderBrush" Color="#73D14560" />  <!-- garnet-lit 0.45a -->
+    <SolidColorBrush x:Key="LwGarnetChipTextBrush" Color="#FFF0C2CB" />    <!-- lit garnet text on chip -->
+
+
+    <!-- Media gem pills (detail / OSD): stormlight-blue for resolution & audio,
+         topaz-amber for native HDR. Fill <= 0.09a, border ~0.30-0.35a, lit text. -->
+    <SolidColorBrush x:Key="LwGemBlueFillBrush" Color="#148ECEEB" />       <!-- rgba(142,206,235,0.08) -->
+    <SolidColorBrush x:Key="LwGemBlueBorderBrush" Color="#4D8ECEEB" />     <!-- rgba(142,206,235,0.30) -->
+    <SolidColorBrush x:Key="LwGemBlueTextBrush" Color="#FFBFE4F5" />
+    <SolidColorBrush x:Key="LwGemAmberFillBrush" Color="#17E9B25C" />      <!-- rgba(233,178,92,0.09) -->
+    <SolidColorBrush x:Key="LwGemAmberBorderBrush" Color="#59E9B25C" />    <!-- rgba(233,178,92,0.35) -->
+    <SolidColorBrush x:Key="LwGemAmberTextBrush" Color="#FFEFC685" />
+
+    <!-- Detail icon buttons (favorite / watched / more): 42-sq, storm-3 glass + stroke -->
+    <SolidColorBrush x:Key="LwIconButtonFillBrush" Color="#80191D2E" />    <!-- rgba(25,29,46,0.5) -->
+    <SolidColorBrush x:Key="LwIconButtonBorderBrush" Color="#33A8BAE6" /> <!-- rgba(168,186,230,0.2) -->
+
+    <!-- Detail metadata row: boxed official-rating chip border + topaz community score -->
+    <SolidColorBrush x:Key="LwRatingBoxBorderBrush" Color="#40A8BAE6" />   <!-- rgba(168,186,230,0.25) -->
+    <SolidColorBrush x:Key="LwMetaDotBrush" Color="{StaticResource LwText4Color}" />
+    <SolidColorBrush x:Key="LwCommunityScoreBrush" Color="{StaticResource LwTopazLitColor}" />
+
+    <!-- Progress / seek -->
+    <LinearGradientBrush x:Key="LwProgressFillBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#FFA62339" Offset="0" />
+        <GradientStop Color="#FFD14560" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="LwWatchedFillBrush" Color="#8C46C795" />       <!-- emerald 0.55a, no glow -->
+
+    <!-- Modal scrim: #07080D at 0.72a (solid tint, never full-screen blur) -->
+    <SolidColorBrush x:Key="LwScrimBrush" Color="#B807080D" />
+
+</ResourceDictionary>

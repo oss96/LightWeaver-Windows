@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&amp;family=Source+Sans+3:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+  html { background: #07080D; }
+  body { margin: 0; min-width: 1180px; background: #07080D; color: #E9EDF7; font-family: 'Source Sans 3', 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #8ECEEB; text-decoration: none; }
+  a:hover { color: #DDF1FA; }
+  ::selection { background: rgba(142,206,235,0.25); }
+  @keyframes lwBreathe { 0%, 100% { opacity: 0.30; transform: scale(0.94); } 50% { opacity: 0.95; transform: scale(1.05); } }
+  @keyframes lwPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+</style>
+</helmet>
+<div style="max-width: 1180px; margin: 0 auto; padding: 0 36px 160px; font-size: 15px; line-height: 1.55;">
+
+  <!-- ============ COVER ============ -->
+  <div style="position: relative; padding: 128px 0 88px; border-bottom: 1px solid rgba(168,186,230,0.10);">
+    <div style="position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(45deg, rgba(142,206,235,0.055) 0px, rgba(142,206,235,0.055) 1px, transparent 1px, transparent 15px), repeating-linear-gradient(-45deg, rgba(142,206,235,0.055) 0px, rgba(142,206,235,0.055) 1px, transparent 1px, transparent 15px); mask-image: radial-gradient(75% 90% at 68% 30%, black, transparent 72%); -webkit-mask-image: radial-gradient(75% 90% at 68% 30%, black, transparent 72%);"></div>
+    <div style="position: absolute; right: 8%; top: 14%; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(142,206,235,0.10), transparent 65%); pointer-events: none;"></div>
+    <div style="position: relative;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #79809A; text-transform: uppercase;">Design specification · v1.0 · July 2026</div>
+      <h1 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 84px; line-height: 1.04; letter-spacing: 0.03em; margin: 26px 0 0; color: #E9EDF7; text-shadow: 0 0 60px rgba(142,206,235,0.22);">LightWeaver</h1>
+      <p style="max-width: 620px; margin: 26px 0 0; font-size: 18px; line-height: 1.6; color: #AAB2C8;">A native Windows media client for Jellyfin. The chrome is a storm-quiet darkness; the media — posters, backdrops, video — is the light being woven through it. Every interactive state is expressed as light: diffuse, restrained, alive.</p>
+      <div style="display: flex; gap: 12px; margin-top: 34px; flex-wrap: wrap;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.06em; color: #AAB2C8; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px; padding: 6px 14px;">WPF · Windows 11</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.06em; color: #AAB2C8; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px; padding: 6px 14px;">mpv native playback</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.06em; color: #AAB2C8; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px; padding: 6px 14px;">dark only</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.06em; color: #AAB2C8; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px; padding: 6px 14px;">1000×700 → 4K</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 01 FOUNDATIONS ============ -->
+  <div style="margin: 104px 0 40px;">
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #D14560; letter-spacing: 0.1em;">01</span>
+      <h2 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 36px; letter-spacing: 0.02em; margin: 0;">Foundations</h2>
+      <div style="flex: 1; height: 1px; background: linear-gradient(90deg, rgba(168,186,230,0.22), transparent);"></div>
+    </div>
+    <p style="max-width: 660px; color: #AAB2C8; margin: 14px 0 0;">Base surfaces carry a cold indigo cast — never neutral gray. Elevation is depth of storm cloud: higher surfaces are marginally lighter and bluer. Interaction is stormlight: a cool luminous white with a blue-teal haze. Accents are gemstones, lit from within.</p>
+  </div>
+
+  <!-- Base ladder -->
+  <div style="margin: 56px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 20px;">Surface ladder — highstorm night</div>
+    <sc-for list="{{ baseLadder }}" as="c" hint-placeholder-count="7">
+      <div style="display: grid; grid-template-columns: 96px 210px 190px 1fr; align-items: center; gap: 20px; padding: 9px 0;">
+        <div style="{{ c.style }}"></div>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #E9EDF7;">{{ c.name }}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">{{ c.hex }}</span>
+        <span style="color: #AAB2C8; font-size: 14px;">{{ c.use }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Text ladder -->
+  <div style="margin: 56px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 20px;">Text ladder — AA on --storm-1 / --storm-2</div>
+    <sc-for list="{{ textLadder }}" as="c" hint-placeholder-count="4">
+      <div style="display: grid; grid-template-columns: 96px 210px 190px 1fr; align-items: center; gap: 20px; padding: 9px 0;">
+        <div style="{{ c.txStyle }}">Ag</div>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #E9EDF7;">{{ c.name }}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">{{ c.hex }}</span>
+        <span style="color: #AAB2C8; font-size: 14px;">{{ c.use }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Stormlight -->
+  <div style="margin: 56px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 20px;">Stormlight — the interaction language</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+      <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.10); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle, #DDF1FA 0%, rgba(142,206,235,0.5) 45%, transparent 72%);"></div>
+        <div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">--light-core</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; margin-top: 3px;">#DDF1FA</div></div>
+        <div style="color: #AAB2C8; font-size: 13.5px;">Focus rings, active glyphs, seek handle, link hover. Never used as a fill larger than a control.</div>
+      </div>
+      <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.10); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle, rgba(142,206,235,0.34), transparent 70%);"></div>
+        <div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">--light-haze</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; margin-top: 3px;">rgba(142,206,235,0.34)</div></div>
+        <div style="color: #AAB2C8; font-size: 13.5px;">The bloom around focused and hovered elements — always a diffuse shadow, never a stroke.</div>
+      </div>
+      <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.10); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle, rgba(142,206,235,0.14), transparent 70%);"></div>
+        <div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">--light-dim</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; margin-top: 3px;">rgba(142,206,235,0.14)</div></div>
+        <div style="color: #AAB2C8; font-size: 13.5px;">Ambient tints: hover washes on rows, buffered seek range, ornament line color.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gems -->
+  <div style="margin: 56px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 20px;">Gemstone accents — lit from within</div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+      <sc-for list="{{ gems }}" as="g" hint-placeholder-count="5">
+        <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.10); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="{{ g.swStyle }}"></div>
+          <div>
+            <div style="font-size: 15px; font-weight: 600;">{{ g.label }}</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 4px; line-height: 1.7; white-space: pre-line;">{{ g.tokens }}</div>
+          </div>
+          <div style="color: #AAB2C8; font-size: 13px; line-height: 1.5;">{{ g.use }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <p style="color: #79809A; font-size: 13.5px; max-width: 700px; margin: 18px 0 0;">Each gem ships as a triad: <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">-core</span> (fills), <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">-lit</span> (text/icons on dark, hover fills), <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">-glow</span> (bloom shadow at ~0.35 α). Gems never appear as flat large surfaces; they appear as buttons, pills, and points of light.</p>
+  </div>
+
+  <!-- Type -->
+  <div style="margin: 72px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 8px;">Type ladder</div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-display-xl<br>Marcellus 400 · 56/62 · ls 0.03em</div>
+      <div style="font-family: 'Marcellus', serif; font-size: 56px; line-height: 1.1; letter-spacing: 0.03em;">The Hollow Sky</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-display<br>Marcellus 400 · 34/42 · ls 0.02em</div>
+      <div style="font-family: 'Marcellus', serif; font-size: 34px; letter-spacing: 0.02em;">Continue Watching</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-title<br>Marcellus 400 · 24/32 · ls 0.02em</div>
+      <div style="font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em;">Recently Added</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-heading<br>Source Sans 3 600 · 18/26</div>
+      <div style="font-weight: 600; font-size: 18px;">Playback preferences</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-body<br>Source Sans 3 400 · 15/23</div>
+      <div style="font-size: 15px; color: #E9EDF7; max-width: 560px;">A ferryman inherits a river no map admits to, and the passengers who remember it.</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-label<br>Source Sans 3 600 · 12.5/18 · caps, ls 0.09em</div>
+      <div style="font-weight: 600; font-size: 12.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #AAB2C8;">Next Up</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-caption<br>Source Sans 3 400 · 13/19 · --text-2</div>
+      <div style="font-size: 13px; color: #AAB2C8;">S2 E4 · The Weir · 31 min left</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: baseline; padding: 20px 0;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; line-height: 1.8;">--type-mono<br>JetBrains Mono 400 · 12.5/19</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #AAB2C8;">hwdec=nvdec · vo=gpu-next · target-peak=1000</div>
+    </div>
+    <p style="color: #79809A; font-size: 13.5px; max-width: 700px; margin: 14px 0 0;">Marcellus (display), Source Sans 3 (UI), JetBrains Mono (technical) — all OFL, bundleable. Marcellus is reserved for media titles and page/section headings; never for controls or body copy.</p>
+  </div>
+
+  <!-- Spacing + Radius -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 72px 0 0;">
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 18px;">Spacing scale</div>
+      <sc-for list="{{ spacing }}" as="s" hint-placeholder-count="9">
+        <div style="display: grid; grid-template-columns: 90px 46px 1fr; align-items: center; gap: 14px; padding: 6px 0;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E9EDF7;">{{ s.t }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">{{ s.v }}</span>
+          <div style="{{ s.bar }}"></div>
+        </div>
+      </sc-for>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">4-px base. Card gutters 16, rail gaps 20, section stacks 40–64.</p>
+    </div>
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 18px;">Radius ladder — Material 3 shape scale</div>
+      <div style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+        <div style="text-align: center;"><div style="width: 84px; height: 64px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 8px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-1 · 8 · small<br>inputs, menu/flyout rows,<br>thumbs, skeletons</div></div>
+        <div style="text-align: center;"><div style="width: 84px; height: 64px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 12px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-2 · 12 · medium<br>cards, secondary containers,<br>popovers/flyouts</div></div>
+        <div style="text-align: center;"><div style="width: 84px; height: 64px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 16px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-3 · 16 · large<br>modal inner surfaces,<br>large popovers, brand marks</div></div>
+        <div style="text-align: center;"><div style="width: 84px; height: 64px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 28px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-4 · 28 · extra-large<br>modal-weight cards<br>(sign-in, Up-Next)</div></div>
+        <div style="text-align: center;"><div style="width: 84px; height: 40px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-full · 999 · full<br>buttons, segmented,<br>toggles, sliders</div></div>
+        <div style="text-align: center;"><div style="width: 84px; height: 40px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 999px;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A; margin-top: 8px;">--r-pill · 999 · full<br>badges, chips, pills</div></div>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Rounded rects with circular-arc corners — a deliberate approximation of Material's squircle, because a true superellipse would need a Path/clip per component and bypass the token layer. <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">--r-full</span> and <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">--r-pill</span> share the value 999 but stay distinct: a change to the chip family must not drag every button with it.</p>
+      <p style="color: #E9B25C; font-size: 13px; margin: 12px 0 0; border-left: 2px solid rgba(233,178,92,0.45); padding-left: 12px;"><strong>The two 999 swatches above lie about the implementation, and they cannot be fixed here — CSS and WPF disagree.</strong> CSS <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">border-radius: 999px</span> scales both corner radii <em>proportionally</em>, so the swatch renders as a true stadium. WPF's <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">Border</span> clamps the horizontal and vertical arc radii <em>independently</em> (x to width/2, y to height/2), so the same value draws the <em>ellipse inscribed in the box</em> — a lens on anything wider than tall. Measured on a 510×60 Border: 0 of 510 columns flat at 999, against the 450 a stadium needs; only <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">height/2</span> (30) gives 450. In XAML, "full" is therefore <em>not</em> a constant: the full-round families bind <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">LwRFullFromHeight</span> to each element's own <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">ActualHeight</span>. <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">--r-full</span> / <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">--r-pill</span> remain defined at 999 for <strong>square</strong> consumers only, where the clamp yields a true circle. Read the swatches as intent, not as a value to copy.</p>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin: 36px 0 18px;">Elevation &amp; glow</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+        <div style="background: #121522; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; height: 66px; box-shadow: 0 2px 8px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-1 · cards</div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.12); border-radius: 8px; height: 66px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-2 · menus</div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.12); border-radius: 8px; height: 66px; box-shadow: 0 16px 48px rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-3 · modals</div>
+        <div style="background: #121522; border: 1px solid rgba(221,241,250,0.5); border-radius: 8px; height: 66px; box-shadow: 0 0 12px rgba(142,206,235,0.30); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-focus</div>
+        <div style="background: #121522; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; height: 66px; box-shadow: 0 0 18px rgba(142,206,235,0.22); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-hover</div>
+        <div style="background: #121522; border: 1px solid rgba(209,69,96,0.35); border-radius: 8px; height: 66px; box-shadow: 0 0 20px rgba(209,69,96,0.32); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-garnet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Motion -->
+  <div style="margin: 72px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 4px;">Motion — light drifts, it does not bounce</div>
+    <sc-for list="{{ motion }}" as="m" hint-placeholder-count="5">
+      <div style="display: grid; grid-template-columns: 170px 230px 250px 1fr; gap: 20px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #E9EDF7;">{{ m.t }}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB;">{{ m.v }}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A;">{{ m.e }}</span>
+        <span style="color: #AAB2C8; font-size: 13.5px;">{{ m.use }}</span>
+      </div>
+    </sc-for>
+    <p style="color: #79809A; font-size: 13.5px; max-width: 720px; margin: 16px 0 0;">Asymmetric glow: light arrives fast (240 ms) and decays slowly (420 ms), like an infused gem losing charge. No spring/overshoot easings anywhere. Translations are small (≤ 8 px) and paired with opacity.</p>
+  </div>
+</div>
+<div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
+
+  <!-- ============ 02 COMPONENTS ============ -->
+  <div style="margin: 104px 0 40px;">
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #D14560; letter-spacing: 0.1em;">02</span>
+      <h2 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 36px; letter-spacing: 0.02em; margin: 0;">Components</h2>
+      <div style="flex: 1; height: 1px; background: linear-gradient(90deg, rgba(168,186,230,0.22), transparent);"></div>
+    </div>
+    <p style="max-width: 660px; color: #AAB2C8; margin: 14px 0 0;">Every state follows the same rule: rest is quiet, hover admits light, pressed absorbs it, focus is an infused ring, disabled is drained. Focus rings are drawn as glow shadows (WPF <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">DropShadowEffect</span>), never dotted rectangles.</p>
+  </div>
+
+  <!-- Buttons -->
+  <div style="margin: 56px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Buttons — h 36 · pad 0 18 · r 8 · 14/600</div>
+
+    <div style="display: grid; grid-template-columns: 185px repeat(5, 1fr); gap: 18px; align-items: start; padding: 18px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div><div style="font-weight: 600; font-size: 14px;">Primary — garnet</div><div style="font-size: 12.5px; color: #79809A; margin-top: 4px;">One per view, max. Play, Connect, Save.</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #B32A42, #A62339); border: 1px solid rgba(255,255,255,0.10); cursor: pointer;">Play</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">REST</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #C93551, #B32A42); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 0 20px rgba(209,69,96,0.34); cursor: pointer;">Play</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">HOVER</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: rgba(255,255,255,0.85); background: #8A1D30; border: 1px solid rgba(255,255,255,0.06); cursor: pointer;">Play</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">PRESSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #B32A42, #A62339); border: 1px solid rgba(221,241,250,0.65); box-shadow: 0 0 12px rgba(142,206,235,0.35); cursor: pointer;">Play</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">FOCUSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #4A5068; background: #191D2E; border: 1px solid rgba(168,186,230,0.08); cursor: default;">Play</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 185px repeat(5, 1fr); gap: 18px; align-items: start; padding: 18px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div><div style="font-weight: 600; font-size: 14px;">Secondary</div><div style="font-size: 12.5px; color: #79809A; margin-top: 4px;">Default action weight.</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); cursor: pointer;">Trailer</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">REST</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: #1E2334; border: 1px solid rgba(168,186,230,0.30); box-shadow: 0 0 16px rgba(142,206,235,0.18); cursor: pointer;">Trailer</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">HOVER</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #AAB2C8; background: #222741; border: 1px solid rgba(168,186,230,0.16); cursor: pointer;">Trailer</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">PRESSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: #191D2E; border: 1px solid rgba(221,241,250,0.55); box-shadow: 0 0 12px rgba(142,206,235,0.30); cursor: pointer;">Trailer</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">FOCUSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #4A5068; background: #10131E; border: 1px solid rgba(168,186,230,0.07); cursor: default;">Trailer</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 185px repeat(5, 1fr); gap: 18px; align-items: start; padding: 18px 0; border-bottom: 1px solid rgba(168,186,230,0.06);">
+      <div><div style="font-weight: 600; font-size: 14px;">Ghost</div><div style="font-size: 12.5px; color: #79809A; margin-top: 4px;">Toolbars, inline actions, OSD.</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 14px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #AAB2C8; background: transparent; border: 1px solid transparent; cursor: pointer; white-space: nowrap;">Mark watched</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">REST</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 14px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: rgba(142,206,235,0.08); border: 1px solid transparent; cursor: pointer; white-space: nowrap;">Mark watched</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">HOVER</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 14px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: rgba(142,206,235,0.13); border: 1px solid transparent; cursor: pointer; white-space: nowrap;">Mark watched</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">PRESSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 14px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: transparent; border: 1px solid rgba(221,241,250,0.55); box-shadow: 0 0 12px rgba(142,206,235,0.30); cursor: pointer; white-space: nowrap;">Mark watched</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">FOCUSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 14px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #4A5068; background: transparent; border: 1px solid transparent; cursor: default; white-space: nowrap;">Mark watched</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 185px repeat(5, 1fr); gap: 18px; align-items: start; padding: 18px 0;">
+      <div><div style="font-weight: 600; font-size: 14px;">Destructive — ember</div><div style="font-size: 12.5px; color: #79809A; margin-top: 4px;">Outline at rest; fills only on intent.</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E8705C; background: transparent; border: 1px solid rgba(232,112,92,0.35); cursor: pointer;">Delete</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">REST</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFD9D2; background: rgba(201,58,46,0.22); border: 1px solid rgba(232,112,92,0.55); box-shadow: 0 0 16px rgba(201,58,46,0.25); cursor: pointer;">Delete</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">HOVER</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFFFFF; background: #9E2E24; border: 1px solid rgba(232,112,92,0.4); cursor: pointer;">Delete</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">PRESSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E8705C; background: transparent; border: 1px solid rgba(221,241,250,0.55); box-shadow: 0 0 12px rgba(142,206,235,0.30); cursor: pointer;">Delete</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">FOCUSED</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;"><button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #4A5068; background: transparent; border: 1px solid rgba(168,186,230,0.08); cursor: default;">Delete</button><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+    </div>
+  </div>
+
+  <!-- Toggle + segmented -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 64px 0 0;">
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toggle switch — 40×22 · knob 16 · travel 120 ms</div>
+      <div style="display: flex; gap: 28px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(168,186,230,0.18); position: relative; box-sizing: border-box;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #79809A;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">OFF</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.30); border: 1px solid rgba(221,241,250,0.45); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.25);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · INFUSED</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.38); border: 1px solid rgba(221,241,250,0.6); position: relative; box-sizing: border-box; box-shadow: 0 0 18px rgba(142,206,235,0.38);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 10px rgba(221,241,250,0.8);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · HOVER</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(221,241,250,0.55); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.30);"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #AAB2C8;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">OFF · FOCUSED</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #10131E; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #2C3146;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">On-state is infused stormlight, not a gem — settings toggles stay quieter than actions. Knob eases 120 ms; glow follows at 240 ms.</p>
+    </div>
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Segmented control — container r 8 · pad 3 · segment h 30 r 6</div>
+      <div style="display: inline-flex; background: #121522; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; padding: 3px; gap: 2px;">
+        <div style="height: 30px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; font-size: 13.5px; font-weight: 600; color: #E9EDF7; background: #222741; box-shadow: inset 0 1px 0 rgba(221,241,250,0.10);">Episodes</div>
+        <div style="height: 30px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; font-size: 13.5px; font-weight: 600; color: #AAB2C8;">Extras</div>
+        <div style="height: 30px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; font-size: 13.5px; font-weight: 600; color: #AAB2C8;">Details</div>
+      </div>
+      <div style="display: inline-flex; background: #121522; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; padding: 3px; gap: 2px; margin-left: 18px;">
+        <div style="height: 30px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; font-size: 13.5px; font-weight: 600; color: #E9EDF7; background: #222741; box-shadow: inset 0 1px 0 rgba(221,241,250,0.10);">Grid</div>
+        <div style="height: 30px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; font-size: 13.5px; font-weight: 600; color: #E9EDF7; background: rgba(142,206,235,0.07);">List</div>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">Active segment: <span style="font-family:'JetBrains Mono',monospace;font-size:12px;">--storm-4</span> fill + 1 px inner light hairline. Selection thumb slides 240 ms drift. Hover on inactive: stormlight wash at 0.07 α (right example).</p>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin: 34px 0 24px;">Tooltip — r 4 · pad 5 12 · delay 400 ms · fade 120 ms</div>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.18); border-radius: 4px; padding: 5px 12px; font-size: 13px; color: #E9EDF7; box-shadow: 0 8px 24px rgba(0,0,0,0.55);">Audio &amp; subtitles</div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.18); border-radius: 4px; padding: 5px 12px; font-size: 13px; color: #E9EDF7; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 10px; align-items: baseline;">Play <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">Space</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Text field / dropdown / search -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Text field — h 38 · pad 0 12 · r 8 · label 12.5 caps above</div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;"><div><div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #79809A; margin-bottom: 7px;">Server</div><div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; padding: 0 12px; color: #79809A; font-size: 14px; box-sizing: border-box;">https://…</div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">REST</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px;"><div><div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #79809A; margin-bottom: 7px;">Server</div><div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.28); display: flex; align-items: center; padding: 0 12px; color: #79809A; font-size: 14px; box-sizing: border-box;">https://…</div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">HOVER</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px;"><div><div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #AAB2C8; margin-bottom: 7px;">Server</div><div style="height: 38px; border-radius: 8px; background: #0C0E16; border: 1px solid rgba(221,241,250,0.5); box-shadow: 0 0 12px rgba(142,206,235,0.28); display: flex; align-items: center; padding: 0 12px; color: #E9EDF7; font-size: 14px; box-sizing: border-box;">https://weave.local<span style="display: inline-block; width: 1px; height: 16px; background: #DDF1FA; margin-left: 2px; box-shadow: 0 0 6px rgba(221,241,250,0.8);"></span></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">FOCUSED · TYPING</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px;"><div><div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E8705C; margin-bottom: 7px;">Server</div><div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(232,112,92,0.55); box-shadow: 0 0 10px rgba(201,58,46,0.18); display: flex; align-items: center; padding: 0 12px; color: #E9EDF7; font-size: 14px; box-sizing: border-box;">weave.loc</div><div style="font-size: 12.5px; color: #E8705C; margin-top: 6px;">Could not reach server.</div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ERROR</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px;"><div><div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #4A5068; margin-bottom: 7px;">Server</div><div style="height: 38px; border-radius: 8px; background: #10131E; border: 1px solid rgba(168,186,230,0.07); display: flex; align-items: center; padding: 0 12px; color: #4A5068; font-size: 14px; box-sizing: border-box;">https://weave.local</div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 44px;">
+      <div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Dropdown — field spec + open menu (--storm-3, --e-2)</div>
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+          <div style="width: 210px;">
+            <div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 14px; color: #E9EDF7; box-sizing: border-box;">1080p · 20 Mbps <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg></div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">CLOSED · REST</div>
+          </div>
+          <div style="width: 230px;">
+            <div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(221,241,250,0.5); box-shadow: 0 0 12px rgba(142,206,235,0.28); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 14px; color: #E9EDF7; box-sizing: border-box;">1080p · 20 Mbps <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#DDF1FA" stroke-width="1.5"><path d="M9 5 L5 1 L1 5"></path></svg></div>
+            <div style="margin-top: 6px; background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 5px; box-shadow: 0 8px 24px rgba(0,0,0,0.55);">
+              <div style="height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #AAB2C8;">Auto (source)</div>
+              <div style="height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #E9EDF7; background: rgba(142,206,235,0.08);"><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 6px rgba(221,241,250,0.8);"></span>1080p · 20 Mbps</div>
+              <div style="height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #AAB2C8;">720p · 8 Mbps</div>
+            </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">OPEN · SELECTED = LIT DOT + WASH</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Search field — pill r 999 · h 38 · Ctrl+F focuses</div>
+        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 360px;">
+          <div style="height: 38px; border-radius: 999px; background: #121522; border: 1px solid rgba(168,186,230,0.14); display: flex; align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box;"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#79809A" stroke-width="1.6"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10 L14 14"></path></svg><span style="font-size: 14px; color: #79809A;">Search your libraries</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4A5068; border: 1px solid rgba(168,186,230,0.14); border-radius: 4px; padding: 1px 6px;">Ctrl F</span></div>
+          <div style="height: 38px; border-radius: 999px; background: #0C0E16; border: 1px solid rgba(221,241,250,0.5); box-shadow: 0 0 14px rgba(142,206,235,0.28); display: flex; align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box;"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#DDF1FA" stroke-width="1.6"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10 L14 14"></path></svg><span style="font-size: 14px; color: #E9EDF7;">hollow</span><span style="display: inline-block; width: 1px; height: 16px; background: #DDF1FA; box-shadow: 0 0 6px rgba(221,241,250,0.8);"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav rail -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Navigation rail — expanded 232 / collapsed 64 · item h 40 r 8 · icons 20, stroke 1.6</div>
+    <div style="display: flex; gap: 40px; align-items: flex-start;">
+      <div style="width: 232px; background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 18px 12px; display: flex; flex-direction: column; gap: 3px;">
+        
+        <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; background: rgba(142,206,235,0.08); color: #E9EDF7; position: relative;"><div style="position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: #DDF1FA; box-shadow: 0 0 8px rgba(142,206,235,0.7);"></div><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg><span style="font-size: 14px; font-weight: 600;">Home</span></div>
+        <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg><span style="font-size: 14px;">Movies</span></div>
+        <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; background: rgba(142,206,235,0.05); color: #E9EDF7;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg><span style="font-size: 14px;">Series</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #4A5068;">HOVER</span></div>
+        <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="6" height="6" rx="1"></rect><rect x="11" y="3" width="6" height="6" rx="1"></rect><rect x="3" y="11" width="6" height="6" rx="1"></rect><rect x="11" y="11" width="6" height="6" rx="1"></rect></svg><span style="font-size: 14px;">Collections</span></div>
+        <div style="height: 1px; background: rgba(168,186,230,0.08); margin: 10px 10px;"></div>
+        <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6 H16 M4 10 H16 M4 14 H16"></path><circle cx="7" cy="6" r="1.8" fill="#0C0E16"></circle><circle cx="13" cy="10" r="1.8" fill="#0C0E16"></circle><circle cx="8.5" cy="14" r="1.8" fill="#0C0E16"></circle></svg><span style="font-size: 14px;">Settings</span></div>
+      </div>
+      <div style="width: 64px; background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 18px 12px; display: flex; flex-direction: column; gap: 3px; align-items: center;">
+        
+        <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(142,206,235,0.08);"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg></div>
+        <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg></div>
+        <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg></div>
+        <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="6" height="6" rx="1"></rect><rect x="11" y="3" width="6" height="6" rx="1"></rect><rect x="3" y="11" width="6" height="6" rx="1"></rect><rect x="11" y="11" width="6" height="6" rx="1"></rect></svg></div>
+      </div>
+      <div style="max-width: 380px; color: #AAB2C8; font-size: 13.5px; line-height: 1.65;">
+        <p style="margin: 0 0 12px;"><strong style="color: #E9EDF7;">Active item</strong> — stormlight wash (0.08 α), lit glyph, 2 px light bar with bloom. Never a garnet fill: the gem marks actions, the light marks <em>where you are</em>.</p>
+        <p style="margin: 0 0 12px;"><strong style="color: #E9EDF7;">Collapse</strong> — below 1160 px window width the rail collapses to 64 px (icons only, labels in tooltips). Drift 240 ms.</p>
+        <p style="margin: 0;"><strong style="color: #E9EDF7;">Icons</strong> — 20 px grid, 1.6 px stroke, square caps; geometric with a calligraphic bias. One weight across the app.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu / modal / toast -->
+  <div style="display: grid; grid-template-columns: 250px 1fr 380px; gap: 48px; margin: 64px 0 0; align-items: start;">
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Context menu — w 220 · item h 32 r 4</div>
+      <div style="width: 220px; background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 5px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); box-sizing: border-box;">
+        <div style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #E9EDF7; background: rgba(142,206,235,0.08);">Play <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">Enter</span></div>
+        <div style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #AAB2C8;">Play from start</div>
+        <div style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #AAB2C8;">Mark watched <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4A5068;">W</span></div>
+        <div style="height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #AAB2C8;">Go to series</div>
+        <div style="height: 1px; background: rgba(168,186,230,0.10); margin: 5px 8px;"></div>
+        <div style="height: 32px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 13.5px; color: #E8705C;">Remove from list</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Modal dialog — w 440 · r 12 · --e-3 · scrim #07080D at 0.72 α</div>
+      <div style="background: rgba(7,8,13,0.72); border-radius: 12px; padding: 44px; display: flex; justify-content: center;">
+        <div style="width: 380px; background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 12px; padding: 26px 26px 22px; box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 60px rgba(142,206,235,0.05);">
+          <div style="font-family: 'Marcellus', serif; font-size: 21px; letter-spacing: 0.02em;">Sign out of Weaveholme?</div>
+          <p style="color: #AAB2C8; font-size: 14px; margin: 12px 0 24px; line-height: 1.6;">Playback positions sync to the server. Downloads on this device will be kept.</p>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button style="height: 36px; padding: 0 16px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #AAB2C8; background: transparent; border: 1px solid transparent; cursor: pointer;">Cancel</button>
+            <button style="height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #FFFFFF; background: #9E2E24; border: 1px solid rgba(232,112,92,0.4); cursor: pointer;">Sign out</button>
+          </div>
+        </div>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Entry: fade + 8 px rise, 480 ms drift. Scrim is a solid tint — no full-screen blur (WPF cost); an optional 12 px blur may apply to the modal's own backplate only.</p>
+    </div>
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toast — w ≤ 360 · r 8 · bottom-right · 5 s</div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 13px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #46C795; box-shadow: 0 0 10px rgba(70,199,149,0.6); margin-top: 6px; flex-shrink: 0;"></div>
+          <div><div style="font-size: 14px; font-weight: 600;">Connected to Weaveholme</div><div style="font-size: 12.5px; color: #79809A; font-family: 'JetBrains Mono', monospace; margin-top: 3px;">10.4.2 · direct play available</div></div>
+        </div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 13px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #E9B25C; box-shadow: 0 0 10px rgba(233,178,92,0.6); margin-top: 6px; flex-shrink: 0;"></div>
+          <div><div style="font-size: 14px; font-weight: 600;">Transcoding fallback</div><div style="font-size: 12.5px; color: #AAB2C8; margin-top: 3px;">HEVC Main10 unsupported by this GPU driver.</div></div>
+        </div>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Semantic gem dot with bloom — never a colored bar or filled surface. Slides up 8 px + fade, drift easing.</p>
+    </div>
+  </div>
+</div><div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
+
+  <!-- Cards -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Cards — poster 152×228 · landscape 292×164 · art r 8 · gap 16</div>
+    <div style="display: flex; gap: 44px; align-items: flex-start; flex-wrap: wrap;">
+      <div style="display: flex; gap: 20px;">
+        <div style="width: 152px;">
+          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: radial-gradient(120% 90% at 28% 16%, oklch(0.44 0.06 250 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); position: relative; box-sizing: border-box;"><div style="position: absolute; left: 10px; bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; color: rgba(233,237,247,0.5);">POSTER ART</div></div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">Hollowmere</div>
+          <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">2024 · 2 seasons</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">REST</div>
+        </div>
+        <div style="width: 152px;">
+          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(221,241,250,0.35); background: radial-gradient(120% 90% at 28% 16%, oklch(0.5 0.07 250 / 0.95), transparent 55%), linear-gradient(160deg, oklch(0.37 0.06 250), oklch(0.17 0.045 284)); position: relative; box-shadow: 0 0 22px rgba(142,206,235,0.22), 0 10px 28px rgba(0,0,0,0.5); transform: translateY(-3px); box-sizing: border-box;">
+            <div style="position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(180deg, transparent 45%, rgba(7,8,13,0.85)); display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; gap: 9px;"><div style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #D14560, #A62339 72%); box-shadow: 0 0 14px rgba(209,69,96,0.5); display: flex; align-items: center; justify-content: center;"><svg width="11" height="12" viewBox="0 0 11 12" fill="#FFFFFF"><path d="M1 1 L10 6 L1 11 Z"></path></svg></div><span style="font-size: 12px; color: #E9EDF7; font-weight: 600;">Resume</span></div>
+            </div>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
+          </div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 9px; color: #FFFFFF;">Hollowmere</div>
+          <div style="font-size: 12.5px; color: #AAB2C8; margin-top: 1px;">2024 · 2 seasons</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">HOVER · LIFT −3 · GLOW · QUICK RESUME</div>
+        </div>
+        <div style="width: 152px;">
+          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(221,241,250,0.6); background: radial-gradient(120% 90% at 28% 16%, oklch(0.44 0.06 250 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); box-shadow: 0 0 14px rgba(142,206,235,0.32); box-sizing: border-box;"></div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">Hollowmere</div>
+          <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">2024 · 2 seasons</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">FOCUSED (KEYBOARD)</div>
+        </div>
+      </div>
+      <div>
+        <div style="width: 292px;">
+          <div style="height: 164px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: radial-gradient(120% 90% at 28% 16%, oklch(0.52 0.075 42 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 42), oklch(0.15 0.04 76)); position: relative; box-sizing: border-box;">
+            <div style="position: absolute; left: 12px; bottom: 12px; right: 12px;"><div style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(233,237,247,0.75); text-shadow: 0 1px 6px rgba(7,8,13,0.9);">31 min left</div></div>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
+          </div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">Hollowmere</div>
+          <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">S2 E4 · The Weir</div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">LANDSCAPE · CONTINUE WATCHING</div>
+      </div>
+      <div style="flex: 1; min-width: 320px;">
+        <div style="display: flex; gap: 14px; background: #121522; border: 1px solid rgba(168,186,230,0.08); border-radius: 10px; padding: 10px; align-items: center;">
+          <div style="width: 148px; height: 84px; border-radius: 6px; flex-shrink: 0; background: radial-gradient(120% 90% at 28% 16%, oklch(0.52 0.075 178 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 178), oklch(0.15 0.04 212)); position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 6px 6px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div></div>
+          <div style="min-width: 0;">
+            <div style="display: flex; align-items: baseline; gap: 9px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">3</span><span style="font-size: 14.5px; font-weight: 600;">Saltglass</span><span style="font-size: 12px; color: #4A5068; margin-left: auto; font-family: 'JetBrains Mono', monospace;">57 min</span></div>
+            <div style="font-size: 13px; color: #AAB2C8; margin-top: 4px; line-height: 1.5;">What the divers bring up should not have kept its shape. Bram stops sleeping.</div>
+          </div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">EPISODE ROW · H 104 · THUMB 148×84 · HOVER = STORMLIGHT WASH + PLAY GLYPH OVER THUMB</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Badges + progress -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 64px 0 0;">
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Gem pills — h 22 · pad 3 10 · r 999 · mono 10.5 caps ls 0.08</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX HDR</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX VSR</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(233,178,92,0.09); border: 1px solid rgba(233,178,92,0.35); color: #EFC685; text-shadow: 0 0 8px rgba(233,178,92,0.45); box-sizing: border-box;">HDR10</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">ATMOS 7.1</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(209,69,96,0.10); border: 1px solid rgba(209,69,96,0.4); color: #EE93A6; text-shadow: 0 0 8px rgba(209,69,96,0.5); box-sizing: border-box;">NEW</span>
+        <span style="height: 22px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(70,199,149,0.09); border: 1px solid rgba(70,199,149,0.35); color: #7CD9B4; text-shadow: 0 0 8px rgba(70,199,149,0.45); box-sizing: border-box;"><svg width="9" height="8" viewBox="0 0 9 8" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4 L3.5 6.5 L8 1"></path></svg>WATCHED</span>
+      </div>
+      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">Tinted glass over dark: fill ≤ 0.10 α, border ~0.35 α, lit text with a faint text-glow. On the OSD, pills sit on the scrim at these exact values — never brighter.</p>
+    </div>
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Progress &amp; buffering</div>
+      <div style="display: flex; gap: 36px; align-items: center;">
+        <div style="flex: 1;">
+          <div style="height: 3px; border-radius: 2px; background: rgba(168,186,230,0.14); overflow: hidden;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">WATCHED BAR · 3 PX · GARNET, GLOWING</div>
+          <div style="height: 3px; border-radius: 2px; background: rgba(168,186,230,0.14); margin-top: 24px;"><div style="width: 100%; height: 100%; background: rgba(70,199,149,0.55); border-radius: 2px;"></div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">FULLY WATCHED · EMERALD AT 0.55 α, NO GLOW</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+          <div style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;"><div style="width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #DDF1FA 0%, rgba(142,206,235,0.45) 40%, transparent 70%); animation: lwBreathe 2.4s ease-in-out infinite;"></div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; text-align: center;">BUFFERING · BREATHING GLOW<br>2 400 MS · NO SPINNER ARC</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seek bar + volume -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 28px;">Seek bar — track 4 px (6 px on hover) · handle 12 px, appears on hover · full-row hit target 24 px</div>
+    <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 42px 36px 30px;">
+      <div style="position: relative; height: 6px;">
+        <div style="position: absolute; inset: 0; border-radius: 3px; background: rgba(168,186,230,0.16);"></div>
+        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 71%; border-radius: 3px; background: rgba(142,206,235,0.20);"></div>
+        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 10px rgba(209,69,96,0.55);"></div>
+        <div style="position: absolute; top: -3px; bottom: -3px; left: 24.6%; width: 2px; background: rgba(221,241,250,0.55);"></div>
+        <div style="position: absolute; top: -3px; bottom: -3px; left: 58%; width: 2px; background: rgba(221,241,250,0.55);"></div>
+        <div style="position: absolute; top: -3px; bottom: -3px; left: 83%; width: 2px; background: rgba(221,241,250,0.35);"></div>
+        <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 12px rgba(221,241,250,0.75), 0 0 28px rgba(142,206,235,0.4);"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #AAB2C8;"><span>24:12</span><span style="color: #79809A;">−28:34 · ends 22:41</span></div>
+      <div style="display: grid; grid-template-columns: repeat(4, auto); gap: 28px; margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">
+        <span><span style="color: #D14560;">▮</span> PLAYED · GARNET + GLOW</span>
+        <span><span style="color: #8ECEEB;">▮</span> BUFFERED · LIGHT-DIM</span>
+        <span><span style="color: #DDF1FA;">▏</span> CHAPTER TICK · 2 PX</span>
+        <span><span style="color: #DDF1FA;">●</span> HANDLE · INFUSED, HOVER-ONLY</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 48px; margin-top: 32px; align-items: flex-start;">
+      <div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Volume slider — w 96 · track 4 · stormlight fill</div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="18" height="16" viewBox="0 0 18 16" fill="none" stroke="#AAB2C8" stroke-width="1.6"><path d="M1 6 H4 L8 2.5 V13.5 L4 10 H1 Z"></path><path d="M11 5 C12.5 6.5 12.5 9.5 11 11"></path><path d="M13.5 3 C16 5.5 16 10.5 13.5 13"></path></svg>
+          <div style="position: relative; width: 96px; height: 4px;">
+            <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.16);"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px; background: rgba(142,206,235,0.55); box-shadow: 0 0 8px rgba(142,206,235,0.35);"></div>
+            <div style="position: absolute; top: 50%; left: 65%; width: 10px; height: 10px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">65</span>
+        </div>
+        <p style="color: #79809A; font-size: 13px; margin: 14px 0 0; max-width: 300px;">Scroll wheel anywhere over the control: ±5. Muted: fill drains to 0 over 240 ms, glyph swaps to slashed variant.</p>
+      </div>
+      <div style="flex: 1;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Skeleton loaders — --storm-2 blocks · lwPulse 2 400 ms · no shimmer sweep</div>
+        <div style="display: flex; gap: 16px;">
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite;"></div><div style="width: 90px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite;"></div></div>
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite 0.2s;"></div><div style="width: 70px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite 0.2s;"></div></div>
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite 0.4s;"></div><div style="width: 96px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite 0.4s;"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Empty state — one of three places the woven ornament may appear</div>
+    <div style="position: relative; background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 72px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden;">
+      <div style="position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 15px), repeating-linear-gradient(-45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 15px); mask-image: radial-gradient(60% 100% at 50% 50%, black, transparent 75%); -webkit-mask-image: radial-gradient(60% 100% at 50% 50%, black, transparent 75%); pointer-events: none;"></div>
+      <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, rgba(221,241,250,0.9), rgba(142,206,235,0.35) 45%, transparent 72%); animation: lwBreathe 4.8s ease-in-out infinite;"></div>
+      <div style="position: relative; font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em; margin-top: 22px;">Nothing woven here yet</div>
+      <div style="position: relative; color: #AAB2C8; font-size: 14px; margin-top: 8px; max-width: 380px;">This library is empty. Add media to your Jellyfin server and it will appear here.</div>
+      <button style="position: relative; height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); margin-top: 26px; cursor: pointer;">Open server dashboard</button>
+    </div>
+  </div>
+</div><div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
+
+  <!-- ============ 03 SCREENS ============ -->
+  <div style="margin: 104px 0 12px;">
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #D14560; letter-spacing: 0.1em;">03</span>
+      <h2 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 36px; letter-spacing: 0.02em; margin: 0;">Screens</h2>
+      <div style="flex: 1; height: 1px; background: linear-gradient(90deg, rgba(168,186,230,0.22), transparent);"></div>
+    </div>
+    <p style="max-width: 660px; color: #AAB2C8; margin: 14px 0 0;">All mockups at 1440×900 (reference window), scaled to fit. Placeholder art stands in for server-provided posters and backdrops — in the running app these are the brightest things on screen.</p>
+  </div>
+
+  <!-- S1 LOGIN -->
+  <div data-screen-label="S1 Connect / Login" style="margin: 48px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S1</span><span style="font-weight: 600; font-size: 16px;">Connect / Login</span><span style="font-size: 13px; color: #79809A;">the one screen with full atmosphere — ornament + hero glow</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #07080D; position: relative;">
+        <div style="position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 17px), repeating-linear-gradient(-45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 17px); mask-image: radial-gradient(55% 70% at 50% 42%, black, transparent 78%); -webkit-mask-image: radial-gradient(55% 70% at 50% 42%, black, transparent 78%);"></div>
+        <div style="position: absolute; left: 50%; top: 34%; width: 640px; height: 640px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(142,206,235,0.11), transparent 62%); pointer-events: none;"></div>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: radial-gradient(circle at 32% 28%, #D14560, #A62339 70%); box-shadow: 0 0 28px rgba(209,69,96,0.5), inset 0 0 8px rgba(255,255,255,0.2); border: 1px solid rgba(209,69,96,0.5);"></div>
+          <div style="font-family: 'Marcellus', serif; font-size: 42px; letter-spacing: 0.05em; margin-top: 22px; text-shadow: 0 0 40px rgba(142,206,235,0.25);">LightWeaver</div>
+          <div style="font-size: 15px; color: #79809A; margin-top: 6px;">Sign in to your Jellyfin server</div>
+          <div style="width: 400px; background: rgba(12,14,22,0.88); border: 1px solid rgba(168,186,230,0.12); border-radius: 12px; padding: 28px; margin-top: 36px; box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 80px rgba(142,206,235,0.05); box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; background: #121522; border: 1px solid rgba(168,186,230,0.12); border-radius: 999px; padding: 8px 14px;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: #46C795; box-shadow: 0 0 8px rgba(70,199,149,0.7); flex-shrink: 0;"></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #AAB2C8;">weave.holme.net</span>
+              <span style="margin-left: auto; font-size: 12.5px; color: #8ECEEB;">Change</span>
+            </div>
+            <div style="margin-top: 22px;">
+              <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #79809A; margin-bottom: 7px;">Username</div>
+              <div style="height: 38px; border-radius: 8px; background: #0C0E16; border: 1px solid rgba(221,241,250,0.5); box-shadow: 0 0 12px rgba(142,206,235,0.25); display: flex; align-items: center; padding: 0 12px; color: #E9EDF7; font-size: 14px; box-sizing: border-box;">shallan<span style="display: inline-block; width: 1px; height: 16px; background: #DDF1FA; margin-left: 2px; box-shadow: 0 0 6px rgba(221,241,250,0.8);"></span></div>
+            </div>
+            <div style="margin-top: 16px;">
+              <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #79809A; margin-bottom: 7px;">Password</div>
+              <div style="height: 38px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; padding: 0 12px; color: #79809A; font-size: 14px; letter-spacing: 0.2em; box-sizing: border-box;">••••••••</div>
+            </div>
+            <button style="width: 100%; height: 40px; margin-top: 24px; border-radius: 8px; font: 600 14.5px 'Source Sans 3', sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #B32A42, #A62339); border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 0 24px rgba(209,69,96,0.28); cursor: pointer;">Sign in</button>
+            <div style="text-align: center; margin-top: 16px; font-size: 13px; color: #8ECEEB;">Use Quick Connect code instead</div>
+          </div>
+        </div>
+        <div style="position: absolute; bottom: 26px; left: 0; right: 0; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4A5068; letter-spacing: 0.08em;">LIGHTWEAVER 1.0 · MPV 0.38 · D3D11</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S2 HOME -->
+  <div data-screen-label="S2 Home" style="margin: 56px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S2</span><span style="font-weight: 600; font-size: 16px;">Home</span><span style="font-size: 13px; color: #79809A;">rails scroll horizontally; edges fade into the dark, no arrows until hover</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #0C0E16; position: relative; display: flex;">
+        <div style="width: 232px; flex-shrink: 0; border-right: 1px solid rgba(168,186,230,0.07); padding: 22px 12px; display: flex; flex-direction: column; gap: 3px; box-sizing: border-box;">
+          
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; background: rgba(142,206,235,0.08); color: #E9EDF7; position: relative;"><div style="position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: #DDF1FA; box-shadow: 0 0 8px rgba(142,206,235,0.7);"></div><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg><span style="font-size: 14px; font-weight: 600;">Home</span></div>
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg><span style="font-size: 14px;">Movies</span></div>
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg><span style="font-size: 14px;">Series</span></div>
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="6" height="6" rx="1"></rect><rect x="11" y="3" width="6" height="6" rx="1"></rect><rect x="3" y="11" width="6" height="6" rx="1"></rect><rect x="11" y="11" width="6" height="6" rx="1"></rect></svg><span style="font-size: 14px;">Collections</span></div>
+          <div style="margin-top: auto;">
+            <div style="height: 1px; background: rgba(168,186,230,0.08); margin: 10px 10px;"></div>
+            <div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6 H16 M4 10 H16 M4 14 H16"></path><circle cx="7" cy="6" r="1.8" fill="#0C0E16"></circle><circle cx="13" cy="10" r="1.8" fill="#0C0E16"></circle><circle cx="8.5" cy="14" r="1.8" fill="#0C0E16"></circle></svg><span style="font-size: 14px;">Settings</span></div>
+            <div style="height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 8px; color: #AAB2C8;"><div style="width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(140deg, #3E74D8, #222741); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #E9EDF7;">S</div><span style="font-size: 14px;">shallan</span></div>
+          </div>
+        </div>
+        <div style="flex: 1; padding: 30px 0 0 40px; overflow: hidden; position: relative; box-sizing: border-box;">
+          <div style="position: absolute; top: 0; bottom: 0; right: 0; width: 90px; background: linear-gradient(90deg, transparent, #0C0E16); z-index: 2; pointer-events: none;"></div>
+          <div style="display: flex; align-items: center; gap: 16px; padding-right: 120px;">
+            <div style="height: 38px; flex: 1; max-width: 420px; border-radius: 999px; background: #121522; border: 1px solid rgba(168,186,230,0.14); display: flex; align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box;"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#79809A" stroke-width="1.6"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10 L14 14"></path></svg><span style="font-size: 14px; color: #79809A;">Search your libraries</span></div>
+          </div>
+          <div style="font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em; margin: 32px 0 16px;">Continue Watching</div>
+          <div style="display: flex; gap: 16px;">
+            <sc-for list="{{ continueWatching }}" as="m" hint-placeholder-count="4">
+              <div style="width: 292px; flex-shrink: 0;">
+                <div style="height: 164px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;">
+                  <div style="{{ m.bg }}"></div>
+                  <div style="position: absolute; left: 12px; bottom: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(233,237,247,0.75); text-shadow: 0 1px 6px rgba(7,8,13,0.9);">{{ m.meta }}</div>
+                  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="{{ m.barStyle }}"></div></div>
+                </div>
+                <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">{{ m.t }}</div>
+                <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">{{ m.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em; margin: 34px 0 16px;">Next Up</div>
+          <div style="display: flex; gap: 16px;">
+            <sc-for list="{{ nextUp }}" as="m" hint-placeholder-count="4">
+              <div style="width: 292px; flex-shrink: 0;">
+                <div style="height: 164px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;">
+                  <div style="{{ m.bg }}"></div>
+                </div>
+                <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">{{ m.t }}</div>
+                <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">{{ m.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em; margin: 34px 0 16px;">Recently Added</div>
+          <div style="display: flex; gap: 16px;">
+            <sc-for list="{{ recent }}" as="m" hint-placeholder-count="8">
+              <div style="width: 152px; flex-shrink: 0;">
+                <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;">
+                  <div style="{{ m.bg }}"></div>
+                </div>
+                <div style="font-size: 14px; font-weight: 600; margin-top: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.t }}</div>
+                <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">{{ m.y }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S3 LIBRARY -->
+  <div data-screen-label="S3 Library grid" style="margin: 56px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S3</span><span style="font-weight: 600; font-size: 16px;">Library grid</span><span style="font-size: 13px; color: #79809A;">collapsed rail; alphabet rail lights the current letter as you scroll</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #0C0E16; position: relative; display: flex;">
+        <div style="width: 64px; flex-shrink: 0; border-right: 1px solid rgba(168,186,230,0.07); padding: 22px 12px; display: flex; flex-direction: column; gap: 3px; align-items: center; box-sizing: border-box;">
+          
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(142,206,235,0.08);"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="6" height="6" rx="1"></rect><rect x="11" y="3" width="6" height="6" rx="1"></rect><rect x="3" y="11" width="6" height="6" rx="1"></rect><rect x="11" y="11" width="6" height="6" rx="1"></rect></svg></div>
+          <div style="margin-top: auto; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6 H16 M4 10 H16 M4 14 H16"></path><circle cx="7" cy="6" r="1.8" fill="#0C0E16"></circle><circle cx="13" cy="10" r="1.8" fill="#0C0E16"></circle><circle cx="8.5" cy="14" r="1.8" fill="#0C0E16"></circle></svg></div>
+        </div>
+        <div style="flex: 1; padding: 34px 20px 0 40px; box-sizing: border-box; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 18px;">
+            <span style="font-family: 'Marcellus', serif; font-size: 32px; letter-spacing: 0.02em;">Movies</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A; margin-top: 8px;">1 284 items</span>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+              <div style="height: 34px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13.5px; color: #E9EDF7; box-sizing: border-box;">Sort · Date added <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg></div>
+              <div style="height: 34px; border-radius: 8px; background: #121522; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13.5px; color: #AAB2C8; box-sizing: border-box;">Filters <span style="width: 6px; height: 6px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 6px rgba(221,241,250,0.8);"></span></div>
+              <div style="display: inline-flex; background: #121522; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; padding: 3px; gap: 2px;">
+                <div style="height: 26px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #E9EDF7; background: #222741;">Grid</div>
+                <div style="height: 26px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #AAB2C8;">List</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px 16px; margin-top: 26px;">
+            <sc-for list="{{ library }}" as="m" hint-placeholder-count="12">
+              <div>
+                <div style="aspect-ratio: 2 / 3; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;">
+                  <div style="{{ m.bg }}"></div>
+                </div>
+                <div style="font-size: 13.5px; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.t }}</div>
+                <div style="font-size: 12px; color: #79809A;">{{ m.y }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="width: 30px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #4A5068; padding-right: 6px;">
+          <span>#</span><span style="color: #DDF1FA; text-shadow: 0 0 8px rgba(221,241,250,0.8); font-size: 11px;">A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span><span>I</span><span>J</span><span>K</span><span>L</span><span>M</span><span>N</span><span>O</span><span>P</span><span>R</span><span>S</span><span>T</span><span>U</span><span>V</span><span>W</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
+
+  <!-- S4 ITEM DETAIL -->
+  <div data-screen-label="S4 Item detail" style="margin: 56px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S4</span><span style="font-weight: 600; font-size: 16px;">Item detail — series</span><span style="font-size: 13px; color: #79809A;">backdrop dissolves into the base; the page never has a hard hero edge</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #0C0E16; position: relative; display: flex;">
+        <div style="width: 64px; flex-shrink: 0; border-right: 1px solid rgba(168,186,230,0.07); padding: 22px 12px; display: flex; flex-direction: column; gap: 3px; align-items: center; box-sizing: border-box; position: relative; z-index: 3; background: rgba(12,14,22,0.7);">
+          
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(142,206,235,0.08);"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg></div>
+        </div>
+        <div style="flex: 1; position: relative; min-width: 0;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 470px; background: radial-gradient(130% 100% at 35% 0%, oklch(0.42 0.06 250 / 0.95), transparent 60%), linear-gradient(160deg, oklch(0.3 0.05 250), oklch(0.13 0.035 284));"></div>
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 470px; background: linear-gradient(180deg, rgba(12,14,22,0.1) 0%, rgba(12,14,22,0.55) 55%, #0C0E16 96%);"></div>
+          <div style="position: absolute; top: 24px; right: 32px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: rgba(233,237,247,0.35);">BACKDROP ART · FADES 480 MS ON NAV</div>
+          <div style="position: relative; padding: 116px 48px 0;">
+            <div style="display: flex; gap: 36px;">
+              <div style="width: 210px; height: 315px; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(168,186,230,0.18); box-shadow: 0 16px 48px rgba(0,0,0,0.65); position: relative;"><div style="position: absolute; inset: 0; border-radius: 8px; background: radial-gradient(120% 90% at 28% 16%, oklch(0.5 0.07 250 / 0.95), transparent 55%), linear-gradient(160deg, oklch(0.35 0.06 250), oklch(0.16 0.04 284));"></div><div style="position: absolute; left: 12px; bottom: 12px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; color: rgba(233,237,247,0.5);">POSTER ART</div></div>
+              <div style="min-width: 0; padding-top: 12px;">
+                <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8ECEEB;">Series</div>
+                <div style="font-family: 'Marcellus', serif; font-size: 48px; letter-spacing: 0.02em; line-height: 1.1; margin-top: 8px; text-shadow: 0 2px 24px rgba(7,8,13,0.8);">Hollowmere</div>
+                <div style="display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 14px; color: #AAB2C8;"><span>2024–2026</span><span style="color: #4A5068;">·</span><span>2 seasons</span><span style="color: #4A5068;">·</span><span style="border: 1px solid rgba(168,186,230,0.25); border-radius: 4px; padding: 0 6px; font-size: 12px; color: #AAB2C8;">TV-MA</span><span style="color: #4A5068;">·</span><span style="color: #E9B25C;">8.1</span>
+                  <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box; margin-left: 8px;">4K</span>
+                  <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(233,178,92,0.09); border: 1px solid rgba(233,178,92,0.35); color: #EFC685; text-shadow: 0 0 8px rgba(233,178,92,0.45); box-sizing: border-box;">HDR10</span>
+                  <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">ATMOS 7.1</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 24px;">
+                  <button style="height: 42px; padding: 0 22px; border-radius: 8px; font: 600 15px 'Source Sans 3', sans-serif; color: #FFFFFF; background: linear-gradient(180deg, #B32A42, #A62339); border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 0 24px rgba(209,69,96,0.3); cursor: pointer; display: inline-flex; align-items: center; gap: 10px;"><svg width="12" height="13" viewBox="0 0 11 12" fill="#FFFFFF"><path d="M1 1 L10 6 L1 11 Z"></path></svg>Resume S2 E3 · 24:12</button>
+                  <button style="height: 42px; padding: 0 18px; border-radius: 8px; font: 600 14.5px 'Source Sans 3', sans-serif; color: #E9EDF7; background: rgba(25,29,46,0.8); border: 1px solid rgba(168,186,230,0.2); cursor: pointer;">From start</button>
+                  <div style="width: 42px; height: 42px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.2); display: flex; align-items: center; justify-content: center; color: #AAB2C8; background: rgba(25,29,46,0.5);"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7.5 2 V13 M2 7.5 H13"></path></svg></div>
+                  <div style="width: 42px; height: 42px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.2); display: flex; align-items: center; justify-content: center; color: #AAB2C8; background: rgba(25,29,46,0.5);"><svg width="15" height="13" viewBox="0 0 15 13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 6.5 L5.5 10.5 L13.5 1.5"></path></svg></div>
+                  <div style="width: 42px; height: 42px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.2); display: flex; align-items: center; justify-content: center; color: #AAB2C8; background: rgba(25,29,46,0.5);"><svg width="15" height="4" viewBox="0 0 15 4" fill="currentColor"><circle cx="2" cy="2" r="1.6"></circle><circle cx="7.5" cy="2" r="1.6"></circle><circle cx="13" cy="2" r="1.6"></circle></svg></div>
+                </div>
+                <p style="max-width: 640px; color: #AAB2C8; font-size: 14.5px; line-height: 1.6; margin: 22px 0 0;">A tidal parish that drowns on schedule, a surveyor who stays past the water line, and a ferry that keeps its own ledger. Slow-burning coastal gothic in eight-episode seasons.</p>
+              </div>
+            </div>
+            <div style="display: flex; gap: 48px; margin-top: 34px;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+                  <span style="font-family: 'Marcellus', serif; font-size: 22px; letter-spacing: 0.02em;">Season 2</span>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg>
+                  <span style="margin-left: auto; font-size: 13px; color: #8ECEEB;">View all 8 episodes</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <sc-for list="{{ episodesShort }}" as="m" hint-placeholder-count="3">
+                    <div style="display: flex; gap: 14px; background: rgba(18,21,34,0.75); border: 1px solid rgba(168,186,230,0.08); border-radius: 10px; padding: 9px; align-items: center;">
+                      <div style="width: 132px; height: 74px; border-radius: 6px; flex-shrink: 0; position: relative;"><div style="{{ m.bg }}"></div><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 6px 6px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="{{ m.barStyle }}"></div></div></div>
+                      <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; align-items: baseline; gap: 9px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">{{ m.n }}</span><span style="font-size: 14.5px; font-weight: 600;">{{ m.t }}</span><span style="font-size: 12px; color: #4A5068; margin-left: auto; font-family: 'JetBrains Mono', monospace;">{{ m.dur }}</span></div>
+                        <div style="font-size: 13px; color: #AAB2C8; margin-top: 3px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.desc }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="width: 250px; flex-shrink: 0;">
+                <div style="font-family: 'Marcellus', serif; font-size: 22px; letter-spacing: 0.02em; margin-bottom: 14px;">Cast</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px;">
+                  <sc-for list="{{ cast }}" as="c" hint-placeholder-count="6">
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                      <div style="width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; position: relative; border: 1px solid rgba(168,186,230,0.12); box-sizing: border-box;"><div style="{{ c.bg }}"></div></div>
+                      <div style="min-width: 0;"><div style="font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.n }}</div><div style="font-size: 11.5px; color: #79809A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.r }}</div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S5 PLAYER OSD -->
+  <div data-screen-label="S5 Player OSD" style="margin: 56px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S5</span><span style="font-weight: 600; font-size: 16px;">Player OSD</span><span style="font-size: 13px; color: #79809A;">floats over live mpv video — high contrast, low total luminance; scrims never exceed 0.92 α at the very edge</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #07080D; position: relative;">
+        <div style="position: absolute; inset: 0; background: radial-gradient(90% 80% at 60% 42%, oklch(0.38 0.05 250 / 0.9), transparent 70%), radial-gradient(50% 45% at 30% 65%, oklch(0.3 0.06 42 / 0.5), transparent 70%), linear-gradient(160deg, oklch(0.2 0.04 250), oklch(0.1 0.03 284));"></div>
+        <div style="position: absolute; top: 46%; left: 0; right: 0; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: rgba(233,237,247,0.25);">LIVE VIDEO · RENDERED BY MPV BENEATH THE UI</div>
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 150px; background: linear-gradient(180deg, rgba(7,8,13,0.78), transparent); display: flex; align-items: flex-start; justify-content: space-between; padding: 26px 36px; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #E9EDF7; background: rgba(142,206,235,0.08);"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 1 L1 7 L7 13 M1 7 H15"></path></svg></div>
+            <div>
+              <div style="font-size: 16px; font-weight: 600; text-shadow: 0 1px 8px rgba(7,8,13,0.9);">Hollowmere</div>
+              <div style="font-size: 13px; color: #AAB2C8; margin-top: 2px; text-shadow: 0 1px 8px rgba(7,8,13,0.9);">S2 E4 · The Weir</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX HDR</span>
+            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX VSR</span>
+            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
+            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(233,178,92,0.09); border: 1px solid rgba(233,178,92,0.35); color: #EFC685; text-shadow: 0 0 8px rgba(233,178,92,0.45); box-sizing: border-box;">HDR10</span>
+          </div>
+        </div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; background: linear-gradient(180deg, transparent, rgba(7,8,13,0.6) 45%, rgba(7,8,13,0.92)); display: flex; flex-direction: column; justify-content: flex-end; padding: 0 40px 24px; box-sizing: border-box;">
+          <div style="position: relative; height: 4px;">
+            <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.18);"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 71%; border-radius: 2px; background: rgba(142,206,235,0.20);"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 2px; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 10px rgba(209,69,96,0.55);"></div>
+            <div style="position: absolute; top: -3px; bottom: -3px; left: 24.6%; width: 2px; background: rgba(221,241,250,0.5);"></div>
+            <div style="position: absolute; top: -3px; bottom: -3px; left: 58%; width: 2px; background: rgba(221,241,250,0.5);"></div>
+            <div style="position: absolute; top: -3px; bottom: -3px; left: 83%; width: 2px; background: rgba(221,241,250,0.32);"></div>
+            <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 12px rgba(221,241,250,0.75), 0 0 28px rgba(142,206,235,0.4);"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #AAB2C8;"><span>24:12</span><span style="color: #79809A;">−28:34 · ends 22:41</span></div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #E9EDF7; background: rgba(142,206,235,0.10); box-shadow: 0 0 14px rgba(142,206,235,0.15);"><svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><rect x="1" y="1" width="4" height="14" rx="1"></rect><rect x="9" y="1" width="4" height="14" rx="1"></rect></svg></div>
+            <div style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #AAB2C8;"><svg width="17" height="13" viewBox="0 0 17 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 L2 6.5 L8 11.5 M15 1.5 L9 6.5 L15 11.5"></path></svg></div>
+            <div style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #AAB2C8;"><svg width="17" height="13" viewBox="0 0 17 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 1.5 L15 6.5 L9 11.5 M2 1.5 L8 6.5 L2 11.5"></path></svg></div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-left: 14px;">
+              <svg width="18" height="16" viewBox="0 0 18 16" fill="none" stroke="#AAB2C8" stroke-width="1.6"><path d="M1 6 H4 L8 2.5 V13.5 L4 10 H1 Z"></path><path d="M11 5 C12.5 6.5 12.5 9.5 11 11"></path><path d="M13.5 3 C16 5.5 16 10.5 13.5 13"></path></svg>
+              <div style="position: relative; width: 96px; height: 4px;">
+                <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.16);"></div>
+                <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px; background: rgba(142,206,235,0.55); box-shadow: 0 0 8px rgba(142,206,235,0.35);"></div>
+                <div style="position: absolute; top: 50%; left: 65%; width: 10px; height: 10px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div>
+              </div>
+            </div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+              <div style="height: 40px; border-radius: 10px; display: flex; align-items: center; gap: 9px; padding: 0 14px; color: #AAB2C8; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.04em;"><svg width="16" height="14" viewBox="0 0 18 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 6 H4 L8 2.5 V13.5 L4 10 H1 Z"></path><path d="M11 5 C12.5 6.5 12.5 9.5 11 11"></path></svg>EN · TRUEHD 7.1</div>
+              <div style="height: 40px; border-radius: 10px; display: flex; align-items: center; gap: 9px; padding: 0 14px; color: #AAB2C8; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.04em;"><svg width="17" height="14" viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="15" height="12" rx="2"></rect><path d="M4 8.5 H8 M10 8.5 H13"></path></svg>EN SDH</div>
+              <div style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #AAB2C8;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6 H16 M4 10 H16 M4 14 H16"></path><circle cx="7" cy="6" r="1.8" fill="#07080D"></circle><circle cx="13" cy="10" r="1.8" fill="#07080D"></circle><circle cx="8.5" cy="14" r="1.8" fill="#07080D"></circle></svg></div>
+              <div style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #AAB2C8;"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5.5 1.5 H1.5 V5.5 M9.5 1.5 H13.5 V5.5 M5.5 13.5 H1.5 V9.5 M9.5 13.5 H13.5 V9.5"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 24px; margin-top: 20px; align-items: flex-start;">
+      <div style="width: 340px; flex-shrink: 0;">
+        <div style="width: 340px; height: 212px; border-radius: 10px; border: 1px solid rgba(168,186,230,0.10); position: relative; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(90% 80% at 60% 42%, oklch(0.38 0.05 250 / 0.9), transparent 70%), linear-gradient(160deg, oklch(0.2 0.04 250), oklch(0.1 0.03 284));"></div></div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">IDLE · CHROME + CURSOR GONE</div>
+      </div>
+      <div style="color: #AAB2C8; font-size: 13.5px; line-height: 1.65; max-width: 640px;">
+        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Hide</strong> — after 3 s without input, both scrims and all chrome fade out together over 400 ms ease-out; the cursor hides with them. Pause keeps the OSD visible.</p>
+        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Restore</strong> — any mouse move, key, or seek restores chrome in 160 ms. A bare keyboard seek (←/→) shows only the seek bar + time, not the full OSD.</p>
+        <p style="margin: 0;"><strong style="color: #E9EDF7;">HDR safety</strong> — no surface in the OSD exceeds the scrim values shown; glyphs are #E9EDF7 at most. Glow accents stay ≤ 0.55 α so they cannot bloom over HDR highlights.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- S6 SETTINGS -->
+  <div data-screen-label="S6 Settings" style="margin: 56px 0 0;">
+    <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8ECEEB; letter-spacing: 0.1em;">S6</span><span style="font-weight: 600; font-size: 16px;">Settings — Playback</span><span style="font-size: 13px; color: #79809A;">rows h 64; toggles right-aligned; technical values in mono</span></div>
+    <div style="width: 100%; height: 693px; position: relative; border: 1px solid rgba(168,186,230,0.10); border-radius: 12px; overflow: hidden;">
+      <div style="width: 1440px; height: 900px; transform: scale(0.76944); transform-origin: top left; background: #0C0E16; position: relative; display: flex;">
+        <div style="width: 64px; flex-shrink: 0; border-right: 1px solid rgba(168,186,230,0.07); padding: 22px 12px; display: flex; flex-direction: column; gap: 3px; align-items: center; box-sizing: border-box;">
+          
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 9.5 L10 3.5 L16.5 9.5 V17 H3.5 Z"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="12" rx="1.5"></rect><path d="M3 8 H17 M7.5 4 L9.5 8 M12 4 L14 8"></path></svg></div>
+          <div style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #AAB2C8;"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="14" height="10" rx="1.5"></rect><path d="M7 17.5 H13"></path></svg></div>
+          <div style="margin-top: auto; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(142,206,235,0.08);"><svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#DDF1FA" stroke-width="1.6"><path d="M4 6 H16 M4 10 H16 M4 14 H16"></path><circle cx="7" cy="6" r="1.8" fill="#0C0E16"></circle><circle cx="13" cy="10" r="1.8" fill="#0C0E16"></circle><circle cx="8.5" cy="14" r="1.8" fill="#0C0E16"></circle></svg></div>
+        </div>
+        <div style="width: 264px; flex-shrink: 0; border-right: 1px solid rgba(168,186,230,0.07); padding: 36px 16px; box-sizing: border-box;">
+          <div style="font-family: 'Marcellus', serif; font-size: 26px; letter-spacing: 0.02em; padding: 0 10px 20px;">Settings</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">General</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">Interface</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; background: rgba(142,206,235,0.08); color: #E9EDF7; font-size: 14px; font-weight: 600; position: relative;"><div style="position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: #DDF1FA; box-shadow: 0 0 8px rgba(142,206,235,0.7);"></div>Playback</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">Audio</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">Subtitles</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">Logs</div>
+          <div style="height: 38px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #AAB2C8; font-size: 14px;">About</div>
+        </div>
+        <div style="flex: 1; padding: 40px 48px; box-sizing: border-box; min-width: 0; overflow: hidden;">
+          <div style="font-family: 'Marcellus', serif; font-size: 30px; letter-spacing: 0.02em;">Playback</div>
+          <div style="font-size: 14px; color: #79809A; margin-top: 4px;">Decoding, scaling and enhancement. Changes apply on next play.</div>
+          <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #79809A; margin: 30px 0 10px;">Player</div>
+          <div style="background: #121522; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px;">
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px; border-bottom: 1px solid rgba(168,186,230,0.07);">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">Hardware decoding</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; margin-top: 2px;">nvdec · d3d11va fallback</div></div>
+              <div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.30); border: 1px solid rgba(221,241,250,0.45); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.25); flex-shrink: 0;"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div>
+            </div>
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px; border-bottom: 1px solid rgba(168,186,230,0.07);">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">Preferred quality</div><div style="font-size: 12.5px; color: #79809A; margin-top: 2px;">Direct play when the source allows it</div></div>
+              <div style="height: 36px; border-radius: 8px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; gap: 12px; padding: 0 12px; font-size: 13.5px; color: #E9EDF7; box-sizing: border-box;">Auto (source) <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg></div>
+            </div>
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px;">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">Seek step</div><div style="font-size: 12.5px; color: #79809A; margin-top: 2px;">Arrow keys · media keys</div></div>
+              <div style="display: inline-flex; background: #191D2E; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; padding: 3px; gap: 2px;">
+                <div style="height: 26px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #AAB2C8;">5 s</div>
+                <div style="height: 26px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #E9EDF7; background: #222741;">10 s</div>
+                <div style="height: 26px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: #AAB2C8;">30 s</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #79809A; margin: 26px 0 10px; display: flex; align-items: center; gap: 10px;">RTX Video <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; background: rgba(70,199,149,0.09); border: 1px solid rgba(70,199,149,0.35); color: #7CD9B4; box-sizing: border-box;">RTX 4080 DETECTED</span></div>
+          <div style="background: #121522; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px;">
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px; border-bottom: 1px solid rgba(168,186,230,0.07);">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">RTX Video Super Resolution</div><div style="font-size: 12.5px; color: #79809A; margin-top: 2px;">AI upscaling for sub-4K sources</div></div>
+              <div style="height: 36px; border-radius: 8px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; gap: 12px; padding: 0 12px; font-size: 13.5px; color: #E9EDF7; box-sizing: border-box;">Quality 3 <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg></div>
+              <div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.30); border: 1px solid rgba(221,241,250,0.45); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.25); flex-shrink: 0;"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div>
+            </div>
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px;">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">RTX Video HDR</div><div style="font-size: 12.5px; color: #79809A; margin-top: 2px;">SDR → HDR10 inference · requires an HDR display</div></div>
+              <div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(168,186,230,0.18); position: relative; box-sizing: border-box; flex-shrink: 0;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #79809A;"></div></div>
+            </div>
+          </div>
+          <div style="font-weight: 600; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #79809A; margin: 26px 0 10px;">Diagnostics</div>
+          <div style="background: #121522; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px;">
+            <div style="height: 66px; display: flex; align-items: center; padding: 0 20px; gap: 20px;">
+              <div style="flex: 1;"><div style="font-size: 14.5px; font-weight: 600;">mpv log level</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #79809A; margin-top: 2px;">%APPDATA%\lightweaver\logs</div></div>
+              <div style="height: 36px; border-radius: 8px; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); display: flex; align-items: center; gap: 12px; padding: 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #E9EDF7; box-sizing: border-box;">warn <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="#79809A" stroke-width="1.5"><path d="M1 1 L5 5 L9 1"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 HANDOFF ============ -->
+  <div style="margin: 104px 0 0;">
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #D14560; letter-spacing: 0.1em;">04</span>
+      <h2 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 36px; letter-spacing: 0.02em; margin: 0;">Implementation notes</h2>
+      <div style="flex: 1; height: 1px; background: linear-gradient(90deg, rgba(168,186,230,0.22), transparent);"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px 48px; margin-top: 30px; color: #AAB2C8; font-size: 14px; line-height: 1.65;">
+      <div><strong style="color: #E9EDF7;">Glow, cheaply.</strong> All blooms are WPF <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">DropShadowEffect</span> (blur ≤ 28, shadow-depth 0) or pre-rendered radial brushes. No full-screen blur anywhere; the modal scrim is a solid tint.</div>
+      <div><strong style="color: #E9EDF7;">OSD airspace.</strong> mpv renders into a child HWND; OSD chrome lives in a layered top-level window synced to the video window's bounds — avoids WPF airspace clipping and survives fullscreen exclusive-ish modes.</div>
+      <div><strong style="color: #E9EDF7;">Ornament budget.</strong> The woven pattern is one tiled 64×64 drawing brush at ≤ 0.06 α, used only on login, empty states, and section dividers. Never behind poster grids or video.</div>
+      <div><strong style="color: #E9EDF7;">Contrast.</strong> --text-1/2/3 hold ≥ 4.5:1 on storm-1 and storm-2. On artwork, text always sits on a ≥ 0.6 α scrim gradient, never raw.</div>
+      <div><strong style="color: #E9EDF7;">Fonts.</strong> Marcellus, Source Sans 3, JetBrains Mono — all SIL OFL; ship as embedded TTFs. Fallback stack: Segoe UI, Segoe UI Variable.</div>
+      <div><strong style="color: #E9EDF7;">Scale.</strong> Reference layout 1440×900 at 100%. Below 1160 px width the nav rail collapses; above 2560 px, card sizes step up 1.25× rather than reflowing wider rails.</div>
+    </div>
+    <div style="margin-top: 72px; padding-top: 24px; border-top: 1px solid rgba(168,186,230,0.10); display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #4A5068;">
+      <span>LIGHTWEAVER DESIGN SPEC · V1.0</span>
+      <span>CHROME IS DARKNESS · MEDIA IS LIGHT</span>
+    </div>
+  </div>
+</div></x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const hues = [250, 208, 332, 158, 42, 282, 198, 352, 120, 68, 230, 300, 20, 178, 262, 145, 88, 318, 6, 190];
+    const grad = (h, bright, r) => ({
+      position: 'absolute', inset: '0', borderRadius: r || '8px',
+      background: `radial-gradient(120% 90% at 28% 16%, oklch(${bright ? 0.52 : 0.44} ${bright ? 0.075 : 0.06} ${h} / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 ${h}) 0%, oklch(0.15 0.04 ${(h + 34) % 360}) 100%)`
+    });
+    const sw = (name, hex, use, style) => ({
+      name, hex, use,
+      style: Object.assign({ width: '96px', height: '46px', borderRadius: '6px', border: '1px solid rgba(168,186,230,0.14)', boxSizing: 'border-box' }, style || { background: hex }),
+      txStyle: Object.assign({ width: '96px', height: '46px', borderRadius: '6px', background: '#121522', border: '1px solid rgba(168,186,230,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '19px', fontWeight: 500 }, style || {})
+    });
+    const gem = (label, core, lit, tokens, use) => ({
+      label, tokens, use,
+      swStyle: { width: '44px', height: '44px', borderRadius: '10px', background: `radial-gradient(circle at 32% 28%, ${lit}, ${core} 68%)`, boxShadow: `0 0 18px ${lit}55, inset 0 0 6px rgba(255,255,255,0.18)`, border: `1px solid ${lit}66`, boxSizing: 'border-box' }
+    });
+    const media = (arr, bright) => arr.map((m, i) => ({
+      ...m,
+      bg: grad(hues[(m.h != null ? m.h : i) % hues.length], bright),
+      barStyle: { width: (m.pct || 0) + '%', height: '100%', background: 'linear-gradient(90deg, #A62339, #D14560)', boxShadow: '0 0 8px rgba(209,69,96,0.7)' }
+    }));
+    const eps = [
+      { n: '1', t: 'Low Water', dur: '54 min', desc: 'The parish floods on schedule; the church does not. Wren takes the survey job nobody wanted.', pct: 100, h: 8 },
+      { n: '2', t: 'The Tithe Barn', dur: '49 min', desc: 'A ledger of names that were never born. Halloway calls in an old debt.', pct: 100, h: 12 },
+      { n: '3', t: 'Saltglass', dur: '57 min', desc: 'What the divers bring up should not have kept its shape. Bram stops sleeping.', pct: 62, h: 15 },
+      { n: '4', t: 'The Weir', dur: '51 min', desc: 'The water goes where it is told. For the first time, someone tells it.', pct: 0, h: 17 }
+    ].map((m) => ({ ...m, bg: grad(hues[m.h % hues.length], m.pct === 62, '6px'), barStyle: { width: m.pct + '%', height: '100%', background: m.pct === 100 ? 'rgba(70,199,149,0.55)' : 'linear-gradient(90deg, #A62339, #D14560)', boxShadow: m.pct === 100 ? 'none' : '0 0 8px rgba(209,69,96,0.7)' } }));
+    return {
+      episodesShort: eps.slice(0, 3),
+      baseLadder: [
+        sw('--storm-0', '#07080D', 'Void — window frame, behind video, letterbox'),
+        sw('--storm-1', '#0C0E16', 'Base — page background of every screen'),
+        sw('--storm-2', '#121522', 'Raised — cards, nav rail, fields, episode rows'),
+        sw('--storm-3', '#191D2E', 'Overlay — context menus, popovers, modals, tooltips'),
+        sw('--storm-4', '#222741', 'Highest — pressed fills, active track fills, scrubber rest'),
+        sw('--hairline', 'rgba(168,186,230,0.08)', 'Section rules, card borders at rest', { background: '#0C0E16', borderTop: '1px solid rgba(168,186,230,0.4)' }),
+        sw('--stroke', 'rgba(168,186,230,0.16)', 'Control borders, dividers on raised surfaces', { background: '#0C0E16', borderTop: '1px solid rgba(168,186,230,0.7)' })
+      ],
+      textLadder: [
+        sw('--text-1', '#E9EDF7', 'Primary — titles, values, control labels (14.9:1 on storm-1)', { color: '#E9EDF7' }),
+        sw('--text-2', '#AAB2C8', 'Secondary — metadata, descriptions, inactive nav (7.6:1)', { color: '#AAB2C8' }),
+        sw('--text-3', '#79809A', 'Tertiary — captions, placeholders, timestamps (4.6:1)', { color: '#79809A' }),
+        sw('--text-4', '#4A5068', 'Disabled — non-text AA exempt; pair with disabled cursor', { color: '#4A5068' })
+      ],
+      gems: [
+        gem('Garnet', '#A62339', '#D14560', '--garnet · #A62339\n--garnet-lit · #D14560\n--garnet-glow · 0.38α', 'Primary actions, brand mark, resume progress. The Lightweaver stone.'),
+        gem('Sapphire', '#3E74D8', '#6C9AF0', '--sapphire · #3E74D8\n--sapphire-lit · #6C9AF0', 'Informational states, selection accents, live badges.'),
+        gem('Emerald', '#1FA873', '#46C795', '--emerald · #1FA873\n--emerald-lit · #46C795', 'Success — connection healthy, download complete, watched checks.'),
+        gem('Topaz', '#C98F35', '#E9B25C', '--topaz · #C98F35\n--topaz-lit · #E9B25C', 'Warnings — transcoding fallback, low bandwidth, version drift.'),
+        gem('Ember', '#C93A2E', '#E8705C', '--ember · #C93A2E\n--ember-lit · #E8705C', 'Destructive — delete, sign out, unrecoverable errors. Hotter than garnet.')
+      ],
+      spacing: [4, 8, 12, 16, 20, 24, 32, 40, 48, 64].map((v, i) => ({ t: `--sp-${i + 1}`, v: `${v}px`, bar: { width: `${v * 3}px`, height: '14px', background: 'rgba(142,206,235,0.28)', borderRadius: '2px' } })),
+      motion: [
+        { t: '--dur-instant', v: '120 ms', e: 'ease-out', use: 'Press feedback, toggle knob travel, checkmark draw' },
+        { t: '--dur-glow', v: '240 ms in · 420 ms out', e: 'cubic-bezier(.25,.6,.2,1)', use: 'Hover & focus glow — arrives fast, decays slowly' },
+        { t: '--dur-drift', v: '480 ms', e: 'cubic-bezier(.25,.6,.2,1)', use: 'Modal entry (fade + 8 px rise), row load-in, backdrop cross-fade' },
+        { t: '--dur-ambient', v: '2 400 ms loop', e: 'ease-in-out', use: 'Buffering breathe, skeleton pulse, login ornament shimmer' },
+        { t: '--osd-hide', v: '400 ms, after 3 s idle', e: 'ease-out', use: 'Player OSD fade-out; cursor hides with it; any input restores in 160 ms' }
+      ],
+      continueWatching: media([
+        { t: 'Hollowmere', sub: 'S2 E4 · The Weir', meta: '31 min left', pct: 62, h: 0 },
+        { t: 'Ashfall', sub: 'Film · 2024', meta: '1 h 12 m left', pct: 38, h: 4 },
+        { t: 'The Quiet War', sub: 'S1 E8 · Terms', meta: '9 min left', pct: 81, h: 1 },
+        { t: 'Meridian', sub: 'Film · 2023', meta: '2 h 02 m left', pct: 12, h: 7 }
+      ], true),
+      nextUp: media([
+        { t: 'Salt & Iron', sub: 'S3 E1 · Landfall', h: 5 },
+        { t: 'Nocturne City', sub: 'S1 E5 · Vespers', h: 9 },
+        { t: "Winter's Parliament", sub: 'S2 E2 · Recess', h: 13 },
+        { t: 'Ferryman', sub: 'S1 E2 · Crossing', h: 16 }
+      ], false),
+      recent: media([
+        { t: 'The Glass Delta', y: '2026', h: 2 }, { t: 'Red Static', y: '2026', h: 6 }, { t: 'Pale Rivers', y: '2025', h: 10 },
+        { t: 'Stone Harbor', y: '2026', h: 14 }, { t: 'Signal Lost', y: '2025', h: 18 }, { t: 'Northern Elegy', y: '2026', h: 3 },
+        { t: 'Orbital', y: '2024', h: 11 }, { t: 'The Cartographer', y: '2026', h: 19 }
+      ], false),
+      library: media([
+        { t: 'Ashfall', y: '2024' }, { t: 'The Glass Delta', y: '2026' }, { t: 'Meridian', y: '2023' }, { t: 'Red Static', y: '2026' },
+        { t: 'Pale Rivers', y: '2025' }, { t: 'Stone Harbor', y: '2026' }, { t: 'Signal Lost', y: '2025' }, { t: 'Northern Elegy', y: '2026' },
+        { t: 'Orbital', y: '2024' }, { t: 'The Cartographer', y: '2026' }, { t: 'Undertow', y: '2022' }, { t: 'Vantage', y: '2025' }
+      ].map((m, i) => ({ ...m, h: i })), false),
+      episodes: eps,
+      cast: [
+        { n: 'Mara Ellison', r: 'Wren Calder', h: 1 }, { n: 'Doran Vesk', r: 'The Ferryman', h: 5 },
+        { n: 'Ines Okafor', r: 'Capt. Halloway', h: 9 }, { n: 'Peter Lindqvist', r: 'Bram', h: 13 },
+        { n: 'Sofia Reyes', r: 'Elder Maeve', h: 3 }, { n: 'Tomas Achebe', r: 'Silas', h: 7 }
+      ].map((c) => ({ ...c, bg: grad(hues[c.h % hues.length], false, '50%') }))
+    };
+  }
+}
+</script>
+</body>
+</html>

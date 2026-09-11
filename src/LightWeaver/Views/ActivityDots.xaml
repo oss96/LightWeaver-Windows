@@ -1,0 +1,17 @@
+<UserControl x:Class="LightWeaver.Views.ActivityDots"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False" Focusable="False">
+    <!-- The app's activity indicator (2026-08-03). Three dots throbbing in sequence,
+         replacing the breathing ring that shipped on 2026-08-02: at 18 px that ring's
+         0.92->1.08 swell over 2.4 s was a 1.4 px change spread across two and a half
+         seconds, which read as a static circle.
+
+         The dots are created in code-behind, not here, because their size, spacing and
+         opacity range are dependency properties and a XAML storyboard that binds its
+         keyframe values cannot be frozen. One glow for the whole band rather than one
+         per dot - a single blur pass, and the halo reads as one object. -->
+    <StackPanel x:Name="Host" Orientation="Horizontal"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Effect="{StaticResource LwGlowFocus}" />
+</UserControl>

@@ -1,0 +1,416 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:jf="clr-namespace:LightWeaver.Jellyfin"
+                    xmlns:lw="clr-namespace:LightWeaver"
+                    xmlns:img="clr-namespace:LightWeaver.Imaging"
+                    xmlns:theme="clr-namespace:LightWeaver.Theme"
+                    xmlns:views="clr-namespace:LightWeaver.Views">
+
+    <lw:PositiveToVisibleConverter x:Key="PositiveToVisibleConverter" />
+    <lw:CollectionTypeToIconConverter x:Key="CollectionTypeToIconConverter" />
+    <lw:DownloadedToVisibleConverter x:Key="DownloadedToVisibleConverter" />
+    <BooleanToVisibilityConverter x:Key="BoolToVisibleConverter" />
+
+    <!-- Row in the overlay's track popups: language badge | display name, wrapped in a
+         border that lights garnet + glows when this is the selected track (M8). Selection
+         is the SAME data state the old checkmark used — TrackOption.IsSelected, populated
+         from mpv's reported vid/aid/sid — NOT ListBoxItem.IsSelected. The badge slot keeps
+         its width when empty (Hidden) so rows stay aligned. -->
+    <DataTemplate x:Key="TrackOptionTemplate">
+        <Border x:Name="SelBorder" CornerRadius="{StaticResource LwR1}" BorderThickness="1.5"
+                BorderBrush="Transparent" Background="Transparent" Padding="8,4" Margin="2,2">
+            <StackPanel Orientation="Horizontal">
+                <!-- Language badge: radius 3 STAYS LITERAL, deliberately off the ladder. The chip
+                     is 26x16; LwR1 (8) is half its height and would swallow it into a lozenge. -->
+                <Border Width="26" Height="16" CornerRadius="3" Background="#33FFFFFF"
+                        Margin="0,0,8,0" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Badge}" Value="">
+                                    <Setter Property="Visibility" Value="Hidden" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <!-- ItemStatus mirrors the data selection state ("True"/"False") so UIA
+                     tests can read the selected track now that the check glyph is gone. -->
+                <TextBlock x:Name="SelText" Text="{Binding Display}" VerticalAlignment="Center"
+                           AutomationProperties.ItemStatus="{Binding IsSelected}" />
+            </StackPanel>
+        </Border>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter TargetName="SelBorder" Property="BorderBrush" Value="{StaticResource LwGarnetLitBrush}" />
+                <Setter TargetName="SelBorder" Property="Background" Value="#22D14560" />
+                <Setter TargetName="SelBorder" Property="Effect" Value="{StaticResource LwGlowGarnet}" />
+                <Setter TargetName="SelText" Property="Foreground" Value="{StaticResource LwGarnetLitBrush}" />
+                <Setter TargetName="SelText" Property="FontWeight" Value="SemiBold" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- Row in the overlay's audio-DEVICE popup (Phase 9 M3). Same visual language as
+         TrackOptionTemplate, minus the language-badge gutter: AudioDeviceOption.Badge is always
+         empty, and the track template deliberately RESERVES the badge's 26+8 px when empty
+         (Hidden, to keep track rows aligned) — which left every device row with a dead 34 px
+         indent inside the garnet selection border, reading as "misaligned and too big".
+         The row also stretches: with the shared LwOsdFlyoutItem container the border now spans
+         the full row width instead of hugging the text. -->
+    <DataTemplate x:Key="AudioDeviceOptionTemplate">
+        <Border x:Name="SelBorder" CornerRadius="{StaticResource LwR1}" BorderThickness="1.5"
+                BorderBrush="Transparent" Background="Transparent" Padding="10,5" Margin="2,1"
+                HorizontalAlignment="Stretch">
+            <TextBlock x:Name="SelText" Text="{Binding Display}" VerticalAlignment="Center"
+                       AutomationProperties.ItemStatus="{Binding IsSelected}" />
+        </Border>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter TargetName="SelBorder" Property="BorderBrush" Value="{StaticResource LwGarnetLitBrush}" />
+                <Setter TargetName="SelBorder" Property="Background" Value="#22D14560" />
+                <Setter TargetName="SelBorder" Property="Effect" Value="{StaticResource LwGlowGarnet}" />
+                <Setter TargetName="SelText" Property="Foreground" Value="{StaticResource LwGarnetLitBrush}" />
+                <Setter TargetName="SelText" Property="FontWeight" Value="SemiBold" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- Label/value line of the overlay info panel -->
+    <DataTemplate x:Key="InfoRowTemplate">
+        <Grid Margin="2,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Label}" Opacity="0.6" VerticalAlignment="Top" />
+            <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- Watched badge — emerald check, top-right of the artwork.
+         The three state badges below are 22x22 with radius 11 = exactly half the side, i.e.
+         true CIRCLES. P10 M6 leaves all three untouched by decision (d): they are already
+         maximally round, so neither a ladder token nor LwRPill/LwRFull would change a pixel. -->
+    <Style x:Key="LwWatchedBadge" TargetType="Border">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="CornerRadius" Value="11" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="0,8,8,0" />
+        <Setter Property="Background" Value="{StaticResource LwEmeraldBrush}" />
+        <Setter Property="Visibility"
+                Value="{Binding Played, Converter={StaticResource BoolToVisibleConverter}}" />
+    </Style>
+
+    <!-- Favorite badge — garnet heart, top-left of the artwork (mirrors the watched badge
+         on the opposite corner so the two never collide) -->
+    <Style x:Key="LwFavoriteBadge" TargetType="Border">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="CornerRadius" Value="11" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="8,8,0,0" />
+        <Setter Property="Background" Value="{StaticResource LwGarnetLitBrush}" />
+        <Setter Property="Visibility"
+                Value="{Binding IsFavorite, Converter={StaticResource BoolToVisibleConverter}}" />
+    </Style>
+
+    <!-- Download badge — sapphire download-done, bottom-right of the artwork (M20;
+         bottom-left belongs to the episode card's "N min left" eyebrow). Refreshes via
+         the NotifyItemUserDataChanged card swap, like watched/favorite. -->
+    <Style x:Key="LwDownloadBadge" TargetType="Border">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="CornerRadius" Value="11" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="0,0,8,10" />
+        <Setter Property="Background" Value="{StaticResource LwSapphireBrush}" />
+        <Setter Property="Visibility"
+                Value="{Binding Id, Converter={StaticResource DownloadedToVisibleConverter}}" />
+    </Style>
+
+    <!-- Resume progress — garnet fill on a void track, 3 px at the card's foot -->
+    <!-- P10 M8 task 1. The track had no CornerRadius at all, and the stock Fluent ProgressBar
+         inside it paints a square fill. Both halves are needed: the radius rounds the track the
+         Border paints, and RoundedClip rounds what the CHILD paints - ClipToBounds would not,
+         since it clips to the rectangular bounds (M5/M6). Radius is the exact half-height of the
+         3 px bar; Border/Decorator returns finalSize from ArrangeOverride, so the clip is the
+         real slot and the Image trap from M6 does not apply here. -->
+    <Style x:Key="LwCardProgress" TargetType="Border">
+        <Setter Property="Height" Value="3" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="CornerRadius" Value="1.5" />
+        <Setter Property="theme:RoundedClip.Radius" Value="1.5" />
+        <Setter Property="Background" Value="{StaticResource LwStorm0Brush}" />
+        <Setter Property="Visibility"
+                Value="{Binding ResumePositionTicks, Converter={StaticResource PositiveToVisibleConverter}}" />
+    </Style>
+
+    <!-- Poster card — 152 wide, 2:3 art (home rails + library grid).
+         Phase 8 M2.2 — one no-artwork card treatment: the dim IconMovies glyph sits behind
+         the Image, so any image-less card (movie/series/season/BoxSet/Folder — everything the
+         selector routes to the poster/episode template) shows glyph + title, never a bare
+         storm-2 rect. The title caption is unconditional (outside the art Border). This is
+         distinct from the loading SKELETON (storm-2 + shimmer, no glyph/title) which is shown
+         only while a view is loading and never persists. -->
+    <DataTemplate x:Key="PosterCardTemplate" DataType="{x:Type jf:MediaItem}">
+        <StackPanel Width="152" Margin="0,0,16,0">
+            <!-- P10 M6, the milestone's most visible fix: this Border used to carry
+                 ClipToBounds="True", which clips to the RECTANGULAR bounds and rounds nothing —
+                 so the artwork kept square corners over the rounded card and the radius only
+                 ever showed on the hairline. theme:RoundedClip.Radius on the content Grid does
+                 the real round-clip (11 = LwR2 12 minus the 1 px hairline, concentric) and also
+                 subsumes ClipToBounds' rectangular job of containing UniformToFill overflow. -->
+            <Border CornerRadius="{StaticResource LwR2}" Height="228"
+                    Background="{StaticResource LwStorm2Brush}"
+                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
+                <Grid theme:RoundedClip.Radius="11">
+                    <TextBlock Text="{StaticResource IconMovies}" FontFamily="{StaticResource LwFontIcon}"
+                               FontSize="44" Foreground="{StaticResource LwText4Brush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image img:CachedImage.DecodeWidth="300"
+                           img:CachedImage.SourceUrl="{Binding PosterUrl}" Stretch="UniformToFill" />
+                    <Border Style="{StaticResource LwCardProgress}">
+                        <ProgressBar Value="{Binding PlayedPercentage, Mode=OneWay, TargetNullValue=0}"
+                                     Maximum="100" Height="3" BorderThickness="0" Background="Transparent"
+                                     Foreground="{StaticResource LwProgressFillBrush}" />
+                    </Border>
+                    <Border Style="{StaticResource LwWatchedBadge}">
+                        <TextBlock Text="{StaticResource IconCheck}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="14" Foreground="White" AutomationProperties.AutomationId="WatchedBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Style="{StaticResource LwFavoriteBadge}">
+                        <TextBlock Text="{StaticResource IconFavorite}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="13" Foreground="White" AutomationProperties.AutomationId="FavoriteBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Style="{StaticResource LwDownloadBadge}">
+                        <TextBlock Text="{StaticResource IconDownloadDone}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="14" Foreground="White" AutomationProperties.AutomationId="DownloadBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <!-- Center hover play button -->
+                    <Border Style="{StaticResource LwCardHoverPlay}">
+                        <Button Style="{StaticResource LwCardActionButton}"
+                                Width="44" Height="44" FontSize="26"
+                                Foreground="{StaticResource LwText1Brush}"
+                                Content="{StaticResource IconPlay}" ToolTip="Play"
+                                Command="{x:Static views:CardCommands.PlayItem}"
+                                CommandParameter="{Binding}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="CardHoverPlay" />
+                    </Border>
+                    <!-- Hover action bar (M10): watched toggle + overflow. Buttons swallow
+                         their clicks, so the card never navigates from an action. -->
+                    <Border Style="{StaticResource LwCardActionBar}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource LwCardActionButton}"
+                                     Content="{StaticResource IconCheck}" ToolTip="Toggle watched"
+                                     Command="{x:Static views:CardCommands.ToggleWatched}"
+                                     CommandParameter="{Binding}"
+                                     AutomationProperties.AutomationId="CardWatchedToggle" />
+                            <Button Style="{StaticResource LwCardActionButton}"
+                                     Content="{StaticResource IconMore}" ToolTip="More"
+                                     Command="{x:Static views:CardCommands.OpenCardMenu}"
+                                     CommandParameter="{Binding}"
+                                     AutomationProperties.AutomationId="CardOverflow" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Margin="0,9,0,0"
+                       Foreground="{StaticResource LwText1Brush}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding CardSubtitle}" FontSize="12.5" Margin="0,1,0,0"
+                       Foreground="{StaticResource LwText3Brush}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- Library tile — same 152×228 poster footprint, but a collection-type icon on the
+         storm-2 card instead of Jellyfin's auto-generated collage preview. The glyph matches
+         the nav-rail icon for that library (shared mapping via CollectionTypeToIconConverter).
+         No watched/favorite/progress badges — libraries carry no such state.
+         No theme:RoundedClip here on purpose (P10 M6): there is no artwork to clip, and the
+         glyph's LwGlowHover bleeds past the card edge by design — a clip would cut it. -->
+    <DataTemplate x:Key="LibraryCardTemplate" DataType="{x:Type jf:MediaItem}">
+        <StackPanel Width="152" Margin="0,0,16,0">
+            <Border CornerRadius="{StaticResource LwR2}" Height="228"
+                    Background="{StaticResource LwStorm2Brush}"
+                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
+                <TextBlock Text="{Binding CollectionType, Converter={StaticResource CollectionTypeToIconConverter}}"
+                           FontFamily="{StaticResource LwFontIcon}" FontSize="60"
+                           Foreground="{StaticResource LwLightBaseBrush}"
+                           Effect="{StaticResource LwGlowHover}"
+                           AutomationProperties.AutomationId="LibraryTile"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Margin="0,9,0,0"
+                       Foreground="{StaticResource LwText1Brush}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- Landscape card — 292 wide, 16:9 still (Continue Watching / Next Up) -->
+    <DataTemplate x:Key="EpisodeCardTemplate" DataType="{x:Type jf:MediaItem}">
+        <StackPanel Width="292" Margin="0,0,16,0">
+            <!-- Round-clipped like the poster card — see the comment there. -->
+            <Border CornerRadius="{StaticResource LwR2}" Height="164"
+                    Background="{StaticResource LwStorm2Brush}"
+                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
+                <Grid theme:RoundedClip.Radius="11">
+                    <TextBlock Text="{StaticResource IconMovies}" FontFamily="{StaticResource LwFontIcon}"
+                               FontSize="44" Foreground="{StaticResource LwText4Brush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image img:CachedImage.DecodeWidth="480"
+                           img:CachedImage.SourceUrl="{Binding ThumbUrl}" Stretch="UniformToFill" />
+                    <TextBlock Text="{Binding RemainingDisplay}" FontSize="11" FontWeight="SemiBold"
+                               HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,0,10"
+                               Foreground="{StaticResource LwText1Brush}"
+                               Visibility="{Binding ResumePositionTicks, Converter={StaticResource PositiveToVisibleConverter}}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="#FF07080D" Opacity="0.9" BlurRadius="6" ShadowDepth="1" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <Border Style="{StaticResource LwCardProgress}">
+                        <ProgressBar Value="{Binding PlayedPercentage, Mode=OneWay, TargetNullValue=0}"
+                                     Maximum="100" Height="3" BorderThickness="0" Background="Transparent"
+                                     Foreground="{StaticResource LwProgressFillBrush}" />
+                    </Border>
+                    <Border Style="{StaticResource LwWatchedBadge}">
+                        <TextBlock Text="{StaticResource IconCheck}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="14" Foreground="White" AutomationProperties.AutomationId="WatchedBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Style="{StaticResource LwFavoriteBadge}">
+                        <TextBlock Text="{StaticResource IconFavorite}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="13" Foreground="White" AutomationProperties.AutomationId="FavoriteBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Style="{StaticResource LwDownloadBadge}">
+                        <TextBlock Text="{StaticResource IconDownloadDone}" FontFamily="{StaticResource LwFontIcon}"
+                                   FontSize="14" Foreground="White" AutomationProperties.AutomationId="DownloadBadge"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <!-- Center hover play button -->
+                    <Border Style="{StaticResource LwCardHoverPlay}">
+                        <Button Style="{StaticResource LwCardActionButton}"
+                                Width="44" Height="44" FontSize="26"
+                                Foreground="{StaticResource LwText1Brush}"
+                                Content="{StaticResource IconPlay}" ToolTip="Play"
+                                Command="{x:Static views:CardCommands.PlayItem}"
+                                CommandParameter="{Binding}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="CardHoverPlay" />
+                    </Border>
+                    <!-- Hover action bar (M10) — same pair as the poster card -->
+                    <Border Style="{StaticResource LwCardActionBar}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource LwCardActionButton}"
+                                    Content="{StaticResource IconCheck}" ToolTip="Toggle watched"
+                                    Command="{x:Static views:CardCommands.ToggleWatched}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.AutomationId="CardWatchedToggle" />
+                            <Button Style="{StaticResource LwCardActionButton}"
+                                    Content="{StaticResource IconMore}" ToolTip="More"
+                                    Command="{x:Static views:CardCommands.OpenCardMenu}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.AutomationId="CardOverflow" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Margin="0,9,0,0"
+                       Foreground="{StaticResource LwText1Brush}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding CardSubtitle}" FontSize="12.5" Margin="0,1,0,0"
+                       Foreground="{StaticResource LwText3Brush}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- Libraries get the icon tile, episodes the landscape card, everything else the poster -->
+    <views:MediaCardTemplateSelector x:Key="MediaCardSelector"
+                                     PosterTemplate="{StaticResource PosterCardTemplate}"
+                                     EpisodeTemplate="{StaticResource EpisodeCardTemplate}"
+                                     LibraryTemplate="{StaticResource LibraryCardTemplate}" />
+
+    <!-- Card container: strips the default ListBoxItem chrome (no blue selection box);
+         a gentle hover lift + focus ring is all the card interaction the spec shows. -->
+    <Style x:Key="LwMediaCardItem" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Chrome" Background="Transparent" SnapsToDevicePixels="True"
+                            RenderTransformOrigin="0.5,0.45">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="1.03" ScaleY="1.03" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.85" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Same card container, plus a bottom gutter for the wrapping library grid rows -->
+    <Style x:Key="LwMediaGridItem" TargetType="ListBoxItem" BasedOn="{StaticResource LwMediaCardItem}">
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
+    <!-- Horizontal media row -->
+    <Style x:Key="MediaRowListBox" TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource LwMediaCardItem}" />
+        <Setter Property="ItemTemplateSelector" Value="{StaticResource MediaCardSelector}" />
+        <!-- Hidden, not Auto: the Fluent overlay scrollbar draws its thumb OVER the card
+             captions (a gray strike-through line). Rails scroll via Shift+wheel instead. -->
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+        <!-- The panel is inset 8 px inside the ScrollViewer and the ListBox takes the same 8 px
+             back as negative margin, so nothing moves on screen but the clip gains slack.
+             That slack is what the hover scale needs: LwMediaCardItem grows 1.03 about
+             RenderTransformOrigin 0.5,* — i.e. ~1.5% of the card's width on EACH side — and the
+             rail's ScrollViewer clip used to sit flush with the first card's left edge, so the
+             LEFTMOST card's overhang was cut off. Measured on a hovered episode card: "Countdown"
+             rendered as ":ountdown" and "3 Body Problem" as "; Body Problem", with the thumbnail
+             sliced too. Only the first and last card in a rail can show it, because every other
+             card grows into its neighbour's gap. Vertical slack for the same reason, since a rail's
+             viewport is exactly one card tall.
+             The size is derived, not guessed - the first attempt used 4 px and STILL clipped, by
+             about a pixel. The widest card is the landscape episode card at 308 DIP (measured 462
+             physical at 150%), so its per-side overhang is 308 x 0.015 = 4.6 DIP, and 4 px of slack
+             was simply less than that. 8 px covers cards up to ~533 DIP and costs nothing, since the
+             negative margin cancels it.
+             Padding on the ListBox would NOT work: it insets the ScrollViewer itself, and the items
+             panel starts at the ScrollViewer's edge either way. -->
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel Orientation="Horizontal" Margin="8" />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Margin" Value="-8" />
+    </Style>
+</ResourceDictionary>

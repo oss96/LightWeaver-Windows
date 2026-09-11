@@ -1,0 +1,91 @@
+<UserControl x:Class="LightWeaver.Views.CheckDropdown"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" Height="38">
+    <Grid>
+        <!-- Trigger: same storm-2 chrome + chevron as LwDropdown, showing a live summary
+             plus a count badge when multiple values are selected (ASS redesign P9).
+             P10 M7: Height 34 -> 38 to match LwDropdown / LwTextField / LwSegmented, and the
+             vertical alignment pair forced Stretch for the same reason the horizontal pair is
+             on LwDropdown - the Fluent theme centres button-family controls, so this chrome
+             shrink-wrapped its content and rendered 20 DIP tall. Measured on the Advanced
+             Search TYPE facet: chrome 30 px against the 57 px SEARCH field beside it, which is
+             what made those two facets look like they were floating in the row. -->
+        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press" Cursor="Hand"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      VerticalAlignment="Stretch" VerticalContentAlignment="Stretch"
+                      IsChecked="{Binding IsOpen, ElementName=DropPopup, Mode=TwoWay}">
+            <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chrome" Background="{StaticResource LwStorm2Brush}"
+                            BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                            CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="SummaryText" Grid.Column="0" VerticalAlignment="Center"
+                                       Margin="12,0,6,0" TextTrimming="CharacterEllipsis"
+                                       FontFamily="{StaticResource LwFontUi}" FontSize="13.5"
+                                       Foreground="{StaticResource LwText3Brush}" />
+                            <!-- P10 M5: height-bound radius (h18 -> 9). Identical to LwRPill
+                                 while the badge is square (one digit), a stadium instead of an
+                                 ellipse once a 2+ digit count widens it. -->
+                            <Border x:Name="CountBadge" Grid.Column="1" MinWidth="18" Height="18"
+                                    CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                                    Padding="5,0"
+                                    Background="{StaticResource LwChipFillBrush}"
+                                    BorderBrush="{StaticResource LwChipBorderBrush}" BorderThickness="1"
+                                    VerticalAlignment="Center" Margin="0,0,4,0" Visibility="Collapsed">
+                                <TextBlock x:Name="CountText" FontFamily="{StaticResource LwFontUi}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource LwLightCoreBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Margin="0,0,8,0" Text="{StaticResource IconExpandMore}"
+                                       FontFamily="{StaticResource LwFontIcon}" FontSize="18"
+                                       Foreground="{StaticResource LwText3Brush}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LwFocusBorderSoftBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </ToggleButton.Template>
+        </ToggleButton>
+        <Popup x:Name="DropPopup" AllowsTransparency="True" Placement="Bottom" StaysOpen="False"
+               PopupAnimation="Fade" VerticalOffset="4" PlacementTarget="{Binding ElementName=Toggle}">
+            <Border Background="{StaticResource LwStorm3Brush}"
+                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource LwR2}" Padding="5"
+                    MinWidth="{Binding ActualWidth, ElementName=Toggle}"
+                    Effect="{StaticResource LwElevation2}" SnapsToDevicePixels="True">
+                <DockPanel LastChildFill="True">
+                    <!-- Footer: clear the whole selection in one click (ASS redesign P9). -->
+                    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource LwHairlineBrush}"
+                            BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,4,0,0">
+                        <Button x:Name="ClearButton" Style="{StaticResource LwLinkButton}"
+                                FontSize="12.5" HorizontalAlignment="Left" Padding="8,3"
+                                Content="Clear selection" Click="OnClearClick"
+                                AutomationProperties.AutomationId="CheckDropdownClear" />
+                    </Border>
+                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                        <ListBox x:Name="OptionsList" SelectionMode="Multiple"
+                                 Background="Transparent" BorderThickness="0"
+                                 ItemContainerStyle="{StaticResource LwCheckItem}"
+                                 SelectionChanged="OnSelectionChanged"
+                                 AutomationProperties.AutomationId="CheckDropdownList" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LightWeaver — Advanced Search redesign — main (populated, mixed types)</title>
+<style>
+  /* ============ Woven-light tokens (mirrors Theme/*.xaml) ============ */
+  :root{
+    --storm0:#07080D; --storm1:#0C0E16; --storm2:#121522; --storm3:#191D2E; --storm4:#222741;
+    --hairline:rgba(168,186,230,.08); --stroke:rgba(168,186,230,.16);
+    --t1:#E9EDF7; --t2:#AAB2C8; --t3:#79809A; --t4:#4A5068;
+    --light-core:#DDF1FA; --light:#8ECEEB;
+    --light-haze:rgba(142,206,235,.34); --light-dim:rgba(142,206,235,.14);
+    --garnet:#A62339; --garnet-lit:#D14560;
+    --emerald:#1FA873; --emerald-lit:#46C795; --topaz-lit:#E9B25C;
+    --chip-fill:rgba(142,206,235,.10); --chip-border:rgba(168,186,230,.35);
+    --focus-border:rgba(221,241,250,.65);
+    --f-display:'Marcellus',Georgia,'Times New Roman',serif;
+    --f-ui:'Source Sans 3','Segoe UI Variable Text','Segoe UI',sans-serif;
+    --f-mono:'JetBrains Mono','Cascadia Mono',Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#020204;font-family:var(--f-ui);color:var(--t1);padding:24px 0;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .note{font:12.5px var(--f-mono);color:var(--t3);max-width:1440px;width:1440px}
+  .app{width:1440px;height:940px;background:var(--storm1);display:flex;overflow:hidden;border:1px solid #1c2030;border-radius:6px}
+
+  /* ============ Left nav rail (existing component — unchanged) ============ */
+  .rail{width:232px;background:var(--storm1);border-right:1px solid var(--hairline);padding:22px 12px;display:flex;flex-direction:column;flex-shrink:0}
+  .rail .top{flex:1}
+  .navitem{height:40px;margin:1px 0;border-radius:8px;display:flex;align-items:center;gap:12px;padding:0 12px;color:var(--t2);font-size:14.5px;cursor:pointer}
+  .navitem svg{width:20px;height:20px;flex-shrink:0}
+  .navitem:hover{background:rgba(142,206,235,.08);color:var(--t1)}
+  .navitem.active{background:var(--light-dim);color:var(--light-core)}
+  .railsep{border-top:1px solid var(--stroke);margin:10px 10px}
+  .profile{height:44px;border-radius:8px;display:flex;align-items:center;gap:12px;padding:0 12px;color:var(--t2);font-size:14px}
+  .avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#3E74D8,#6C9AF0);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff}
+
+  /* ============ Content column ============ */
+  .content{flex:1;display:flex;flex-direction:column;min-width:0}
+
+  /* Header: Back/Forward + title. On this screen the global search pill and the
+     "Advanced" affordance are HIDDEN (P5/P6) — the on-screen term field is the single input. */
+  .pagehead{padding:20px 28px 8px 40px;display:flex;align-items:center;gap:6px}
+  .ghostbtn{width:38px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer}
+  .ghostbtn:hover{background:rgba(142,206,235,.08);color:var(--t1)}
+  .ghostbtn.disabled{color:var(--t4);cursor:default}
+  .ghostbtn svg{width:18px;height:18px}
+  .pagetitle{font:20px/1.4 var(--f-display);color:var(--t1);margin-left:8px}
+
+  /* ============ Filter band — deliberate two-row layout (P3) ============ */
+  .filterband{padding:10px 40px 14px 40px;border-bottom:1px solid var(--hairline)}
+  .frow{display:flex;align-items:flex-end;gap:14px}
+  .frow + .frow{margin-top:12px}
+  .facet{display:flex;flex-direction:column;gap:5px}
+  .fcaption{font:600 11.5px/1 var(--f-ui);letter-spacing:.08em;color:var(--t3);padding-left:2px;text-transform:uppercase}
+  .field{height:38px;background:var(--storm2);border:1px solid var(--stroke);border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:14px;color:var(--t1);gap:8px;cursor:pointer}
+  .field .ph{color:var(--t3)}
+  .field .chev{margin-left:auto;color:var(--t3);font-size:11px}
+  /* Active-filter state: engaged facets glow faintly stormlight (P9) */
+  .field.activef{border-color:var(--light-haze);box-shadow:0 0 12px rgba(142,206,235,.14)}
+  .countbadge{min-width:18px;height:18px;border-radius:999px;background:var(--chip-fill);border:1px solid var(--chip-border);color:var(--light-core);font:600 11px/16px var(--f-ui);text-align:center;padding:0 5px;margin-left:auto}
+  .countbadge + .chev{margin-left:8px}
+  /* Search term field */
+  .searchfield{width:300px}
+  .searchfield svg{width:16px;height:16px;color:var(--t3);flex-shrink:0}
+  .searchfield input{background:none;border:none;outline:none;color:var(--t1);font:14px var(--f-ui);flex:1}
+  .searchfield input::placeholder{color:var(--t3)}
+  /* Watched — segmented control (M22 component, replaces the dropdown) */
+  .segmented{height:38px;background:var(--storm2);border:1px solid var(--stroke);border-radius:8px;padding:3px;display:flex;gap:2px}
+  .seg{height:30px;border-radius:6px;padding:0 14px;display:flex;align-items:center;font-size:13px;color:var(--t2);cursor:pointer}
+  .seg.on{background:var(--storm4);color:var(--t1);box-shadow:0 0 12px rgba(142,206,235,.12)}
+  /* Year range (P4): labelled boxes with From/To placeholders */
+  .yearwrap{display:flex;align-items:center;gap:6px}
+  .yearbox{width:74px}
+  .yearbox input{width:100%;background:none;border:none;outline:none;color:var(--t1);font:14px var(--f-ui);text-align:center}
+  .yearbox input::placeholder{color:var(--t3)}
+  .yeardash{color:var(--t3)}
+  /* Sort order (P10): labelled direction toggle, not a bare arrow */
+  .orderbtn{height:38px;border-radius:8px;background:var(--storm2);border:1px solid var(--stroke);display:flex;align-items:center;gap:7px;padding:0 12px;color:var(--t2);font-size:13px;cursor:pointer}
+  .orderbtn svg{width:14px;height:14px}
+  .orderbtn:hover{border-color:rgba(221,241,250,.55);color:var(--t1)}
+  /* Row B right: result summary (P8) */
+  .summary{margin-left:auto;font:12.5px var(--f-mono);color:var(--t3);align-self:flex-end;padding-bottom:11px}
+  .summary b{color:var(--t2);font-weight:400}
+
+  /* ============ Results — type-grouped sections (P1) ============ */
+  .results{flex:1;overflow-y:auto;padding:6px 40px 40px 40px}
+  .results::-webkit-scrollbar{width:10px}
+  .results::-webkit-scrollbar-thumb{background:var(--storm3);border-radius:5px}
+  .sechead{display:flex;align-items:baseline;gap:12px;margin:26px 0 14px}
+  .sechead:first-child{margin-top:14px}
+  .sechead h2{font:22px var(--f-display);font-weight:400;color:var(--t1)}
+  .sechead .cnt{font:12.5px var(--f-mono);color:var(--t3)}
+  .sechead .only{margin-left:auto;font:13px var(--f-ui);color:var(--light);cursor:pointer}
+  .sechead .only:hover{color:var(--light-core);text-shadow:0 0 8px rgba(142,206,235,.5)}
+  .grid{display:flex;flex-wrap:wrap;gap:16px}
+
+  /* Poster card 152×228 (existing shared template) */
+  .pcard{width:152px;cursor:pointer}
+  .pcard .art{width:152px;height:228px;border-radius:8px;border:1px solid var(--hairline);position:relative;overflow:hidden;background:var(--storm2)}
+  .pcard:hover .art{transform:scale(1.03)}
+  .cardname{font:600 14px/1.3 var(--f-ui);color:var(--t1);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cardsub{font:12.5px var(--f-ui);color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Landscape episode card 292×164 (existing shared template) */
+  .ecard{width:292px;cursor:pointer}
+  .ecard .art{width:292px;height:164px;border-radius:8px;border:1px solid var(--hairline);position:relative;overflow:hidden;background:var(--storm2)}
+  /* placeholder "artwork": muted gradients + Marcellus initial (stands in for posters) */
+  .art .ph-art{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:64px var(--f-display);color:rgba(233,237,247,.16)}
+  .ecard .art .ph-art{font-size:44px}
+  .watched{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--emerald);display:flex;align-items:center;justify-content:center}
+  .watched svg{width:13px;height:13px;color:#fff}
+  .progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--storm0)}
+  .progress i{display:block;height:3px;background:linear-gradient(90deg,var(--garnet),var(--garnet-lit))}
+</style>
+</head>
+<body>
+<div class="note">STATE: populated results, mixed types (all three type facets active) → type-grouped sections. Filters active: term “star”, Genre Action +1. Header pill + “Advanced” affordance hidden on this screen (P5/P6).</div>
+<div class="app">
+
+  <!-- Nav rail (unchanged component) -->
+  <nav class="rail">
+    <div class="top">
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>Home</div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>Movies</div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>Shows</div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Collections</div>
+    </div>
+    <div class="railsep"></div>
+    <div class="navitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>Settings</div>
+    <div class="profile"><span class="avatar">O</span>Oss</div>
+  </nav>
+
+  <div class="content">
+    <!-- Header: back/forward + title only (P5: pill hidden; P6: Advanced hidden) -->
+    <div class="pagehead">
+      <div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="ghostbtn disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg></div>
+      <div class="pagetitle">Advanced search</div>
+    </div>
+
+    <!-- Filter band: deliberate two-row layout (P3) -->
+    <div class="filterband">
+      <div class="frow">
+        <div class="facet">
+          <div class="fcaption">Search</div>
+          <div class="field searchfield activef">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input value="star">
+          </div>
+        </div>
+        <div class="facet">
+          <div class="fcaption">Type</div>
+          <div class="field" style="width:170px"><span class="ph">All types</span><span class="chev">▾</span></div>
+        </div>
+        <div class="facet">
+          <div class="fcaption">Genre</div>
+          <div class="field activef" style="width:210px"><span>Action</span><span class="countbadge">+1</span><span class="chev">▾</span></div>
+        </div>
+        <div class="facet">
+          <div class="fcaption">Watched</div>
+          <div class="segmented"><div class="seg on">All</div><div class="seg">Unwatched</div><div class="seg">Watched</div></div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="facet">
+          <div class="fcaption">Year</div>
+          <div class="yearwrap">
+            <div class="field yearbox"><input placeholder="From"></div>
+            <span class="yeardash">–</span>
+            <div class="field yearbox"><input placeholder="To"></div>
+          </div>
+        </div>
+        <div class="facet">
+          <div class="fcaption">Sort</div>
+          <div class="field" style="width:170px"><span>Name</span><span class="chev">▾</span></div>
+        </div>
+        <div class="facet">
+          <div class="fcaption">&nbsp;</div>
+          <div class="orderbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M12 20l-4-4M12 20l4-4"/></svg>A–Z</div>
+        </div>
+        <div class="summary"><b>212 results</b> · 34 movies · 8 series · 170 episodes</div>
+      </div>
+    </div>
+
+    <!-- Results: type-grouped sections (P1). Mixed mode caps each section and offers "Show only". -->
+    <div class="results">
+      <div class="sechead"><h2>Movies</h2><span class="cnt">34</span><span class="only">Show only movies →</span></div>
+      <div class="grid">
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#1d2438,#0e1018)">S</div><div class="progress"><i style="width:42%"></i></div></div><div class="cardname">Stardust</div><div class="cardsub">2007</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#2a2030,#0e1018)">I</div><div class="watched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4 10-10"/></svg></div></div><div class="cardname">Interstellar</div><div class="cardsub">2014</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#16283a,#0e1018)">S</div></div><div class="cardname">A Star Is Born</div><div class="cardsub">2018</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#233042,#0e1018)">S</div></div><div class="cardname">Star Trek</div><div class="cardsub">2009</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#33222a,#0e1018)">R</div></div><div class="cardname">Rogue One</div><div class="cardsub">2016</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#1e2b26,#0e1018)">D</div><div class="watched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4 10-10"/></svg></div></div><div class="cardname">Dark Star</div><div class="cardsub">1974</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#292235,#0e1018)">S</div></div><div class="cardname">Starship Troopers</div><div class="cardsub">1997</div></div>
+      </div>
+
+      <div class="sechead"><h2>Series</h2><span class="cnt">8</span><span class="only">Show only series →</span></div>
+      <div class="grid">
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#20303c,#0e1018)">B</div></div><div class="cardname">Battlestar Galactica</div><div class="cardsub">2004</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#252a40,#0e1018)">S</div><div class="progress"><i style="width:63%"></i></div></div><div class="cardname">Stargate SG-1</div><div class="cardsub">1997</div></div>
+        <div class="pcard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#2e2233,#0e1018)">S</div></div><div class="cardname">Star Trek: TNG</div><div class="cardsub">1987</div></div>
+      </div>
+
+      <div class="sechead"><h2>Episodes</h2><span class="cnt">170</span><span class="only">Show only episodes →</span></div>
+      <div class="grid">
+        <div class="ecard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#1c2a38,#0e1018)">S</div><div class="progress"><i style="width:20%"></i></div></div><div class="cardname">Children of the Gods</div><div class="cardsub">Stargate SG-1 · S1E1</div></div>
+        <div class="ecard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#252336,#0e1018)">T</div><div class="watched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4 10-10"/></svg></div></div><div class="cardname">The Enemy Within</div><div class="cardsub">Stargate SG-1 · S1E3</div></div>
+        <div class="ecard"><div class="art"><div class="ph-art" style="background:linear-gradient(160deg,#2b2c3e,#0e1018)">E</div></div><div class="cardname">Emissary</div><div class="cardsub">Star Trek: DS9 · S1E1</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
