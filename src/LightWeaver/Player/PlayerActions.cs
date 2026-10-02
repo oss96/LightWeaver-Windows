@@ -85,7 +85,7 @@ public static class PlayerActionDispatcher
     /// ones — seek and volume, where repeat is the point. Everything else is discrete: one press,
     /// one action. Without this distinction key auto-repeat drove them all, so holding N walked
     /// the queue by roughly thirty items a second, each one a full <c>PlayItem</c> → negotiation
-    /// POST → <c>loadfile</c> (BUGS.md B9); holding a cycle key spun through every track.
+    /// POST → <c>loadfile</c> (B9); holding a cycle key spun through every track.
     /// New actions are discrete unless deliberately added here.
     ///
     /// The frame-step pair is deliberately ASYMMETRIC, and it is the B9 failure class above that

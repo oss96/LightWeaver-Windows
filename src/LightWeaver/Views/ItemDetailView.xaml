@@ -311,6 +311,16 @@
                                     </Grid>
                                 </Grid>
                             </Button>
+                            <!-- Alternate versions (media sources). Collapsed here as the
+                                 default, like TrailerButton: most items have exactly one
+                                 source, and the per-item version load answers after the
+                                 first paint. -->
+                            <Button x:Name="VersionsButton" Style="{StaticResource LwIconButton}"
+                                    FontFamily="{StaticResource LwFontIcon}" FontSize="20"
+                                    Content="{StaticResource IconVersions}" Click="OnVersions"
+                                    AutomationProperties.Name="Versions"
+                                    Margin="0,0,8,8" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="DetailVersionsButton" />
                             <!-- Episodes only, and only when the episode knows its series -
                                  RenderActions decides via HasOverflowActions. Collapsed here as
                                  the default (same as TrailerButton) so it cannot flash for a

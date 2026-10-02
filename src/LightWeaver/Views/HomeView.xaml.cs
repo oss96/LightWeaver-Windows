@@ -22,6 +22,7 @@ public partial class HomeView : UserControl
     private Popup? _customizePopup;
     private bool _loadedOnce;              // gates the on-reveal refresh until the first load settled
     private bool _refreshing;              // reentrancy guard for rapid reveal flips
+    private bool _refreshPending;          // a library change that arrived mid-refresh (see NotifyLibraryChanged)
     private readonly Dictionary<Guid, PendingAdvance> _pendingAdvances = [];
     private int _nextUpRowGeneration;
     private int _favoritesRowGeneration;
@@ -166,6 +167,26 @@ public partial class HomeView : UserControl
             await RefreshDynamicRowsAsync();
     }
 
+    /// <summary>A server-side library change landed: re-fetch the watching-driven rows now rather
+    /// than at the next reveal, so an item deleted on the server stops being offered here. Same
+    /// path as the on-reveal refresh.
+    /// <para>One that arrives mid-refresh is REMEMBERED, not dropped. A server scan emits a batch
+    /// every thirty seconds or so, which is the same order as a refresh takes on a slow LAN — so
+    /// the batch that lands while the rows are in flight is a likely one, and its rows may have
+    /// been fetched before the change. The flag is cleared before the re-run, so a change during
+    /// THAT run books one more and no further.</para></summary>
+    public void NotifyLibraryChanged()
+    {
+        if (!_loadedOnce)
+            return;
+        if (_refreshing)
+        {
+            _refreshPending = true;
+            return;
+        }
+        _ = RefreshDynamicRowsAsync();
+    }
+
     /// <summary>Re-fetches the rows that change from watching — Continue Watching, Next Up,
     /// Recently Added — each time Home is re-shown (back from the player or a library/detail
     /// view), so watched items drop out, resume positions advance, Next Up rolls to the next
@@ -208,6 +229,12 @@ public partial class HomeView : UserControl
         finally
         {
             _refreshing = false;
+        }
+
+        if (_refreshPending)
+        {
+            _refreshPending = false;
+            await RefreshDynamicRowsAsync();
         }
     }
 

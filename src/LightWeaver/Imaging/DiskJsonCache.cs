@@ -246,6 +246,52 @@ public sealed class DiskJsonCache
         }
     }
 
+    /// <summary>Drops one entry. Exists because the only eviction was age and the manual Clear(),
+    /// so a server-side delete left its cached projection readable until the TTL or the 30-day
+    /// sweep caught up — which is what kept deleted items visible in a cached browse page.
+    /// Best-effort like every other write here: an entry a concurrent read has open stays, and
+    /// the next miss re-fetches it anyway.</summary>
+    public void Remove(string key)
+    {
+        try
+        {
+            File.Delete(Path.Combine(_cacheDir, CacheFileName(key)));
+            Detail("remove", "success", key);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Detail("remove", "failure", key, ex: ex);
+        }
+    }
+
+    /// <summary>Moves one entry's age forward without rewriting it.
+    ///
+    /// <para><see cref="EvictOlderThan"/> judges a file by its own mtime because every value here
+    /// is meant to be an independently re-fetchable projection. The browse folder INDEX is not: it
+    /// is the directory of the other entries, and it was only ever rewritten when a NEW folder id
+    /// appeared. A library with a settled set of folders therefore kept every entry fresh while
+    /// the index aged out from under them — thirty days after the last new folder the sweep
+    /// deleted the index and left the entries, and the blanket invalidation has been enumerating
+    /// an empty list ever since. An entry whose freshness depends on OTHER entries has to be able
+    /// to say so, and a rename of the whole list on every folder read would be a full serialize
+    /// and an atomic move for a file that has not changed.</para>
+    ///
+    /// <para>Best-effort like every other write here, and silent: it runs on every folder read and
+    /// records nothing the lookup line does not already say.</para></summary>
+    public void Touch(string key)
+    {
+        try
+        {
+            var path = Path.Combine(_cacheDir, CacheFileName(key));
+            if (File.Exists(path))
+                File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // in use or gone — the next read re-records it
+        }
+    }
+
     public void Clear()
     {
         try

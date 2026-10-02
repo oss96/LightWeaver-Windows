@@ -13,7 +13,7 @@ namespace LightWeaver.Downloads;
 /// Content-Range), so pause/cancel/app-kill never lose progress. At most
 /// <c>maxParallel()</c> downloads run at once; the rest wait as Queued.
 /// </summary>
-public sealed class DownloadManager
+public sealed class DownloadManager : IDisposable
 {
     /// <summary>Set once by MainWindow; the card badge converter reads it.</summary>
     public static DownloadManager? Instance { get; private set; }
@@ -33,6 +33,13 @@ public sealed class DownloadManager
     /// finite, which the infinite client timeout above left it not being.</summary>
     private static readonly TimeSpan ReadStallTimeout = TimeSpan.FromSeconds(90);
 
+    /// <summary>How much of a running download has to be on disk before it is worth playing from.
+    /// mpv probes the first few MB to pick a demuxer, so offering a nearly empty file just fails
+    /// the load and burns the one fallback attempt for nothing.
+    /// <para>Internal so the harness asserts against the real floor rather than a copy of the
+    /// number, the same reason <see cref="PrefixCoversResume"/> is.</para></summary>
+    internal const long MinPartialStreamBytes = 8L * 1024 * 1024;
+
     private readonly DownloadStore _store = new();
     private readonly ConcurrentDictionary<Guid, DownloadItem> _live = new();
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _active = new();
@@ -40,6 +47,10 @@ public sealed class DownloadManager
     private readonly Func<DownloadItem, string?> _urlBuilder;
     private readonly Func<DownloadItem, string?> _authHeader;
     private readonly object _pumpLock = new();
+    /// <summary>Created with the first partial-stream playback and disposed with the manager; an
+    /// install that never streams a running download never opens a socket.</summary>
+    private PartialFileServer? _partialServer;
+    private bool _disposed;
 
     /// <summary>Any state or progress change; marshal to the dispatcher before touching UI.</summary>
     public event Action? DownloadsChanged;
@@ -92,6 +103,102 @@ public sealed class DownloadManager
 
     public bool IsDownloaded(Guid itemId) => GetCompletedDownload(itemId) is not null;
 
+    /// <summary>A loopback URL serving the partial file of a download that is RUNNING right now,
+    /// or null when the item has nothing worth playing yet. One rung below
+    /// <see cref="GetCompletedDownload"/>: a finished download still outranks this, and this
+    /// outranks re-fetching bytes that are already on the disk.
+    ///
+    /// <para>Only <see cref="DownloadStatus.Downloading"/> qualifies. Paused and Failed have a
+    /// partial file but no writer, so streaming one would stall at the write head until the
+    /// server's bound gave up; Queued has no writer yet and may not get a slot for minutes.</para>
+    /// </summary>
+    /// <param name="resumeTicks">Where playback will start. A prefix that does not reach it is no
+    /// use: the player would seek past the write head and get nothing.</param>
+    /// <param name="runtimeTicks">The item's duration, for turning those ticks into a byte offset.
+    /// Null (or a download with no reported total) means no estimate is possible.</param>
+    public string? TryGetPartialStreamUrl(Guid itemId, long resumeTicks = 0,
+        long? runtimeTicks = null)
+    {
+        if (_disposed)
+            return null;
+        if (!_live.TryGetValue(itemId, out var item) || item.Status != DownloadStatus.Downloading)
+            return null;
+        long onDisk;
+        try
+        {
+            onDisk = File.Exists(item.FilePath) ? new FileInfo(item.FilePath).Length : 0;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        if (onDisk < MinPartialStreamBytes
+            || !PrefixCoversResume(item.TotalBytes, onDisk, resumeTicks, runtimeTicks))
+            return null;
+        var server = _partialServer ??= new PartialFileServer();
+        // The provider reads _live on every write-head poll rather than capturing a snapshot: the
+        // whole question it answers is whether the download is STILL running.
+        var url = server.Publish(itemId, item.FilePath, () =>
+            _live.TryGetValue(itemId, out var live)
+                ? new PartialFileState(live.Status, live.TotalBytes)
+                : null);
+        Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
+            $"event=partial_stream outcome=success item={itemId:N} bytes_on_disk={onDisk} bytes_total={item.TotalBytes}"));
+        return url;
+    }
+
+    /// <summary>Whether the bytes on disk plausibly reach a resume position.
+    ///
+    /// <para>Ticks to bytes is an ESTIMATE and cannot be anything else: it assumes a constant
+    /// bitrate, and a real file is variable — a talky first act and an action third act carry very
+    /// different bytes per second. So the estimate is padded by a quarter of itself before it is
+    /// compared, plus the same floor a from-the-start playback needs. Being wrong in the generous
+    /// direction is what the padding buys away: the player would seek past the write head, be
+    /// refused, and restart on the server anyway, having shown the user a failed start first.
+    /// Being wrong in the careful direction costs a server stream that could have come off the
+    /// disk, which is the whole feature only not applied — much the cheaper mistake.</para>
+    ///
+    /// <para>With no duration, or a download whose total size the server never reported (a
+    /// transcode), there is nothing to estimate FROM, so a resume is refused outright rather than
+    /// guessed at. Playing from the start asks no question and passes straight through.</para>
+    ///
+    /// <para>Scalars rather than a <see cref="DownloadItem"/>, and internal rather than private, so
+    /// the harness can state the arithmetic directly instead of standing up a download engine to
+    /// reach it. It is a pure function of the four numbers; nothing else about the item matters.</para>
+    /// </summary>
+    /// <param name="totalBytes">The download's complete size, or -1 when the server never reported
+    /// one (a transcoded tier).</param>
+    /// <param name="onDisk">Bytes written so far.</param>
+    /// <param name="resumeTicks">Where playback will start.</param>
+    /// <param name="runtimeTicks">The item's duration, or null when it is unknown.</param>
+    internal static bool PrefixCoversResume(long totalBytes, long onDisk, long resumeTicks,
+        long? runtimeTicks)
+    {
+        if (resumeTicks <= 0)
+            return true;
+        if (totalBytes <= 0 || runtimeTicks is not { } runtime || runtime <= 0
+            || resumeTicks >= runtime)
+            return false;
+        var estimate = (long)(totalBytes * ((double)resumeTicks / runtime));
+        return estimate + estimate / 4 + MinPartialStreamBytes <= onDisk;
+    }
+
+    /// <summary>Retires an item's partial-stream token. Called when the playback reading it ends,
+    /// and whenever the file underneath it is about to go away.</summary>
+    public void WithdrawPartialStream(Guid itemId) => _partialServer?.Withdraw(itemId);
+
+    /// <summary>Closes the loopback listener. The downloads themselves are untouched — this owns
+    /// nothing but the socket.</summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        _partialServer?.Dispose();
+        // Cleared, not just disposed: leaving a disposed server in the field let the ??= above
+        // hand it back out, and Publish would then throw ObjectDisposedException on the UI thread.
+        // _disposed is what stops a fresh one being opened after shutdown instead.
+        _partialServer = null;
+    }
+
     public void Enqueue(DownloadItem item)
     {
         if (_active.ContainsKey(item.ItemId))
@@ -136,6 +243,14 @@ public sealed class DownloadManager
     /// removal is mid-flight (it would orphan a running job outside _active).</summary>
     public void Remove(Guid itemId)
     {
+        // Withdrawing does NOT promptly release every reader, and nothing below should be written
+        // as if it did: only a reader sitting at the write head notices, on its next poll. One
+        // that is still behind the head reads on, unaware, until it catches up. The delete is safe
+        // anyway, for a different reason — the reader's handle is opened FileShare.Delete, so it
+        // is never what blocks File.Delete. The handle that does block is the engine's writer
+        // (FileShare.Read), which the cancel below closes and TryDeleteFile retries around for 8 s.
+        // This call is here to stop new readers and to end the waiting ones, not as a barrier.
+        _partialServer?.Withdraw(itemId);
         lock (_pumpLock)
         {
             if (_active.TryRemove(itemId, out var cts))
@@ -177,6 +292,8 @@ public sealed class DownloadManager
 
     public void DeleteAll()
     {
+        foreach (var id in _live.Keys)
+            _partialServer?.Withdraw(id);   // same reason as Remove: the files are about to go
         // The whole teardown holds the pump lock: without it, a just-cancelled task's
         // finally-Pump can start a Queued item mid-iteration — an orphaned download
         // outside _active whose open handle makes its file undeletable (found live).
@@ -285,7 +402,9 @@ public sealed class DownloadManager
                 $"http_status={(int)response.StatusCode} partial={(partial ? "true" : "false")} response_bytes_total={totalBytes}"));
 
             // 206 appends to the partial file; a 200 (server ignored the Range, or a
-            // fresh start) rewrites from scratch.
+            // fresh start) rewrites from scratch. FileShare.Read is what lets the partial file be
+            // read while it is being appended to, which is what PartialFileServer serves from —
+            // narrowing it would silently turn "play while downloading" into a sharing violation.
             await using (var output = new FileStream(item.FilePath,
                 partial && startByte > 0 ? FileMode.Append : FileMode.Create,
                 FileAccess.Write, FileShare.Read))

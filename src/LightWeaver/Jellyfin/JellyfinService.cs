@@ -48,12 +48,35 @@ public sealed record SweepRow(Guid Id, string? Etag, bool Played, bool IsFavorit
 
 /// <summary>Outcome of playback negotiation: the URL mpv should play plus the
 /// server-issued identifiers the progress reports must carry.</summary>
-public sealed record PlaybackDecision(string Url, bool IsTranscode, string PlaySessionId, string? MediaSourceId);
+public sealed record PlaybackDecision(string Url, bool IsTranscode, string PlaySessionId,
+    string? MediaSourceId, int? AudioStreamIndex = null, int? SubtitleStreamIndex = null,
+    bool SubtitleIsBurnedIn = false);
 
 /// <summary>One row of the download resolution picker (Phase 7 M20): the original
 /// source (exact size) or a transcode tier (estimated from bitrate × runtime).</summary>
 public sealed record DownloadOption(string Label, string? MediaSourceId, bool IsOriginal,
     int? MaxWidth, int? VideoBitRate, long? EstimatedSizeBytes, string? Container, string Resolution);
+
+/// <summary>One alternate version (media source) of an item. Movies have carried several for
+/// years; Jellyfin 12 extends them to episodes. <see cref="Label"/> is derived once, at
+/// construction; <see cref="Container"/>, <see cref="Width"/> and <see cref="Height"/> are the
+/// raw source facts it was derived FROM, carried so a caller can re-label without a second
+/// PlaybackInfo round-trip. The picker itself reads only the label plus
+/// <see cref="SizeBytes"/>/<see cref="Bitrate"/>, which are what tell two same-named versions
+/// apart.</summary>
+public sealed record MediaVersion(string Id, string Label, string? Container, int? Bitrate,
+    int? Width, int? Height, long? SizeBytes, bool IsDefault)
+{
+    /// <summary>Right-hand disambiguator: exact size when the server knows it, else the source
+    /// bitrate, else nothing. A METHOD, not a computed property: this record is stored in the
+    /// metadata disk cache, and a public getter would be serialized into every cached entry.</summary>
+    public string Detail()
+        => SizeBytes is { } size
+            ? Downloads.DownloadManager.FormatBytes(size)
+            : Bitrate is > 0
+                ? FormattableString.Invariant($"{Bitrate.Value / 1_000_000.0:0.#} Mbps")
+                : "";
+}
 
 /// <summary>
 /// Wraps the Kiota-generated Jellyfin SDK client: connection lifecycle (login,
@@ -64,6 +87,9 @@ public sealed record DownloadOption(string Label, string? MediaSourceId, bool Is
 public sealed class JellyfinService : IDisposable
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+    /// <summary>"No cap" as an explicit number: omitting MaxStreamingBitrate makes the server
+    /// fall back to a ~8 Mbps default and transcode everything (verified against Jellyfin 10.11).</summary>
+    private const int UnlimitedBitrateBps = 1_000_000_000;
 #if DEBUG
     private static int _downloadOptionsFailOnceConsumed;
 #endif
@@ -71,6 +97,9 @@ public sealed class JellyfinService : IDisposable
     private readonly JellyfinSdkSettings _settings;
     private readonly JellyfinApiClient _client;
     private readonly HttpClient _httpClient;
+    /// <summary>Kept because the transcode-teardown route is keyed by device + play session,
+    /// and the SDK settings do not hand the device id back out once initialized.</summary>
+    private readonly string _deviceId = CredentialStore.GetOrCreateDeviceId();
 
     public string? ServerUrl { get; private set; }
     public string? AccessToken { get; private set; }
@@ -90,7 +119,7 @@ public sealed class JellyfinService : IDisposable
             "LightWeaver",
             typeof(JellyfinService).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
             Environment.MachineName,
-            CredentialStore.GetOrCreateDeviceId());
+            _deviceId);
 
         _httpClient = new HttpClient(new SocketsHttpHandler
         {
@@ -271,6 +300,54 @@ public sealed class JellyfinService : IDisposable
         }
     }
 
+    /// <summary>Tells the server what this client can be asked to do, so it appears as a "Play on"
+    /// target and routes remote commands at the session the live socket rides. Best-effort by
+    /// contract — every failure collapses to false, because capabilities are an enhancement and
+    /// must never be able to block or undo a login.
+    ///
+    /// <para><see cref="ClientCapabilitiesDto.SupportedCommands"/> carries only real
+    /// <c>GeneralCommandType</c> values. Play/Pause/Stop/Seek are <c>PlaystateCommand</c>s — a
+    /// different enum, delivered on the <c>Playstate</c> socket message and enabled by
+    /// <c>SupportsMediaControl</c> instead. Naming them here does not compile, and would not have
+    /// turned them on if it did.</para></summary>
+    public async Task<bool> ReportCapabilitiesAsync()
+    {
+        if (!IsConnected)
+            return false;
+        try
+        {
+            await _client.Sessions.Capabilities.Full.PostAsync(new ClientCapabilitiesDto
+            {
+                PlayableMediaTypes = [MediaType.Video, MediaType.Audio],
+                SupportsMediaControl = true,
+                // The server keys a remembered session off the device id rather than minting a new
+                // one per connection, which is what lets a "play on" target survive a restart.
+                SupportsPersistentIdentifier = true,
+                SupportedCommands =
+                [
+                    GeneralCommandType.SetVolume,
+                    GeneralCommandType.VolumeUp,
+                    GeneralCommandType.VolumeDown,
+                    GeneralCommandType.Mute,
+                    GeneralCommandType.Unmute,
+                    GeneralCommandType.ToggleMute,
+                    GeneralCommandType.SetAudioStreamIndex,
+                    GeneralCommandType.SetSubtitleStreamIndex,
+                    GeneralCommandType.PlayNext,
+                    GeneralCommandType.DisplayMessage,
+                    GeneralCommandType.ToggleFullscreen,
+                    GeneralCommandType.Play,
+                ],
+            }).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or OperationCanceledException)
+        {
+            Diagnostics.AppLog.Detail("session", $"event=capabilities outcome=failure error={ex.GetType().Name}");
+            return false;
+        }
+    }
+
     public void Logout()
     {
         AccessToken = null;
@@ -437,12 +514,42 @@ public sealed class JellyfinService : IDisposable
         return Map(result?.Items);
     }
 
-    /// <summary>Continue-watching row.</summary>
+    /// <summary>The kinds the two Continue Watching queries ask for. Deliberately the same set
+    /// as <see cref="MediaItem.IsPlayable"/>, and shared by both queries so the rail and its
+    /// see-all view can never drift apart. AudioBook, Trailer, Book and Recording are absent
+    /// because <see cref="MediaItem.IsPlayable"/> excludes them, not by separate judgement — a
+    /// card the rail offers but a click cannot play is the same defect in a different costume.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is load-bearing, not tidiness. <c>/UserItems/Resume</c> takes an OPT-IN type
+    /// filter with no default, so an unconstrained call means "anything the server considers in
+    /// progress" — and since Jellyfin 12 that includes CONTAINERS: a Season or Series whose
+    /// children are partly watched is in progress by <c>PlayedPercentage</c>, with
+    /// <c>PlaybackPositionTicks</c> still 0. Measured against Tower 12.0.0: the unconstrained
+    /// query returned 19 items, of which 9 were Seasons and 9 were Series and exactly 1 was an
+    /// Episode. Those containers rendered as poster tiles with no progress bar that navigate
+    /// instead of playing, and duplicated the Next Up rail, which already listed every one of
+    /// those series as a proper episode.</para>
+    /// <para>The filter must go in the REQUEST, never in a post-filter over the response.
+    /// <see cref="GetResumePagedAsync"/> feeds SectionView, which asks for the next page at
+    /// <c>startIndex = items.Count</c> and trusts the server's <c>TotalRecordCount</c>; dropping
+    /// items client-side would make the server re-serve them as duplicates, compounding page
+    /// after page, and would leave the "N items" label counting rows the grid never shows. The
+    /// server applies this filter to the count as well — the same measurement returned
+    /// <c>TotalRecordCount</c> 19 unconstrained and 1 constrained — so paging stays
+    /// consistent.</para>
+    /// </remarks>
+    private static readonly BaseItemKind[] ResumeItemTypes =
+        [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video,
+         BaseItemKind.MusicVideo, BaseItemKind.Audio];
+
+    /// <summary>Continue-watching row. Leaf items only — see <see cref="ResumeItemTypes"/>.</summary>
     public async Task<List<MediaItem>> GetResumeItemsAsync(int limit = 12)
     {
         var result = await WithRetry(() => _client.UserItems.Resume.GetAsync(cfg =>
         {
             cfg.QueryParameters.Limit = limit;
+            cfg.QueryParameters.IncludeItemTypes = ResumeItemTypes;
             cfg.QueryParameters.Fields = [ItemFields.Overview];
         })).ConfigureAwait(false);
         return Map(result?.Items);
@@ -493,6 +600,7 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.StartIndex = startIndex;
             cfg.QueryParameters.Limit = limit;
             cfg.QueryParameters.EnableTotalRecordCount = true;
+            cfg.QueryParameters.IncludeItemTypes = ResumeItemTypes;
             cfg.QueryParameters.Fields = [ItemFields.Overview];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
@@ -1129,7 +1237,11 @@ public sealed class JellyfinService : IDisposable
     /// <summary>The item's trickplay bucket closest to 320 px wide, or null when the
     /// server has no tiles. Raw JSON fetch: the SDK leaves BaseItemDto.Trickplay as
     /// untyped AdditionalData, and the single-item builder has no Fields param.</summary>
-    public async Task<TrickplayInfo?> GetTrickplayAsync(Guid itemId)
+    /// <param name="mediaSourceId">The source to read sheets for, or null for whichever the
+    /// server lists first. An alternate version has its OWN trickplay bucket — its sheets are
+    /// cut from a different file, so a 4K remux served the 1080p encode's sheets shows previews
+    /// from the wrong edit (and, when the two runtimes differ, from the wrong minute).</param>
+    public async Task<TrickplayInfo?> GetTrickplayAsync(Guid itemId, string? mediaSourceId = null)
     {
         var json = await GetRawAsync($"/Items/{itemId}?fields=Trickplay").ConfigureAwait(false);
         if (json is null)
@@ -1143,6 +1255,13 @@ public sealed class JellyfinService : IDisposable
 
             foreach (var source in trickplay.EnumerateObject())
             {
+                // A named source skips every other bucket rather than falling back to the first:
+                // returning the default source's sheets under the requested id would silently
+                // fetch tiles the server has no such thing for (404 -> no preview at all), which
+                // is strictly worse than the hover preview being absent for one version.
+                if (mediaSourceId is { Length: > 0 }
+                    && !string.Equals(source.Name, mediaSourceId, StringComparison.Ordinal))
+                    continue;
                 if (source.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
                     continue;
                 TrickplayInfo? best = null;
@@ -1397,7 +1516,11 @@ public sealed class JellyfinService : IDisposable
     }
 
     /// <summary>Direct-play stream URL; mpv authenticates via the Authorization header.</summary>
-    public string GetStreamUrl(Guid itemId) => $"{ServerUrl}/Videos/{itemId}/stream?static=true";
+    public string GetStreamUrl(Guid itemId, string? mediaSourceId = null)
+        => $"{ServerUrl}/Videos/{itemId}/stream?static=true"
+            + (mediaSourceId is { Length: > 0 }
+                ? $"&mediaSourceId={Uri.EscapeDataString(mediaSourceId)}"
+                : "");
 
     /// <summary>Self-authenticating stream URL for use OUTSIDE the app (M10 "Copy stream
     /// URL") — appends the <c>ApiKey</c> query parameter since external players can't send
@@ -1480,17 +1603,7 @@ public sealed class JellyfinService : IDisposable
             var video = source.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
             if (video?.Height is not { } height)
                 continue;
-            var resLabel = height switch
-            {
-                >= 2160 => "4K",
-                >= 1440 => "1440p",
-                >= 1080 => "1080p",
-                >= 720 => "720p",
-                >= 480 => "480p",
-                _ => FormattableString.Invariant($"{height}p"),
-            };
-            if (video.Width is >= 3840)
-                resLabel = "4K";
+            var resLabel = ResolutionLabel(video.Width, height);
             var sizeLabel = source.Size is { } size
                 ? Downloads.DownloadManager.FormatBytes(size)
                 : "Unknown size";
@@ -1523,6 +1636,100 @@ public sealed class JellyfinService : IDisposable
         return options;
     }
 
+    /// <summary>Height-bucketed resolution label. Width decides 4K on its own because a
+    /// scope-ratio 4K source is only ~1600 px tall, which the height buckets would call 1440p.</summary>
+    private static string ResolutionLabel(int? width, int? height)
+        => width is >= 3840
+            ? "4K"
+            : height switch
+            {
+                >= 2160 => "4K",
+                >= 1440 => "1440p",
+                >= 1080 => "1080p",
+                >= 720 => "720p",
+                >= 480 => "480p",
+                > 0 => FormattableString.Invariant($"{height}p"),
+                _ => "",
+            };
+
+    /// <summary>Every media source (alternate version) of an item, for the detail-view version
+    /// picker. Empty on failure — the picker is an enhancement, so a bad response hides it
+    /// rather than surfacing an error over an item that plays fine.
+    /// <para>Disk-cached (M19) on the same terms as <see cref="GetMediaStreamsAsync"/> and for
+    /// the same reason: the source list is user-state-free playback metadata, and uncached it
+    /// puts a SECOND PlaybackInfo round-trip next to the streams one on every detail-view open,
+    /// which is exactly the cost that cache exists to spare the flaky LAN. Only a non-empty
+    /// answer is stored — an enumeration that failed must retry on the next open rather than
+    /// sit on a hidden button for the whole TTL.</para></summary>
+    public async Task<IReadOnlyList<MediaVersion>> GetMediaVersionsAsync(Guid itemId)
+        => await Imaging.MetadataCache.GetOrFetchAsync($"versions:{ServerUrl}:{itemId:N}",
+            TimeSpan.FromHours(1), () => FetchMediaVersionsAsync(itemId)).ConfigureAwait(false)
+            ?? [];
+
+    private async Task<List<MediaVersion>?> FetchMediaVersionsAsync(Guid itemId)
+    {
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var body = new PlaybackInfoDto
+            {
+                UserId = UserId,
+                MaxStreamingBitrate = UnlimitedBitrateBps,
+                EnableDirectPlay = true,
+                EnableDirectStream = true,
+                EnableTranscoding = true,
+                // The one field that differs from NegotiatePlaybackAsync, and the reason this
+                // POST may go through WithRetry at all: enumerating versions must not open a
+                // live stream or hand back an ffmpeg job for a source nobody picked. Nothing
+                // here adopts the returned PlaySessionId either, so a retried request leaks no
+                // session the way a retried negotiation would (B12).
+                AutoOpenLiveStream = false,
+                DeviceProfile = BuildDeviceProfile(UnlimitedBitrateBps),
+            };
+            var info = await WithRetry(() => _client.Items[itemId].PlaybackInfo.PostAsync(body))
+                .ConfigureAwait(false);
+            var versions = new List<MediaVersion>();
+            foreach (var source in info?.MediaSources ?? [])
+            {
+                if (source.Id is not { Length: > 0 } id)
+                    continue;
+                var video = source.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
+                versions.Add(new MediaVersion(id,
+                    source.Name is { Length: > 0 } name
+                        ? name
+                        : DerivedVersionLabel(video, source.Container),
+                    source.Container, source.Bitrate, video?.Width, video?.Height, source.Size,
+                    // The SDK exposes no primary-version marker on MediaSourceInfo (checked
+                    // against 2025.10.21), so "default" is the order the server returned.
+                    IsDefault: versions.Count == 0));
+            }
+            Diagnostics.AppLog.Detail("jellyfin", FormattableString.Invariant(
+                $"event=media_versions outcome=success elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} count={versions.Count}"));
+            // null, not an empty list: GetOrFetchAsync stores anything non-null, and a response
+            // that named no source is a non-answer — caching it would hide the picker for an
+            // hour on an item that has versions.
+            return versions.Count > 0 ? versions : null;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.AppLog.Detail("jellyfin", FormattableString.Invariant(
+                $"event=media_versions outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={itemId:N}"), ex);
+            return null;
+        }
+    }
+
+    /// <summary>Label for a media source the server did not name: resolution, video codec and
+    /// container are what actually tell two unnamed versions of one item apart.</summary>
+    private static string DerivedVersionLabel(MediaStream? video, string? container)
+    {
+        var sb = new StringBuilder(ResolutionLabel(video?.Width, video?.Height));
+        if (video?.Codec is { Length: > 0 } codec)
+            sb.Append(sb.Length > 0 ? " " : "").Append(codec.ToUpperInvariant());
+        if (container is { Length: > 0 } c)
+            sb.Append(sb.Length > 0 ? $" ({c})" : c);
+        return sb.Length > 0 ? sb.ToString() : "Unknown version";
+    }
+
     /// <summary>
     /// Negotiates playback with the server (POST PlaybackInfo): direct play when the
     /// server allows it under the bitrate cap, else the server's HLS transcode URL.
@@ -1546,12 +1753,15 @@ public sealed class JellyfinService : IDisposable
         // go through it (B12): the one server call with no retry is also the one whose failure
         // silently downgrades playback, so it needs its own outcome record.
         var started = System.Diagnostics.Stopwatch.StartNew();
+        // "Unlimited" must be an explicit huge value (see UnlimitedBitrateBps); jellyfin-web
+        // always sends a value too. Resolved outside the try so the failure log can still
+        // name what was asked for.
+        var effectiveBitrate = maxBitrateBps > 0 ? maxBitrateBps : UnlimitedBitrateBps;
         try
         {
-            // "Unlimited" must be an explicit huge value: omitting MaxStreamingBitrate
-            // makes the server fall back to a ~8 Mbps default and transcode everything
-            // (verified against Jellyfin 10.11; jellyfin-web always sends a value too).
-            var effectiveBitrate = maxBitrateBps > 0 ? maxBitrateBps : 1_000_000_000;
+#if DEBUG
+            await ApplyQualityNegotiationTestHooksAsync(effectiveBitrate).ConfigureAwait(false);
+#endif
             var body = new PlaybackInfoDto
             {
                 UserId = UserId,
@@ -1578,43 +1788,128 @@ public sealed class JellyfinService : IDisposable
             var source = info?.MediaSources?.FirstOrDefault();
             if (source is null || info?.PlaySessionId is not { Length: > 0 } playSessionId)
             {
-                NegotiateDetail(itemId, "incomplete", started, forceTranscode);
+                NegotiateDetail(itemId, "incomplete", started, forceTranscode, effectiveBitrate);
                 return null;
             }
 
             if (!forceTranscode && source.SupportsDirectPlay == true)
             {
-                NegotiateDetail(itemId, "direct_play", started, forceTranscode);
-                return new PlaybackDecision(GetStreamUrl(itemId), false, playSessionId, source.Id);
+                NegotiateDetail(itemId, "direct_play", started, forceTranscode, effectiveBitrate);
+                return new PlaybackDecision(GetStreamUrl(itemId, source.Id), false, playSessionId,
+                    source.Id, audioStreamIndex ?? source.DefaultAudioStreamIndex,
+                    subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex);
             }
             if (source.TranscodingUrl is { Length: > 0 } transcodingUrl)
             {
-                NegotiateDetail(itemId, "transcode", started, forceTranscode);
-                return new PlaybackDecision(ServerUrl + transcodingUrl, true, playSessionId, source.Id);
+                NegotiateDetail(itemId, "transcode", started, forceTranscode, effectiveBitrate);
+                return new PlaybackDecision(ServerUrl + transcodingUrl, true, playSessionId,
+                    source.Id, audioStreamIndex ?? source.DefaultAudioStreamIndex,
+                    subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex,
+                    source.MediaStreams?.Any(s =>
+                        s.Index == (subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex)
+                        && s.DeliveryMethod == MediaStream_DeliveryMethod.Encode) == true);
             }
             // No transcode URL offered — direct is the only option left.
             NegotiateDetail(itemId, forceTranscode ? "no_transcode_offered" : "direct_play",
-                started, forceTranscode);
+                started, forceTranscode, effectiveBitrate);
             return forceTranscode
                 ? null
-                : new PlaybackDecision(GetStreamUrl(itemId), false, playSessionId, source.Id);
+                : new PlaybackDecision(GetStreamUrl(itemId, source.Id), false, playSessionId,
+                    source.Id, audioStreamIndex ?? source.DefaultAudioStreamIndex,
+                    subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex);
         }
         catch (Exception ex)
         {
-            NegotiateDetail(itemId, "failure", started, forceTranscode, ex);
+            NegotiateDetail(itemId, "failure", started, forceTranscode, effectiveBitrate, ex);
             return null;
         }
     }
 
+#if DEBUG
+    /// <summary>Deterministic guest-suite seams. A hook applies only to the exact requested
+    /// bitrate, so initial playback remains untouched while one quality request is delayed
+    /// or failed. Release builds do not contain this code.</summary>
+    private static async Task ApplyQualityNegotiationTestHooksAsync(int effectiveBitrateBps)
+    {
+        if (int.TryParse(Environment.GetEnvironmentVariable(
+                "LIGHTWEAVER_TEST_NEGOTIATE_DELAY_BITRATE_BPS"), out var delayedBitrate)
+            && delayedBitrate == effectiveBitrateBps
+            && int.TryParse(Environment.GetEnvironmentVariable(
+                "LIGHTWEAVER_TEST_NEGOTIATE_DELAY_MS"), out var delayMs)
+            && delayMs > 0)
+        {
+            Diagnostics.AppLog.Detail("jellyfin", FormattableString.Invariant(
+                $"event=quality_test outcome=delay_started max_bitrate_bps={effectiveBitrateBps}"));
+            await Task.Delay(Math.Clamp(delayMs, 1, 10_000)).ConfigureAwait(false);
+        }
+        if (int.TryParse(Environment.GetEnvironmentVariable(
+                "LIGHTWEAVER_TEST_NEGOTIATE_FAIL_BITRATE_BPS"), out var failedBitrate)
+            && failedBitrate == effectiveBitrateBps)
+        {
+            throw new InvalidOperationException("Quality negotiation failure requested by test hook.");
+        }
+    }
+#endif
+
+    /// <summary>Tears down whatever the server started for a decision that was negotiated and
+    /// then never handed to mpv — a superseded quality change, or a playback the user left
+    /// during the POST. Idempotent: for a VOD item the PlaybackInfo POST only mints a
+    /// PlaySessionId and computes a TranscodingUrl, and ffmpeg does not start until the
+    /// playlist is first fetched, so most discards find nothing to kill.
+    ///
+    /// <para>Deliberately NOT <c>POST /Sessions/Playing/Stopped</c>: that also clears the
+    /// device's NowPlaying and saves the item's resume position from the reported ticks, so
+    /// using it to drop an orphan would overwrite the resume point of the stream that is
+    /// still playing. And deliberately not retried — a lost teardown costs an idle ffmpeg job
+    /// the server reaps on its own, while a retry storm on the live session costs more.</para></summary>
+    public async Task DiscardUnplayedDecisionAsync(PlaybackDecision decision)
+    {
+        try
+        {
+            await _client.Videos.ActiveEncodings.DeleteAsync(cfg =>
+            {
+                cfg.QueryParameters.DeviceId = _deviceId;
+                cfg.QueryParameters.PlaySessionId = decision.PlaySessionId;
+            }).ConfigureAwait(false);
+            DiscardDetail(decision, "sent");
+        }
+        catch (Exception ex)
+        {
+            DiscardDetail(decision, "failure", ex);
+        }
+    }
+
+    private static void DiscardDetail(PlaybackDecision decision, string outcome, Exception? ex = null)
+    {
+        if (!Diagnostics.AppLog.Verbose)
+            return;
+        // Presence, not the value. PlaybackReporter.Start logs `server_session=true|false` for the
+        // same field deliberately, and AppLog.Redact matches URLs, Token=, api_key= and
+        // AccessToken - not a bare session GUID, so a value written here would survive into the
+        // log file verbatim.
+        var line = $"event=discard_decision outcome={outcome} server_session={(decision.PlaySessionId is null ? "false" : "true")} was_transcode={(decision.IsTranscode ? "true" : "false")}";
+        if (ex is not null)
+            line += $" error={ex.GetType().Name}";
+        Diagnostics.AppLog.Detail("jellyfin", line);
+    }
+
     /// <summary>The negotiation verdict: which play method the server granted, or how it failed.
-    /// The item GUID is allowed (correlation); the negotiated URL is not.</summary>
+    /// The item GUID is allowed (correlation); the negotiated URL is not.
+    ///
+    /// <para>The posted bitrate and the forced-transcode flag are logged because they are the only
+    /// evidence of what was actually asked for: the request body itself is never captured, and
+    /// with a per-item quality override the value no longer follows from the Settings file a
+    /// test can read. There is deliberately no <c>direct_play=</c> field: it was only ever
+    /// <c>!forced_transcode</c> restated on the same line, and it read as though the SERVER had
+    /// granted direct play, which is what <c>outcome=</c> carries.</para></summary>
     private static void NegotiateDetail(Guid itemId, string outcome,
-        System.Diagnostics.Stopwatch started, bool forceTranscode, Exception? ex = null)
+        System.Diagnostics.Stopwatch started, bool forceTranscode, int effectiveBitrateBps,
+        Exception? ex = null)
     {
         if (!Diagnostics.AppLog.Verbose)
             return;
         var line = FormattableString.Invariant(
-            $"event=negotiate outcome={outcome} elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} forced_transcode={(forceTranscode ? "true" : "false")}");
+            $"event=negotiate outcome={outcome} elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} forced_transcode={(forceTranscode ? "true" : "false")} max_bitrate_bps={effectiveBitrateBps}");
         if (ex is not null)
             line += $" error={ex.GetType().Name}";
         Diagnostics.AppLog.Detail("jellyfin", line);

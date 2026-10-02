@@ -5,7 +5,7 @@
              AutomationProperties.AutomationId="ShortcutsOverlay">
     <!-- Keyboard-shortcuts panel (Phase 10 M9). Hosted in BOTH MainWindow and OverlayWindow:
          mpv owns a child HWND, so WPF content cannot draw over the video and a single instance
-         in the shell could never be seen while playing (TECHNICAL.md, airspace).
+         in the shell could never be seen while playing (airspace).
          Content comes from AppShortcuts.BuildRows on every open, so a rebind made in Settings
          is reflected without a relaunch. -->
     <UserControl.Resources>

@@ -26,18 +26,56 @@ one repo each) rather than one cross-platform build.
 - Playback speed control (0.5x–2x), mute, and a brief volume indicator on any change
 - Video buffer size in Settings: **Recommended** by default, with **Less memory** and
   **More read-ahead** presets and a custom size under Advanced
+- **Alternate versions**: when an item has more than one media source — a 4K remux beside a 1080p
+  encode, on movies and, since Jellyfin 12, on episodes — a Versions button on the detail view
+  picks which one to play, and a VERSIONS group in the player's track flyout switches between them
+  mid-playback without losing your position, pause state, or audio and subtitle choices. Unnamed
+  sources are labelled by resolution, codec and container, with size or bitrate to tell two
+  same-named versions apart. The choice is remembered per item, and is ignored if the file it
+  named is gone. A downloaded copy still wins: it is one specific version, and streaming another
+  over the network would defeat the point of having downloaded it
 
 RTX VSR and RTX Video HDR apply to SDR content only (an NVIDIA limitation). On HDR or Dolby Vision
 sources the toggles grey out with the reason on hover, the filters are suppressed, and mpv's own
 tone mapping takes over. Without an RTX GPU the toggles are disabled outright.
 
+During a server item, open the player's info panel. Quality is the first section, above the
+playback stats: choose Default, Unlimited, 20, 10, 4 or 1 Mbps, and toggle Force transcode.
+Default uses the bitrate saved in Settings. Choices apply to the current item only and reset on
+the next one, and nothing here writes Settings. The player negotiates the replacement before it
+touches the current stream, so a failed negotiation keeps playing what you were watching;
+position, pause state and your audio and subtitle choices carry across, including burned-in
+subtitles and an explicit Subtitles off. The controls are visible but disabled while a file
+loads, and absent for local files and direct URLs.
+
 ### Jellyfin integration
 
+- **SyncPlay**: create or join a watch group from the browse bar or player, see its participants,
+  and share playback and the queue. The SyncPlay icon opens an integrated dropdown with group
+  controls; the status to its left shows the current group state and participant count.
+  Pause, seek, stop, next/previous, queue selection and removal follow the server's group updates.
+  Leaving a group keeps the current video playing locally.
+  Group playback uses seek corrections to stay in sync; speed and frame stepping are unavailable.
+  Leave the group before changing playback quality or the media version.
+  In-progress downloads use the server stream in a group so every member can seek freely.
+  Live session messages accept Jellyfin's compact and dashed identifiers for group and queue updates.
 - Login including Quick Connect, with DPAPI-persisted tokens and auto-reconnect
 - Multiple server/user profiles with a `Ctrl+U` switcher. Sessions stay warm, so switching back is
   instant and restores that profile's exact browse state; playback and downloads continue under the
   profile that started them
 - Watch-state reporting, favorites, and mark-watched toggles that update the card you came from
+- **Live session**: LightWeaver appears as a controllable session in the Jellyfin dashboard and is
+  a valid **Play on** target from the web and mobile apps. Transport (play, pause, stop, seek,
+  next/previous, skip), volume, mute and fullscreen are all driven from the remote, messages sent
+  to the session appear as a toast, and a remote play can start an item, queue it next, or add it
+  to the end. A remote play brings the window to the front — a client that starts playing while
+  minimised is indistinguishable from one that ignored you. Two limits worth knowing: a queue
+  command is accepted only by the profile that owns the current playback, and a track pick made
+  from the dashboard is declined while a non-default **version** is playing, because the stream
+  numbering the dashboard shows belongs to a different file than the one on screen
+- **Server-pushed updates**: the app holds the Jellyfin session WebSocket, so library changes and
+  watched/favourite toggles made on another device land without waiting for a poll. A delete on the
+  server drops the affected folders from the browse cache instead of leaving them on screen
 - Media segments for intro/credits skipping (native segments, the IntroSkipper plugin, or a
   chapter-name fallback), trickplay seek previews, and chapter markers
 - External critic scores on the detail view (IMDb / Rotten Tomatoes / Metacritic) via OMDB, with a
@@ -80,7 +118,9 @@ tone mapping takes over. Without an RTX GPU the toggles are disabled outright.
   on-screen time to type a position
 - Track selection during playback for video, audio and subtitles, with preferred-language auto-select
   (bibliographic codes like `ger`/`deu` treated as one language), external/sidecar subtitles, and
-  language badges on track rows
+  language badges on track rows. Your subtitle pick carries into the next file by description rather
+  than track number, down to the variant: choosing "English (SDH)" keeps SDH on the next episode
+  rather than plain English, as long as that episode names the track the same way
 - Auto-play next episode with an Up Next card and countdown that cancels when you seek back out of
   the credits and pauses when playback does
 - A playback queue: Play all / Shuffle on seasons, series and server playlists, `N`/`P` keys, and an
@@ -108,6 +148,14 @@ tone mapping takes over. Without an RTX GPU the toggles are disabled outright.
 - Pause, resume and cancel, with HTTP-Range resume and recovery across restarts
 - A Downloads screen behind its own nav-rail entry and downloaded badges on cards
 - Local-first playback: a downloaded item plays from disk with no server round-trip
+- Play a download while it is still downloading, from the bytes already on disk instead of pulling
+  the same file a second time over the network. A completed download still wins; a running one is
+  offered once a few MiB have landed and the part you are resuming into has arrived, and a stream
+  that cannot continue — a format with no playable prefix such as a non-faststart MP4, or a
+  download you pause mid-film — falls back at the position you were at: to the finished file on
+  disk when the download completed under you, otherwise to the normal server stream. Started from
+  the Downloads screen with no server reachable there is nothing to fall back to, so it says so
+  rather than stopping on the last frame
 
 ### Updates, diagnostics, and log privacy
 
@@ -127,6 +175,10 @@ tone mapping takes over. Without an RTX GPU the toggles are disabled outright.
   `device_hash=`), so a shared log cannot be matched back to catalogue ids. The updater narrates its
   own lifecycle the same way, while the release feed, download URLs, package hashes, staging paths
   and the installer's signer identity never appear
+- Playing a still-downloading item opens one listening socket, and only then: it binds to loopback
+  (`127.0.0.1`) on an ephemeral port, serves nothing but that download's own partial file, and each
+  download is reachable only through a fresh unguessable token that is retired when the playback
+  ends. The socket closes again as soon as nothing is streaming
 - Disk-backed image and browse caches with a configurable item cap in Settings → Storage, plus
   window position and size persistence
 
@@ -218,10 +270,6 @@ certificate. Setup, certificate options and costs: [docs/CODE-SIGNING.md](docs/C
 
 ## Architecture
 
-[TECHNICAL.md](TECHNICAL.md) has the full picture: the mpv integration, the negotiation and
-transcode fallback, the caching layers, the download manager, the logging contract, and a design
-decisions log explaining why each of them looks the way it does.
-
 One rule is load-bearing and everything else is arranged around it:
 
 > mpv **owns its rendering window** (child HWND via `wid`, `vo=gpu-next`, D3D11). Video is never
@@ -235,8 +283,7 @@ Feature-complete for daily use and fully skinned in the "woven light" design sys
 screen. Runs against **Jellyfin 12.0** and **10.11**. The client uses only current authorization
 forms, so 12.0 turning legacy authorization off does not affect it.
 
-Known issues and the closed-bug index are in [BUGS.md](BUGS.md). Open work is tracked by the
-maintainer outside the repository.
+Known issues and open work are tracked by the maintainer outside the repository.
 
 ## Design
 
@@ -249,7 +296,7 @@ redesign package.
 Issues and pull requests are welcome. Before opening a PR:
 
 - `dotnet build -warnaserror` must pass. Warnings are errors in this project
-- If the change is significant, update [README.md](README.md) and [TECHNICAL.md](TECHNICAL.md)
+- If the change is significant, update [README.md](README.md)
 - Respect the load-bearing rule above — a change that routes video through WPF will not be merged
 
 ## License

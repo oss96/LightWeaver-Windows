@@ -1,0 +1,86 @@
+<UserControl x:Class="LightWeaver.Views.SyncPlayFlyout"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="360" Height="440" Focusable="True"
+        Foreground="{StaticResource LwText1Brush}" FontFamily="{StaticResource LwFontUi}"
+        AutomationProperties.AutomationId="SyncPlayFlyout">
+    <Border Style="{StaticResource LwFlyoutBorder}" Padding="18" Margin="4">
+        <DockPanel>
+            <Button DockPanel.Dock="Bottom" Content="Close" Style="{StaticResource LwButtonGhost}"
+                    HorizontalAlignment="Right" Margin="0,14,0,0" Click="OnClose"
+                    AutomationProperties.AutomationId="SyncPlayClose" />
+            <TextBlock DockPanel.Dock="Top" Text="SyncPlay" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,14" />
+            <TextBlock x:Name="StatusText" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Foreground="{StaticResource LwText2Brush}" AutomationProperties.AutomationId="SyncPlayStatus" />
+            <Button x:Name="CancelJoinButton" DockPanel.Dock="Top" Content="Cancel joining"
+                    Style="{StaticResource LwButtonSecondary}" HorizontalAlignment="Left" Margin="0,0,0,12"
+                    Visibility="Collapsed" Click="OnLeave" AutomationProperties.AutomationId="SyncPlayCancelJoin" />
+
+            <StackPanel x:Name="CreatePanel" DockPanel.Dock="Bottom" Margin="0,16,0,0">
+                <TextBlock Text="Create a group" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <DockPanel>
+                    <Button x:Name="CreateButton" DockPanel.Dock="Right" Content="Create" Margin="8,0,0,0"
+                            Style="{StaticResource LwButtonSecondary}" Click="OnCreate"
+                            AutomationProperties.AutomationId="SyncPlayCreate" />
+                    <TextBox x:Name="GroupNameBox" Style="{StaticResource LwTextField}" MaxLength="100"
+                             AutomationProperties.Name="New group name" AutomationProperties.AutomationId="SyncPlayNewGroupName" />
+                </DockPanel>
+                <TextBlock Text="Starts with the current playback queue, if one is open." TextWrapping="Wrap"
+                           Foreground="{StaticResource LwText3Brush}" Margin="0,8,0,0" />
+            </StackPanel>
+            <Grid>
+                <Grid x:Name="CurrentGroupPanel" Visibility="Collapsed" Margin="0,0,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ScrollViewer x:Name="GroupDetailsScroll" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock x:Name="GroupNameText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="SyncPlayGroupName" />
+                            <TextBlock x:Name="GroupStateText" Foreground="{StaticResource LwText2Brush}" Margin="0,5,0,8"
+                                       AutomationProperties.AutomationId="SyncPlayGroupState" />
+                            <ScrollViewer x:Name="ParticipantsScroll" MinHeight="36" MaxHeight="110"
+                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <TextBlock x:Name="ParticipantsText" TextWrapping="Wrap" Margin="0,0,16,0"
+                                           AutomationProperties.AutomationId="SyncPlayParticipants" />
+                            </ScrollViewer>
+                            <TextBlock Text="Playback controls apply to everyone in the group." TextWrapping="Wrap"
+                                       Foreground="{StaticResource LwText3Brush}" Margin="0,12,0,8" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Button x:Name="LeaveButton" Grid.Row="1" Content="Leave group" Style="{StaticResource LwButtonSecondary}"
+                            HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnLeave"
+                            AutomationProperties.AutomationId="SyncPlayLeave" />
+            </Grid>
+                <DockPanel x:Name="AvailablePanel">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button x:Name="RefreshButton" DockPanel.Dock="Right" Content="Refresh"
+                                Style="{StaticResource LwButtonGhost}" Click="OnRefresh"
+                                AutomationProperties.AutomationId="SyncPlayRefresh" />
+                        <TextBlock Text="Available groups" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Button x:Name="JoinButton" DockPanel.Dock="Bottom" Content="Join group" Margin="0,10,0,0"
+                            Style="{StaticResource LwButtonPrimary}" HorizontalAlignment="Right" IsEnabled="False"
+                            Click="OnJoin" AutomationProperties.AutomationId="SyncPlayJoin" />
+                    <ListBox x:Name="GroupsList" Background="Transparent" BorderThickness="0"
+                             ItemContainerStyle="{StaticResource LwFlyoutListItem}" SelectionChanged="OnSelectionChanged"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             AutomationProperties.AutomationId="SyncPlayGroups">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="4,7">
+                                    <TextBlock Text="{Binding GroupName}" FontSize="14" TextWrapping="Wrap"
+                                               Foreground="{StaticResource LwText1Brush}" />
+                                    <TextBlock Text="{Binding ParticipantLabel}" FontSize="12"
+                                               Foreground="{StaticResource LwText3Brush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+            </DockPanel>
+                </Grid>
+                </DockPanel>
+    </Border>
+</UserControl>

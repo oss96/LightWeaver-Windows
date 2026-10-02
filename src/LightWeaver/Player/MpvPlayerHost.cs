@@ -5,7 +5,7 @@ namespace LightWeaver.Player;
 
 /// <summary>
 /// Hosts the child HWND that mpv renders into (via the wid option). mpv owns this
-/// window's swapchain entirely — WPF never composites video (see TECHNICAL.md).
+/// window's swapchain entirely — WPF never composites video.
 /// </summary>
 public sealed partial class MpvPlayerHost : HwndHost
 {

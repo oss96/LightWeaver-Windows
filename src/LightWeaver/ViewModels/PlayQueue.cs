@@ -35,6 +35,41 @@ public sealed class PlayQueue
         Changed?.Invoke();
     }
 
+    /// <summary>Inserts after the playing entry — a remote "play next". An empty queue has no
+    /// "after", so it behaves as <see cref="Set"/>: the alternative is a queue holding items with
+    /// <see cref="CurrentIndex"/> still -1, which nothing downstream can start from.
+    /// <see cref="CurrentIndex"/> does not move, because the entry playing now is not the one
+    /// being inserted around.</summary>
+    public void InsertNext(IEnumerable<MediaItem> items)
+    {
+        var incoming = items.ToList();
+        if (incoming.Count == 0)
+            return;
+        if (_items.Count == 0)
+        {
+            Set(incoming);
+            return;
+        }
+        _items.InsertRange(CurrentIndex + 1, incoming);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Adds to the end of the queue — a remote "play last". Same empty-queue rule as
+    /// <see cref="InsertNext"/>.</summary>
+    public void Append(IEnumerable<MediaItem> items)
+    {
+        var incoming = items.ToList();
+        if (incoming.Count == 0)
+            return;
+        if (_items.Count == 0)
+        {
+            Set(incoming);
+            return;
+        }
+        _items.AddRange(incoming);
+        Changed?.Invoke();
+    }
+
     public void Clear()
     {
         if (_items.Count == 0)

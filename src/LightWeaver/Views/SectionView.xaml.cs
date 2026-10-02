@@ -86,6 +86,16 @@ public partial class SectionView : UserControl
         }
     }
 
+    /// <summary>A server-side library change landed: reload from the first page. This listing is
+    /// server-paged and carries no folder of its own, so there is nothing to compare the changed
+    /// folder ids against — every batch reloads it, which is the same rule LibraryView applies to
+    /// a change it cannot attribute.
+    /// <para>Straight to <see cref="LoadFirstAsync"/>: it bumps the load generation, so an append
+    /// already in flight lands as <c>outcome=stale</c> instead of pasting a stale page onto a
+    /// fresh one. The appended pages are lost with it and that is the intended trade — they were
+    /// read against the library as it was before the change.</para></summary>
+    public void NotifyLibraryChanged() => _ = LoadFirstAsync();
+
     private async void OnScroll(object sender, ScrollChangedEventArgs e)
     {
         if (_loadingMore || _items.Count >= _totalCount)

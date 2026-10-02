@@ -96,8 +96,9 @@
              and IsChecked stays the user's stored preference, so this hides without unchecking.
              The per-cause tooltips remain for the visible state; ToolTipService.ShowOnDisabled
              is gone with the disabled state it existed for. -->
-        <StackPanel x:Name="GemPillPanel" Orientation="Horizontal"
+        <StackPanel x:Name="GemPillPanel" Orientation="Vertical"
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,28,36,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <ToggleButton Content="RTX HDR" Style="{StaticResource LwOsdGemToggle}"
                           IsChecked="{Binding RtxHdrEnabled}"
                           Visibility="{Binding RtxAvailable, Converter={StaticResource BoolToVisibleConverter}}"
@@ -109,6 +110,16 @@
                           Visibility="{Binding RtxAvailable, Converter={StaticResource BoolToVisibleConverter}}"
                           ToolTip="{Binding RtxVsrTooltip}"
                           AutomationProperties.AutomationId="RtxVsrToggle" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                <TextBlock x:Name="SyncPlayButtonLabel" MaxWidth="160" FontSize="12" Margin="0,0,8,0"
+                           Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <ToggleButton x:Name="SyncPlayButton" Style="{StaticResource LwOsdGemToggle}" Width="36" Height="36" Padding="0"
+                        ClickMode="Press" IsChecked="{Binding IsOpen, ElementName=SyncPlayPopup, Mode=TwoWay}"
+                        Checked="OnSyncPlayChecked" ToolTip="SyncPlay groups" AutomationProperties.AutomationId="OverlaySyncPlayButton">
+                    <TextBlock Text="{StaticResource IconSyncPlay}" FontFamily="{StaticResource LwFontIcon}" FontSize="22" />
+                </ToggleButton>
+            </StackPanel>
         </StackPanel>
 
         <!-- Volume indicator (P10 M10). Transient readout on a volume or mute change, with
@@ -119,14 +130,14 @@
 
              The offset is FIXED rather than stacked under GemPillPanel: those toggles are
              hidden on a non-RTX GPU and on PQ/HLG sources (Phase 9 M4), so a stacked pill
-             would sit in a different place depending on the GPU and the source. 64 clears
-             the gem row (top 28 + height 24) with a 12 px gap; the right edge is theirs.
+             would sit in a different place depending on the GPU and the source. 108 clears
+             the gem row and the SyncPlay row below it; the right edge is theirs.
 
              Starts Collapsed, not merely Opacity=0: an Opacity-0 element is still a live
              UIA element, and "the pill is present" is the signal the suites read. -->
         <Border x:Name="VolumePill"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="0,64,36,0" Height="34" Padding="14,0"
+                Margin="0,108,36,0" Height="34" Padding="14,0"
                 Background="{StaticResource LwStorm3Brush}"
                 BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
                 Effect="{StaticResource LwElevation2}"
@@ -273,7 +284,6 @@
                             Minimum="0"
                             Maximum="{Binding DurationSeconds, Mode=OneWay}"
                             Value="{Binding PositionSeconds, Mode=TwoWay}"
-                            IsMoveToPointEnabled="True"
                             Thumb.DragStarted="OnSeekDragStarted"
                             Thumb.DragCompleted="OnSeekDragCompleted"
                             PreviewMouseLeftButtonUp="OnSeekClick"
@@ -400,20 +410,17 @@
                                 </TextBlock>
                             </Button.Content>
                         </Button>
-                        <!-- IsMoveToPointEnabled: a click on the track sets the volume to the
-                             clicked point. Without it, WPF routes a track click to the
-                             Slider.DecreaseLarge / IncreaseLarge RepeatButtons that LwSlider's
-                             template puts in the Track, and RangeBase.LargeChange defaults to
-                             **1** - so clicking the far left of a 0-100 slider moved the volume
-                             from 50 to 49. Measured, not assumed: 50 -> 49 without this
-                             attribute, 50 -> 11.1 with it for a click at the 15% mark.
-                             SeekSlider has carried the attribute all along; the volume slider
-                             shares its style but not this per-instance property, which is why
-                             only one of the two ever behaved. (2026-08-05) -->
+                        <!-- Track click and click-to-drag both come from the LwSlider style now
+                             (IsMoveToPointEnabled + SliderDrag.ClickToDrag). This slider carried
+                             IsMoveToPointEnabled as a local attribute from 2026-08-05 - added
+                             after measuring a click at the 15% mark move the volume 50 -> 49
+                             instead of 50 -> 11.1, because a track press was reaching the
+                             template's LargeChange RepeatButtons. The measurement is kept with
+                             the setter in Theme/Controls.xaml; the local copy is gone so the
+                             style stays the single place that decides this. -->
                         <Slider x:Name="VolumeSlider" Style="{StaticResource LwSlider}"
                                 Width="96" Minimum="0" Maximum="100"
                                 Value="{Binding Volume, Mode=TwoWay}"
-                                IsMoveToPointEnabled="True"
                                 VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="Volume" />
                         <!-- Output device switcher: hidden unless there is a real choice
                              (>= 2 devices). Lives with the volume cluster (output routing),
@@ -525,12 +532,63 @@
         </Popup>
         <!-- Info panel: live playback state on top, server media metadata in a
              collapsible section below (absent for local files). -->
+        <Popup x:Name="SyncPlayPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+               PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
+
         <Popup x:Name="InfoPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=InfoButton}"
                Opened="OnInfoPopupOpened" Closed="OnInfoPopupClosed">
-            <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" MinWidth="360" MaxWidth="480">
+            <!-- Width is PINNED, not a 360-480 range. The range made the flyout jump ~110 px wider
+                 the moment the Media info expander opened, and at the narrow end the quality row
+                 did not fit: measured on the guest 2026-09-14, "Force transcode" rendered as
+                 "Force transcod" and the status line was cut mid-word, with no ellipsis and no
+                 wrap. 480 is a width this flyout already took whenever Media info was expanded.
+
+                 MaxHeight 340 is the space above the Info button at the 700x480 MINIMUM window,
+                 so it cannot also be right for a 900-tall one. Rather than size it dynamically,
+                 QUALITY now comes BEFORE the read-only PLAYBACK rows: the control this flyout
+                 offers is reachable without scrolling at every window size, and the diagnostics
+                 are what you scroll for. Measured first: with PLAYBACK on top at 1600x900 the
+                 segmented control was sliced by the panel edge and the toggle and status line
+                 were entirely below the fold, behind a 2 px scrollbar. -->
+            <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="480"
+                    MaxHeight="340">
+                <ScrollViewer x:Name="InfoScroll"
+                              AutomationProperties.AutomationId="InfoScroll"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-                    <TextBlock Text="PLAYBACK" Style="{StaticResource LwTypeLabel}" Margin="2,0,0,6" />
+                    <!-- No AutomationId on this panel: a WPF Panel creates no automation peer, so
+                         one here would never reach the UIA tree and would read as a promise the UI
+                         does not keep. QualityTierControl below is the group's UIA anchor, and it
+                         inherits this IsEnabled binding. -->
+                    <StackPanel x:Name="QualitySection"
+                                Visibility="{Binding QualityVisible, Converter={StaticResource BoolToVisibleConverter}}"
+                                IsEnabled="{Binding QualityAvailable}">
+                        <TextBlock Text="QUALITY" Style="{StaticResource LwTypeLabel}" Margin="2,0,0,6" />
+                        <views:LwSegmentedControl x:Name="QualityTierControl"
+                                                  Style="{StaticResource LwSegmented}"
+                                                  SelectedIndex="{Binding QualityTierIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <ListBoxItem Content="Default" AutomationProperties.AutomationId="QualityDefault" />
+                            <ListBoxItem Content="Unlimited" AutomationProperties.AutomationId="QualityUnlimited" />
+                            <ListBoxItem Content="20" AutomationProperties.AutomationId="Quality20Mbps" />
+                            <ListBoxItem Content="10" AutomationProperties.AutomationId="Quality10Mbps" />
+                            <ListBoxItem Content="4" AutomationProperties.AutomationId="Quality4Mbps" />
+                            <ListBoxItem Content="1" AutomationProperties.AutomationId="Quality1Mbps" />
+                        </views:LwSegmentedControl>
+                        <DockPanel Margin="2,8,2,0" LastChildFill="True">
+                            <CheckBox x:Name="QualityForceTranscodeControl" DockPanel.Dock="Right" Content="Force transcode"
+                                      Style="{StaticResource LwToggleSwitch}"
+                                      IsChecked="{Binding QualityForceTranscode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      AutomationProperties.AutomationId="QualityForceTranscode" />
+                            <TextBlock Text="Max bitrate" VerticalAlignment="Center"
+                                       Foreground="{StaticResource LwText2Brush}" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding QualityStatus}" Margin="2,7,2,0"
+                                   Foreground="{StaticResource LwText2Brush}" FontSize="12.5"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="QualityStatus" />
+                    </StackPanel>
+                    <TextBlock Text="PLAYBACK" Style="{StaticResource LwTypeLabel}" Margin="2,10,0,6" />
                     <ItemsControl ItemsSource="{Binding LiveStats}"
                                   ItemTemplate="{StaticResource InfoRowTemplate}"
                                   AutomationProperties.AutomationId="LiveStatsList" />
@@ -542,6 +600,7 @@
                                       AutomationProperties.AutomationId="MediaInfoList" />
                     </Expander>
                 </StackPanel>
+                </ScrollViewer>
             </Border>
         </Popup>
         <Popup x:Name="SpeedPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
@@ -647,6 +706,19 @@
                                      ItemsSource="{Binding SubtitleTracks}" SelectionChanged="OnSubtitleTrackPicked"
                                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                      AutomationProperties.AutomationId="SubtitleTrackList"
+                                     ItemContainerStyle="{StaticResource LwOsdFlyoutItem}"
+                                     ItemTemplate="{StaticResource TrackOptionTemplate}" />
+                        </StackPanel>
+                        <!-- Alternate versions (media sources). Last, because picking one
+                             RELOADS the stream: the three sections above change the playing
+                             file, this one replaces it. -->
+                        <StackPanel x:Name="VersionSection" Visibility="Collapsed">
+                            <TextBlock Text="VERSIONS" Style="{StaticResource LwOsdFlyoutSectionHeader}"
+                                       AutomationProperties.AutomationId="TracksVersionHeader" />
+                            <ListBox x:Name="VersionList" Background="Transparent" BorderThickness="0"
+                                     ItemsSource="{Binding Versions}" SelectionChanged="OnVersionPicked"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     AutomationProperties.AutomationId="VersionList"
                                      ItemContainerStyle="{StaticResource LwOsdFlyoutItem}"
                                      ItemTemplate="{StaticResource TrackOptionTemplate}" />
                         </StackPanel>

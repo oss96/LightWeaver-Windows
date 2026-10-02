@@ -30,6 +30,12 @@ public static class MetadataCache
     public static Task StoreAsync<T>(string key, T data) where T : class
         => Cache.StoreAsync(key, data);
 
+    /// <inheritdoc cref="DiskJsonCache.Remove"/>
+    public static void Remove(string key) => Cache.Remove(key);
+
+    /// <inheritdoc cref="DiskJsonCache.Touch"/>
+    public static void Touch(string key) => Cache.Touch(key);
+
     /// <inheritdoc cref="DiskJsonCache.EvictOlderThan"/>
     public static void EvictOlderThan(TimeSpan maxAge) => Cache.EvictOlderThan(maxAge);
 

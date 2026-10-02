@@ -14,7 +14,7 @@ namespace LightWeaver;
 /// Shell window: swaps browse views (login/home/library/detail) in <c>ShellHost</c>
 /// and shows the mpv video layer only while playing. The player HWND is created
 /// lazily on first playback. Playback controls live in <see cref="OverlayWindow"/>
-/// (airspace — see TECHNICAL.md).
+/// (airspace).
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -22,13 +22,17 @@ public partial class MainWindow : Window
     private readonly PlayerViewModel _playerViewModel = new();
     private readonly Settings.AppSettings _settings = Settings.SettingsStore.Load();
     private readonly UpdateService _updateService;
+    private readonly Jellyfin.LiveSessionService _live;
 
     private MpvPlayer? _player;
     private OverlayWindow? _overlay;
     private SystemMediaControls? _systemMedia;
     private System.Windows.Threading.DispatcherTimer? _timelineTimer;
     private Jellyfin.PlaybackReporter? _reporter;
-    private (string Url, string? AuthHeader)? _pendingLoad;
+    private sealed record PendingPlayerLoad(string Url, string? AuthHeader,
+        Task ReportBarrier, QualityTrackSnapshot? RestoreTracks);
+
+    private PendingPlayerLoad? _pendingLoad;
     private long _pendingResumeTicks;
     private Jellyfin.MediaItem? _playingItem;
     private bool _systemSessionEnding;
@@ -41,6 +45,49 @@ public partial class MainWindow : Window
     /// are per-file, so id 3 in one episode is a different track — or no track — in the next.
     /// <c>Off</c> is a real choice and is remembered too.</summary>
     private sealed record StickySubtitle(bool Off, string? Lang, string? Title, bool Forced);
+
+    /// <summary>The selected tracks before an in-item quality reload. The descriptors
+    /// belong only to the replacement generation and never become cross-item preferences.</summary>
+    internal sealed record QualityTrackSnapshot(
+        MpvTrack? Audio,
+        MpvTrack? Subtitle,
+        bool SubtitleOff,
+        Jellyfin.MediaStreamChoice? SourceAudio,
+        Jellyfin.MediaStreamChoice? SourceSubtitle);
+
+    /// <summary>A source stream named from OUTSIDE the player — only the remote
+    /// <c>SetAudioStreamIndex</c> / <c>SetSubtitleStreamIndex</c> commands do that. Every in-app
+    /// control changes an mpv track, which <see cref="CaptureQualityTrackSnapshot(MpvPlayer,
+    /// Jellyfin.PlaybackDecision?, Jellyfin.MediaSourceStreams?)"/> reads back on its own; a
+    /// remote index has no mpv track behind it when the stream is transcoded or external, so it
+    /// has to be carried into the negotiation as itself.</summary>
+    private readonly record struct ForcedStreamPick(Jellyfin.MediaStreamChoice? Audio,
+        Jellyfin.MediaStreamChoice? Subtitle, bool SubtitleOff)
+    {
+        /// <summary>Overwrites only the half this pick names, so a subtitle change leaves the
+        /// audio the user is listening to alone. The stand-in <see cref="MpvTrack"/> is what
+        /// <c>RestoreQualityTracks</c> matches against after the reload — without one it would
+        /// take the replacement file's default rather than the stream just asked for.</summary>
+        public QualityTrackSnapshot Apply(QualityTrackSnapshot snapshot)
+        {
+            if (Audio is { } audio)
+                snapshot = snapshot with { SourceAudio = audio, Audio = StandIn(audio, "audio") };
+            if (SubtitleOff)
+                snapshot = snapshot with { SourceSubtitle = null, Subtitle = null, SubtitleOff = true };
+            else if (Subtitle is { } subtitle)
+                snapshot = snapshot with
+                {
+                    SourceSubtitle = subtitle,
+                    Subtitle = StandIn(subtitle, "sub"),
+                    SubtitleOff = false,
+                };
+            return snapshot;
+        }
+
+        private static MpvTrack StandIn(Jellyfin.MediaStreamChoice choice, string type)
+            => new(choice.TypeOrdinal + 1, type, choice.Title, choice.Language,
+                Selected: true, choice.IsDefault, Forced: false);
+    }
 
     private enum StickySubtitleApplyStatus
     {
@@ -65,6 +112,14 @@ public partial class MainWindow : Window
         public int PendingCycleCount { get; set; }
         public bool DeferPendingCycles { get; set; }
         public bool AwaitingStickySelection { get; set; }
+        public Task ReportBarrier { get; init; } = Task.CompletedTask;
+        public Jellyfin.PlaybackDecision? ReportDecision { get; init; }
+        public Jellyfin.JellyfinService? ReportOwner { get; init; }
+        public bool ReportStarted { get; set; }
+        public bool DecisionDiscarded { get; set; }
+        public Task DiscardTask { get; set; } = Task.CompletedTask;
+        public bool? ExplicitSubtitleOff { get; set; }
+        public QualityTrackSnapshot? RestoreTracks { get; set; }
 #if DEBUG
         public bool TestLateSubtitleScheduled { get; set; }
 #endif
@@ -77,6 +132,18 @@ public partial class MainWindow : Window
     // null means negotiation failed and we direct-play with client-side reporting.
     private Jellyfin.PlaybackDecision? _playbackDecision;
     private bool _transcodeRetryDone;
+    private int? _overrideMaxBitrateMbps;
+    private bool _overrideForceTranscode;
+    private int _qualityRequestSequence;
+    private int _trackSelectionSequence;
+    private QualityTrackSnapshot? _qualityTrackSelection;
+
+    /// <summary>The alternate version (media source) the user picked for THIS playback, or null
+    /// for the server's default source. Deliberately not a session-wide preference like
+    /// <see cref="_stickySub"/>: a version is a property of one item's files, so carrying it into
+    /// the next queue item would pin an id that names nothing there. PlayItem clears it and the
+    /// caller re-supplies it per item.</summary>
+    private string? _chosenMediaSourceId;
 
     // External subtitles can arrive before or after load. PlaybackSequence rejects an old metadata
     // fetch; AppliedGeneration lets a transcode retry add the same batch to its replacement load.
@@ -134,6 +201,26 @@ public partial class MainWindow : Window
     private DownloadsView? _downloadsView;
     private bool _downloadsResumed;
     private bool _playingLocal;
+    // The item whose still-running download is being served over loopback right now. Doubles as
+    // the one-shot marker for the fallback in PlaybackFailed: it is cleared before the retry, so
+    // a second failure takes the ordinary path.
+    private Guid? _partialStreamItem;
+    // The load generation that publication belongs to. The id alone is not enough: replacing a
+    // partial stream cancels the outgoing reader's socket BEFORE the incoming load re-points
+    // _playingItem and _partialStreamItem, and mpv posts its EndFile to the dispatcher — so the
+    // outgoing stream's error arrives after PlayItem has returned, when an id-only check matches
+    // the NEW item and would tear down a perfectly healthy new stream.
+    private int _partialStreamSequence;
+    // Last non-zero position mpv reported for the file being played; see where it is assigned.
+    private double _lastPositionSeconds;
+    // The mpv event generation that position was measured in. Stamped rather than reset, because
+    // a reset cannot win: mpv coalesces positions onto one dispatcher operation, and PlayCore
+    // zeroes the field and calls LoadFile in the SAME UI-thread turn — so a position posted for
+    // the OUTGOING file runs immediately AFTER the reset and puts the old film's forty minutes on
+    // the new one. The subscriber ignores zero, so nothing clears it later either. With the stamp
+    // the stale value is still there and simply does not match, which is the invariant the
+    // fallback's comment always claimed.
+    private int _lastPositionGeneration = -1;
 
     public MainWindow()
     {
@@ -145,6 +232,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         _updateService = new UpdateService(_settings);
         _updateService.StatusChanged += OnUpdateStatusChanged;
+        // One socket per warm profile (see LiveSessionService); MainWindow.RemoteControl records
+        // every inbound message and acts on it.
+        _live = new Jellyfin.LiveSessionService(_app.FindSessionByKey);
+        _syncPlay = new(_live, _app.FindSessionByKey);
+        AttachSyncPlay();
+        AttachRemoteControl();
         Application.Current.SessionEnding += OnSessionEnding;
 #if DEBUG
         _systemSessionEnding = Environment.GetEnvironmentVariable("LIGHTWEAVER_UPDATE_SIMULATE_SESSION_ENDING") == "1";
@@ -206,12 +299,21 @@ public partial class MainWindow : Window
         // follows the M15 "watch from here" rule (queue rebuilt from it onward).
         _playerViewModel.EpisodeStepRequested += item => OnEpisodePlayRequested(item, 0);
         _playerViewModel.SubtitleChosen += RememberSubtitleChoice;
+        _playerViewModel.AudioChosen += () =>
+        {
+            _trackSelectionSequence++;
+            if (_subtitleState?.RestoreTracks is { } restore)
+                _subtitleState.RestoreTracks = restore with { Audio = null };
+        };
+        _playerViewModel.QualityChangeRequested += request => _ = ApplyQualityOverrideAsync(request);
+        _playerViewModel.VersionChangeRequested += sourceId => _ = ApplyVersionChangeAsync(sourceId);
 
         // When the detail view toggles watched/favorite, refresh the matching card in
         // every cached browse view so badges are current on back-navigation. Subscribing
         // here (app-lifetime) rather than per-view avoids leaking popped views, and the
         // browse stack is the authoritative set of live list views.
         _app.ItemUserDataChanged += OnItemUserDataChanged;
+        _app.LibraryChanged += OnLibraryChanged;
 
         // Warm multi-account sessions (Phase 7): swap the per-profile shell bundle the
         // moment a session activates (before the Browse state re-applies), drop shells
@@ -219,6 +321,10 @@ public partial class MainWindow : Window
         _app.SessionActivated += key => Dispatcher.Invoke(() => OnSessionActivated(key));
         _app.SessionClosed += key => Dispatcher.Invoke(() =>
         {
+            // First, ahead of everything else here: CloseSession raises this BEFORE disposing the
+            // service (B28), and the socket authenticates off that service. Once it is disposed
+            // the reconnect ladder would keep running against a dead HttpClient.
+            _live.StopProfile(key);
             _shells.Remove(key);
             Jellyfin.BrowsePrefetcher.CancelProfile(key);
         });
@@ -291,7 +397,8 @@ public partial class MainWindow : Window
         _playerViewModel.OpenStreamRequested += () => OnOpenStream(this, null!);
         _overlay.SetFullscreen(_isFullscreen);   // the overlay is new; start it in step
         _overlay.FileDropped += path => PlayUrl(path, null);
-        _overlay.BackRequested += StopPlaybackAndReturn;
+        _overlay.BackRequested += () => RequestStop("back");
+        InitializeSyncPlayUi();
         _overlay.MiniPlayerRequested += ToggleMiniPlayer;
         _overlay.MiniRestoreRequested += ToggleMiniPlayer;
         _overlay.MiniDragRequested += StartMiniDrag;
@@ -424,6 +531,36 @@ public partial class MainWindow : Window
         foreach (var item in shell.RailItems)
             LibrariesNav.Children.Add(item);
         ApplyRailCollapse(_railCollapsed);
+        // Warm profiles keep their socket across a switch, so this is a no-op for every activation
+        // after the first. A backgrounded profile stays reachable on purpose — being a "play on"
+        // target is the point.
+        _live.StartProfile(key);
+    }
+
+    private static void LogRemote(string kind, string profileKey, string detail)
+        => Diagnostics.AppLog.Info("session", RemoteLine(kind, profileKey, detail));
+
+    /// <summary>The same record for the kinds the SERVER decides the rate of. A LibraryChanged is
+    /// coalesced onto a 30 s timer and a UserDataChanged is pushed for every session that user has
+    /// open, so neither has a bound this client controls — and the breadcrumb ring holds 500
+    /// entries in total, which is exactly the playback-failure context an incident report needs.
+    /// <see cref="Jellyfin.SessionSocket"/> keeps its repeating connect failure out of the ring for
+    /// the same reason.</summary>
+    private static void LogRemoteDetail(string kind, string profileKey, string detail)
+        => Diagnostics.AppLog.Detail("session", RemoteLine(kind, profileKey, detail));
+
+    private static string RemoteLine(string kind, string profileKey, string detail)
+        => $"event=remote kind={kind} session={Diagnostics.AppLog.ShortHash(profileKey)} {detail}";
+
+    /// <summary>Command names are the server's text, in the server's vocabulary and at the server's
+    /// length. Letters and digits only, 32 at most: a structural log field should not be something
+    /// the other end can choose the shape of.</summary>
+    private static string RemoteToken(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "none";
+        var token = new string(value.Where(char.IsAsciiLetterOrDigit).Take(32).ToArray());
+        return token.Length > 0 ? token : "other";
     }
 
     private void ApplyState(AppState state)
@@ -504,7 +641,7 @@ public partial class MainWindow : Window
             case MouseButton.XButton1 when _app.State == AppState.Browse:
                 BrowseBack(); e.Handled = true; break;
             case MouseButton.XButton1 when _app.State == AppState.Playing:
-                StopPlaybackAndReturn(); e.Handled = true; break;
+                RequestStop("mouse_back"); e.Handled = true; break;
             case MouseButton.XButton2 when _app.State == AppState.Browse:
                 BrowseForward(); e.Handled = true; break;
         }
@@ -549,6 +686,25 @@ public partial class MainWindow : Window
                 case Views.HomeView home: home.ApplyUserDataUpdate(fresh); break;
                 case Views.SectionView section: section.ApplyUserDataUpdate(fresh); break;
                 case Views.ItemDetailView detail: detail.ApplyUserDataUpdate(fresh); break;
+            }
+    }
+
+    /// <summary>Same fan-out as <see cref="OnItemUserDataChanged"/>, for a change the SERVER
+    /// reported: the browse caches for the profile have already been dropped by the time this
+    /// runs, so each live view only has to reload. Detail views are left alone — they refresh
+    /// themselves on reveal, and an item this batch deleted would only give them a 404.
+    /// <para>Every live LISTING is in here, including <see cref="Views.SectionView"/>. It was left
+    /// out at first and that was the same bug one level up: a see-all listing is server-paged and
+    /// stays on screen for as long as the user is scrolling it, so it would go on offering items
+    /// the server no longer has with nothing to correct it.</para></summary>
+    private void OnLibraryChanged(IReadOnlyList<Guid> folderIds)
+    {
+        foreach (var frame in _nav.Frames)
+            switch (frame.View)
+            {
+                case Views.LibraryView lib: lib.NotifyLibraryChanged(folderIds); break;
+                case Views.HomeView home: home.NotifyLibraryChanged(); break;
+                case Views.SectionView section: section.NotifyLibraryChanged(); break;
             }
     }
 
@@ -848,7 +1004,23 @@ public partial class MainWindow : Window
         {
             // fall through to the offline path
         }
-        PlayUrl(download.FilePath, null);
+        // Offline. A completed download is the file itself; a running one has to go through the
+        // loopback server, because handing mpv the growing path directly would end playback at
+        // the byte the file happened to be at. There is no server to fall back to on this path,
+        // so a refusal is reported rather than silently doing nothing.
+        if (download.Status == Downloads.DownloadStatus.Completed)
+        {
+            PlayUrl(download.FilePath, null);
+            return;
+        }
+        // The name comes off the download row, not off the URL. GetDisplayName's last-path-segment
+        // rule is for files and readable URLs; a partial-stream URL is neither, and letting it name
+        // the playback put the loopback server's capability token on the OSD and into the
+        // system-wide SMTC panel, which every process on the machine can read.
+        if (_downloads.TryGetPartialStreamUrl(download.ItemId) is { } partialUrl)
+            PlayUrl(partialUrl, null, download.ItemId, download.Title, download.Subtitle);
+        else
+            ShowToast("Not enough of this download has arrived yet.");
     }
 
     // ---- Download flows (M20) ---------------------------------------------------------
@@ -1097,7 +1269,7 @@ public partial class MainWindow : Window
     private void UpdateHeaderLayout()
     {
         if (SearchPill is not null)
-            SearchPill.Width = System.Math.Clamp(ActualWidth - 640, 200.0, 360.0);
+            SearchPill.Width = System.Math.Clamp(ActualWidth - 800, 200.0, 360.0);
     }
 
     private void UpdateRailCollapse()
@@ -1298,22 +1470,38 @@ public partial class MainWindow : Window
     /// start pins the ACTIVE session as the playback session; queue advancement keeps
     /// the pin, so auto-advance still talks to the server that built the queue even
     /// after a profile switch.</summary>
+    /// <param name="mediaSourceId">The alternate version picked for this item, or null for the
+    /// server's default source. Per-item, so every caller states it anew.</param>
     private void PlayItem(Jellyfin.MediaItem item, long resumeTicks, bool fromQueue = false,
-        Jellyfin.JellyfinService? session = null)
+        Jellyfin.JellyfinService? session = null, string? mediaSourceId = null)
     {
+        if (!_syncPlayLoading && SubmitSyncPlayQueue([item], 0, resumeTicks,
+                session ?? (fromQueue ? _playbackJf : null) ?? _app.Jellyfin)) return;
+        if (!_syncPlayLoading) _syncPlayBinding?.Reset();
+        _ = DiscardUnreportedLoad();
+        ReleasePartialStream();
         _playbackJf = session ?? (fromQueue ? _playbackJf : null) ?? _app.Jellyfin;
         if (!fromQueue)
             _app.Queue.Clear();
         _app.PublishStopReport(_reporter?.Stop());
         _playingItem = item;
         var playbackSequence = ++_playbackSequence;
+        if (_syncPlayLoading) _syncPlayPlaybackSequence = playbackSequence;
         _pendingResumeTicks = resumeTicks;
         _externalSubs = null;
         _subtitleState = null;
         _playbackDecision = null;
         _transcodeRetryDone = false;
+        _overrideMaxBitrateMbps = null;
+        _overrideForceTranscode = false;
+        _chosenMediaSourceId = mediaSourceId;
+        _qualityTrackSelection = null;
+        _qualityRequestSequence++;
+        _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+            available: false);
         _playerViewModel.SetPlayMethod(null);
         _playerViewModel.SetTrickplay(null);
+        _playerViewModel.SetVersions([], null);
         _playerViewModel.SetUpNext(null);
         _playerViewModel.SetEpisodeNeighbors(false, null, null);
         _playerViewModel.SetMediaInfo(null);
@@ -1334,32 +1522,66 @@ public partial class MainWindow : Window
         // auth header, no server session/progress reports. mpv still owns its render
         // HWND and gets the file through the same PlayCore→loadfile path; only the
         // source changes from an authenticated URL to a local path.
+        //
+        // The local file also OUTRANKS _chosenMediaSourceId, and that is the intended order: the
+        // download is one specific version already on disk, and honouring a pick for another one
+        // would mean streaming over the LAN from a screen the user reached precisely to avoid
+        // that. The detail view still shows the Versions button because the pick governs again
+        // the moment the download is deleted.
         if (_downloads.GetCompletedDownload(item.Id) is { } local)
         {
             _playingLocal = true;
+            _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+                available: false, visible: false);
             _playerViewModel.SetPlayMethod("Local file");
             PlayCore(local.FilePath, null);
             return;
         }
+        // One rung below the completed download and above the server (the 78eb25f order is
+        // otherwise untouched): a download still running is served from the bytes already on disk
+        // over loopback, so the same file is not pulled twice over the network. mpv cannot follow
+        // a growing file directly — see PartialFileServer for why this is HTTP and not a path.
+        //
+        // _playingLocal is true here as well: everything it gates (quality menu, version picker,
+        // trickplay source, progress reports) is governed by "this playback is a download of this
+        // item", which is exactly as true of the partial file as of the finished one.
+        //
+        // resumeTicks is handed over as well, and it can veto the whole rung: a prefix that does
+        // not reach the resume position is worse than useless, because the player seeks straight
+        // past the write head into bytes that do not exist yet.
+        if (!_syncPlay.IsInGroup && _downloads.TryGetPartialStreamUrl(item.Id, resumeTicks, item.RuntimeTicks)
+            is { } partialUrl)
+        {
+            _playingLocal = true;
+            _partialStreamItem = item.Id;
+            _partialStreamSequence = playbackSequence;
+            _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+                available: false, visible: false);
+            _playerViewModel.SetPlayMethod("Local file (downloading)");
+            PlayCore(partialUrl, null);
+            return;
+        }
         _playingLocal = false;
-        _ = StartNegotiatedPlaybackAsync(item);
+        _ = StartNegotiatedPlaybackAsync(item, playbackSequence);
     }
 
     /// <summary>Detail-view Play: an episode continues into the rest of its show (M15);
     /// everything else keeps the plain, queue-clearing single play.</summary>
-    private void OnDetailPlayRequested(Jellyfin.MediaItem item, long resumeTicks)
+    private void OnDetailPlayRequested(Jellyfin.MediaItem item, long resumeTicks,
+        string? mediaSourceId = null)
     {
         if (item is { Type: global::Jellyfin.Sdk.Generated.Models.BaseItemDto_Type.Episode, SeriesId: not null })
-            OnEpisodePlayRequested(item, resumeTicks);
+            OnEpisodePlayRequested(item, resumeTicks, mediaSourceId);
         else
-            PlayItem(item, resumeTicks);
+            PlayItem(item, resumeTicks, mediaSourceId: mediaSourceId);
     }
 
     /// <summary>An explicit episode start means "watch from here": queue the episode plus
     /// every one AFTER it in series order (not watched-filtered — rewatches included).
     /// Mid-playback callers (the OSD episode-step pair) resolve against the pinned
     /// playback session; browse callers use the active one.</summary>
-    private async void OnEpisodePlayRequested(Jellyfin.MediaItem ep, long resumeTicks)
+    private async void OnEpisodePlayRequested(Jellyfin.MediaItem ep, long resumeTicks,
+        string? mediaSourceId = null)
     {
         var jf = _app.State == AppState.Playing ? _playbackJf ?? _app.Jellyfin : _app.Jellyfin;
         try
@@ -1371,8 +1593,12 @@ public partial class MainWindow : Window
                 var slice = episodes.Skip(idx).Where(e => e.IsPlayable).ToList();
                 if (slice.Count > 1)
                 {
+                    if (SubmitSyncPlayQueue(slice, 0, resumeTicks, jf)) return;
                     _app.Queue.Set(slice, 0);
-                    PlayItem(slice[0], resumeTicks, fromQueue: true, session: jf);
+                    // Only the started episode gets the picked version; the queue advances
+                    // into other files, where that source id names nothing.
+                    PlayItem(slice[0], resumeTicks, fromQueue: true, session: jf,
+                        mediaSourceId: mediaSourceId);
                     return;
                 }
             }
@@ -1381,7 +1607,7 @@ public partial class MainWindow : Window
         {
             // continuation is best-effort; fall through to the plain single play
         }
-        PlayItem(ep, resumeTicks, session: jf);
+        PlayItem(ep, resumeTicks, session: jf, mediaSourceId: mediaSourceId);
     }
 
     /// <summary>Builds a queue from a container (season/series/playlist) and starts it.</summary>
@@ -1428,6 +1654,7 @@ public partial class MainWindow : Window
                     (items[i], items[j]) = (items[j], items[i]);
                 }
             }
+            if (SubmitSyncPlayQueue(items, 0, 0, jf)) return;
             _app.Queue.Set(items, 0);
             PlayItem(items[0], 0, fromQueue: true);
         }
@@ -1437,22 +1664,43 @@ public partial class MainWindow : Window
         }
     }
 
-    private int MaxBitrateBps => _settings.MaxStreamingBitrateMbps * 1_000_000;
+    private int EffectiveMaxBitrateBps
+        => (_overrideMaxBitrateMbps ?? _settings.MaxStreamingBitrateMbps) * 1_000_000;
 
     /// <summary>Negotiates the play method with the server, then starts playback.
     /// Falls back to plain direct play (pre-negotiation behavior) when the POST fails.</summary>
-    private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item)
+    private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item, int playbackSequence)
     {
         // Switch to the video layer immediately — negotiation is one fast POST, but
         // the UI must not sit on the detail view waiting for the network.
         var jf = _playbackJf ?? _app.Jellyfin;
         _app.EnterPlayback();
-        var decision = await jf.NegotiatePlaybackAsync(item.Id, MaxBitrateBps);
-        if (_playingItem?.Id != item.Id || _app.State != AppState.Playing)
-            return; // user navigated away while negotiating
+        var decision = await jf.NegotiatePlaybackAsync(item.Id, EffectiveMaxBitrateBps,
+            forceTranscode: _overrideForceTranscode, mediaSourceId: _chosenMediaSourceId);
+        // The generation counter, not just the item id: stopping and replaying the SAME item
+        // while this POST is in flight leaves the id unchanged, so an id-only check let the
+        // stale decision swap itself in and load a second time — two Start()s, and the first
+        // server session never stopped. Matches StillCurrent() in LoadPlaybackMetadataAsync.
+        if (_playingItem?.Id != item.Id || _playbackSequence != playbackSequence
+            || _app.State != AppState.Playing)
+        {
+            // The decision is dropped, so nothing will ever send a stop report for it. Tear
+            // down whatever the server started for it instead of leaving it to be reaped.
+            if (decision is not null)
+                _ = jf.DiscardUnplayedDecisionAsync(decision);
+            return; // user navigated away, or replayed, while negotiating
+        }
         _playbackDecision = decision;
         _playerViewModel.SetPlayMethod(decision is { IsTranscode: true } ? "Transcode (HLS)" : "Direct play");
-        var url = decision?.Url ?? jf.GetStreamUrl(item.Id);
+        // The version list is fetched in parallel and usually lands first, when the only source
+        // id in hand is the pick (null for an unpicked item). This is where the source actually
+        // serving the stream becomes known, so it is where the marked row is settled.
+        _playerViewModel.SetCurrentVersion(CurrentMediaSourceId);
+        // The fallback carries the pick too. Negotiation failing (5xx, timeout) is not the user
+        // changing their mind, and an unpinned stream URL serves the server's DEFAULT source —
+        // so without the id here a picked version plays as the wrong file under an OSD that
+        // says "Direct play".
+        var url = decision?.Url ?? jf.GetStreamUrl(item.Id, _chosenMediaSourceId);
         // Diagnostics: LIGHTWEAVER_BREAK_DIRECT_PLAY=1 mangles direct-play URLs (404)
         // so automated tests can exercise the transcode retry path.
         if (decision is not { IsTranscode: true }
@@ -1465,22 +1713,497 @@ public partial class MainWindow : Window
     /// before the failure surfaces (codec/container the client can't handle, etc.).</summary>
     private async Task RetryViaTranscodeAsync(Jellyfin.MediaItem item, string reason)
     {
+        // Sampled before the await: the caller is the synchronous PlaybackFailed handler, so
+        // this is the generation that actually failed. See the note in StartNegotiatedPlaybackAsync
+        // for why an item-id-only guard is not enough.
+        var playbackSequence = _playbackSequence;
+        _playerViewModel.SetQualityState(_overrideMaxBitrateMbps, true,
+            _settings.MaxStreamingBitrateMbps, "Retrying through the server transcoder...",
+            available: false);
         _app.PublishStopReport(_reporter?.Stop());
+        var reportBarrier = _app.PendingStopReport ?? Task.CompletedTask;
         var jf = _playbackJf ?? _app.Jellyfin;
-        var decision = await jf.NegotiatePlaybackAsync(item.Id, MaxBitrateBps,
-            forceTranscode: true);
-        if (_playingItem?.Id != item.Id || _app.State != AppState.Playing)
+        // The retry always names a source, from whichever of the two is meaningful. With a
+        // decision in hand that is the source the failed play actually used; without one
+        // negotiation never answered, so the failed play ran on the server's default and the
+        // retry pins the user's pick instead of repeating that. Either way the transcoder must
+        // not silently land on the default version when the user picked another one.
+        var decision = await jf.NegotiatePlaybackAsync(item.Id, EffectiveMaxBitrateBps,
+            forceTranscode: true,
+            mediaSourceId: _playbackDecision?.MediaSourceId ?? _chosenMediaSourceId);
+        if (_playingItem?.Id != item.Id || _playbackSequence != playbackSequence
+            || _app.State != AppState.Playing)
+        {
+            if (decision is not null)
+                _ = jf.DiscardUnplayedDecisionAsync(decision);
             return;
+        }
         if (decision is { IsTranscode: true })
         {
             _playbackDecision = decision;
+            _overrideForceTranscode = true;
             _playerViewModel.SetPlayMethod("Transcode (HLS)");
-            PlayCore(decision.Url, jf.AuthorizationHeader);
+            _playerViewModel.SetQualityState(_overrideMaxBitrateMbps, true,
+                _settings.MaxStreamingBitrateMbps, "Loading server transcode...",
+                available: false);
+            PlayCore(decision.Url, jf.AuthorizationHeader, reportBarrier,
+                _qualityTrackSelection);
         }
         else
         {
+            if (decision is not null)
+                _ = jf.DiscardUnplayedDecisionAsync(decision);
             StopPlaybackAndReturn();
             ShowToast($"Playback failed: {reason}");
+        }
+    }
+
+    /// <summary>Renegotiates the current VOD item before replacing its live mpv load.
+    /// Failed and superseded requests leave the old stream and report session untouched.</summary>
+    private Task ApplyQualityOverrideAsync(QualityRequest request)
+        // No new source: a quality change re-pins whatever the live decision is already playing,
+        // so the server cannot answer it by handing back a different version of the item.
+        => ApplyStreamChangeAsync(request, newMediaSourceId: null,
+            PlayerViewModel.QualityDescription(request.MaxBitrateMbps, request.ForceTranscode,
+                _settings.MaxStreamingBitrateMbps),
+            "quality", (outcome, sequence) => QualityDetail(outcome, request, sequence));
+
+    /// <summary>Switches the playing item to another of its media sources, keeping the bitrate
+    /// terms the user already chose. The one caller allowed to name a NEW source id.</summary>
+    private async Task ApplyVersionChangeAsync(string mediaSourceId)
+    {
+        if (_playingItem is not { } item)
+            return;
+        var playbackSequence = _playbackSequence;
+        var label = _playerViewModel.Versions
+            .FirstOrDefault(v => string.Equals(v.Id, mediaSourceId, StringComparison.Ordinal))
+            ?.Display ?? "the chosen version";
+        var applied = await ApplyStreamChangeAsync(
+            new QualityRequest(_overrideMaxBitrateMbps, _overrideForceTranscode), mediaSourceId,
+            label, "version",
+            (outcome, sequence) => VersionChangeDetail(outcome, mediaSourceId, sequence));
+        // Re-checked after the await: the apply path was current when it swapped the stream in,
+        // but the continuation resumes through the dispatcher, so a stop or a second switch can
+        // have landed in between — and both the remembered pick and the trickplay sheets would
+        // then be written against a playback that no longer exists.
+        //
+        // Against the DECISION's source, not the requested one: MediaSourceId is a request the
+        // server is free to ignore, and one that answers with its default instead would have this
+        // remember a pick the user never got and refetch sheets for a file that is not on screen.
+        if (!applied || _playingItem?.Id != item.Id || _playbackSequence != playbackSequence
+            || !string.Equals(_playbackDecision?.MediaSourceId, mediaSourceId, StringComparison.Ordinal))
+            return;
+        var jf = _playbackJf ?? _app.Jellyfin;
+        Settings.MediaVersionStore.Save(
+            Settings.HomeLayoutStore.ProfileKey(jf.UserId, jf.ServerUrl), item.Id, mediaSourceId);
+        // Trickplay is the only per-source metadata that has to be re-fetched. Chapters come off
+        // the item, and MediaSegmentsClient is keyed by item id with a chapter-name fallback —
+        // neither has a per-source form to ask for, which is why the quality path never touched
+        // them either.
+        await RefreshTrickplayAsync(item.Id, playbackSequence);
+    }
+
+    /// <summary>The one renegotiate-and-reload path, driven by both the quality controls and the
+    /// version picker: negotiate the replacement BEFORE touching the live stream, so a failed or
+    /// superseded request leaves the user watching what they were watching, then carry the
+    /// position, the pause state and the track choices across the reload.</summary>
+    /// <param name="newMediaSourceId">The source to switch to, or null to stay on the one the
+    /// live decision uses.</param>
+    /// <param name="description">What the OSD calls the thing being applied.</param>
+    /// <param name="noun">What a failure calls it ("quality" / "version").</param>
+    /// <param name="detail">Writes the caller's own verbose record: (outcome, requestSequence).</param>
+    /// <param name="forced">An explicit source-stream pick to negotiate instead of whatever the
+    /// live selection carries, or null to keep reading it back from mpv.</param>
+    /// <returns>Whether the change reached the stream.</returns>
+    private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,
+        string description, string noun, Action<string, int> detail, ForcedStreamPick? forced = null)
+    {
+        if (_syncPlay.IsInGroup)
+        {
+            ShowToast("Leave the group to change playback quality or version.");
+            return false;
+        }
+        if (_playingItem is not { } item || _playingLocal || _player is not { } player
+            || _app.State != AppState.Playing || !_playerViewModel.QualityAvailable)
+            return false;
+
+        var playbackSequence = _playbackSequence;
+        var requestSequence = ++_qualityRequestSequence;
+        var priorDecision = _playbackDecision;
+        var priorMaxBitrate = _overrideMaxBitrateMbps;
+        var priorForceTranscode = _overrideForceTranscode;
+        var requestedBitrateBps = (request.MaxBitrateMbps ?? _settings.MaxStreamingBitrateMbps)
+            * 1_000_000;
+        _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
+            _settings.MaxStreamingBitrateMbps, $"Applying {description}…");
+        detail("requested", requestSequence);
+
+        var jf = _playbackJf ?? _app.Jellyfin;
+        Jellyfin.MediaSourceStreams? streams = null;
+        try
+        {
+            streams = await jf.GetMediaStreamsAsync(item.Id);
+        }
+        catch
+        {
+            // Track pinning is best-effort. Negotiation itself still works without indices.
+        }
+        if (!StreamChangeIsCurrent())
+        {
+            detail("stale_before_negotiate", requestSequence);
+            return false;
+        }
+
+        var trackSelectionSequence = _trackSelectionSequence;
+        var selectedTracks = CaptureQualityTrackSnapshot(player, priorDecision, streams);
+        // Without a new source, pin the one which produced the live decision. Cached metadata may
+        // describe a different default source; in that case its stream ordinals are unsafe, but
+        // dropping MediaSourceId would let Jellyfin silently switch sources during the change.
+        var liveSourceId = priorDecision?.MediaSourceId ?? streams?.SourceId;
+        var mediaSourceId = newMediaSourceId ?? liveSourceId;
+        if (newMediaSourceId is { Length: > 0 }
+            && !string.Equals(newMediaSourceId, liveSourceId, StringComparison.Ordinal))
+            // A stream index is an ordinal INSIDE one source, so it names a different stream in
+            // another file: carried across a version switch it asks the 4K remux for whatever
+            // its third track happens to be. Dropping both lets the server apply the new
+            // source's own defaults, and RestoreQualityTracks still re-selects the user's choice
+            // after the reload — it matches on language, title and forced, which do cross files.
+            // SubtitleOff survives on purpose: "no subtitles" means the same thing everywhere.
+            selectedTracks = selectedTracks with { SourceAudio = null, SourceSubtitle = null };
+        // Last, so it outranks both the read-back and the version-switch reset: a remote
+        // SetAudioStreamIndex names the source stream directly, and the snapshot can only ever
+        // describe the one that is playing now.
+        if (forced is { } pick)
+            selectedTracks = pick.Apply(selectedTracks);
+        var audioStreamIndex = selectedTracks.SourceAudio?.Index;
+        int? subtitleStreamIndex = selectedTracks.SubtitleOff
+            ? -1
+            : selectedTracks.SourceSubtitle?.Index;
+
+        var decision = await jf.NegotiatePlaybackAsync(item.Id, requestedBitrateBps,
+            request.ForceTranscode, audioStreamIndex, subtitleStreamIndex, mediaSourceId);
+        if (!StreamChangeIsCurrent())
+        {
+            detail("stale", requestSequence);
+            if (decision is not null)
+                await jf.DiscardUnplayedDecisionAsync(decision);
+            return false;
+        }
+        if (decision is null)
+        {
+            var priorDescription = PlayerViewModel.QualityDescription(priorMaxBitrate,
+                priorForceTranscode, _settings.MaxStreamingBitrateMbps);
+            _playerViewModel.SetQualityState(priorMaxBitrate, priorForceTranscode,
+                _settings.MaxStreamingBitrateMbps,
+                $"Could not change {noun}. Still using {priorDescription}.");
+            detail("failure", requestSequence);
+            ShowToast($"Could not change playback {noun}.");
+            return false;
+        }
+
+        if (trackSelectionSequence != _trackSelectionSequence)
+        {
+            // A selection made during the POST belongs to the replacement too. Its source
+            // indices were not in this request, so discard it and negotiate the new choices.
+            //
+            // The forced pick is carried into the retry. Without it a remote SetSubtitleStreamIndex
+            // that raced a user's audio change would be dropped on the floor — the retry reads the
+            // selection back from mpv, which has never heard of the remote pick — while the detail
+            // line still recorded "applied" for a change that did not happen. The pick is applied
+            // last in the retry too, so the user's fresher choice keeps the other half.
+            await jf.DiscardUnplayedDecisionAsync(decision);
+            return StreamChangeIsCurrent()
+                && await ApplyStreamChangeAsync(request, newMediaSourceId, description, noun, detail,
+                    forced);
+        }
+
+        // Direct play always uses one static source URL. Keep the current report session and
+        // discard the unused negotiation rather than reload the same bytes under a new session.
+        if (priorDecision is { IsTranscode: false } && !decision.IsTranscode
+            && string.Equals(priorDecision.Url, decision.Url, StringComparison.Ordinal))
+        {
+            _overrideMaxBitrateMbps = request.MaxBitrateMbps;
+            _overrideForceTranscode = request.ForceTranscode;
+            _qualityTrackSelection = selectedTracks;
+            AdoptChosenSource(newMediaSourceId);
+            _playerViewModel.SetCurrentVersion(priorDecision.MediaSourceId);
+            _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
+                _settings.MaxStreamingBitrateMbps, $"{description} · Direct play");
+            detail("no_reload", requestSequence);
+            await jf.DiscardUnplayedDecisionAsync(decision);
+            return true;
+        }
+
+        var positionTicks = (long)(Math.Max(0, player.TimePos) * TimeSpan.TicksPerSecond);
+        var wasPaused = player.Pause;
+        var stopReport = _reporter?.Stop() ?? Task.CompletedTask;
+        _app.PublishStopReport(stopReport);
+        var reportBarrier = _app.PendingStopReport ?? stopReport;
+
+        _playbackDecision = decision;
+        _overrideMaxBitrateMbps = request.MaxBitrateMbps;
+        _overrideForceTranscode = request.ForceTranscode;
+        _qualityTrackSelection = selectedTracks;
+        _pendingResumeTicks = positionTicks;
+        AdoptChosenSource(newMediaSourceId);
+        // The reporter takes its MediaSourceId from the decision at Start(), and Stop() above
+        // still carries the outgoing one — so a version switch is a clean stop of the old source
+        // followed by a start of the new one, never a session silently retargeted.
+        _playerViewModel.SetCurrentVersion(decision.MediaSourceId);
+        var playMethod = decision.IsTranscode ? "Transcode (HLS)" : "Direct play";
+        _playerViewModel.SetPlayMethod(playMethod);
+        _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
+            _settings.MaxStreamingBitrateMbps, $"Loading {description}...",
+            available: false);
+
+        try
+        {
+            PlayCore(decision.Url, jf.AuthorizationHeader, reportBarrier, selectedTracks);
+            if (wasPaused)
+                player.Pause = true;
+            detail("applied", requestSequence);
+        }
+        catch (Exception ex) when (ex is MpvException or ObjectDisposedException)
+        {
+            WritePlaybackFailureLog(ex.Message, $"playback stopped after {noun} change");
+            if (_playingItem?.Id == item.Id && _playbackSequence == playbackSequence
+                && ReferenceEquals(_playbackDecision, decision)
+                && _app.State == AppState.Playing)
+                StopPlaybackAndReturn();
+            _ = jf.DiscardUnplayedDecisionAsync(decision);
+            ShowToast($"Playback failed: {ex.Message}");
+            return false;
+        }
+        return true;
+
+        bool StreamChangeIsCurrent()
+            => _playingItem?.Id == item.Id && _playbackSequence == playbackSequence
+                && _qualityRequestSequence == requestSequence && _app.State == AppState.Playing
+                && ReferenceEquals(_playbackDecision, priorDecision);
+    }
+
+    /// <summary>Adopts a switched-to source as this playback's pick, so everything that
+    /// renegotiates later — the transcode retry, the next quality change — pins the version the
+    /// user is actually watching rather than the one they started on.</summary>
+    private void AdoptChosenSource(string? newMediaSourceId)
+    {
+        if (newMediaSourceId is { Length: > 0 })
+            _chosenMediaSourceId = newMediaSourceId;
+    }
+
+    private QualityTrackSnapshot CaptureQualityTrackSnapshot(MpvPlayer player,
+        Jellyfin.PlaybackDecision? decision, Jellyfin.MediaSourceStreams? streams)
+    {
+        player.RefreshTracks(player.LoadGeneration);
+        return CaptureQualityTrackSnapshot(player.Tracks, decision, streams,
+            _qualityTrackSelection, _subtitleState?.ExplicitSubtitleOff);
+    }
+
+    internal static QualityTrackSnapshot CaptureQualityTrackSnapshot(IReadOnlyList<MpvTrack> tracks,
+        Jellyfin.PlaybackDecision? decision, Jellyfin.MediaSourceStreams? streams,
+        QualityTrackSnapshot? priorSelection, bool? explicitSubtitleOff)
+    {
+        var audio = tracks.FirstOrDefault(t => t is { Type: "audio", Selected: true });
+        var subtitle = tracks.FirstOrDefault(t => t is { Type: "sub", Selected: true });
+        var preserveBurn = subtitle is null && explicitSubtitleOff != true
+            && decision is { IsTranscode: true, SubtitleIsBurnedIn: true, SubtitleStreamIndex: >= 0 };
+        var subtitleOff = explicitSubtitleOff == true || (subtitle is null && !preserveBurn);
+        var sourceAudio = priorSelection?.SourceAudio;
+        var sourceSubtitle = subtitleOff ? null : priorSelection?.SourceSubtitle;
+        var sourceMatches = streams is not null
+            && (decision?.MediaSourceId is null
+                || string.Equals(decision.MediaSourceId, streams.SourceId, StringComparison.Ordinal));
+
+        if (sourceMatches && streams is not null)
+        {
+            if (decision is not { IsTranscode: true })
+            {
+                sourceAudio = audio is null ? null
+                    : streams.Audio.FirstOrDefault(s => !s.IsExternal && s.TypeOrdinal == audio.Id - 1);
+                sourceSubtitle = subtitle is null ? null
+                    : streams.Subtitles.FirstOrDefault(s => !s.IsExternal
+                        && s.TypeOrdinal == subtitle.Id - 1);
+            }
+            else
+            {
+                // A transcoded file normally renumbers the chosen source audio to mpv id 1.
+                // Carry the source index returned with the decision. Resolve by description
+                // only for older or failed-negotiation decisions which do not have one.
+                sourceAudio ??= streams.Audio.FirstOrDefault(s =>
+                    s.Index == decision?.AudioStreamIndex);
+                sourceAudio ??= MatchSourceTrack(audio, streams.Audio);
+                if (!subtitleOff)
+                {
+                    sourceSubtitle ??= MatchSourceTrack(subtitle, streams.Subtitles);
+                    if (priorSelection is null)
+                        sourceSubtitle ??= streams.Subtitles.FirstOrDefault(s =>
+                            s.Index == decision?.SubtitleStreamIndex);
+                }
+            }
+        }
+
+        if (preserveBurn)
+        {
+            // Burned subtitles are video pixels, so even unrelated external rows can all be
+            // unselected. The negotiated source index survives missing or mismatched metadata.
+            sourceSubtitle = sourceMatches
+                ? streams!.Subtitles.FirstOrDefault(s => s.Index == decision!.SubtitleStreamIndex)
+                : null;
+            sourceSubtitle ??= priorSelection?.SourceSubtitle is { } priorSubtitle
+                    && priorSubtitle.Index == decision!.SubtitleStreamIndex
+                ? priorSubtitle
+                : new Jellyfin.MediaStreamChoice(decision!.SubtitleStreamIndex!.Value, -1,
+                    "", null, null, false, false);
+            subtitle = priorSelection?.Subtitle ?? new MpvTrack(0, "sub", sourceSubtitle.Title,
+                sourceSubtitle.Language, true, sourceSubtitle.IsDefault, false);
+        }
+
+        return new(audio, subtitle, subtitleOff, sourceAudio, sourceSubtitle);
+    }
+
+    private static Jellyfin.MediaStreamChoice? MatchSourceTrack(MpvTrack? selected,
+        IEnumerable<Jellyfin.MediaStreamChoice> choices)
+    {
+        if (selected is null)
+            return null;
+        var candidates = choices.ToList();
+        return candidates.FirstOrDefault(c =>
+                   string.Equals(c.Language, selected.Lang, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(c.Title, selected.Title, StringComparison.OrdinalIgnoreCase))
+               ?? candidates.FirstOrDefault(c => Languages.Matches(c.Language, selected.Lang))
+               ?? candidates.FirstOrDefault(c => string.Equals(c.Title, selected.Title,
+                   StringComparison.OrdinalIgnoreCase))
+               ?? (selected.Default ? candidates.FirstOrDefault(c => c.IsDefault) : null)
+               ?? (candidates.Count == 1 ? candidates[0] : null);
+    }
+
+    private static bool RestoreQualityTracks(MpvPlayer player, SubtitleGenerationState state)
+    {
+        if (state.RestoreTracks is not { } restore)
+            return true;
+
+        var settled = true;
+        var audioTracks = player.Tracks.Where(t => t.Type == "audio").ToList();
+        if (restore.Audio is not null)
+        {
+            var audio = state.ReportDecision is not { IsTranscode: true }
+                    && restore.SourceAudio is { TypeOrdinal: >= 0 } sourceAudio
+                ? audioTracks.FirstOrDefault(t => t.Id == sourceAudio.TypeOrdinal + 1)
+                : null;
+            audio ??= MatchReloadedTrack(restore.Audio, audioTracks);
+            if (audio is null)
+                settled = false;
+            else if (!audio.Selected)
+            {
+                player.SelectAudioTrack(audio.Id);
+                settled = false;
+            }
+        }
+
+        var subtitleTracks = player.Tracks.Where(t => t.Type == "sub").ToList();
+        if (restore.SubtitleOff)
+        {
+            if (subtitleTracks.Any(t => t.Selected))
+            {
+                player.SelectSubtitleTrack(null);
+                settled = false;
+            }
+        }
+        else if (restore.Subtitle is not null
+            && state.ReportDecision is { SubtitleIsBurnedIn: true })
+        {
+            // The selected source is already in the video; do not match it to an unrelated
+            // sidecar or display a second subtitle over it.
+            if (subtitleTracks.Any(t => t.Selected))
+            {
+                player.SelectSubtitleTrack(null);
+                settled = false;
+            }
+        }
+        else if (restore.Subtitle is not null)
+        {
+            var subtitle = state.ReportDecision is not { IsTranscode: true }
+                    && restore.SourceSubtitle is { TypeOrdinal: >= 0 } sourceSubtitle
+                ? subtitleTracks.FirstOrDefault(t => t.Id == sourceSubtitle.TypeOrdinal + 1)
+                : null;
+            subtitle ??= MatchReloadedTrack(restore.Subtitle, subtitleTracks);
+            if (subtitle is null)
+            {
+                // A transcoder may burn the requested subtitle into the video and expose no
+                // selectable subtitle track in its output.
+                if (state.ReportDecision is not { IsTranscode: true } || subtitleTracks.Count > 0)
+                    settled = false;
+            }
+            else if (!subtitle.Selected)
+            {
+                player.SelectSubtitleTrack(subtitle.Id);
+                settled = false;
+            }
+        }
+        return settled;
+    }
+
+    private static MpvTrack? MatchReloadedTrack(MpvTrack selected, List<MpvTrack> choices)
+        => choices.FirstOrDefault(t =>
+               string.Equals(t.Lang, selected.Lang, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(t.Title, selected.Title, StringComparison.OrdinalIgnoreCase)
+               && t.Forced == selected.Forced)
+           ?? choices.FirstOrDefault(t => Languages.Matches(t.Lang, selected.Lang)
+               && t.Forced == selected.Forced)
+           ?? choices.FirstOrDefault(t => string.Equals(t.Title, selected.Title,
+               StringComparison.OrdinalIgnoreCase))
+           ?? (choices.Count == 1 ? choices[0] : null);
+
+    private static void QualityDetail(string outcome, QualityRequest request, int requestSequence)
+    {
+        if (!Diagnostics.AppLog.Verbose)
+            return;
+        Diagnostics.AppLog.Detail("player", FormattableString.Invariant(
+            $"event=quality_change outcome={outcome} request={requestSequence} max_bitrate_mbps={(request.MaxBitrateMbps?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "default")} forced_transcode={(request.ForceTranscode ? "true" : "false")}"));
+    }
+
+    /// <summary>The version switch's own record. Its own event name, not a field on
+    /// quality_change: the two changes share a code path but fail for different reasons, and a
+    /// log that cannot tell them apart cannot answer "why did it reload".</summary>
+    private static void VersionChangeDetail(string outcome, string mediaSourceId, int requestSequence)
+    {
+        if (!Diagnostics.AppLog.Verbose)
+            return;
+        Diagnostics.AppLog.Detail("player", FormattableString.Invariant(
+            $"event=version_change outcome={outcome} request={requestSequence} source={mediaSourceId}"));
+    }
+
+    /// <summary>Rebuilds the trickplay provider against the source that is playing now. Each
+    /// version has its own sheets — they are cut from a different file — so the provider cannot
+    /// be left pointing at the source the playback started on. Best-effort and self-guarded,
+    /// because both callers resume on the dispatcher long after the playback they were started
+    /// for; the source is read here rather than passed in so both read it the same way.</summary>
+    private async Task RefreshTrickplayAsync(Guid itemId, int playbackSequence)
+    {
+        var jf = _playbackJf ?? _app.Jellyfin;
+        var mediaSourceId = TrickplaySourceId;
+        try
+        {
+            var trickplay = await jf.GetTrickplayAsync(itemId, mediaSourceId);
+            // The source is re-read, not just the playback: the metadata chain's fetch and a
+            // version switch's overlap by construction — the switch is only reachable once the
+            // chain's versions step has put the picker up, and its own trickplay fetch is still
+            // outstanding — and both carry the same item and playback sequence, so nothing else
+            // here can tell them apart. Answering last, the metadata chain left hover previews on
+            // the OLD file for the rest of the playback.
+            if (_playingItem?.Id != itemId || _playbackSequence != playbackSequence
+                || !string.Equals(mediaSourceId, TrickplaySourceId, StringComparison.Ordinal))
+                return;
+            // Cleared even when the answer is null: the outgoing provider describes the source
+            // that is no longer playing, and its sheets would be shown for the new one's hovers.
+            _playerViewModel.SetTrickplay(trickplay is null
+                ? null
+                : new Jellyfin.TrickplayProvider(jf, itemId, trickplay));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"playback metadata: trickplay failed - {ex.Message}");
+            Diagnostics.AppLog.Error("playback-metadata", "trickplay failed", ex);
         }
     }
 
@@ -1568,13 +2291,35 @@ public partial class MainWindow : Window
                 _playerViewModel.SetMediaInfo(mediaInfo.Select(f => new InfoRow(f.Label, f.Value)));
         });
 
-        await Step("trickplay", async () =>
-        {
-            var trickplay = await jf.GetTrickplayAsync(item.Id);
-            if (StillCurrent() && trickplay is not null)
-                _playerViewModel.SetTrickplay(new Jellyfin.TrickplayProvider(jf, item.Id, trickplay));
-        });
+        // Alternate versions → the player's VERSIONS section. Local playback is skipped: the
+        // download outranks any pick (see PlayItem), so a picker there could not take effect.
+        if (!_playingLocal)
+            await Step("versions", async () =>
+            {
+                var versions = await jf.GetMediaVersionsAsync(item.Id);
+                if (StillCurrent())
+                    _playerViewModel.SetVersions(versions, CurrentMediaSourceId);
+            });
+
+        // Last, and against the playing source: an alternate version has its own sheets, so the
+        // default source's would preview a different file. Not wrapped in Step - the helper is
+        // shared with the version switch, so it carries the same guard and failure log itself.
+        if (StillCurrent())
+            await RefreshTrickplayAsync(item.Id, playbackSequence);
     }
+
+    /// <summary>The media source the playback is actually on: the negotiated decision's, else
+    /// the pick negotiation has not answered for yet, else the server's default (null).</summary>
+    private string? CurrentMediaSourceId => _playbackDecision?.MediaSourceId ?? _chosenMediaSourceId;
+
+    /// <summary>The source whose trickplay sheets belong on screen — the playing one, except on a
+    /// completed download, which has none of its own. A local playback still carries the pick in
+    /// <c>_chosenMediaSourceId</c> (PlayItem sets it before the download outranks it), and naming
+    /// it here asked the server for that version's bucket, which answers nothing for a file it is
+    /// not serving: a downloaded item with a remembered pick lost hover previews entirely. Unnamed,
+    /// the fetch falls back to the first bucket, which is what local playback showed before
+    /// versions existed.</summary>
+    private string? TrickplaySourceId => _playingLocal ? null : CurrentMediaSourceId;
 
     /// <summary>Feeds fetched external subtitles to the live loaded generation. A retry generation
     /// gets the same playback's batch again; an old metadata request cannot cross the sequence.</summary>
@@ -1621,7 +2366,45 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Subscribed BEFORE the view model attaches, and that order is load-bearing. Both listen to
+        // EndReached, handlers run in subscription order, and the view model's handler advances to
+        // the next episode — so an end-of-file that is really a cut-off partial download has to be
+        // turned back into a fallback before it gets the chance. The fallback clears the Up Next
+        // card, so the view model's handler then finds nothing to advance to.
+        //
+        // Why end-of-file is a partial-stream failure at all, and why this is the branch that
+        // carries it rather than PlaybackFailed: MEASURED against a real mpv and a real
+        // PartialFileServer (the harness's --partial-stream mpv legs), a response cut off mid-film
+        // reaches the app as an END OF FILE in both framings. With a Content-Length ffmpeg does see
+        // it ("Stream ends prematurely"), reconnects four times over ~11 s, and then reports EOF;
+        // with the chunked framing an unsized stream uses it does not even log — a truncated
+        // chunked body is an end of stream to it. So PlaybackFailed only ever fires for a LOAD
+        // failure here, and without this guard a download paused twelve minutes in froze on the
+        // last frame or auto-advanced to the next episode, which is the worst outcome available.
+        _player.EndReached += () =>
+        {
+            // A completed download IS the whole file, so its end-of-file is a real one. Only a
+            // download that is still unfinished can have ended the response early.
+            if (_partialStreamItem is not { } partialItem
+                || _downloads.GetCompletedDownload(partialItem) is not null)
+                return;
+            if (TryPartialStreamFallback("the download stopped before the end of the file"))
+                return;
+            // Refused, and this is still the live partial-stream playback: the offline Downloads
+            // path reaches PlayUrl, which leaves _playingItem null, so there is no server item to
+            // retreat to and there genuinely never was one. Doing nothing here would leave the
+            // frozen last frame with no message that this whole guard exists to remove — on the
+            // one path where nothing can be played instead — and would leave the publication and
+            // its loopback listener up until the next load.
+            if (_app.State != AppState.Playing || _partialStreamSequence != _playbackSequence)
+                return;
+            Diagnostics.AppLog.Error("player", FormattableString.Invariant(
+                $"event=partial_stream_fallback outcome=unavailable item={partialItem:N}; the download stopped before the end of the file"));
+            ReleasePartialStream();
+            ShowToast("The download stopped, so playback ended early.");
+        };
         _playerViewModel.Attach(_player);
+        AttachSyncPlayPlayer();
 #if DEBUG
         // The generation-ordering regression suite requests B through the real shell path so its
         // per-load subtitle state changes exactly as a user-initiated local playback would.
@@ -1672,8 +2455,28 @@ public partial class MainWindow : Window
             Diagnostics.AppLog.Error("player", $"playback stall unrecovered: {reason}");
             ShowToast(reason);
         };
+        // The last position mpv reported that was not the between-files zero. PlaybackFailed cannot
+        // read TimePos for this: when a file ends, mpv publishes time-pos as UNAVAILABLE and
+        // MpvPlayer stores that zero synchronously on its event thread, while the failure itself is
+        // posted to the dispatcher — so by the time the handler runs, the live position is already
+        // gone. The partial-stream fallback below needs the real one to restart where the user was.
+        _player.PositionChanged += (pos, generation) =>
+        {
+            if (pos <= 0)
+                return;
+            _lastPositionSeconds = pos;
+            _lastPositionGeneration = generation;
+        };
         _player.PlaybackFailed += reason =>
         {
+            // A partial stream that stopped. The LOAD case is the famous one — a non-faststart MP4
+            // keeps its moov atom at the END of the file, so no prefix of it plays at all, and that
+            // is not predictable from the container because a faststart MP4 has the same extension
+            // and the same codecs — but it is not the only one: the write-head wait also ends when
+            // the download is paused from the Downloads screen, fails on a LAN stall, or is
+            // removed, and any of those closes the response mid-film.
+            if (TryPartialStreamFallback($"mpv said: {reason}"))
+                return;
             // Failed direct play of a server item: retry once via the transcoder.
             if (_app.State == AppState.Playing && _playingItem is { } item
                 && _playbackDecision is not { IsTranscode: true } && !_transcodeRetryDone)
@@ -1737,17 +2540,25 @@ public partial class MainWindow : Window
                 }
 #endif
             }
+            if (!stale && !_playingLocal && _playingItem is not null)
+            {
+                var playMethod = _playbackDecision is { IsTranscode: true }
+                    ? "Transcode (HLS)" : "Direct play";
+                var quality = PlayerViewModel.QualityDescription(_overrideMaxBitrateMbps,
+                    _overrideForceTranscode, _settings.MaxStreamingBitrateMbps);
+                _playerViewModel.SetQualityState(_overrideMaxBitrateMbps,
+                    _overrideForceTranscode, _settings.MaxStreamingBitrateMbps,
+                    $"{quality} · {playMethod}");
+            }
             var resumeTicks = _pendingResumeTicks;
             if (resumeTicks > 0 && !stale && _player is { } p)
             {
                 p.TimePos = TimeSpan.FromTicks(resumeTicks).TotalSeconds;
                 _pendingResumeTicks = 0;
             }
-            // Local-first playback (M20) deliberately reports nothing — there is no
-            // server session; watched-state sync-back is a noted follow-up.
-            if (_playingItem is { } item && !_playingLocal)
-                _reporter?.Start(item.Id, resumeTicks, _playbackDecision?.PlaySessionId,
-                    _playbackDecision?.MediaSourceId, _playbackDecision?.IsTranscode ?? false);
+            if (!stale && _subtitleState is { } loadedState
+                && loadedState.Generation == generation)
+                _ = StartPlaybackReportingAsync(loadedState, resumeTicks);
         };
 
         _player.TracksChanged += ApplyLanguagePreferences;
@@ -1757,7 +2568,38 @@ public partial class MainWindow : Window
             _pendingLoad = null;
             _player.SetHttpHeaders(pending.AuthHeader);
             var generation = _player.LoadFile(pending.Url);
-            _subtitleState = new SubtitleGenerationState(generation, _playbackSequence);
+            ArmSyncPlayLoad(generation);
+            _subtitleState = NewSubtitleGenerationState(generation, pending.ReportBarrier,
+                pending.RestoreTracks);
+        }
+    }
+
+    /// <summary>Starts the replacement session only after the outgoing stop POST finishes.
+    /// The generation checks repeat after the await because another load may win meanwhile.</summary>
+    private async Task StartPlaybackReportingAsync(SubtitleGenerationState state, long resumeTicks)
+    {
+        await state.ReportBarrier;
+        if (state.ReportStarted || state.DecisionDiscarded)
+            return;
+        if (_windowClosing || _player is not { } player || player.LoadGeneration != state.Generation
+            || !ReferenceEquals(_subtitleState, state)
+            || _playbackSequence != state.PlaybackSequence || _app.State != AppState.Playing
+            || !ReferenceEquals(_playbackDecision, state.ReportDecision))
+        {
+            if (state.ReportDecision is { } abandoned && state.ReportOwner is { } owner)
+            {
+                state.DecisionDiscarded = true;
+                await owner.DiscardUnplayedDecisionAsync(abandoned);
+            }
+            return;
+        }
+        // Local-first playback deliberately reports nothing: there is no server session.
+        if (_playingItem is { } item && !_playingLocal)
+        {
+            state.ReportStarted = true;
+            _reporter?.Start(item.Id, resumeTicks, state.ReportDecision?.PlaySessionId,
+                state.ReportDecision?.MediaSourceId, state.ReportDecision?.IsTranscode ?? false,
+                player.Pause);
         }
     }
 
@@ -1784,7 +2626,9 @@ public partial class MainWindow : Window
                 if (item.SeriesName is { Length: > 0 } series)
                     summary.Add($"series: {series}");
             }
-            summary.Add("source: " + (_playingLocal ? "local file (completed download)"
+            summary.Add("source: " + (_partialStreamItem is not null
+                ? "local file over loopback (download still running)"
+                : _playingLocal ? "local file (completed download)"
                 : _playbackDecision is { IsTranscode: true } ? "server, transcode (HLS)"
                 : _playbackDecision is not null ? "server, direct play"
                 : _playingItem is null ? "local file or direct URL (no server item)"
@@ -1848,6 +2692,26 @@ public partial class MainWindow : Window
         if (_player is not { } player || player.LoadGeneration != generation
             || _subtitleState is not { FileLoaded: true } state || state.Generation != generation)
             return;
+
+        // An in-item reload keeps the user's exact current choices. Source ordinals restore a
+        // direct stream; description matching restores the single renumbered transcode output.
+        // This intent outranks persisted language defaults for the replacement generation.
+        if (state.RestoreTracks is not null)
+        {
+            state.LanguagePreferencesApplied = true;
+            if (RestoreQualityTracks(player, state))
+            {
+                state.RestoreTracks = null;
+                state.StickyApplied = true;
+            }
+            if (state.PendingIntent is { } qualityIntent && ApplyExactSubtitleIntent(player, qualityIntent))
+            {
+                state.PendingIntent = null;
+                state.StickyApplied = true;
+            }
+            TryApplyPendingSubtitleCycles(state);
+            return;
+        }
 
         if (state.PendingIntent is { } intent)
         {
@@ -1927,7 +2791,7 @@ public partial class MainWindow : Window
         // The user's own in-player choice outranks the stored preference: it is the more recent and
         // more specific instruction. Before this, a manual pick was discarded by the next
         // loadfile - pick English subtitles on episode 1 and episode 2 started with none, which is
-        // the reported bug. TECHNICAL.md described that as intentional ("an in-player choice never
+        // the reported bug. That was once described as intentional ("an in-player choice never
         // leaks into the next queue item"); it reads as intentional only until you watch two
         // episodes in a row. Applied above, before this one-shot, so a late track still counts.
         if (_stickySub is not null)
@@ -1982,6 +2846,19 @@ public partial class MainWindow : Window
             return;
 
         _stickySub = new StickySubtitle(request.Off, request.Lang, request.Title, request.Forced);
+        state.ExplicitSubtitleOff = request.Off;
+        _trackSelectionSequence++;
+        if (state.RestoreTracks is { } restore)
+            state.RestoreTracks = restore with { Subtitle = null, SubtitleOff = false };
+        if (_qualityTrackSelection is { } selection)
+            _qualityTrackSelection = selection with
+            {
+                Subtitle = request.TrackId is { } id
+                    ? player.Tracks.FirstOrDefault(t => t.Type == "sub" && t.Id == id)
+                    : null,
+                SubtitleOff = request.Off,
+                SourceSubtitle = null,
+            };
         state.PendingIntent = request;
         state.StickyApplied = false;
         state.AwaitingStickySelection = false;
@@ -2034,8 +2911,16 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Re-resolves a remembered choice against this file's tracks. Best match first:
-    /// same language AND same forced-ness, then same language, then the same track title (which
-    /// is what carries an external subtitle's identity — "English (SDH)" and the like).
+    /// same language AND same forced-ness AND the same title, then same language AND forced-ness,
+    /// then same language, then the title on its own — the last tier being what still finds a track
+    /// when no language was ever recorded (an external subtitle's identity is its title) or when
+    /// this file carries nothing in the remembered language.
+    /// <para>Title joins the leading tier because it is the only field that separates same-language
+    /// variants. A file carrying both "English" and "English (SDH)" matched on language alone
+    /// resolves to whichever one the container happens to list first, so picking SDH on episode 1
+    /// and getting plain English on episode 2 looked exactly like the app forgetting the choice.
+    /// Forced-ness still outranks the title, because a forced track is a different KIND of
+    /// subtitle rather than a variant of the same one.</para>
     /// <para>The result distinguishes an acknowledged selection from a command awaiting mpv's
     /// observed track-list update, so queued shortcut presses cannot run from the old row.</para></summary>
     private static StickySubtitleApplyResult ApplyStickySubtitle(MpvPlayer player, StickySubtitle sticky)
@@ -2048,14 +2933,7 @@ public partial class MainWindow : Window
             player.SelectSubtitleTrack(null);
             return new(StickySubtitleApplyStatus.SelectionCommandIssued, null);
         }
-        var match =
-            (sticky.Lang is { Length: > 0 }
-                ? subs.FirstOrDefault(t => Languages.Matches(t.Lang, sticky.Lang) && t.Forced == sticky.Forced)
-                  ?? subs.FirstOrDefault(t => Languages.Matches(t.Lang, sticky.Lang))
-                : null)
-            ?? (sticky.Title is { Length: > 0 }
-                ? subs.FirstOrDefault(t => string.Equals(t.Title, sticky.Title, StringComparison.OrdinalIgnoreCase))
-                : null);
+        var match = MatchStickySubtitle(subs, sticky.Lang, sticky.Title, sticky.Forced);
         // No counterpart in this file (yet): leave mpv's own default alone rather than forcing Off,
         // and report failure so a later track-list wave gets another go.
         if (match is null)
@@ -2064,6 +2942,28 @@ public partial class MainWindow : Window
             return new(StickySubtitleApplyStatus.AlreadySelected, match.Id);
         player.SelectSubtitleTrack(match.Id);
         return new(StickySubtitleApplyStatus.SelectionCommandIssued, match.Id);
+    }
+
+    /// <summary>The pure half of <see cref="ApplyStickySubtitle"/>: the four-tier match over one
+    /// file's subtitle rows. Split out, and taking the remembered fields as primitives rather than
+    /// a <see cref="StickySubtitle"/>, so the offscreen harness can call it without an mpv handle
+    /// and without reflecting a private nested record into existence.</summary>
+    private static MpvTrack? MatchStickySubtitle(
+        IReadOnlyList<MpvTrack> subs, string? lang, string? title, bool forced)
+    {
+        var hasLang = lang is { Length: > 0 };
+        var hasTitle = title is { Length: > 0 };
+        return (hasLang && hasTitle
+                ? subs.FirstOrDefault(t => Languages.Matches(t.Lang, lang) && t.Forced == forced
+                    && string.Equals(t.Title, title, StringComparison.OrdinalIgnoreCase))
+                : null)
+            ?? (hasLang
+                ? subs.FirstOrDefault(t => Languages.Matches(t.Lang, lang) && t.Forced == forced)
+                  ?? subs.FirstOrDefault(t => Languages.Matches(t.Lang, lang))
+                : null)
+            ?? (hasTitle
+                ? subs.FirstOrDefault(t => string.Equals(t.Title, title, StringComparison.OrdinalIgnoreCase))
+                : null);
     }
 
 #if DEBUG
@@ -2131,8 +3031,27 @@ public partial class MainWindow : Window
 #endif
 
     /// <summary>Plays a local file or non-server URL (no progress reporting).</summary>
-    public void PlayUrl(string url, string? authHeader)
+    /// <param name="partialStreamItem">Set only by the offline Downloads path, where the URL is
+    /// this manager's own loopback partial stream: it keeps the publication tied to the playback
+    /// so the next load retires it.</param>
+    /// <param name="title">What to call this playback. Only a caller that HAS a real name passes
+    /// one; without it the name is derived from the URL, which is right for a dropped file and
+    /// wrong for anything whose URL was never meant to be read by a person.</param>
+    /// <param name="subtitle">Context line under the title, as on the Downloads row.</param>
+    public void PlayUrl(string url, string? authHeader, Guid? partialStreamItem = null,
+        string? title = null, string? subtitle = null)
     {
+        if (_syncPlay.IsInGroup) { ShowToast("Leave the group to open a local file or stream."); return; }
+        _syncPlayBinding?.Reset();
+        _ = DiscardUnreportedLoad();
+        // Retire the OUTGOING publication only. PlayItem publishes after its release (:1468 then
+        // :1537); this path is the other way round — OnDownloadPlayRequested publishes and then
+        // calls here — so an unconditional release withdraws the token its own caller just issued.
+        // It is reachable: that handler is async void, so a double-click on Play while offline runs
+        // two continuations, the second publishes a fresh token for the same item, and an
+        // item-keyed withdrawal then kills it before the URL below is ever loaded.
+        if (_partialStreamItem is { } outgoing && outgoing != partialStreamItem)
+            ReleasePartialStream();
         _app.Queue.Clear();
         _app.PublishStopReport(_reporter?.Stop());
         _playingItem = null;
@@ -2144,16 +3063,144 @@ public partial class MainWindow : Window
         _subtitleState = null;
         _playbackDecision = null;
         _transcodeRetryDone = false;
+        _overrideMaxBitrateMbps = null;
+        _overrideForceTranscode = false;
+        _chosenMediaSourceId = null;
+        _qualityTrackSelection = null;
+        _qualityRequestSequence++;
+        _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+            available: false, visible: false);
         _playerViewModel.SetPlayMethod(null);
         _playerViewModel.SetTrickplay(null);
+        _playerViewModel.SetVersions([], null);
         _playerViewModel.SetUpNext(null);
         _playerViewModel.SetEpisodeNeighbors(false, null, null);
         _playerViewModel.SetMediaInfo(null);
-        _playerViewModel.SetNowPlaying(GetDisplayName(url));
-        UpdateSystemMediaDisplay(GetDisplayName(url), null, null);
+        var displayTitle = title is { Length: > 0 } ? title : GetDisplayName(url);
+        _playerViewModel.SetNowPlaying(displayTitle, subtitle);
+        UpdateSystemMediaDisplay(displayTitle, subtitle, null);
         _playerViewModel.SetServerChapters([]); // fall back to mpv's chapter-list
         _playerViewModel.SetSkipSegments([], _settings.AutoSkipIntro, _settings.AutoSkipCredits);
+        _partialStreamItem = partialStreamItem;
+        _partialStreamSequence = _playbackSequence;
         PlayCore(url, authHeader);
+    }
+
+    /// <summary>Retires the loopback publication a partial-download playback was reading. Called
+    /// wherever that playback ends or is replaced — the server stops listening once the last
+    /// publication goes.</summary>
+    private void ReleasePartialStream()
+    {
+        if (_partialStreamItem is not { } itemId)
+            return;
+        _partialStreamItem = null;
+        _downloads.WithdrawPartialStream(itemId);
+    }
+
+    /// <summary>The one-shot retreat from a still-downloading partial stream to the best source
+    /// still available — the finished file on disk when the download completed under the playback,
+    /// otherwise the ordinary server stream — at the position playback had actually reached.
+    /// Returns false when the event that asked for it does not belong to a live partial stream,
+    /// which is the caller's signal to carry on with its ordinary handling.
+    ///
+    /// <para>One shape for both ways a partial stream ends: an mpv ERROR (a prefix with no playable
+    /// header — the non-faststart MP4 — or a sized response cut short), and a clean END OF FILE
+    /// (an unsized response whose framing the demuxer read as a complete stream). The marker is
+    /// cleared first, so a second failure falls through to the ordinary transcode retry.</para>
+    ///
+    /// <para>The generation is checked with the id. Replacing one partial stream with another
+    /// cancels the outgoing reader's socket inside <see cref="PlayItem"/>, before that same call
+    /// re-points <c>_playingItem</c> — and mpv's EndFile is posted, so the dead stream's error
+    /// lands here AFTER the new one is set up. On an id-only check it matched, and the fix for a
+    /// failure of the outgoing stream was applied to the healthy incoming one. (The transcode-retry
+    /// branch has the same shape and the same gap; it is pre-existing and left alone.)</para>
+    /// </summary>
+    /// <param name="because">What ended it, for the log record. Not shown to the user.</param>
+    private bool TryPartialStreamFallback(string because)
+    {
+        if (_app.State != AppState.Playing || _playingItem is not { } partialItem
+            || _partialStreamItem != partialItem.Id
+            || _partialStreamSequence != _playbackSequence)
+            return false;
+        // The position the playback was actually at, carried across the way ApplyStreamChangeAsync
+        // carries one across a stream swap. Not _pendingResumeTicks: FileLoaded zeroes that the
+        // moment it applies the resume, so a failure that arrives mid-film reads 0 from it — and
+        // restarting a film the user was forty minutes into at 00:00 is the worst outcome this
+        // feature can produce. A LOAD failure is the other half: nothing ever played, the pending
+        // resume was never spent, and it is still the truth — so it is left alone rather than
+        // overwritten with the zero a file that never started is at.
+        //
+        // The generation gate is what makes that true. A position posted for the PREVIOUS file can
+        // only be delivered after this load has already started (see MpvPlayer.PositionChanged), so
+        // without it a load failure here would resume at the outgoing film's position instead — and
+        // a non-faststart MP4 failing to load is the primary case this whole branch exists for.
+        var positionTicks = _player is { } player && _lastPositionGeneration == player.LoadGeneration
+            ? (long)(Math.Max(0, _lastPositionSeconds) * TimeSpan.TicksPerSecond)
+            : 0;
+        ReleasePartialStream();
+        if (positionTicks > 0)
+            _pendingResumeTicks = positionTicks;
+        // The card was armed for the playback that just died. Leaving it up is what would let the
+        // truncation end-of-file itself advance to the next episode, which is the whole reason the
+        // fallback runs at all — so it comes down here and goes back up on the operation queued
+        // below, never inside this call.
+        _playerViewModel.SetUpNext(null);
+        RearmUpNextAfterFallback(_playbackSequence);
+        // A download that FINISHED while its own partial stream was playing: the complete file is
+        // on the disk, so retreating to the server would pull bytes over the LAN that are already
+        // here. Reachable through PartialFileServer.WithdrawDelivered — a reader handed the whole
+        // file retires the token, and the next seek gets a 404.
+        if (_downloads.GetCompletedDownload(partialItem.Id) is { } local)
+        {
+            Diagnostics.AppLog.Error("player", FormattableString.Invariant(
+                $"event=partial_stream_fallback outcome=local item={partialItem.Id:N} resume_seconds={_pendingResumeTicks / (double)TimeSpan.TicksPerSecond:F1}; {because}"));
+            // No LoadPlaybackMetadataAsync re-run, unlike the server branch below: that pass is
+            // re-run there because it first ran under _playingLocal, and this playback is still
+            // local. Nothing it decided has changed.
+            _playerViewModel.SetPlayMethod("Local file");
+            PlayCore(local.FilePath, null);
+            return true;
+        }
+        _playingLocal = false;
+        _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+            available: false);
+        _playerViewModel.SetPlayMethod(null);
+        Diagnostics.AppLog.Error("player", FormattableString.Invariant(
+            $"event=partial_stream_fallback outcome=server item={partialItem.Id:N} resume_seconds={_pendingResumeTicks / (double)TimeSpan.TicksPerSecond:F1}; {because}"));
+        // Re-run deliberately: the first pass ran while this playback still counted as local, which
+        // skips the version list and asks for no trickplay sheets. Without it the stream the user
+        // ends up on is missing both for the rest of its life. The steps are idempotent and their
+        // fetches are cached.
+        _ = LoadPlaybackMetadataAsync(partialItem, _playbackSequence);
+        _ = StartNegotiatedPlaybackAsync(partialItem, _playbackSequence);
+        return true;
+    }
+
+    /// <summary>Puts the queue's Up Next card back after a partial-stream fallback took it down,
+    /// on a later dispatcher operation.
+    ///
+    /// <para>Deferred, and that is the point. The end-of-file that triggers a fallback is raised on
+    /// a dispatcher operation that PlayerViewModel is also subscribed to, and its handler advances
+    /// to the card's item — so re-arming inside the fallback would let the truncation advance the
+    /// queue, which is exactly what clearing the card prevents. A queued operation runs after that
+    /// handler has already looked and found nothing.</para>
+    ///
+    /// <para>Only the QUEUE arm is re-run. The no-queue episode arm belongs to
+    /// <see cref="LoadPlaybackMetadataAsync"/>, which the server branch re-runs anyway and which
+    /// gates itself on the queue being inactive — so the two cannot both fire.</para>
+    /// </summary>
+    /// <param name="playbackSequence">The load this card belongs to. A fallback followed by the
+    /// user picking something else must not arm the old queue's next item over the new playback.</param>
+    private void RearmUpNextAfterFallback(int playbackSequence)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            if (_app.State != AppState.Playing || _playbackSequence != playbackSequence)
+                return;
+            if (_app.Queue.PeekNext() is { } queuedNext)
+                _playerViewModel.SetUpNext(queuedNext, _settings.AutoPlayCountdownSeconds,
+                    _settings.AutoPlayNextEpisode);
+        });
     }
 
     /// <summary>OSD name for a local path or URL: file name without extension.</summary>
@@ -2171,12 +3218,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PlayCore(string url, string? authHeader)
+    private void PlayCore(string url, string? authHeader, Task? reportBarrier = null,
+        QualityTrackSnapshot? restoreTracks = null)
     {
         _app.EnterPlayback();
+        // Per load, next to the geometry reset below and for the same reason: the outgoing file's
+        // last position must not be read as the incoming one's.
+        _lastPositionSeconds = 0;
+        var effectiveReportBarrier = reportBarrier ?? _app.PendingStopReport ?? Task.CompletedTask;
         // Discard the outgoing generation state before loadfile clears its published tracks. The
         // new state is created from LoadFile's returned generation before queued mpv events can run.
         // Geometry likewise resets at load initiation; see PlayerViewModel.ResetFileGeometry (B1).
+        _ = DiscardUnreportedGeneration(_subtitleState);
         _subtitleState = null;
         _playerViewModel.ResetFileGeometry();
         // Breadcrumb every load. This is the single most valuable line in a crash file — "what was
@@ -2186,7 +3239,8 @@ public partial class MainWindow : Window
         // it kept getting wrong: _playingLocal means "a completed download", so a command-line
         // file or a plain URL is neither local-download nor server direct-play, and calling it
         // "direct" made a local file read as a server stream.
-        var source = _playingLocal ? "local_download"
+        var source = _partialStreamItem is not null ? "partial_download"
+            : _playingLocal ? "local_download"
             : _playbackDecision is { IsTranscode: true } ? "transcode"
             : _playingItem is null ? "external"
             : "direct";
@@ -2195,19 +3249,61 @@ public partial class MainWindow : Window
         if (_player is null)
         {
             // VideoArea just became visible; HwndReady will consume the pending load.
-            _pendingLoad = (url, authHeader);
+            _pendingLoad = new PendingPlayerLoad(url, authHeader,
+                effectiveReportBarrier, restoreTracks);
             return;
         }
         _player.SetHttpHeaders(authHeader);
         var generation = _player.LoadFile(url);
-        _subtitleState = new SubtitleGenerationState(generation, _playbackSequence);
+        ArmSyncPlayLoad(generation);
+        _subtitleState = NewSubtitleGenerationState(generation, effectiveReportBarrier,
+            restoreTracks);
+    }
+
+    private SubtitleGenerationState NewSubtitleGenerationState(int generation, Task reportBarrier,
+        QualityTrackSnapshot? restoreTracks)
+        => new(generation, _playbackSequence)
+        {
+            ReportBarrier = reportBarrier,
+            ReportDecision = _playbackDecision,
+            ReportOwner = _playbackJf,
+            RestoreTracks = restoreTracks,
+            ExplicitSubtitleOff = restoreTracks?.SubtitleOff,
+        };
+
+    private static Task DiscardUnreportedGeneration(SubtitleGenerationState? state)
+    {
+        if (state is not { ReportStarted: false, DecisionDiscarded: false,
+                ReportDecision: { } decision, ReportOwner: { } owner })
+            return state?.DiscardTask ?? Task.CompletedTask;
+        state.DecisionDiscarded = true;
+        return state.DiscardTask = owner.DiscardUnplayedDecisionAsync(decision);
+    }
+
+    private Task DiscardUnreportedLoad()
+    {
+        var discard = DiscardUnreportedGeneration(_subtitleState);
+        if (_pendingLoad is not null && _playbackDecision is { } decision
+            && _playbackJf is { } owner)
+            discard = Task.WhenAll(discard, owner.DiscardUnplayedDecisionAsync(decision));
+        _pendingLoad = null;
+        return discard;
     }
 
     private void StopPlaybackAndReturn()
     {
+        _syncPlayBinding?.Reset();
+        _syncPlayAwaitingLoad = false;
+        _syncPlayPlaybackSequence = -1;
+        _syncPlayLoadedEntry = null;
+        _syncPlayRequestedEntry = null;
+        _syncPlayLoadRequest++;
+        _playbackSequence++;
         Diagnostics.AppLog.Info("player", FormattableString.Invariant(
             $"event=stop position_seconds={_player?.TimePos ?? 0:F1} item={_playingItem?.Id.ToString("N") ?? "none"} type={_playingItem?.Type.ToString() ?? "external"}"));
         _app.PublishStopReport(_reporter?.Stop());
+        _ = DiscardUnreportedLoad();
+        ReleasePartialStream();
         _playingItem = null;
         _playbackJf = null;
         _app.Queue.Clear();
@@ -2215,6 +3311,8 @@ public partial class MainWindow : Window
         _systemMedia?.ClearDisplay();
         SetThumbButtonsEnabled(false);
         _playerViewModel.SetUpNext(null);
+        _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
+            available: false, visible: false);
         if (_isFullscreen)
             ToggleFullscreen();
         if (_isMiniPlayer)
@@ -2440,7 +3538,7 @@ public partial class MainWindow : Window
         // utility, an external SetWindowPos) the OSD stayed at its old screen position,
         // detached from the video — measured, the inset drifted 11,45 -> 311,245 and never
         // recovered, because the sync at LocationChanged time still computes the pre-move
-        // origin and nothing re-runs it afterwards (BUGS.md B11). WM_WINDOWPOSCHANGED arrives
+        // origin and nothing re-runs it afterwards (B11). WM_WINDOWPOSCHANGED arrives
         // AFTER the new position is in effect, so PointToScreen is current here. Deliberately
         // not marked handled — WPF still needs this message for Left/Top/LocationChanged.
         if (msg == 0x0047 /* WM_WINDOWPOSCHANGED */)
@@ -2708,6 +3806,12 @@ public partial class MainWindow : Window
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (SyncPlayFlyoutOpen)
+        {
+            if (e.Key == Key.Escape) { CloseSyncPlayFlyout(); _overlay?.CloseSyncPlayFlyout(); e.Handled = true; }
+            base.OnKeyDown(e);
+            return;
+        }
         HandleStreamShortcut(e);
         HandlePlayerKey(e);
         base.OnKeyDown(e);
@@ -2748,6 +3852,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void InvokeChromeShortcut(string id)
     {
+        if (SyncPlayFlyoutOpen)
+        {
+            if (id == AppShortcuts.Escape) { CloseSyncPlayFlyout(); _overlay?.CloseSyncPlayFlyout(); }
+            return;
+        }
         // While the panel is up it owns the keyboard, so Escape (which closes it) is the only
         // chrome chord that acts. One choke point, because every chrome chord passes here.
         if (id != AppShortcuts.Escape && IsShortcutsOpen)
@@ -2809,7 +3918,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnWindowTextInput(object sender, TextCompositionEventArgs e)
     {
-        if (e.Text != "?" || IsTextEntryFocused())
+        if (e.Text != "?" || IsTextEntryFocused() || SyncPlayFlyoutOpen)
             return;
         ToggleShortcutsOverlay();
         e.Handled = true;
@@ -2823,7 +3932,7 @@ public partial class MainWindow : Window
     private void ToggleShortcutsOverlay()
     {
         // Which host: WPF content cannot draw over the mpv child HWND, so the panel exists in
-        // both windows and the playing state decides which one shows (TECHNICAL.md, airspace).
+        // both windows and the playing state decides which one shows (airspace).
         if (_app.State == AppState.Playing && _overlay is { } overlay)
         {
             Diagnostics.AppLog.Detail("main", "event=interaction action=toggle-shortcuts host=overlay");
@@ -2924,12 +4033,12 @@ public partial class MainWindow : Window
         _systemMedia = SystemMediaControls.TryCreate(hwnd, Dispatcher);
         if (_systemMedia is null)
             return;
-        _systemMedia.PlayPressed += () => { if (_player is { } p) p.Pause = false; };
-        _systemMedia.PausePressed += () => { if (_player is { } p) p.Pause = true; };
+        _systemMedia.PlayPressed += () => _playerViewModel.IsPaused = false;
+        _systemMedia.PausePressed += () => _playerViewModel.IsPaused = true;
         _systemMedia.StopPressed += () =>
         {
             if (_app.State == AppState.Playing)
-                StopPlaybackAndReturn();
+                RequestStop("smtc");
         };
         // M17: the media keys follow the transport mapping; the OS buttons stay lit
         // whenever the chosen action is meaningful (always, for Chapter/Seek).
@@ -3006,9 +4115,12 @@ public partial class MainWindow : Window
         // Not async: OnClosing must decide synchronously whether the close proceeds, and an async
         // void override would let the window close underneath the await. A bounded Wait on the
         // dispatcher thread is the honest trade — 2 s worst case on exit, and only when a playback
-        // was actually running. Stop() swallows its own failures, so this cannot throw.
-        if (_reporter?.Stop() is { } stopReport)
-            stopReport.Wait(TimeSpan.FromSeconds(2));
+        // was actually running. Both reporting and decision cleanup swallow their failures.
+        // A quality replacement can be waiting on an already-published Stop with no active
+        // reporter yet. Discard that unreported decision and wait for both cleanup paths.
+        _app.PublishStopReport(_reporter?.Stop());
+        Task.WhenAll(_app.PendingStopReport ?? Task.CompletedTask, DiscardUnreportedLoad())
+            .Wait(TimeSpan.FromSeconds(2));
         // Session ending means Windows is logging off or shutting down; do not start a silent
         // installer into a disappearing desktop.  The normal user Exit/X path gets the update
         // only after reporter and mpv shutdown have completed in OnClosed.
@@ -3030,6 +4142,16 @@ public partial class MainWindow : Window
     {
         _windowClosing = true;
         _overlay = null;
+        // Here and not in OnClosing: that path already spends a bounded 2 s waiting for the stop
+        // report, and a socket teardown has nothing to tell the server that the stop report does
+        // not. Dispose only aborts and joins for at most a second per profile.
+        _syncPlay.ReadPlayer = null;
+        _syncPlay.Dispose();
+        _syncPlayBinding?.Dispose();
+        _live.Dispose();
+        // Closes the loopback listener if a partial-download playback left one open. The downloads
+        // themselves are unaffected — this owns nothing but the socket.
+        _downloads.Dispose();
         Jellyfin.BrowsePrefetcher.CancelAll();
         _player?.Dispose();
         _player = null;

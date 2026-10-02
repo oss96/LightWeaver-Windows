@@ -19,8 +19,9 @@ public partial class ItemDetailView : UserControl
     private MediaItem _item;
 
     /// <summary>Play was requested; resumeTicks 0 = from the beginning. Track selection
-    /// now happens in the player during playback, so no preselection rides along.</summary>
-    public event Action<MediaItem, long>? PlayRequested;
+    /// now happens in the player during playback, so no preselection rides along. The
+    /// media source id is the alternate version picked here, null = the server's default.</summary>
+    public event Action<MediaItem, long, string?>? PlayRequested;
 
     /// <summary>A "More like this" / episode / series / season navigation was picked —
     /// route it like any other browse item.</summary>
@@ -49,7 +50,14 @@ public partial class ItemDetailView : UserControl
     private Guid _episodesLoadingFor;
     private int _seasonLoadGeneration;
     private Guid _ratingsLoadedFor;
+    private Guid _versionsLoadedFor;
+    private bool _versionsFetching;
     private MediaSourceStreams? _streams;
+    private IReadOnlyList<MediaVersion> _versions = [];
+    /// <summary>The alternate version the user picked here, null until they pick one — an
+    /// unpicked item must negotiate exactly as it did before the picker existed. View-local
+    /// on purpose: persisting the choice is part 2.</summary>
+    private string? _chosenVersionId;
     private CancellationTokenSource? _downloadOptionsCts;
     private Task<DownloadOptionsLoad>? _downloadOptionsTask;
     private int _downloadOptionsGeneration;
@@ -213,9 +221,63 @@ public partial class ItemDetailView : UserControl
         // only its own region) so a slow one — e.g. OMDB, up to a 15 s timeout — never
         // blocks the others. Previously these ran in sequence and the whole view sat empty.
         _ = LoadStreamsAsync();
+        _ = LoadVersionsAsync();
         _ = LoadSeasonAsync();
         _ = LoadSimilarAsync();
         _ = LoadRatingsAsync();
+    }
+
+    /// <summary>Alternate versions → the version picker (once per item). The button reveals
+    /// itself when the answer arrives; nothing waits on it, because the item plays fine on
+    /// the server's default source.</summary>
+    private async Task LoadVersionsAsync()
+    {
+        // Folders (series, season, box set) have no media sources of their own, so their detail
+        // pages must not spend a PlaybackInfo POST discovering that.
+        // _versionsLoadedFor is only stamped on a non-empty answer, so it cannot guard
+        // re-entrancy on its own - Back into this view while the first POST is still in flight
+        // would start a second one against the same item.
+        if (!_item.IsPlayable || _versionsLoadedFor == _item.Id || _versionsFetching)
+            return;
+        _versionsFetching = true;
+        var itemId = _item.Id;
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        Diagnostics.AppLog.Detail("detail",
+            $"event=load outcome=start section=versions item={itemId:N} type={_item.Type}");
+        try
+        {
+            // GetMediaVersionsAsync answers with an empty list rather than throwing, so a failed
+            // fetch is indistinguishable from a single-source item here — deliberately, since both
+            // end in the same hidden button. Leaving _versionsLoadedFor unset on empty lets a
+            // re-entry try again. The catch below is not dead code for that: it is what keeps a
+            // later change to that contract a log record instead of an unobserved task exception.
+            var versions = await _app.Jellyfin.GetMediaVersionsAsync(itemId);
+            if (_item.Id != itemId)
+                return;
+            _versions = versions;
+            if (versions.Count > 0)
+            {
+                _versionsLoadedFor = itemId;
+                // ??=, so a pick made while this POST was in flight outranks the stored one: the
+                // user's live choice is newer than the file by definition. Resolve drops an id
+                // the item no longer has — a replaced file is re-scanned under a new source id,
+                // and pinning the old one would ask the server for a source it cannot serve.
+                _chosenVersionId ??= Settings.MediaVersionStore.Resolve(
+                    Settings.MediaVersionStore.Load(ProfileKey, itemId), versions);
+            }
+            RenderVersionsAction();
+            Diagnostics.AppLog.Detail("detail",
+                $"event=load outcome={(versions.Count > 0 ? "success" : "empty")} section=versions elapsed_ms={started.ElapsedMilliseconds} count={versions.Count} item={itemId:N} type={_item.Type}");
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.AppLog.Detail("detail",
+                $"event=load outcome=failure section=versions elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} type={_item.Type}", ex);
+        }
+        finally
+        {
+            _versionsFetching = false;
+        }
     }
 
     /// <summary>Media streams → metadata gem pills (once per item).</summary>
@@ -840,8 +902,94 @@ public partial class ItemDetailView : UserControl
         // leave a button that opens an empty popup.
         MoreButton.Visibility = HasOverflowActions ? Visibility.Visible : Visibility.Collapsed;
 
+        RenderVersionsAction();
         RefreshDownloadAction();
     }
+
+    /// <summary>The version the picker marks as current: the user's pick, else the source the
+    /// server returned first, which is what an un-pinned negotiation would land on.</summary>
+    private MediaVersion? CurrentVersion
+        => _versions.FirstOrDefault(v => v.Id == _chosenVersionId)
+            ?? _versions.FirstOrDefault(v => v.IsDefault)
+            ?? _versions.FirstOrDefault();
+
+    /// <summary>Version affordance: hidden unless the item really has alternates. A picker
+    /// listing one entry is a control that cannot change anything.</summary>
+    private void RenderVersionsAction()
+    {
+        VersionsButton.Visibility = _versions.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (_versions.Count <= 1)
+            return;
+        var label = CurrentVersion?.Label ?? "Default";
+        VersionsButton.Foreground = _chosenVersionId is { Length: > 0 }
+            ? (Brush)FindResource("LwSapphireLitBrush")
+            : (Brush)FindResource("LwText2Brush");
+        AutomationProperties.SetName(VersionsButton, $"Version: {label}");
+        VersionsButton.ToolTip = $"Version: {label}";
+    }
+
+    /// <summary>Version menu (part 1: it decides what the NEXT play from this view negotiates;
+    /// switching mid-playback is part 2).</summary>
+    private void OnVersions(object sender, RoutedEventArgs e)
+    {
+        Diagnostics.AppLog.Detail("detail",
+            $"event=interaction action=open-versions item={_item.Id:N} type={_item.Type} count={_versions.Count}");
+        var menu = new ContextMenu { Style = (Style)FindResource("LwContextMenu") };
+        var current = CurrentVersion;
+        foreach (var version in _versions)
+            menu.Items.Add(VersionMenuItem(version, version.Id == current?.Id));
+
+        menu.PlacementTarget = VersionsButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>One version row. The tick keeps its column when unpicked so the labels share a
+    /// left edge, and the size/bitrate rides the template's gesture column — two versions of a
+    /// film are routinely named the same and tell themselves apart only by weight.</summary>
+    private MenuItem VersionMenuItem(MediaVersion version, bool isCurrent)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(new TextBlock
+        {
+            Text = (string)FindResource("IconCheck"),
+            FontFamily = (FontFamily)FindResource("LwFontIcon"),
+            FontSize = 13,
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = isCurrent ? (Brush)FindResource("LwLightCoreBrush") : Brushes.Transparent,
+        });
+        row.Children.Add(new TextBlock
+        {
+            Text = version.Label,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var entry = new MenuItem
+        {
+            Header = row,
+            Style = (Style)FindResource("LwMenuItem"),
+            InputGestureText = version.Detail(),
+        };
+        AutomationProperties.SetName(entry, version.Label);
+        entry.Click += (_, _) => SelectVersion(version);
+        return entry;
+    }
+
+    private void SelectVersion(MediaVersion version)
+    {
+        Diagnostics.AppLog.Detail("detail",
+            $"event=interaction action=select-version item={_item.Id:N} type={_item.Type} source={version.Id}");
+        _chosenVersionId = version.Id;
+        // Remembered here rather than at Play: the pick is what the user expressed, and they may
+        // well close the view and come back to it before watching anything.
+        Settings.MediaVersionStore.Save(ProfileKey, _item.Id, version.Id);
+        RenderVersionsAction();
+    }
+
+    /// <summary>The store key for the signed-in profile. A source id names one server's files,
+    /// so a pick made on one account must not preselect anything on another.</summary>
+    private string ProfileKey
+        => Settings.HomeLayoutStore.ProfileKey(_app.Jellyfin.UserId, _app.Jellyfin.ServerUrl);
 
     /// <summary>Whether the overflow menu has any entry to show. Episode navigation is all
     /// that is left in it since 2026-08-05, when the watched / favorite duplicates came out:
@@ -1138,7 +1286,9 @@ public partial class ItemDetailView : UserControl
         if ((sender as FrameworkElement)?.DataContext is MediaItem ep)
         {
             Diagnostics.AppLog.Detail("detail", $"event=interaction action=play-episode item={ep.Id:N} type={ep.Type}");
-            PlayRequested?.Invoke(ep, ep.ResumePositionTicks);
+            // No version: the picker belongs to the item this view is showing, and its source
+            // ids name nothing in a sibling episode's files.
+            PlayRequested?.Invoke(ep, ep.ResumePositionTicks, null);
         }
     }
 
@@ -1216,13 +1366,13 @@ public partial class ItemDetailView : UserControl
     private void OnPlay(object sender, RoutedEventArgs e)
     {
         Diagnostics.AppLog.Detail("detail", $"event=interaction action=play item={_item.Id:N} type={_item.Type} resume=false");
-        PlayRequested?.Invoke(_item, 0);
+        PlayRequested?.Invoke(_item, 0, _chosenVersionId);
     }
 
     private void OnResume(object sender, RoutedEventArgs e)
     {
         Diagnostics.AppLog.Detail("detail", $"event=interaction action=play item={_item.Id:N} type={_item.Type} resume=true");
-        PlayRequested?.Invoke(_item, _item.ResumePositionTicks);
+        PlayRequested?.Invoke(_item, _item.ResumePositionTicks, _chosenVersionId);
     }
 
     /// <summary>Receives the shell-wide user-data fan-out so a delayed item/episode refresh

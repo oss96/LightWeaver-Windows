@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
@@ -16,6 +16,14 @@
     <!-- mpv_wait_event returns mpv_event*; events are read via pointer casts -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The offscreen harness asserts against real constants and pure helpers (PartialFileServer's
+         connection cap, DownloadManager.PrefixCoversResume) instead of copies of them. Making those
+         public would put them on the app's surface for one test's benefit; internal keeps them
+         where they belong and still lets the one consumer see them. -->
+    <InternalsVisibleTo Include="PlaybackHarness" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Bundled libmpv (not in git); falls back to PATH search when absent -->

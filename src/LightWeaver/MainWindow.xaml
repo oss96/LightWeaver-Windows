@@ -203,6 +203,16 @@
                              M5 measured on LwSearchField. Routed through LwRFullFromHeight
                              instead: identical 19 px today, self-documenting, and it survives a
                              height change. -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="SyncPlayButtonLabel" MaxWidth="110" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                            <ToggleButton x:Name="SyncPlayButton" Style="{StaticResource LwOsdGemToggle}" Width="38" Height="38" Padding="0"
+                                    ClickMode="Press" IsChecked="{Binding IsOpen, ElementName=SyncPlayPopup, Mode=TwoWay}"
+                                    Checked="OnSyncPlayChecked" ToolTip="SyncPlay groups" AutomationProperties.AutomationId="SyncPlayButton">
+                                <TextBlock Text="{StaticResource IconSyncPlay}" FontFamily="{StaticResource LwFontIcon}" FontSize="22" />
+                            </ToggleButton>
+                        </StackPanel>
                         <Border x:Name="SearchPill" DockPanel.Dock="Right" Height="38" Width="360"
                                 CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
                                 Background="{StaticResource LwStorm2Brush}"
@@ -316,6 +326,9 @@
                            Foreground="{StaticResource LwText1Brush}" FontSize="14" />
             </StackPanel>
         </Border>
+
+        <Popup x:Name="SyncPlayPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+               PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
 
         <!-- Modal layer (M23): topmost, collapsed until a confirm/alert shows -->
         <views:ModalHost x:Name="Modal" />

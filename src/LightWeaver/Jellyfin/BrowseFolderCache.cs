@@ -13,6 +13,11 @@ namespace LightWeaver.Jellyfin;
 public sealed record FolderCacheEntry<T>(List<T> Items, int TotalCount, bool Complete,
     bool Truncated, DateTime CachedAtUtc, int Schema);
 
+/// <summary>The folder ids one profile has a cached entry for. The entries themselves are stored
+/// under SHA-1 of their key, so the directory cannot be searched by profile — and a LibraryChanged
+/// that names no folder at all has to be able to drop every one of them.</summary>
+public sealed record FolderCacheIndex(List<Guid> Folders);
+
 /// <summary>
 /// The one-entry-per-folder browse cache: disk shape, local query evaluation, and the diff/merge
 /// the incremental refresh runs. It replaces the per-query <see cref="BrowseCacheEntry{T}"/>,
@@ -48,16 +53,109 @@ public static class BrowseFolderCache
 
     /// <summary>Reads a folder entry, or null on a miss. A null entry, an entry with no item list
     /// and an entry from another schema are all misses — a foreign file on disk must not throw on
-    /// a path that runs during the first render of a browse view.</summary>
+    /// a path that runs during the first render of a browse view.
+    /// <para>A HIT is recorded in the profile index too. Two reasons, and the second is the one
+    /// that makes it necessary: every entry written before the index existed is invisible to
+    /// <see cref="InvalidateProfileAsync"/> until its folder is next STORED, which on an upgraded
+    /// install is exactly what does not happen to the folders somebody opens every day; and a
+    /// folder that is only ever read keeps the index's own age moving with it.</para></summary>
     public static async Task<FolderCacheEntry<MediaItem>?> ReadAsync(string key)
     {
         var entry = await MetadataCache.ReadAsync<FolderCacheEntry<MediaItem>>(key).ConfigureAwait(false);
-        return entry is null || entry.Items is null || entry.Schema != CurrentSchema ? null : entry;
+        if (entry is null || entry.Items is null || entry.Schema != CurrentSchema)
+            return null;
+        if (TryParseKey(key, out var profileKey, out var folderId))
+            await RecordAsync(profileKey, folderId).ConfigureAwait(false);
+        return entry;
     }
 
-    /// <summary>Writes a folder entry best-effort (the underlying cache swallows write errors).</summary>
-    public static Task StoreAsync(string key, FolderCacheEntry<MediaItem> entry)
-        => MetadataCache.StoreAsync(key, entry);
+    /// <summary>Writes a folder entry best-effort (the underlying cache swallows write errors) and
+    /// records the folder in its profile's index, which is what <see cref="InvalidateProfileAsync"/>
+    /// later enumerates.</summary>
+    public static async Task StoreAsync(string key, FolderCacheEntry<MediaItem> entry)
+    {
+        await MetadataCache.StoreAsync(key, entry).ConfigureAwait(false);
+        if (TryParseKey(key, out var profileKey, out var folderId))
+            await RecordAsync(profileKey, folderId).ConfigureAwait(false);
+    }
+
+    /// <summary>Drops one folder's entry, so the next visit refetches instead of rendering items
+    /// the server no longer has. The profile index is left alone: an id in it whose file is gone
+    /// costs one no-op delete on the next blanket invalidation, while pruning it would need the
+    /// index rewritten on every single-folder change.</summary>
+    public static void Invalidate(string profileKey, Guid folderId)
+        => MetadataCache.Remove(Key(profileKey, folderId));
+
+    /// <summary>Drops every folder entry this profile has. For the LibraryChanged batches that
+    /// report items added or removed but name no folder — correct beats cheap there, because the
+    /// deleted item is in an entry nothing else will ever invalidate.</summary>
+    public static async Task InvalidateProfileAsync(string profileKey)
+    {
+        var index = await MetadataCache.ReadAsync<FolderCacheIndex>(IndexKey(profileKey))
+            .ConfigureAwait(false);
+        foreach (var folderId in index?.Folders ?? [])
+            MetadataCache.Remove(Key(profileKey, folderId));
+        MetadataCache.Remove(IndexKey(profileKey));
+    }
+
+    /// <summary>Cache key for a profile's folder index. Its own <c>v2</c> because it is keyed off
+    /// the same <see cref="CurrentSchema"/> the entries are.</summary>
+    private static string IndexKey(string profileKey) => $"browse:{profileKey}:folder-index:v2";
+
+    /// <summary>One writer at a time across the process. The index is a read-modify-write over a
+    /// single file and two folders finishing their prefetch together would otherwise each write
+    /// back a list missing the other's id — leaving an entry no invalidation can find.</summary>
+    private static readonly SemaphoreSlim IndexGate = new(1, 1);
+
+    private static async Task RecordAsync(string profileKey, Guid folderId)
+    {
+        await IndexGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var key = IndexKey(profileKey);
+            var index = await MetadataCache.ReadAsync<FolderCacheIndex>(key).ConfigureAwait(false);
+            var folders = index?.Folders ?? [];
+            if (folders.Contains(folderId))
+            {
+                // The list is already right, but its file's AGE still has to move. The index sits
+                // in the same directory as the entries and the 30-day sweep judges every file by
+                // its own mtime — so an index only ever rewritten for a NEW folder id outlives
+                // nothing and expires while every folder it lists is still being visited. See
+                // DiskJsonCache.Touch.
+                MetadataCache.Touch(key);
+                return;
+            }
+            folders.Add(folderId);
+            await MetadataCache.StoreAsync(key, new FolderCacheIndex(folders)).ConfigureAwait(false);
+        }
+        finally
+        {
+            IndexGate.Release();
+        }
+    }
+
+    /// <summary>Splits a key made by <see cref="Key"/> back into its parts. Parsed rather than
+    /// threaded through <see cref="StoreAsync"/> as extra parameters: every caller already holds
+    /// the key and nothing else, and the index must not depend on each of them remembering to
+    /// pass the pieces. Read from the right, because a profile key carries the server URL and so
+    /// contains colons of its own.</summary>
+    private static bool TryParseKey(string key, out string profileKey, out Guid folderId)
+    {
+        profileKey = "";
+        folderId = Guid.Empty;
+        const string prefix = "browse:";
+        const string marker = ":folder:";
+        const string suffix = ":v2";
+        if (!key.StartsWith(prefix, StringComparison.Ordinal)
+            || !key.EndsWith(suffix, StringComparison.Ordinal))
+            return false;
+        var body = key[prefix.Length..^suffix.Length];
+        var split = body.LastIndexOf(marker, StringComparison.Ordinal);
+        if (split <= 0 || !Guid.TryParseExact(body[(split + marker.Length)..], "N", out folderId))
+            return false;
+        profileKey = body[..split];
+        return true;
+    }
 
     /// <summary>Applies the view's sort/filter/genre/letter to a cached folder, in place of the
     /// server round trip that used to answer every control change. Filters first, then sorts.

@@ -53,6 +53,7 @@ public partial class OverlayWindow : Window
     private static readonly TimeSpan VolumePillHold = TimeSpan.FromMilliseconds(1200);
 
     private readonly PlayerViewModel _viewModel;
+    private readonly SyncPlayFlyoutTrigger _syncPlayTrigger;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _volumePillTimer;
     private bool _controlsVisible = true;
@@ -69,6 +70,8 @@ public partial class OverlayWindow : Window
 
     /// <summary>The Back button was pressed — leave playback and return to browsing.</summary>
     public event Action? BackRequested;
+    public Func<SyncPlayFlyout>? SyncPlayFlyoutFactory { get; set; }
+    public bool SyncPlayFlyoutOpen => SyncPlayPopup.IsOpen;
 
     /// <summary>Enter mini-player mode (overlay button).</summary>
     public event Action? MiniPlayerRequested;
@@ -99,6 +102,8 @@ public partial class OverlayWindow : Window
     public OverlayWindow(PlayerViewModel viewModel)
     {
         InitializeComponent();
+        _syncPlayTrigger = new(SyncPlayPopup, SyncPlayButton);
+        _syncPlayTrigger.Attach();
         _viewModel = viewModel;
         DataContext = viewModel;
 
@@ -133,7 +138,7 @@ public partial class OverlayWindow : Window
             // Not while the time editor holds the keyboard: there '?' is a character being typed,
             // and opening the panel would take the keyboard off a field that is still up. Same
             // guard MainWindow.OnWindowTextInput carries (IsTextEntryFocused), for the same reason.
-            if (e.Text != "?" || TimeEditBox.IsKeyboardFocusWithin)
+            if (e.Text != "?" || TimeEditBox.IsKeyboardFocusWithin || SyncPlayPopup.IsOpen)
                 return;
             ShortcutsRequested?.Invoke();
             e.Handled = true;
@@ -142,6 +147,8 @@ public partial class OverlayWindow : Window
         _viewModel.ChaptersChanged += RedrawChapterMarkers;
         _viewModel.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName is nameof(PlayerViewModel.SyncPlay) or nameof(PlayerViewModel.SyncPlayPending))
+                UpdateSyncPlayControls();
             if (e.PropertyName == nameof(PlayerViewModel.DurationSeconds))
                 RedrawChapterMarkers();
             if (e.PropertyName == nameof(PlayerViewModel.IsLoading))
@@ -153,6 +160,7 @@ public partial class OverlayWindow : Window
             if (e.PropertyName is nameof(PlayerViewModel.HasVideoChoices)
                 or nameof(PlayerViewModel.HasAudioChoices)
                 or nameof(PlayerViewModel.HasSubtitleChoices)
+                or nameof(PlayerViewModel.HasVersionChoices)
                 or nameof(PlayerViewModel.HasTrackChoices)
                 or nameof(PlayerViewModel.HasQueue)
                 or nameof(PlayerViewModel.QueueBadge)
@@ -165,9 +173,20 @@ public partial class OverlayWindow : Window
             // while it is up has to be pushed in.
             if (TracksPopup.IsOpen && e.PropertyName is nameof(PlayerViewModel.HasVideoChoices)
                 or nameof(PlayerViewModel.HasAudioChoices)
-                or nameof(PlayerViewModel.HasSubtitleChoices))
+                or nameof(PlayerViewModel.HasSubtitleChoices)
+                or nameof(PlayerViewModel.HasVersionChoices))
                 ApplyTrackSections();
         };
+        UpdateSyncPlayControls();
+        SyncPlayPopup.Closed += (_, _) =>
+        {
+            if (SyncPlayPopup.Child is SyncPlayFlyout content) content.Dispose();
+            SyncPlayPopup.Child = null;
+            _idleTimer.Stop();
+            _idleTimer.Start();
+        };
+        IsVisibleChanged += (_, _) => { if (!IsVisible) CloseSyncPlayFlyout(); };
+        Closed += (_, _) => { _syncPlayTrigger.Dispose(); CloseSyncPlayFlyout(); };
 
         // Keep the subtitle lift in sync with the bar geometry and playback start
         // (the overlay is shown per playback; controls may already be visible then).
@@ -449,6 +468,7 @@ public partial class OverlayWindow : Window
     /// width BEFORE mini mode; see the re-decide at the end of this method.</summary>
     public void SetMiniMode(bool on)
     {
+        CloseSyncPlayFlyout();
         Diagnostics.AppLog.Detail("overlay", $"event=state mini={on}");
         _miniMode = on;
         // Mini mode has no time editor (OnTimeTextClick early-returns, like ToggleShortcuts), so a
@@ -556,6 +576,65 @@ public partial class OverlayWindow : Window
         BackRequested?.Invoke();
     }
 
+    private void OnSyncPlayChecked(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (_syncPlayTrigger.ConsumeDismissal())
+        {
+            SyncPlayButton.SetCurrentValue(ToggleButton.IsCheckedProperty, false);
+            CloseSyncPlayFlyout();
+            return;
+        }
+        if (SyncPlayFlyoutFactory is null) return;
+        foreach (var flyout in Flyouts.Where(p => p != SyncPlayPopup)) flyout.IsOpen = false;
+        var content = SyncPlayFlyoutFactory();
+        content.CloseRequested += CloseSyncPlayFlyout;
+        if (SyncPlayPopup.Child is SyncPlayFlyout previous) previous.Dispose();
+        SyncPlayPopup.Child = content;
+        SyncPlayPopup.HorizontalOffset = SyncPlayButton.ActualWidth - content.Width;
+        content.SizeChanged += (_, _) =>
+        {
+            if (ReferenceEquals(SyncPlayPopup.Child, content))
+                SyncPlayPopup.HorizontalOffset = SyncPlayButton.ActualWidth - content.ActualWidth;
+        };
+        SyncPlayPopup.IsOpen = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            if (SyncPlayPopup.IsOpen && ReferenceEquals(SyncPlayPopup.Child, content)) content.FocusFirstControl();
+        });
+    }
+
+    public void CloseSyncPlayFlyout()
+    {
+        var wasOpen = SyncPlayPopup.IsOpen;
+        SyncPlayPopup.IsOpen = false;
+        if (wasOpen && IsVisible) SyncPlayButton.Focus();
+    }
+
+    private void UpdateSyncPlayControls()
+    {
+        var group = _viewModel.SyncPlay;
+        var label = group is not null ? $"SyncPlay · {group.GroupName} · {_viewModel.SyncPlayStatus}"
+            : _viewModel.SyncPlayPending ? "SyncPlay · Joining…" : "SyncPlay groups";
+        SyncPlayButtonLabel.Text = _viewModel.SyncPlayStatus;
+        SyncPlayButtonLabel.Visibility = SyncPlayButtonLabel.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        SyncPlayButton.ToolTip = label;
+        System.Windows.Automation.AutomationProperties.SetName(SyncPlayButton, label);
+        VersionSection.IsEnabled = group is null;
+        QualityTierControl.IsEnabled = group is null;
+        QualityForceTranscodeControl.IsEnabled = group is null;
+        SpeedButton.IsEnabled = group is null;
+        VersionSection.ToolTip = group is null ? null : "Leave the SyncPlay group to change versions.";
+        QualityTierControl.ToolTip = QualityForceTranscodeControl.ToolTip = group is null
+            ? null : "Leave the SyncPlay group to change playback quality.";
+        SpeedButton.ToolTip = group is null ? "Playback speed (+/- keys)"
+            : "SyncPlay controls playback speed for the group.";
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(VersionSection, true);
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(QualityTierControl, true);
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(QualityForceTranscodeControl, true);
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(SpeedButton, true);
+    }
+
     private void OnSkipSegment(object sender, RoutedEventArgs e)
     {
         Diagnostics.AppLog.Detail("overlay", "event=interaction action=skip-segment");
@@ -571,6 +650,12 @@ public partial class OverlayWindow : Window
 
     private void OnInfoPopupOpened(object sender, EventArgs e)
     {
+        // A Popup keeps its child tree across close/open, so the ScrollViewer keeps its offset
+        // too. Without this, reading Media info once leaves the flyout permanently scrolled past
+        // the QUALITY group, which is the one thing in here you can actually act on. Measured on
+        // the guest 2026-09-14: reopening at 700x480 showed PLAYBACK with only the bottom sliver
+        // of the quality status line visible.
+        InfoScroll.ScrollToTop();
         _viewModel.RefreshLiveStats();
         UiLog($"InfoPopupOpened rows={_viewModel.LiveStats.Count}");
         if (_infoTimer is null)
@@ -651,7 +736,10 @@ public partial class OverlayWindow : Window
         Video = 1,
         Audio = 2,
         Subtitles = 4,
-        All = Video | Audio | Subtitles,
+        // Versions have no pill of their own, so they ride the merged one — see the split rule
+        // in UpdateTrackButtons, which keeps the trio merged while an item has alternates.
+        Versions = 8,
+        All = Video | Audio | Subtitles | Versions,
     }
 
     private TrackKinds _tracksMode = TrackKinds.All;
@@ -704,6 +792,8 @@ public partial class OverlayWindow : Window
         AudioSection.Visibility = _tracksMode.HasFlag(TrackKinds.Audio) && _viewModel.HasAudioChoices
             ? Visibility.Visible : Visibility.Collapsed;
         SubsSection.Visibility = _tracksMode.HasFlag(TrackKinds.Subtitles) && _viewModel.HasSubtitleChoices
+            ? Visibility.Visible : Visibility.Collapsed;
+        VersionSection.Visibility = _tracksMode.HasFlag(TrackKinds.Versions) && _viewModel.HasVersionChoices
             ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -772,7 +862,12 @@ public partial class OverlayWindow : Window
         if (_viewModel.HasSubtitleChoices)
             need += PillWidth(SubtitleTracksButton, ref _subsPillWidth);
 
-        var split = _viewModel.HasTrackChoices && need <= ControlsRow.ActualWidth;
+        // !HasVersionChoices: the trio of pills opens one section each, and none of them is
+        // VERSIONS — splitting an item that has alternates would hide the merged pill and leave
+        // the version picker unreachable. Alternates are rare, so this costs the wide-window
+        // layout on a handful of items rather than adding a fourth pill to the row.
+        var split = _viewModel.HasTrackChoices && !_viewModel.HasVersionChoices
+            && need <= ControlsRow.ActualWidth;
         if (_trackSplit != split)
         {
             _trackSplit = split;
@@ -905,6 +1000,18 @@ public partial class OverlayWindow : Window
         }
     }
 
+    private void OnVersionPicked(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (VersionList.SelectedItem is VersionOption option)
+        {
+            Diagnostics.AppLog.Detail("overlay", $"event=interaction action=set-version source={option.Id}");
+            UiLog($"VersionPicked source={option.Id}");
+            VersionList.SelectedItem = null;
+            TracksPopup.IsOpen = false;
+            _viewModel.SelectVersion(option);
+        }
+    }
+
     /// <summary>
     /// Puts this window back above its owner. A hidden-then-reshown owned window can
     /// land BELOW the owner (and its video child HWND), silently swallowing all mouse
@@ -970,7 +1077,7 @@ public partial class OverlayWindow : Window
     /// records the resulting origin in physical pixels for <see cref="ExternalMoveHook"/>.
     /// <para>The skip when nothing moved is not an optimisation only: this runs per
     /// <c>WM_WINDOWPOSCHANGED</c>, i.e. per step of a window drag, and every write here is a
-    /// <c>SetWindowPos</c> on this HWND (BUGS.md B11). The expectation is refreshed even when
+    /// <c>SetWindowPos</c> on this HWND (B11). The expectation is refreshed even when
     /// the writes are skipped, so it can never go stale.</para>
     /// <para>The expectation that MATTERS is the one read back from <c>GetWindowRect</c> — see
     /// <see cref="RecordExpectedOrigin"/>. The scaled value written before the writes is an
@@ -1035,7 +1142,7 @@ public partial class OverlayWindow : Window
     /// shell gesture aimed at "the current window" — <c>Win+Shift+Arrow</c> to the next monitor,
     /// <c>Win+Left/Right</c> to snap — therefore issues its <c>SetWindowPos</c> against THIS
     /// hwnd, and nothing observed the overlay's own position: the OSD tore off the video and the
-    /// main window stayed where it was. This is the mirror image of BUGS.md B11, which was the
+    /// main window stayed where it was. This is the mirror image of B11, which was the
     /// owner moving and the overlay not following.</para>
     ///
     /// <para>What is filtered out before a move counts as external, in order: a
@@ -1179,12 +1286,20 @@ public partial class OverlayWindow : Window
     /// both need it and a second hand-written list is how AudioDevicePopup came to be missing
     /// from the idle-hide check (Phase 9 M3).</summary>
     private IEnumerable<System.Windows.Controls.Primitives.Popup> Flyouts
-        => [TracksPopup, InfoPopup, QueuePopup, SpeedPopup, AudioDevicePopup];
+        => [TracksPopup, InfoPopup, QueuePopup, SpeedPopup, AudioDevicePopup, SyncPlayPopup];
 
     private bool AnyFlyoutOpen => Flyouts.Any(p => p.IsOpen);
 
     private void OnOverlayKeyDown(object sender, KeyEventArgs e)
     {
+        // A focused group trigger owns its activation keys before the player bridge.
+        if (SyncPlayButton.IsKeyboardFocused && Keyboard.Modifiers == ModifierKeys.None
+            && e.Key is Key.Space or Key.Enter)
+        {
+            if (!e.IsRepeat) SyncPlayButton.SetCurrentValue(ToggleButton.IsCheckedProperty, SyncPlayButton.IsChecked != true);
+            e.Handled = true;
+            return;
+        }
         // The time editor owns the keyboard while it is up, and it is checked FIRST because focus
         // decides ownership: Enter commits, Escape cancels, and NOTHING else is forwarded. The M1
         // forward deliberately beats the focused element, so without this the arrows would seek and
@@ -1198,6 +1313,11 @@ public partial class OverlayWindow : Window
         // the field never managed to take focus, the focus test so a keystroke aimed at the field is
         // never mistaken for a shortcut. Neither can outlive the edit — EndTimeEdit clears the flag
         // AND hands the keyboard back to this window, so a closed editor suppresses nothing.
+        if (SyncPlayPopup.IsOpen)
+        {
+            if (e.Key == Key.Escape) { CloseSyncPlayFlyout(); e.Handled = true; }
+            return;
+        }
         if (_timeEditActive || TimeEditBox.IsKeyboardFocusWithin)
         {
             if (e.Key == Key.Enter)
@@ -1226,7 +1346,7 @@ public partial class OverlayWindow : Window
         // The M1 forward deliberately beats the focused element (so a focused Slider can't eat
         // the arrow keys as its own SmallChange nudge), but with a flyout open that was plain
         // wrong: measured with the audio flyout up, Down moved the VOLUME 100 -> 95 while the
-        // list selection stayed put, and Space paused playback (BUGS.md B7). Mouse and UIA both
+        // list selection stayed put, and Space paused playback (B7). Mouse and UIA both
         // work either way, which is why no suite caught it. While a flyout is open, leave the
         // keys alone — not marked handled, so the focused element still gets its chance.
         if (AnyFlyoutOpen)
@@ -1339,6 +1459,29 @@ public partial class OverlayWindow : Window
 
     private bool _thumbDragActive;
 
+    /// <summary>Set when a drag is CANCELLED (<c>DragCompletedEventArgs.Canceled</c>), and cleared
+    /// by the next press. It exists because the button is still physically down at that moment:
+    /// the eventual mouse-up still reaches <see cref="OnSeekClick"/>, which sees no active thumb
+    /// drag and would commit the seek the user just walked away from. Clearing the flags is not
+    /// enough on its own.
+    /// <para>"Cleared by the next press" is usually a later press, but not always. If
+    /// <see cref="Theme.SliderDrag"/> unwinds a drag whose capture failed, it does so from a
+    /// handler the style installed during <c>InitializeComponent</c> — i.e. BEFORE the
+    /// <c>OnSeekMouseDown</c> handler this constructor adds — so the flag is set and cleared
+    /// within the SAME press, and the click then commits as an ordinary track click, exactly as it
+    /// did before click-to-drag existed. Harmless, but it leaves an
+    /// <c>outcome=abandon source=drag</c> line immediately followed by
+    /// <c>outcome=commit source=track</c> for one click, which reads like a defect if you meet it
+    /// in a log without knowing this.</para>
+    /// <para><b>What it does not cover.</b> Losing activation (Alt+Tab mid-gesture) reaches
+    /// <see cref="AbandonSeekGesture"/> through <c>Deactivated</c> without necessarily releasing
+    /// mouse capture, so the later mouse-up is an ordinary uncancelled release and still commits.
+    /// That is pre-existing and is deliberately left alone here: the flag cannot simply be set in
+    /// <see cref="AbandonSeekGesture"/> too, because that method also runs on every normal
+    /// release. Closing it properly needs a state machine, not a second flag, and is filed
+    /// separately.</para></summary>
+    private bool _seekGestureAbandoned;
+
     private void OnSeekMouseDown(object sender, MouseButtonEventArgs e)
     {
         // Slider's own class handler (IsMoveToPointEnabled) has already moved the
@@ -1346,6 +1489,7 @@ public partial class OverlayWindow : Window
         // next time-pos update overwrites the clicked value before mouse-up commits
         // it, and the click randomly seeks to where playback already is.
         UiLog(FormattableString.Invariant($"SeekMouseDown value={SeekSlider.Value:F1}"));
+        _seekGestureAbandoned = false;
         _viewModel.IsSeeking = true;
     }
 
@@ -1358,11 +1502,42 @@ public partial class OverlayWindow : Window
 
     private void OnSeekDragCompleted(object sender, DragCompletedEventArgs e)
     {
+        _thumbDragActive = false;
+        _viewModel.IsSeeking = false;
+
+        // A cancelled drag is an ABANDONED gesture and must not seek. Thumb.CancelDrag() raises
+        // this event with Canceled=true when the drag is torn down rather than released - losing
+        // mouse capture, or the window losing activation to an Alt+Tab mid-press. That path used
+        // to be unreachable from a track click, because a track click never started a drag; since
+        // LwSlider gained SliderDrag.ClickToDrag every track press is a drag, so without this
+        // guard an interrupted press would commit a seek the user walked away from.
+        //
+        // It logs its own abandon line rather than leaving that to AbandonSeekGesture, because
+        // AbandonSeekGesture will NOT run for this: CancelDrag() is raised synchronously from
+        // inside the Thumb's own LostMouseCapture handling, so this method clears both flags
+        // before LostMouseCapture finishes bubbling to the slider, and AbandonSeekGesture then
+        // returns at its own guard. Without a line here the whole gesture leaves no trace in
+        // app.log at all - neither abandon nor commit - and B8 is precisely the bug that is hard
+        // to see from outside.
+        // Only e.Canceled is checked here, and the flag below is set ONLY here - deliberately, in
+        // both directions. AbandonSeekGesture does not set it and this method does not test it,
+        // because AbandonSeekGesture also runs on a perfectly ordinary release:
+        // Thumb.OnMouseLeftButtonUp calls ReleaseMouseCapture() BEFORE it raises DragCompleted,
+        // and the LostMouseCapture that follows bubbles to OnSeekLostCapture. Every successful
+        // drag therefore logs an abandon line immediately before its commit. Set the flag there,
+        // or test it here, and normal drags stop committing at all.
+        if (e.Canceled)
+        {
+            _seekGestureAbandoned = true;
+            Diagnostics.AppLog.Detail("overlay",
+                "event=seek outcome=abandon source=drag cause=cancelled");
+            UiLog(FormattableString.Invariant($"SeekDragCanceled value={SeekSlider.Value:F1}"));
+            return;
+        }
+
         Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
             $"event=seek outcome=commit source=drag target_seconds={SeekSlider.Value:F1}"));
         UiLog(FormattableString.Invariant($"SeekDragCompleted value={SeekSlider.Value:F1}"));
-        _thumbDragActive = false;
-        _viewModel.IsSeeking = false;
         _viewModel.Seek(SeekSlider.Value);
     }
 
@@ -1371,7 +1546,7 @@ public partial class OverlayWindow : Window
     /// <summary>The gesture ended abnormally — capture lost, or the window deactivated under it
     /// (Alt+Tab, a window-management gesture, anything that takes over the input loop). Without
     /// this `IsSeeking` stayed true forever: position feedback is suppressed while it is set, so
-    /// the seek bar and the time display froze until the slider was clicked again (BUGS.md B8).
+    /// the seek bar and the time display froze until the slider was clicked again (B8).
     /// Two triggers because they are not the same event — a cancelled mode releases capture,
     /// while losing activation need not — and only the flag is released: an interrupted gesture
     /// is deliberately not committed as a seek.</summary>
@@ -1383,6 +1558,8 @@ public partial class OverlayWindow : Window
             $"event=seek outcome=abandon source=slider cause={cause}");
         UiLog(FormattableString.Invariant(
             $"SeekAbandoned cause={cause} value={SeekSlider.Value:F1} thumbDrag={_thumbDragActive}"));
+        // NOT _seekGestureAbandoned: this method runs on every ordinary release too (see
+        // OnSeekDragCompleted), so latching here would suppress the commit of every normal drag.
         _thumbDragActive = false;
         _viewModel.IsSeeking = false;
     }
@@ -1463,10 +1640,12 @@ public partial class OverlayWindow : Window
     private void OnSeekClick(object sender, MouseButtonEventArgs e)
     {
         UiLog(FormattableString.Invariant(
-            $"SeekClick value={SeekSlider.Value:F1} thumbDrag={_thumbDragActive}"));
-        // Commit a track click as a seek. A thumb drag commits in DragCompleted
-        // instead (its mouse-up arrives here first, so skip while dragging).
-        if (!_thumbDragActive)
+            $"SeekClick value={SeekSlider.Value:F1} thumbDrag={_thumbDragActive} abandoned={_seekGestureAbandoned}"));
+        // Commit a track click as a seek. A thumb drag commits in DragCompleted instead (its
+        // mouse-up arrives here first, so skip while dragging), and a CANCELLED gesture commits
+        // nowhere at all - _seekGestureAbandoned is still set when the user finally lets go of a
+        // button they were holding when the drag was torn down under them.
+        if (!_thumbDragActive && !_seekGestureAbandoned)
         {
             Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
                 $"event=seek outcome=commit source=track target_seconds={SeekSlider.Value:F1}"));
@@ -1746,7 +1925,7 @@ public partial class OverlayWindow : Window
     {
         VolumePill.Height = mini ? 26 : 34;
         VolumePill.Padding = mini ? new Thickness(10, 0, 10, 0) : new Thickness(14, 0, 14, 0);
-        VolumePill.Margin = mini ? new Thickness(0, 10, 12, 0) : new Thickness(0, 64, 36, 0);
+        VolumePill.Margin = mini ? new Thickness(0, 10, 12, 0) : new Thickness(0, 108, 36, 0);
         VolumePillGlyph.FontSize = mini ? 13 : 17;
         VolumePillText.FontSize = mini ? 11 : 13.5;
         VolumePillText.MinWidth = mini ? 36 : 46;

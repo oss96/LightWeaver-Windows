@@ -45,7 +45,10 @@ public sealed class DownloadRow : ObservableObject
     }
 
     public bool IsProgressVisible => Status is DownloadStatus.Downloading or DownloadStatus.Paused;
-    public bool CanPlay => Status == DownloadStatus.Completed;
+    /// <summary>A running download plays too, from the bytes already on disk (MainWindow resolves
+    /// it to the loopback partial stream). Paused and Failed stay unplayable: their file is not
+    /// growing, so it would stop at whatever byte it reached.</summary>
+    public bool CanPlay => Status is DownloadStatus.Completed or DownloadStatus.Downloading;
     public bool CanPause => Status is DownloadStatus.Downloading or DownloadStatus.Queued;
     public bool CanResume => Status is DownloadStatus.Paused or DownloadStatus.Failed;
     public bool CanCancel => Status != DownloadStatus.Completed;
@@ -83,7 +86,8 @@ public partial class DownloadsView : UserControl
     private readonly DispatcherTimer _refresh;
     private bool _dirty;
 
-    /// <summary>Play a completed download (MainWindow resolves local-first playback).</summary>
+    /// <summary>Play a download (MainWindow resolves local-first playback: completed from the
+    /// file, still running from the loopback partial stream).</summary>
     public event Action<DownloadItem>? PlayRequested;
 
     public DownloadsView(DownloadManager manager, Func<string, string, Task<bool>> confirm)

@@ -309,6 +309,22 @@ public partial class LibraryView : UserControl
         }
     }
 
+    /// <summary>A server-side library change landed and this profile's browse caches have already
+    /// been dropped for it: reload from the server if the change touched this view's folder. An
+    /// empty <paramref name="folderIds"/> is the blanket case — the batch named items but no
+    /// folder, so there is nothing to compare against and every view reloads.
+    /// <para>Straight to <see cref="LoadAsync"/>: it bumps the load generation, so a reload that
+    /// lands mid-load supersedes rather than races, and the cold path it now takes resets
+    /// <c>_localMode</c> for us.</para></summary>
+    public void NotifyLibraryChanged(IReadOnlyList<Guid> folderIds)
+    {
+        if (folderIds.Count > 0 && !folderIds.Contains(_source.Id))
+            return;
+        Diagnostics.AppLog.Detail("library",
+            $"event=library_changed outcome=reload item={_source.Id:N} type={_source.Type}");
+        _ = LoadAsync();
+    }
+
     /// <summary>Replace a card's item in place with a refreshed copy (e.g. after the detail
     /// view toggled watched/favorite) so its badges update without a refetch. No-op if this
     /// grid doesn't hold the item. MediaItem is immutable, so we swap the instance.</summary>

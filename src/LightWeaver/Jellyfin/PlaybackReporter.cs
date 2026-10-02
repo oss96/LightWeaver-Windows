@@ -23,6 +23,7 @@ public sealed class PlaybackReporter
     private string? _playSessionId;
     private string? _mediaSourceId;
     private bool _transcode;
+    private Task _pendingStart = Task.CompletedTask;
     // Captured per Start: reports keep hitting the server session that STARTED the
     // playback even if the user warm-switches profiles mid-play.
     private JellyfinApiClient? _client;
@@ -42,7 +43,7 @@ public sealed class PlaybackReporter
     /// session (transcode teardown etc.); without them (local negotiation failure)
     /// a client-minted session id keeps reporting working like before.</summary>
     public void Start(Guid itemId, long positionTicks, string? playSessionId = null,
-        string? mediaSourceId = null, bool transcode = false)
+        string? mediaSourceId = null, bool transcode = false, bool isPaused = false)
     {
         _itemId = itemId;
         _mediaSourceId = mediaSourceId;
@@ -52,13 +53,13 @@ public sealed class PlaybackReporter
         var sessionId = _playSessionId;
         Diagnostics.AppLog.Detail("playback-report", FormattableString.Invariant(
             $"event=report op=start outcome=sent item={_itemId:N} play_method={(_transcode ? "transcode" : "direct_play")} server_session={(playSessionId is null ? "false" : "true")} position_ticks={positionTicks}"));
-        _ = Guard("start", () => _client!.Sessions.Playing.PostAsync(new PlaybackStartInfo
+        _pendingStart = Guard("start", () => _client!.Sessions.Playing.PostAsync(new PlaybackStartInfo
         {
             ItemId = _itemId,
             MediaSourceId = _mediaSourceId,
             PositionTicks = positionTicks,
             CanSeek = true,
-            IsPaused = false,
+            IsPaused = isPaused,
             IsMuted = false,
             PlayMethod = _transcode
                 ? PlaybackStartInfo_PlayMethod.Transcode
@@ -111,9 +112,21 @@ public sealed class PlaybackReporter
         };
         _playSessionId = null;
         var client = _client;   // a new Start() mustn't retarget this in-flight stop
+        var pendingStart = _pendingStart;
         Diagnostics.AppLog.Detail("playback-report", FormattableString.Invariant(
             $"event=report op=stop outcome=sent item={_itemId:N} position_ticks={info.PositionTicks}"));
-        return Guard("stop", () => client.Sessions.Playing.Stopped.PostAsync(info));
+        return StopAfterStartAsync(pendingStart, client, info);
+    }
+
+    private static async Task StopAfterStartAsync(Task pendingStart, JellyfinApiClient client,
+        PlaybackStopInfo info)
+    {
+        // Jellyfin must observe Started before Stopped for the same PlaySessionId. A rapid
+        // quality swap can stop during a slow Start POST; sending both concurrently lets the
+        // late Start recreate NowPlaying after the replacement session has begun.
+        await pendingStart.ConfigureAwait(false);
+        await Guard("stop", () => client.Sessions.Playing.Stopped.PostAsync(info))
+            .ConfigureAwait(false);
     }
 
     private static long ToTicks(double seconds) => (long)(seconds * 10_000_000);

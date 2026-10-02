@@ -8,7 +8,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
     <ProjectReference Include="../../src/LightWeaver/LightWeaver.csproj" />
     <None Include="../../native/win-x64/libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The app's font pack URIs resolve against the entry assembly. Mirror its font
+         resources when the real WPF views run inside this harness executable. -->
+    <Resource Include="../../src/LightWeaver/Theme/Fonts/*.ttf" Link="Theme/Fonts/%(Filename)%(Extension)" />
+    <Resource Include="../../src/LightWeaver/Theme/Fonts/*.otf" Link="Theme/Fonts/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

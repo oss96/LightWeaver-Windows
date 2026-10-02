@@ -5,6 +5,8 @@ using LightWeaver.Settings;
 
 namespace LightWeaver.ViewModels;
 
+public sealed record SyncPlayInfo(string GroupName, IReadOnlyList<string> Participants, string? State);
+
 /// <summary>A selectable track row in the overlay popups. Id -1 = "Off" (subtitles).
 /// Badge is the two-letter language chip ("" = no badge).</summary>
 public sealed record TrackOption(int Id, string Display, bool IsSelected, string Badge = "")
@@ -16,6 +18,17 @@ public sealed record TrackOption(int Id, string Display, bool IsSelected, string
 /// within that generation; the descriptor is what lets the owner verify the observed selection.</summary>
 public sealed record SubtitleSelectionRequest(
     int Generation, int? TrackId, bool Off, string? Lang, string? Title, bool Forced);
+
+/// <summary>An alternate version (media source) row in the overlay track flyout. Shares the
+/// TrackOptionTemplate property shape (Display/IsSelected/Badge) the way AudioDeviceOption does,
+/// so the VERSIONS section reuses the same row template as the three track lists beside it.
+/// <see cref="Id"/> is a server-issued media source id, not an mpv track id — a version is
+/// chosen before the file exists, so it can never be a TrackOption.</summary>
+public sealed record VersionOption(string Id, string Display, bool IsSelected)
+{
+    public string Badge => "";
+    public override string ToString() => Display;
+}
 
 /// <summary>An audio output device row in the overlay device popup. Shares the
 /// TrackOptionTemplate property shape (Display/IsSelected/Badge) so the popup reuses
@@ -33,7 +46,7 @@ public sealed record InfoRow(string Label, string Value)
 }
 
 /// <summary>A row of the overlay queue popup. The playing row can't be removed.</summary>
-public sealed record QueueRow(int Index, string Display, bool IsCurrent)
+public sealed record QueueRow(int Index, string Display, bool IsCurrent, Guid? PlaylistItemId = null)
 {
     public bool CanRemove => !IsCurrent;
     public string Position => $"{Index + 1}.";
@@ -46,6 +59,10 @@ public sealed record SpeedOption(double Value, bool IsSelected)
     public string Display => FormattableString.Invariant($"{Value:0.##}×");
     public override string ToString() => Display;
 }
+
+/// <summary>A session-only playback quality choice. A null bitrate means use the
+/// saved Settings value; zero means unlimited.</summary>
+public readonly record struct QualityRequest(int? MaxBitrateMbps, bool ForceTranscode);
 
 /// <summary>
 /// Binds the overlay transport controls to an <see cref="MpvPlayer"/>.
@@ -71,7 +88,40 @@ public sealed class PlayerViewModel : ObservableObject
 
     public PlayerViewModel()
     {
-        TogglePauseCommand = new RelayCommand(() => { if (_player is not null) _player.Pause = !_player.Pause; });
+        TogglePauseCommand = new RelayCommand(() => { if (!Gate(new(TransportKind.TogglePause)) && _player is not null) _player.Pause = !_player.Pause; });
+    }
+
+    internal Func<TransportRequest, bool>? TransportGate { get; set; }
+    private bool Gate(TransportRequest request) => TransportGate?.Invoke(request) == true;
+
+    private SyncPlayInfo? _syncPlay;
+    public SyncPlayInfo? SyncPlay => _syncPlay;
+    private bool _syncPlayPending;
+    public bool SyncPlayPending
+    {
+        get => _syncPlayPending;
+        internal set
+        {
+            if (SetProperty(ref _syncPlayPending, value))
+                OnPropertyChanged(nameof(SyncPlayStatus));
+        }
+    }
+    public string SyncPlayStatus => SyncPlay is { } group
+        ? $"{(SyncPlayPending ? "Syncing\u2026" : string.IsNullOrWhiteSpace(group.State) ? "Connected" : group.State)} \u00b7 {group.Participants.Count}"
+        : SyncPlayPending ? "Joining\u2026" : "";
+    private IReadOnlyList<QueueRow>? _syncPlayRows;
+    internal void SetSyncPlay(SyncPlayInfo? info)
+    {
+        SetProperty(ref _syncPlay, info, nameof(SyncPlay));
+        OnPropertyChanged(nameof(SyncPlayStatus));
+        if (info is null) _syncPlayRows = null;
+        else SetUpNext(null);
+        RebuildQueueRows();
+    }
+    internal void SetSyncPlayQueue(IReadOnlyList<QueueRow> rows)
+    {
+        _syncPlayRows = rows;
+        RebuildQueueRows();
     }
 
     public RelayCommand TogglePauseCommand { get; }
@@ -79,6 +129,10 @@ public sealed class PlayerViewModel : ObservableObject
     public ObservableCollection<TrackOption> VideoTracks { get; } = [];
     public ObservableCollection<TrackOption> AudioTracks { get; } = [];
     public ObservableCollection<TrackOption> SubtitleTracks { get; } = [];
+
+    /// <summary>The item's alternate versions. Empty for local files and direct URLs: there is
+    /// no server item behind them, so there is nothing to switch to.</summary>
+    public ObservableCollection<VersionOption> Versions { get; } = [];
 
     // The UI collection reflects mpv's last observation, which can lag behind rapid key presses.
     // Keep a generation-scoped cursor at the latest requested row until mpv acknowledges it.
@@ -119,7 +173,11 @@ public sealed class PlayerViewModel : ObservableObject
     public void Attach(MpvPlayer player)
     {
         _player = player;
-        player.PositionChanged += pos => { if (!IsSeeking) PositionSecondsFromPlayer(pos); };
+        // The generation payload is ignored here on purpose: the scrubber shows whatever mpv last
+        // reported, and a stale value is corrected by the next tick a few tens of milliseconds
+        // later. It matters where a position is REMEMBERED across a load (MainWindow's fallback),
+        // not where it is displayed.
+        player.PositionChanged += (pos, _) => { if (!IsSeeking) PositionSecondsFromPlayer(pos); };
         player.DurationChanged += d => { _durationSeconds = d; OnPropertyChanged(nameof(DurationSeconds)); OnPropertyChanged(nameof(TimeDisplay)); };
         player.PauseChanged += p => { _isPaused = p; OnPropertyChanged(nameof(IsPaused)); };
         player.VolumeChanged += v => { _volume = v; OnPropertyChanged(nameof(Volume)); };
@@ -242,10 +300,63 @@ public sealed class PlayerViewModel : ObservableObject
     public bool HasAudioChoices => AudioTracks.Count >= 2;
     public bool HasSubtitleChoices => SubtitleTracks.Count >= 2;
 
-    /// <summary>Whether the merged Tracks button has anything to offer (P10 M11). The three
+    /// <summary>Same rule as the three above, and the same one the detail-view button uses: a
+    /// picker listing one version is a control that cannot change anything.</summary>
+    public bool HasVersionChoices => Versions.Count >= 2;
+
+    /// <summary>Whether the merged Tracks button has anything to offer (P10 M11). The
     /// per-type flags still gate their own SECTION inside the one flyout, so a file with only
     /// subtitle choices opens a flyout with only a Subtitles section.</summary>
-    public bool HasTrackChoices => HasVideoChoices || HasAudioChoices || HasSubtitleChoices;
+    public bool HasTrackChoices => HasVideoChoices || HasAudioChoices || HasSubtitleChoices
+        || HasVersionChoices;
+
+    /// <summary>A VERSIONS row was picked; the payload is its media source id. MainWindow owns
+    /// the renegotiation and calls <see cref="SetVersions"/> with the result — the same split
+    /// as <see cref="QualityChangeRequested"/>, because it is the same reload.</summary>
+    public event Action<string>? VersionChangeRequested;
+
+    /// <summary>Publishes the item's alternate versions and which of them is playing. Called
+    /// per playback start and again after a switch; an empty list hides the section.</summary>
+    public void SetVersions(IReadOnlyList<MediaVersion> versions, string? currentSourceId)
+    {
+        Versions.Clear();
+        foreach (var version in versions)
+            Versions.Add(new VersionOption(version.Id,
+                // Size or bitrate is carried in the row itself, not a badge: two versions of a
+                // film are routinely named the same, and the flyout has no gesture column to
+                // put the disambiguator in the way the detail-view menu does.
+                version.Detail() is { Length: > 0 } detail
+                    ? $"{version.Label} · {detail}"
+                    : version.Label,
+                IsSelected: false));
+        SetCurrentVersion(currentSourceId);
+        OnPropertyChanged(nameof(HasVersionChoices));
+        OnPropertyChanged(nameof(HasTrackChoices));
+    }
+
+    /// <summary>Moves the selected marker without re-reading the list: the version list is
+    /// cached metadata that can arrive before the negotiation naming which source is playing.</summary>
+    public void SetCurrentVersion(string? currentSourceId)
+    {
+        for (var i = 0; i < Versions.Count; i++)
+        {
+            var selected = string.Equals(Versions[i].Id, currentSourceId, StringComparison.Ordinal);
+            if (Versions[i].IsSelected != selected)
+                Versions[i] = Versions[i] with { IsSelected = selected };
+        }
+    }
+
+    public void SelectVersion(VersionOption option)
+    {
+        // Re-picking the playing version is a no-op, not a reload: unlike a track pick, honouring
+        // it would stop the report session and reload the same bytes to arrive where it started.
+        // _qualityAvailable is the same gate RequestQualityChange uses, and for the same reason:
+        // it is false while a change is already loading, and a second request in that window
+        // would be dropped by the apply path anyway.
+        if (option.IsSelected || !_qualityAvailable)
+            return;
+        VersionChangeRequested?.Invoke(option.Id);
+    }
 
     private void RebuildTrackOptions(int generation)
     {
@@ -354,7 +465,15 @@ public sealed class PlayerViewModel : ObservableObject
 
     public void SelectVideo(TrackOption option) => _player?.SelectVideoTrack(option.Id);
 
-    public void SelectAudio(TrackOption option) => _player?.SelectAudioTrack(option.Id);
+    public event Action? AudioChosen;
+
+    public void SelectAudio(TrackOption option)
+    {
+        if (_player is not { } player)
+            return;
+        AudioChosen?.Invoke();
+        player.SelectAudioTrack(option.Id);
+    }
 
     /// <summary>Raised before mpv's sid changes. The owner receives both the generation-local id
     /// and exact descriptor, so a queued FILE_LOADED can reconcile this request without using the
@@ -419,7 +538,7 @@ public sealed class PlayerViewModel : ObservableObject
             return;
         }
         var idx = IndexOfSelected(AudioTracks);
-        _player.SelectAudioTrack(AudioTracks[(idx + 1) % AudioTracks.Count].Id);
+        SelectAudio(AudioTracks[(idx + 1) % AudioTracks.Count]);
     }
 
     /// <summary>Cycles subtitles: first → … → last → Off → first.</summary>
@@ -530,6 +649,7 @@ public sealed class PlayerViewModel : ObservableObject
         get => _isPaused;
         set
         {
+            if (Gate(new(value ? TransportKind.Pause : TransportKind.Unpause))) return;
             if (SetProperty(ref _isPaused, value) && _player is not null)
                 _player.Pause = value;
         }
@@ -559,7 +679,7 @@ public sealed class PlayerViewModel : ObservableObject
             if (SetProperty(ref _positionSeconds, value))
             {
                 OnPropertyChanged(nameof(TimeDisplay));
-                if (IsSeeking && _player is not null)
+                if (IsSeeking && _player is not null && !Gate(new(TransportKind.SeekAbsolute, value)))
                     _player.TimePos = value;
             }
         }
@@ -590,6 +710,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     public void SelectSpeed(SpeedOption option)
     {
+        if (Gate(new(TransportKind.Speed))) return;
         if (_player is not null)
             _player.Speed = option.Value;
     }
@@ -597,6 +718,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Steps to the next faster preset (+ key).</summary>
     public void IncreaseSpeed()
     {
+        if (Gate(new(TransportKind.Speed))) return;
         if (_player is null)
             return;
         var next = Speeds.FirstOrDefault(s => s > _speed + 0.001, Speeds[^1]);
@@ -606,6 +728,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Steps to the next slower preset (- key).</summary>
     public void DecreaseSpeed()
     {
+        if (Gate(new(TransportKind.Speed))) return;
         if (_player is null)
             return;
         var next = Speeds.LastOrDefault(s => s < _speed - 0.001, Speeds[0]);
@@ -619,8 +742,8 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Queue rows for the overlay popup; rebuilt on queue changes.</summary>
     public ObservableCollection<QueueRow> QueueRows { get; } = [];
 
-    public bool HasQueue => _queue is { IsActive: true };
-    public string QueueBadge => _queue is { IsActive: true } q ? $"{q.CurrentIndex + 1}/{q.Count}" : "";
+    public bool HasQueue => _syncPlay is not null ? _syncPlayRows is { Count: > 0 } : _queue is { IsActive: true };
+    public string QueueBadge => _syncPlay is not null ? $"{(_syncPlayRows?.FirstOrDefault(r => r.IsCurrent)?.Index ?? -1) + 1}/{_syncPlayRows?.Count ?? 0}" : _queue is { IsActive: true } q ? $"{q.CurrentIndex + 1}/{q.Count}" : "";
 
     /// <summary>A queue navigation picked this item; MainWindow starts the playback
     /// (the queue index has already moved).</summary>
@@ -637,7 +760,11 @@ public sealed class PlayerViewModel : ObservableObject
     private void RebuildQueueRows()
     {
         QueueRows.Clear();
-        if (_queue is { IsActive: true } q)
+        if (_syncPlay is not null)
+        {
+            foreach (var row in _syncPlayRows ?? []) QueueRows.Add(row);
+        }
+        else if (_queue is { IsActive: true } q)
             for (var i = 0; i < q.Items.Count; i++)
                 QueueRows.Add(new QueueRow(i, q.Items[i].QueueDisplay, i == q.CurrentIndex));
         OnPropertyChanged(nameof(HasQueue));
@@ -706,13 +833,13 @@ public sealed class PlayerViewModel : ObservableObject
 
     /// <summary>Somewhere to go forwards: a queue entry, an armed Up Next, or - only when no
     /// queue is active - the next episode in series order.</summary>
-    public bool CanGoNext => _queue?.PeekNext() is not null
+    public bool CanGoNext => _syncPlay is not null ? _syncPlayRows is { Count: > 1 } : _queue?.PeekNext() is not null
         || _upNextItem is not null
         || (!HasQueue && _nextEpisode is not null);
 
     /// <summary>Somewhere to go back to: a queue entry, else the previous episode in series
     /// order. Ungated on purpose - see the note above.</summary>
-    public bool CanGoPrevious => _queue?.PeekPrevious() is not null || _prevEpisode is not null;
+    public bool CanGoPrevious => _syncPlay is not null ? _syncPlayRows is { Count: > 1 } : _queue?.PeekPrevious() is not null || _prevEpisode is not null;
 
     /// <summary>The pair shows when either direction is meaningful.</summary>
     public bool ShowNextPrevButtons => CanGoNext || CanGoPrevious;
@@ -724,6 +851,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// next episode in series order. Mirrors <see cref="CanGoNext"/> exactly.</summary>
     public void GoNext()
     {
+        if (Gate(new(TransportKind.QueueNext))) return;
         if (_queue?.PeekNext() is not null) { NextInQueue(); return; }
         if (_upNextItem is not null) { PlayUpNextNow(); return; }
         if (!HasQueue && _nextEpisode is { } next) EpisodeStepRequested?.Invoke(next);
@@ -736,6 +864,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <see cref="CanGoPrevious"/> exactly — ungated, unlike the forward direction.</summary>
     public void GoPrevious()
     {
+        if (Gate(new(TransportKind.QueuePrevious))) return;
         if (_queue?.PeekPrevious() is not null) { PreviousInQueue(); return; }
         if (_prevEpisode is { } prev) EpisodeStepRequested?.Invoke(prev);
         else ActionDetail("previous", "nothing_previous");
@@ -759,7 +888,7 @@ public sealed class PlayerViewModel : ObservableObject
         switch (NextAction)
         {
             case Settings.TransportAction.ChapterStep: NextChapter(); break;
-            case Settings.TransportAction.Seek: _player?.SeekRelative(_settings?.TransportSeekSeconds ?? 10); break;
+            case Settings.TransportAction.Seek: SeekRelative(_settings?.TransportSeekSeconds ?? 10); break;
             default: GoNext(); break;
         }
     }
@@ -769,7 +898,7 @@ public sealed class PlayerViewModel : ObservableObject
         switch (PrevAction)
         {
             case Settings.TransportAction.ChapterStep: PreviousChapter(); break;
-            case Settings.TransportAction.Seek: _player?.SeekRelative(-(_settings?.TransportSeekSeconds ?? 10)); break;
+            case Settings.TransportAction.Seek: SeekRelative(-(_settings?.TransportSeekSeconds ?? 10)); break;
             default: GoPrevious(); break;
         }
     }
@@ -777,6 +906,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Next queue entry (N key / overlay button); no-op at the end.</summary>
     public void NextInQueue()
     {
+        if (Gate(new(TransportKind.QueueNext))) return;
         if (_queue?.MoveNext() is { } item)
             QueuePlayRequested?.Invoke(item);
         else
@@ -786,6 +916,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Previous queue entry (P key / overlay button); no-op at the start.</summary>
     public void PreviousInQueue()
     {
+        if (Gate(new(TransportKind.QueuePrevious))) return;
         if (_queue?.MovePrevious() is { } item)
             QueuePlayRequested?.Invoke(item);
         else
@@ -794,11 +925,15 @@ public sealed class PlayerViewModel : ObservableObject
 
     public void JumpToQueueRow(QueueRow row)
     {
+        if (Gate(new(TransportKind.QueueJump, PlaylistItemId: row.PlaylistItemId))) return;
         if (_queue?.JumpTo(row.Index) is { } item)
             QueuePlayRequested?.Invoke(item);
     }
 
-    public void RemoveQueueRow(QueueRow row) => _queue?.RemoveAt(row.Index);
+    public void RemoveQueueRow(QueueRow row)
+    {
+        if (!Gate(new(TransportKind.QueueRemove, PlaylistItemId: row.PlaylistItemId))) _queue?.RemoveAt(row.Index);
+    }
 
     // ---- Auto-play next episode (Up Next card) ----
 
@@ -839,7 +974,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// trigger point but no countdown runs and EOF does not advance.</summary>
     public void SetUpNext(MediaItem? item, int countdownSeconds = 10, bool autoAdvance = true)
     {
-        _upNextItem = item;
+        _upNextItem = _syncPlay is null ? item : null;
         _upNextCountdownSeconds = Math.Max(3, countdownSeconds);
         _upNextAutoAdvance = autoAdvance;
         _upNextDismissed = false;
@@ -851,6 +986,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     public void PlayUpNextNow()
     {
+        if (Gate(new(TransportKind.QueueNext))) return;
         if (_upNextItem is not { } item)
         {
             ActionDetail("play_up_next", "no_up_next");
@@ -873,7 +1009,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     private void UpdateUpNext(double pos)
     {
-        if (_upNextItem is null || _upNextDismissed || _durationSeconds <= 0)
+        if (_syncPlay is not null || _upNextItem is null || _upNextDismissed || _durationSeconds <= 0)
             return;
         // Credits start when known, else the last 30 seconds.
         var creditsStart = _skipSegments.FirstOrDefault(s => s.Kind == SkipSegmentKind.Credits)?.StartSeconds;
@@ -982,6 +1118,106 @@ public sealed class PlayerViewModel : ObservableObject
     }
 
     // ---- Info panel (live playback stats + server media info) ----
+
+    private bool _updatingQuality;
+    private int _qualityTierIndex;
+    private bool _qualityForceTranscode;
+    private string _qualityStatus = "Unavailable for this playback";
+    private bool _qualityAvailable;
+    private bool _qualityVisible;
+
+    /// <summary>Raised as soon as either quality control changes. MainWindow owns the
+    /// server negotiation and calls <see cref="SetQualityState"/> with the result.</summary>
+    public event Action<QualityRequest>? QualityChangeRequested;
+
+    public int QualityTierIndex
+    {
+        get => _qualityTierIndex;
+        set
+        {
+            if (_qualityTierIndex == value)
+                return;
+            _qualityTierIndex = value;
+            OnPropertyChanged();
+            RequestQualityChange();
+        }
+    }
+
+    public bool QualityForceTranscode
+    {
+        get => _qualityForceTranscode;
+        set
+        {
+            if (_qualityForceTranscode == value)
+                return;
+            _qualityForceTranscode = value;
+            OnPropertyChanged();
+            RequestQualityChange();
+        }
+    }
+
+    public string QualityStatus => _qualityStatus;
+    public bool QualityAvailable => _qualityAvailable;
+    public bool QualityVisible => _qualityVisible;
+
+    public void SetQualityState(int? maxBitrateMbps, bool forceTranscode,
+        int settingsMaxBitrateMbps, string? status = null, bool available = true,
+        bool visible = true)
+    {
+        _updatingQuality = true;
+        _qualityTierIndex = maxBitrateMbps switch
+        {
+            null => 0,
+            0 => 1,
+            20 => 2,
+            10 => 3,
+            4 => 4,
+            1 => 5,
+            _ => 0,
+        };
+        _qualityForceTranscode = forceTranscode;
+        _qualityAvailable = available;
+        _qualityVisible = visible;
+        _qualityStatus = status ?? QualityDescription(maxBitrateMbps, forceTranscode,
+            settingsMaxBitrateMbps);
+        OnPropertyChanged(nameof(QualityTierIndex));
+        OnPropertyChanged(nameof(QualityForceTranscode));
+        OnPropertyChanged(nameof(QualityAvailable));
+        OnPropertyChanged(nameof(QualityVisible));
+        OnPropertyChanged(nameof(QualityStatus));
+        _updatingQuality = false;
+    }
+
+    private void RequestQualityChange()
+    {
+        if (_updatingQuality || !_qualityAvailable)
+            return;
+        var bitrate = _qualityTierIndex switch
+        {
+            0 => (int?)null,
+            1 => 0,
+            2 => 20,
+            3 => 10,
+            4 => 4,
+            5 => 1,
+            _ => null,
+        };
+        QualityChangeRequested?.Invoke(new QualityRequest(bitrate, _qualityForceTranscode));
+    }
+
+    public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,
+        int settingsMaxBitrateMbps)
+    {
+        var bitrate = maxBitrateMbps switch
+        {
+            null => settingsMaxBitrateMbps > 0
+                ? $"Default ({settingsMaxBitrateMbps} Mbps max)"
+                : "Default (Unlimited)",
+            0 => "Unlimited",
+            int value => $"{value} Mbps max",
+        };
+        return forceTranscode ? $"{bitrate} · Force transcode" : $"{bitrate} · Direct play allowed";
+    }
 
     /// <summary>Live mpv playback state; refreshed by the overlay while its info
     /// panel is open (1 s cadence).</summary>
@@ -1136,25 +1372,31 @@ public sealed class PlayerViewModel : ObservableObject
 
     public void RequestOpenStream() => OpenStreamRequested?.Invoke();
 
-    public void JumpForward() => _player?.SeekRelative(_settings?.SkipForwardSeconds ?? 10);
+    private void SeekRelative(double seconds)
+    {
+        if (!Gate(new(TransportKind.SeekRelative, seconds))) _player?.SeekRelative(seconds);
+    }
 
-    public void JumpBack() => _player?.SeekRelative(-(_settings?.SkipBackwardSeconds ?? 10));
+    public void JumpForward() => SeekRelative(_settings?.SkipForwardSeconds ?? 10);
+
+    public void JumpBack() => SeekRelative(-(_settings?.SkipBackwardSeconds ?? 10));
 
     // One setting for both directions, unlike the plain jump above: the large seek exists to cover
     // ground, and an asymmetric coarse step is harder to undo than it is useful.
-    public void JumpForwardLarge() => _player?.SeekRelative(_settings?.LargeSkipSeconds ?? 30);
+    public void JumpForwardLarge() => SeekRelative(_settings?.LargeSkipSeconds ?? 30);
 
-    public void JumpBackLarge() => _player?.SeekRelative(-(_settings?.LargeSkipSeconds ?? 30));
+    public void JumpBackLarge() => SeekRelative(-(_settings?.LargeSkipSeconds ?? 30));
 
     // No setting to read: a frame is a frame. mpv pauses itself on either of these, and the pause
     // observer carries that back into IsPaused, so nothing here has to touch playback state.
-    public void FrameStepForward() => _player?.FrameStep();
+    public void FrameStepForward() { if (!Gate(new(TransportKind.FrameStep))) _player?.FrameStep(); }
 
-    public void FrameStepBack() => _player?.FrameBackStep();
+    public void FrameStepBack() { if (!Gate(new(TransportKind.FrameStep))) _player?.FrameBackStep(); }
 
     /// <summary>Seek to the given position (used on slider click / drag end).</summary>
     public void Seek(double seconds)
     {
+        if (Gate(new(TransportKind.SeekAbsolute, seconds))) return;
         if (_player is null)
             return;
         _player.TimePos = seconds;

@@ -72,6 +72,16 @@ public sealed class AppViewModel : ObservableObject
     /// <summary>Broadcast a refreshed item to any cached list views (see <see cref="ItemUserDataChanged"/>).</summary>
     public void NotifyItemUserDataChanged(MediaItem item) => ItemUserDataChanged?.Invoke(item);
 
+    /// <summary>
+    /// The server reported that the ACTIVE profile's library changed, after the browse caches for
+    /// it have been dropped. The argument is the folder ids the change names; an EMPTY list means
+    /// the change could not be attributed to a folder and every live view should reload.
+    /// </summary>
+    public event Action<IReadOnlyList<Guid>>? LibraryChanged;
+
+    /// <summary>Broadcast a library change to the live views (see <see cref="LibraryChanged"/>).</summary>
+    public void NotifyLibraryChanged(IReadOnlyList<Guid> folderIds) => LibraryChanged?.Invoke(folderIds);
+
     public event Action<AppState>? StateChanged;
 
     /// <summary>A session became active (warm or freshly connected). Raised BEFORE the
@@ -115,6 +125,12 @@ public sealed class AppViewModel : ObservableObject
         return _sessions.Values.FirstOrDefault(s => s.IsConnected
             && string.Equals(s.ServerUrl, serverUrl, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>The warm session registered under a profile key, or null once it has been closed.
+    /// The live session sockets resolve their service this way rather than holding a reference, so
+    /// a logout that disposes the service cannot leave one pointing at it.</summary>
+    public JellyfinService? FindSessionByKey(string key)
+        => _sessions.TryGetValue(key, out var session) ? session : null;
 
     /// <summary>The connected session that owns an absolute asset URL — matched by
     /// <c>ServerUrl</c> PREFIX, so a server hosted under a sub-path (<c>http://host/jellyfin</c>)

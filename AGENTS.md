@@ -21,19 +21,17 @@ dev build never touches an installed build's login, settings or watched state.
 mpv **owns its rendering window** (child HWND via `wid`, `vo=gpu-next`, D3D11). Never
 composite video through WPF (`D3DImage`, render API to texture, etc.) — that breaks RTX
 Video HDR and HDR passthrough, which are core requirements. Playback controls go in a
-transparent overlay window, not inside the video HWND's rect. See TECHNICAL.md.
+transparent overlay window, not inside the video HWND's rect.
 
 ## Rules
 - `dotnet build -warnaserror` must pass before every commit. Warnings are errors here; do not
   commit around them.
-- After every significant code change, update `README.md` and `TECHNICAL.md`.
+- After every significant code change, update `README.md`.
 - Match the surrounding code. The project has settled patterns for view models, mpv property
   access, settings persistence and logging — use them rather than introducing a new one.
 
 ## Where things live
 - `README.md` — features, requirements, install, build, shortcuts, release build
-- `TECHNICAL.md` — architecture, subsystem notes and the design decisions log
-- `BUGS.md` — the bug queue, the B-id index, and the live known issues
 - `docs/CODE-SIGNING.md` — Authenticode setup for `publish.ps1` / `installer.ps1`
 - `design/` — the "woven light" design system: prompts, spec and mockups
 

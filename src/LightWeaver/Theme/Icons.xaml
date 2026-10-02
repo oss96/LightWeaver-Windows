@@ -31,6 +31,8 @@
     <sys:String x:Key="IconSearch">&#xE8B6;</sys:String>        <!-- search -->
     <sys:String x:Key="IconTune">&#xE429;</sys:String>          <!-- tune (advanced filters) -->
 
+    <sys:String x:Key="IconSyncPlay">&#xE7EF;</sys:String>      <!-- group -->
+
     <!-- Generic UI -->
     <sys:String x:Key="IconBack">&#xE5C4;</sys:String>          <!-- arrow_back -->
     <sys:String x:Key="IconForward">&#xE5C8;</sys:String>       <!-- arrow_forward -->
@@ -49,6 +51,7 @@
     <sys:String x:Key="IconWatched">&#xE86C;</sys:String>         <!-- check_circle (filled = watched) -->
     <sys:String x:Key="IconWatchedBorder">&#xE92D;</sys:String>   <!-- check_circle_outline (= unwatched) -->
     <sys:String x:Key="IconTrailer">&#xF06A;</sys:String>         <!-- smart_display -->
+    <sys:String x:Key="IconVersions">&#xE53B;</sys:String>        <!-- layers (alternate versions) -->
 
     <!-- Downloads (M20) -->
     <sys:String x:Key="IconDownload">&#xF090;</sys:String>        <!-- download -->

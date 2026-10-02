@@ -81,6 +81,7 @@ public sealed class MpvPlayer : IDisposable
     // at most one dispatcher callback is pending at a time.
     private readonly Lock _posLock = new();
     private double _pendingPos;
+    private int _pendingPosGeneration;
     private bool _posDispatchQueued;
 
     private bool _pause;
@@ -90,7 +91,18 @@ public sealed class MpvPlayer : IDisposable
     private bool _eofRaised;
     private bool _pausedForCache;
 
-    public event Action<double>? PositionChanged;
+    /// <summary>Position in seconds, and the event generation the file it belongs to was started
+    /// with — same payload contract as <see cref="FileLoaded"/> and <see cref="TracksChanged"/>.
+    ///
+    /// <para>The generation is not decoration. Position updates are coalesced onto ONE dispatcher
+    /// operation at the normal priority, and the dispatcher does not preempt: a
+    /// position posted while the UI thread is inside a click handler runs only after that handler
+    /// returns — i.e. after the handler has already loaded the next file. A subscriber that stamps
+    /// the value with whatever generation is live when it RECEIVES it therefore stamps the
+    /// outgoing file's position with the incoming file's generation, which is the bug the payload
+    /// exists to make impossible. It is read on mpv's event thread, where it still names the file
+    /// the position was measured in.</para></summary>
+    public event Action<double, int>? PositionChanged;
     public event Action<double>? DurationChanged;
     public event Action<bool>? PauseChanged;
     public event Action<double>? VolumeChanged;
@@ -102,6 +114,14 @@ public sealed class MpvPlayer : IDisposable
     /// MPV_EVENT_START_FILE; compare it against <see cref="LoadGeneration"/> to reject an event for
     /// a superseded request. UI thread.</summary>
     public event Action<int>? FileLoaded;
+    /// <summary>mpv is playing at a new position: raised after every load AND after every seek, so
+    /// it is the only honest "the position being played is the one that was asked for" signal the
+    /// player has — <see cref="FileLoaded"/> is earlier (demuxer headers only, nothing decoded) and
+    /// there is no seek-settled event otherwise. It therefore fires repeatedly during ordinary
+    /// playback, once per seek and not once per file, so a subscriber must be cheap. The payload is
+    /// the event generation, as <see cref="FileLoaded"/>'s is; compare it against
+    /// <see cref="LoadGeneration"/> to reject a raise for a superseded load. UI thread.</summary>
+    public event Action<int>? PlaybackRestarted;
 
     private int _loadGeneration;
     private int _eventGeneration;
@@ -284,6 +304,14 @@ public sealed class MpvPlayer : IDisposable
             // nothing).
             if (Environment.GetEnvironmentVariable("LIGHTWEAVER_MPV_NO_AUDIO") == "1")
                 SetOption(ctx, "ao", "null");
+
+            // Diagnostics: LIGHTWEAVER_MPV_NO_VIDEO=1 uses mpv's null video output, so no window is
+            // ever created and no GPU adapter is opened. This is what lets the offscreen
+            // PlaybackHarness drive real playback without taking the desktop. Set after the
+            // gpu-next default above, which it deliberately overrides; options are only read at
+            // mpv_initialize, so the last write wins. Test launches set this; nothing else does.
+            if (Environment.GetEnvironmentVariable("LIGHTWEAVER_MPV_NO_VIDEO") == "1")
+                SetOption(ctx, "vo", "null");
 
             unsafe
             {
@@ -1279,11 +1307,51 @@ public sealed class MpvPlayer : IDisposable
         set => SetDoubleProperty("time-pos", value);
     }
 
+    /// <summary>Asks mpv for <c>time-pos</c> now and reports false when mpv has no position at
+    /// all — between files and while a load is in flight — which is a different answer from
+    /// position zero.
+    /// <para>Callable from any thread: the libmpv client API serializes synchronous property reads
+    /// through the playback core, the same argument <see cref="RefreshTracks"/> rests on.</para>
+    /// <para><see cref="TimePos"/> returns the last POSTED position (<c>_pendingPos</c>, written on
+    /// mpv's event thread), so it is free but up to one observe interval stale. This asks mpv, and
+    /// is the one to use for the body of a report a remote peer will act on — a SyncPlay
+    /// Ready or Buffering, where a stale position becomes every other member's seek.</para>
+    /// <para>Never throws once disposed: the <c>_disposed</c> check answers where
+    /// <see cref="GetPropertyString"/>'s <see cref="CheckAlive"/> would throw
+    /// <see cref="ObjectDisposedException"/> on whatever background thread asked. That check is
+    /// quiet, not safe — <c>_ctx</c> is not zeroed by <see cref="Dispose"/>, so a call that races
+    /// <c>mpv_terminate_destroy</c> is still a use-after-free. Closing that is the caller's
+    /// contract, not this method's: whoever reads from another thread must be shut down and its
+    /// thread joined before <see cref="Dispose"/> runs.</para></summary>
+    public bool TryReadPosition(out double seconds)
+    {
+        if (_disposed)
+        {
+            seconds = 0;
+            return false;
+        }
+        return TryGetPropertyDouble("time-pos", out seconds);
+    }
+
     /// <summary>Seeks relative to the current position (negative = backward); mpv clamps.</summary>
+    /// <remarks>
+    /// <para><c>exact</c> is load-bearing, not a refinement. Under mpv's default
+    /// <c>--hr-seek=default</c> only ABSOLUTE seeks are precise; a relative seek is
+    /// keyframe-limited and resolves to the keyframe PAST the target in its direction of
+    /// travel, so it overshoots by up to one GOP and never undershoots. Measured on a 9 s-GOP
+    /// clip by <c>tests/PlaybackHarness</c> SeekMagnitudeFixture: from 20 s a bare
+    /// <c>seek 10 relative</c> landed on 36 s (moved 16 s, not 10), and <c>seek 30 relative</c>
+    /// landed on 54 s (moved 34 s). Long-GOP content therefore skipped roughly twice the
+    /// configured amount, which is what the bug report called "counted twice".</para>
+    /// <para>Every relative seek in the app goes through here — the arrow keys, the Ctrl+arrow
+    /// large seek, the OSD jump buttons, the taskbar thumb buttons and the SMTC transport — so
+    /// this one flag fixes them together. The seek bar and the time editor are unaffected:
+    /// they set <see cref="TimePos"/>, which is an absolute seek and was always precise.</para>
+    /// </remarks>
     public void SeekRelative(double seconds)
     {
         CheckAlive();
-        LibMpv.Command(_ctx, "seek", seconds.ToString(CultureInfo.InvariantCulture), "relative");
+        LibMpv.Command(_ctx, "seek", seconds.ToString(CultureInfo.InvariantCulture), "relative+exact");
     }
 
     /// <summary>Steps one frame forward. mpv pauses as a side effect of either frame-step command,
@@ -1779,8 +1847,19 @@ public sealed class MpvPlayer : IDisposable
                     break;
 
                 case MpvEventId.PlaybackRestart:
-                    Post(() => SetLoading(false));
+                {
+                    // Read here, on mpv's event thread, for the reason PostPosition states: by the
+                    // time the posted lambda runs the handler may already have loaded the next
+                    // file, and a payload stamped then would name the incoming file for a restart
+                    // that belonged to the outgoing one.
+                    var generation = Volatile.Read(ref _eventGeneration);
+                    Post(() =>
+                    {
+                        SetLoading(false);
+                        PlaybackRestarted?.Invoke(generation);
+                    });
                     break;
+                }
 
                 case MpvEventId.EndFile:
                     // Whatever ended it — error, stop, EOF — nothing is loading any more. Without
@@ -2232,7 +2311,7 @@ public sealed class MpvPlayer : IDisposable
     /// field their property-change event carried; the pending set holds the latest of all three.
     ///
     /// **Posted, never applied on the mpv event thread.** It writes public state and raises an
-    /// event, and this class's contract is that both happen on the UI thread — BUGS.md B5 is the
+    /// event, and this class's contract is that both happen on the UI thread — B5 is the
     /// already-fixed bug from breaking exactly that (the gamma observation used to mutate shared
     /// RTX state and raise LogMessage straight from the event thread).
     /// </summary>
@@ -2297,9 +2376,14 @@ public sealed class MpvPlayer : IDisposable
 
     private void PostPosition(double pos)
     {
+        // Read here, on mpv's event thread, and carried with the value: this names the file the
+        // position was measured in, which is what the coalesced dispatcher hop would otherwise
+        // lose. See the PositionChanged doc for why the receiving end cannot recover it.
+        var generation = Volatile.Read(ref _eventGeneration);
         lock (_posLock)
         {
             _pendingPos = pos;
+            _pendingPosGeneration = generation;
             if (_posDispatchQueued)
                 return;
             _posDispatchQueued = true;
@@ -2307,13 +2391,15 @@ public sealed class MpvPlayer : IDisposable
         _dispatcher.BeginInvoke(() =>
         {
             double latest;
+            int latestGeneration;
             lock (_posLock)
             {
                 latest = _pendingPos;
+                latestGeneration = _pendingPosGeneration;
                 _posDispatchQueued = false;
             }
             if (!_disposed)
-                PositionChanged?.Invoke(latest);
+                PositionChanged?.Invoke(latest, latestGeneration);
         });
     }
 

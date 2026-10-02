@@ -20,6 +20,32 @@ internal static class Program
             return HttpMediaFixture.Run(args[1], args[2], args[3]).GetAwaiter().GetResult();
         Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT",
             Path.Combine(Path.GetTempPath(), "lw-playback-harness-" + Guid.NewGuid().ToString("N")));
+        if (args.Contains("--quality-contract"))
+            return QualityContractFixture.RunAsync().GetAwaiter().GetResult();
+        if (args.Contains("--live-session"))
+            return LiveSessionFixture.RunAsync().GetAwaiter().GetResult();
+        // Its own mode like the two above, and for the opposite reason: it needs nothing at all —
+        // no window, no mpv, no server — so it has no business paying for the default run's mpv
+        // instance, and a wait-at-the-write-head assertion measured in seconds has no business
+        // slowing every other run down.
+        if (args.Contains("--partial-stream"))
+            return PartialStreamFixture.Run();
+        // Same reasoning again: the clock arithmetic and the command mapping are pure, and the one
+        // leg that wants a server brings its own TcpListener — so nothing here needs mpv, and the
+        // default run should not pay for one on its account.
+        if (args.Contains("--sync-play"))
+            return SyncPlayFixture.RunAsync().GetAwaiter().GetResult();
+        // The SyncPlay half that does need mpv, and it cannot ride in the mode above: a real
+        // MpvPlayer wants the STA thread Main started on, with its dispatcher pumping, and
+        // --sync-play is async with ConfigureAwait(false) throughout, so it finishes on whatever
+        // pool thread the last continuation landed on. It stays out of the default run for the
+        // usual reason — it builds a clip and plays it, which no other leg here should pay for.
+        if (args.Contains("--sync-play-binding"))
+            return SyncPlayBindingFixture.Run();
+        if (args.Contains("--sync-play-ui"))
+            return SyncPlayUiFixture.Run();
+        if (args.Contains("--sync-play-integration"))
+            return SyncPlayIntegrationFixture.Run();
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_MUTE", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_AUDIO", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_UPDATE_DEFER_START", "1");
@@ -93,14 +119,26 @@ internal static class Program
             player.ApplyVideoBuffer(settings);
             Equal("33554432", player.GetPropertyString("demuxer-max-bytes"));
         });
+        // Ungated on purpose, unlike its flagged neighbours below: it needs no server, no profile
+        // and no Application — just hand-built track rows and the production matcher.
+        StickySubtitleFixture.Run(Test);
+        MediaVersionFixture.Run(Test);
+        MediaVersionStoreFixture.Run(Test);
+        if (args.Contains("--slider-drag"))
+            SliderDragFixture.Run(Test, EnsureApp().Resources);
+        if (!SeekMagnitudeFixture.TrySkip())
+            Test("relative seek moves by exactly the requested amount", SeekMagnitudeFixture.Run);
         if (args.Contains("--remote-buffer") && !RemoteBufferFixture.TrySkip())
             Test("remote Jellyfin playback uses configured buffer", RemoteBufferFixture.Run);
+        // Behind a flag like its neighbour above, and for the same reason: it needs a reachable
+        // server and a signed-in profile, so a default run must not depend on the network.
+        if (args.Contains("--resume-types") && !ResumeItemTypesFixture.TrySkip())
+            Test("continue watching asks for playable leaf items only", ResumeItemTypesFixture.Run);
         if (args.Contains("--overlay-lifetime"))
         {
             Test("overlay closed before pending bounds sync is harmless", () =>
             {
-                var app = new App();
-                app.InitializeComponent();
+                var app = EnsureApp();
                 var main = new MainWindow();
                 var field = typeof(MainWindow).GetField("_overlay", BindingFlags.Instance | BindingFlags.NonPublic)!;
                 try
@@ -135,6 +173,22 @@ internal static class Program
         }
         Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_failures} failures)");
         return _failures == 0 ? 0 : 1;
+    }
+
+    /// <summary>The one <see cref="System.Windows.Application"/> this process may have.
+    /// Constructing a second one throws, and two legs need it now: the overlay-lifetime leg for
+    /// its windows, and the slider fixture for the theme dictionaries a ControlTemplate's
+    /// StaticResources resolve against.
+    /// <para>Note the overlay-lifetime leg still calls <c>Shutdown()</c> in its own teardown, so it
+    /// remains the LAST leg that may use the Application. Anything added after it needs that call
+    /// moved out of that leg first.</para></summary>
+    private static App EnsureApp()
+    {
+        if (System.Windows.Application.Current is App existing)
+            return existing;
+        var app = new App();
+        app.InitializeComponent();
+        return app;
     }
 
     private static void Test(string name, Action body)

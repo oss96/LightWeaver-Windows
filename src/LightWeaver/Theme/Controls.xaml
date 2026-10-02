@@ -573,6 +573,19 @@
     <Style x:Key="LwSlider" TargetType="Slider">
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="MinHeight" Value="24" /> <!-- full-row hit target -->
+        <!-- Press anywhere on the track and the value jumps there AND keeps dragging. The two
+             setters are one feature and neither works alone: IsMoveToPointEnabled moves the
+             value to the press point (without it a track press hits the DecreaseLarge /
+             IncreaseLarge RepeatButtons below and nudges by LargeChange, which defaults to 1 —
+             measured 50 -> 49 on the volume slider), and SliderDrag.ClickToDrag hands the press
+             on to the Thumb so the same gesture continues as a drag (WPF's move-to-point class
+             handler does not, which is why only the 12 px knob was ever draggable).
+             They live HERE, not per instance: SeekSlider and VolumeSlider carried
+             IsMoveToPointEnabled as a local attribute and the three SettingsView sliders did
+             not, so three of five behaved differently for no reason anyone had decided. See
+             Theme/SliderDrag.cs. -->
+        <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="theme:SliderDrag.ClickToDrag" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
