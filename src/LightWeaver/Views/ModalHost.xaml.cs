@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,6 +18,7 @@ public partial class ModalHost : UserControl
     public ModalHost()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && CancelButton.Visibility == Visibility.Visible)
@@ -29,25 +31,25 @@ public partial class ModalHost : UserControl
 
     /// <summary>Two-button confirm; true when the user confirms. Destructive styles the
     /// confirm button ember instead of garnet.</summary>
-    public Task<bool> ConfirmAsync(string title, string body, string confirmLabel = "Confirm",
+    public Task<bool> ConfirmAsync(string title, string body, string? confirmLabel = null,
         bool destructive = false)
-        => ShowAsync(title, body, confirmLabel, destructive, showCancel: true);
+        => ShowAsync(title, body, confirmLabel ?? L.Text("ModalHost.Confirm.d80d8052"), destructive, showCancel: true);
 
     /// <summary>Single-button alert.</summary>
-    public Task AlertAsync(string title, string body, string confirmLabel = "OK")
-        => ShowAsync(title, body, confirmLabel, destructive: false, showCancel: false);
+    public Task AlertAsync(string title, string body, string? confirmLabel = null)
+        => ShowAsync(title, body, confirmLabel ?? L.Text("ModalHost.Ok.d9b68574"), destructive: false, showCancel: false);
 
     /// <summary>Single-select option list (M20 resolution picker): returns the chosen
     /// index, or null when cancelled/dismissed.</summary>
     public async Task<int?> ChooseAsync(string title, string body, IReadOnlyList<string> options,
-        string confirmLabel = "Select", int preselect = 0)
+        string? confirmLabel = null, int preselect = 0)
     {
         ChoiceList.ItemsSource = options;
         ChoiceList.SelectedIndex = Math.Clamp(preselect, 0, options.Count - 1);
         ChoiceList.Visibility = Visibility.Visible;
         try
         {
-            var confirmed = await ShowAsync(title, body, confirmLabel,
+            var confirmed = await ShowAsync(title, body, confirmLabel ?? L.Text("ModalHost.Select.a37ea5c5"),
                 destructive: false, showCancel: true);
             return confirmed && ChoiceList.SelectedIndex >= 0 ? ChoiceList.SelectedIndex : null;
         }

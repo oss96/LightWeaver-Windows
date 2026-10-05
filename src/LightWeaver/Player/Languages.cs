@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 namespace LightWeaver.Player;
 
 /// <summary>
@@ -14,37 +15,37 @@ internal static class Languages
     }
 
     /// <summary>"None" (empty code = no preference) followed by common languages.</summary>
-    public static readonly IReadOnlyList<Option> Choices =
+    public static IReadOnlyList<Option> Choices =>
     [
-        new("", "None"),
-        new("eng", "English (eng)"),
-        new("deu", "German (deu)"),
-        new("jpn", "Japanese (jpn)"),
-        new("fra", "French (fra)"),
-        new("spa", "Spanish (spa)"),
-        new("ita", "Italian (ita)"),
-        new("por", "Portuguese (por)"),
-        new("nld", "Dutch (nld)"),
-        new("pol", "Polish (pol)"),
-        new("rus", "Russian (rus)"),
-        new("ukr", "Ukrainian (ukr)"),
-        new("tur", "Turkish (tur)"),
-        new("ara", "Arabic (ara)"),
-        new("zho", "Chinese (zho)"),
-        new("kor", "Korean (kor)"),
-        new("hin", "Hindi (hin)"),
-        new("swe", "Swedish (swe)"),
-        new("nor", "Norwegian (nor)"),
-        new("dan", "Danish (dan)"),
-        new("fin", "Finnish (fin)"),
-        new("ces", "Czech (ces)"),
-        new("hun", "Hungarian (hun)"),
-        new("ell", "Greek (ell)"),
-        new("heb", "Hebrew (heb)"),
-        new("tha", "Thai (tha)"),
-        new("vie", "Vietnamese (vie)"),
-        new("ind", "Indonesian (ind)"),
-        new("ron", "Romanian (ron)"),
+        new("", L.Text("Languages.None.9a0dbd36")),
+        new("eng", L.Text("Languages.EnglishEng.88a1521d")),
+        new("deu", L.Text("Languages.GermanDeu.da9ad6a6")),
+        new("jpn", L.Text("Languages.JapaneseJpn.fc9df014")),
+        new("fra", L.Text("Languages.FrenchFra.d4348786")),
+        new("spa", L.Text("Languages.SpanishSpa.58b3d5f6")),
+        new("ita", L.Text("Languages.ItalianIta.065e69bd")),
+        new("por", L.Text("Languages.PortuguesePor.9d7efad5")),
+        new("nld", L.Text("Languages.DutchNld.a573043f")),
+        new("pol", L.Text("Languages.PolishPol.472d4009")),
+        new("rus", L.Text("Languages.RussianRus.6600cfa3")),
+        new("ukr", L.Text("Languages.UkrainianUkr.68f307d8")),
+        new("tur", L.Text("Languages.TurkishTur.e55cdf2d")),
+        new("ara", L.Text("Languages.ArabicAra.912229fb")),
+        new("zho", L.Text("Languages.ChineseZho.094b43f6")),
+        new("kor", L.Text("Languages.KoreanKor.c60636e0")),
+        new("hin", L.Text("Languages.HindiHin.5af93b54")),
+        new("swe", L.Text("Languages.SwedishSwe.e931a51d")),
+        new("nor", L.Text("Languages.NorwegianNor.0f8a47d7")),
+        new("dan", L.Text("Languages.DanishDan.c4b1fe89")),
+        new("fin", L.Text("Languages.FinnishFin.b0dd47e0")),
+        new("ces", L.Text("Languages.CzechCes.7b8e68b3")),
+        new("hun", L.Text("Languages.HungarianHun.de895eca")),
+        new("ell", L.Text("Languages.GreekEll.a13487aa")),
+        new("heb", L.Text("Languages.HebrewHeb.c46022b1")),
+        new("tha", L.Text("Languages.ThaiTha.fee6aea0")),
+        new("vie", L.Text("Languages.VietnameseVie.ad7c7e7d")),
+        new("ind", L.Text("Languages.IndonesianInd.4e58498f")),
+        new("ron", L.Text("Languages.RomanianRon.ce6d326b")),
     ];
 
     /// <summary>True when a track's language tag denotes the preferred language.

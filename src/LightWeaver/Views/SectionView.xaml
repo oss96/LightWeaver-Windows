@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.SectionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:LightWeaver.Views"
@@ -44,7 +45,7 @@
             <StackPanel x:Name="SkeletonHost" />
         </ScrollViewer>
 
-        <TextBlock x:Name="StatusText" Grid.Row="1" Text="Loading…"
+        <TextBlock x:Name="StatusText" Grid.Row="1" Text="{loc:Text SectionView.Loading.4654bbde}"
                    Style="{StaticResource LwTypeBody}" Foreground="{StaticResource LwText3Brush}"
                    HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
                    AutomationProperties.AutomationId="SectionStatus" />

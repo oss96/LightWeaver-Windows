@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
@@ -25,27 +26,27 @@ public partial class AdvancedSearchView : UserControl
     private const int PageSize = 50;
     private const int SectionCap = 24;   // mixed mode caps each section at its first page
 
-    private static readonly (string Label, string Plural, BaseItemKind Kind)[] TypeChoices =
+    private static (string Label, string Plural, BaseItemKind Kind)[] TypeChoices =>
     [
-        ("Movies", "movies", BaseItemKind.Movie),
-        ("Series", "series", BaseItemKind.Series),
-        ("Episodes", "episodes", BaseItemKind.Episode),
+        (L.Text("AdvancedSearchView.Movies.b932e79c"), L.Text("AdvancedSearchView.Movies.d5bfa6ca"), BaseItemKind.Movie),
+        (L.Text("AdvancedSearchView.Series.ceca6d59"), L.Text("AdvancedSearchView.Series.57b4e8b8"), BaseItemKind.Series),
+        (L.Text("AdvancedSearchView.Episodes.01fc855d"), L.Text("AdvancedSearchView.Episodes.76883a65"), BaseItemKind.Episode),
     ];
 
-    private static readonly (string Label, ItemSortBy Sort)[] SortChoices =
+    private static (string Label, ItemSortBy Sort)[] SortChoices =>
     [
-        ("Name", ItemSortBy.SortName),
-        ("Date added", ItemSortBy.DateCreated),
-        ("Premiere date", ItemSortBy.PremiereDate),
-        ("Community rating", ItemSortBy.CommunityRating),
-        ("Random", ItemSortBy.Random),
+        (L.Text("AdvancedSearchView.Name.2b6dd5ff"), ItemSortBy.SortName),
+        (L.Text("AdvancedSearchView.DateAdded.cf93c1b6"), ItemSortBy.DateCreated),
+        (L.Text("AdvancedSearchView.PremiereDate.98567950"), ItemSortBy.PremiereDate),
+        (L.Text("AdvancedSearchView.CommunityRating.247aeee3"), ItemSortBy.CommunityRating),
+        (L.Text("AdvancedSearchView.Random.79107541"), ItemSortBy.Random),
     ];
 
-    private static readonly (string Label, ItemFilter? Filter)[] WatchedChoices =
+    private static (string Label, ItemFilter? Filter)[] WatchedChoices =>
     [
-        ("All", null),
-        ("Unwatched", ItemFilter.IsUnplayed),
-        ("Watched", ItemFilter.IsPlayed),
+        (L.Text("AdvancedSearchView.All.93e8893c"), null),
+        (L.Text("AdvancedSearchView.Unwatched.2487a533"), ItemFilter.IsUnplayed),
+        (L.Text("AdvancedSearchView.Watched.0d662522"), ItemFilter.IsPlayed),
     ];
 
     private readonly AppViewModel _app;
@@ -76,6 +77,7 @@ public partial class AdvancedSearchView : UserControl
     public AdvancedSearchView(AppViewModel app, AdvancedSearchQuery? seed = null)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _app = app;
         seed ??= new AdvancedSearchQuery();
         _personIds = seed.PersonIds.ToList();
@@ -84,11 +86,11 @@ public partial class AdvancedSearchView : UserControl
         // seed takes the chip slot instead when both are present.
         _seedGenre = _personIds.Count == 0 && seed.Genres.Count == 1 ? seed.Genres[0] : null;
 
-        TypeFilter.Placeholder = "All types";
+        TypeFilter.Placeholder = L.Text("AdvancedSearchView.AllTypes.9b322cbd");
         TypeFilter.SetOptions(TypeChoices.Select(c => new CheckOption(c.Kind.ToString(), c.Label)));
         TypeFilter.SelectionChanged += OnFacetChanged;
 
-        GenreFilter.Placeholder = "Any genre";
+        GenreFilter.Placeholder = L.Text("AdvancedSearchView.AnyGenre.f3c243e1");
         GenreFilter.SelectionChanged += OnFacetChanged;
 
         foreach (var (label, _) in WatchedChoices)
@@ -102,6 +104,7 @@ public partial class AdvancedSearchView : UserControl
 
         ItemsGrid.ItemsSource = _items;
         _initializing = false;
+        LiveText.Observe(this, OnLanguageChanged);
 
         Loaded += async (_, _) =>
         {
@@ -250,7 +253,7 @@ public partial class AdvancedSearchView : UserControl
                 _items.Clear();
                 foreach (var item in items)
                     _items.Add(item);
-                ResultSummary.Text = FormatSummary(total, null);
+                LiveText.Bind(ResultSummary, "Text", () => FormatSummary(total, null));
                 ShowSingle();
                 Diagnostics.AppLog.Detail("advanced-search",
                     $"event=load outcome=success generation={generation} mode=single elapsed_ms={started.ElapsedMilliseconds} count={items.Count} total={total}");
@@ -275,8 +278,8 @@ public partial class AdvancedSearchView : UserControl
                         sections.Add((kinds[i], results[i].Items, results[i].TotalCount));
 
                 var grand = sections.Sum(s => s.Total);
-                ResultSummary.Text = FormatSummary(grand,
-                    kinds.Select((k, i) => (k, results[i].TotalCount)).ToList());
+                LiveText.Bind(ResultSummary, "Text", () => FormatSummary(grand,
+                    kinds.Select((k, i) => (k, results[i].TotalCount)).ToList()));
 
                 if (sections.Count == 0)
                 {
@@ -322,7 +325,7 @@ public partial class AdvancedSearchView : UserControl
             ItemsGrid.Visibility = Visibility.Collapsed;
             SectionsScroll.Visibility = Visibility.Collapsed;
             HideCenter();
-            StatusText.Text = $"Failed to load: {ex.Message}";
+            LiveText.Bind(StatusText, "Text", () => L.Format("AdvancedSearchView.FailedToLoad.8cefcd6d", (ex.Message)));
             StatusText.Visibility = Visibility.Visible;
         }
         finally
@@ -396,8 +399,7 @@ public partial class AdvancedSearchView : UserControl
         SectionsScroll.Visibility = Visibility.Collapsed;
         StatusText.Visibility = Visibility.Collapsed;
         ResultSummary.Text = "";
-        EmptyView.Show("Search everything",
-            "Combine text with type, genre, year and watched filters — across every library.");
+        EmptyView.Show(() => L.Text("AdvancedSearchView.SearchEverything.ed0f1661"), () => L.Text("AdvancedSearchView.CombineTextWithTypeGenreYearAnd.0c235b79"));
         StarterChips.Visibility = Visibility.Visible;
         ClearFiltersBtn.Visibility = Visibility.Collapsed;
     }
@@ -409,7 +411,7 @@ public partial class AdvancedSearchView : UserControl
         ItemsGrid.Visibility = Visibility.Visible;
         if (_items.Count == 0)
         {
-            EmptyView.Show("Nothing here", "No items match these filters - try loosening them.");
+            EmptyView.Show(() => L.Text("AdvancedSearchView.NothingHere.256616a3"), () => L.Text("AdvancedSearchView.NoItemsMatchTheseFiltersTryLoosening.20ccc9be"));
             StarterChips.Visibility = Visibility.Collapsed;
             ClearFiltersBtn.Visibility = Visibility.Visible;
         }
@@ -449,19 +451,34 @@ public partial class AdvancedSearchView : UserControl
     private static string FormatSummary(int total, List<(BaseItemKind Kind, int Total)>? breakdown)
     {
         var inv = CultureInfo.InvariantCulture;
-        var head = total == 1 ? "1 result" : string.Create(inv, $"{total} results");
+        var head = total == 1 ? L.Text("AdvancedSearchView.1Result.6c5fbe10") : L.Format("AdvancedSearchView.Results.035513e7", total);
         if (breakdown is null)
             return head;
         var parts = new List<string> { head };
         foreach (var (kind, count) in breakdown)
         {
             var choice = TypeChoices.First(c => c.Kind == kind);
-            var noun = count == 1 && kind == BaseItemKind.Movie ? "movie"
-                     : count == 1 && kind == BaseItemKind.Episode ? "episode"
-                     : choice.Plural;   // "series" is invariant
+            var noun = count == 1 && kind == BaseItemKind.Movie ? L.Text("AdvancedSearchView.Movie.70d184d4")
+                     : count == 1 && kind == BaseItemKind.Episode ? L.Text("AdvancedSearchView.Episode.757c1c06")
+                     : choice.Plural;   // L.Text("AdvancedSearchView.Series.57b4e8b8") is invariant
             parts.Add(string.Create(inv, $"{count} {noun}"));
         }
         return string.Join(" · ", parts);
+    }
+
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var initializing = _initializing;
+        _initializing = true;
+        try
+        {
+            TypeFilter.Placeholder = L.Text("AdvancedSearchView.AllTypes.9b322cbd");
+            TypeFilter.SetOptions(TypeChoices.Select(choice => new CheckOption(choice.Kind.ToString(), choice.Label)));
+            GenreFilter.Placeholder = L.Text("AdvancedSearchView.AnyGenre.f3c243e1");
+            LiveText.ReplaceChoices(WatchedFilter, WatchedChoices.Select(choice => choice.Label));
+            LiveText.ReplaceChoices(SortBox, SortChoices.Select(choice => choice.Label));
+        }
+        finally { _initializing = initializing; }
     }
 
     /// <summary>Builds the type-grouped sections (P1): Marcellus header + mono count +
@@ -477,12 +494,12 @@ public partial class AdvancedSearchView : UserControl
             var header = new DockPanel { LastChildFill = false, Margin = new Thickness(0, index == 0 ? 14 : 26, 0, 12) };
             var title = new TextBlock
             {
-                Text = choice.Label,
                 FontFamily = (FontFamily)FindResource("LwFontDisplay"),
                 FontSize = 22,
                 Foreground = (Brush)FindResource("LwText1Brush"),
                 VerticalAlignment = VerticalAlignment.Center,
             };
+            LiveText.Bind(title, "Text", () => TypeChoices.First(choice => choice.Kind == kind).Label);
             System.Windows.Automation.AutomationProperties.SetAutomationId(title, $"AsSectionHeader{kind}");
             DockPanel.SetDock(title, Dock.Left);
             header.Children.Add(title);
@@ -499,13 +516,12 @@ public partial class AdvancedSearchView : UserControl
             DockPanel.SetDock(count, Dock.Left);
             header.Children.Add(count);
 
-            var showOnly = new Button
+            var showOnly = LiveText.Bind(new Button
             {
                 Style = (Style)FindResource("LwLinkButton"),
                 FontSize = 13,
-                Content = $"Show only {choice.Plural} →",
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+                VerticalAlignment = VerticalAlignment.Center
+            }, "Content", () => L.Format("AdvancedSearchView.ShowOnly.eed6db84", TypeChoices.First(t => t.Kind == kind).Plural));
             System.Windows.Automation.AutomationProperties.SetAutomationId(showOnly, $"AsShowOnly{kind}");
             var narrowKind = kind;
             showOnly.Click += async (_, _) =>
@@ -603,8 +619,8 @@ public partial class AdvancedSearchView : UserControl
     {
         if (_personIds.Count > 0)
         {
-            SeedCaption.Text = "PERSON";
-            SeedChipText.Text = _personName ?? "Person";
+            LiveText.Bind(SeedCaption, "Text", () => L.Text("AdvancedSearchView.Person.e7b4d265"));
+            LiveText.Bind(SeedChipText, "Text", () => _personName ?? L.Text("AdvancedSearchView.Person.d4c5f321"));
             SeedFacet.Visibility = Visibility.Visible;
             return;
         }
@@ -614,7 +630,7 @@ public partial class AdvancedSearchView : UserControl
             _seedGenre = null;   // user unchecked the seeded genre — the chip follows
         if (_seedGenre is not null)
         {
-            SeedCaption.Text = "GENRE";
+            LiveText.Bind(SeedCaption, "Text", () => L.Text("AdvancedSearchView.Genre.e093f2c2"));
             SeedChipText.Text = _seedGenre;
             SeedFacet.Visibility = Visibility.Visible;
             return;
@@ -676,13 +692,13 @@ public partial class AdvancedSearchView : UserControl
         OrderGlyph.Text = (string)FindResource(desc ? "IconSortDesc" : "IconSortAsc");
         var sort = SortChoices[Math.Max(0, SortBox.SelectedIndex)].Sort;
         OrderFacet.Visibility = sort == ItemSortBy.Random ? Visibility.Collapsed : Visibility.Visible;
-        OrderLabel.Text = sort switch
+        LiveText.Bind(OrderLabel, "Text", () => sort switch
         {
-            ItemSortBy.SortName => desc ? "Z–A" : "A–Z",
-            ItemSortBy.DateCreated or ItemSortBy.PremiereDate => desc ? "Newest" : "Oldest",
-            ItemSortBy.CommunityRating => desc ? "Highest" : "Lowest",
-            _ => desc ? "Descending" : "Ascending",
-        };
+            ItemSortBy.SortName => desc ? L.Text("AdvancedSearchView.ZA.b0b49ab3") : L.Text("AdvancedSearchView.AZ.b6238d3c"),
+            ItemSortBy.DateCreated or ItemSortBy.PremiereDate => desc ? L.Text("AdvancedSearchView.Newest.11182163") : L.Text("AdvancedSearchView.Oldest.d1af3ebe"),
+            ItemSortBy.CommunityRating => desc ? L.Text("AdvancedSearchView.Highest.39875e69") : L.Text("AdvancedSearchView.Lowest.05a52637"),
+            _ => desc ? L.Text("AdvancedSearchView.Descending.aafc8c46") : L.Text("AdvancedSearchView.Ascending.e8a49187"),
+        });
     }
 
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)

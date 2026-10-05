@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,6 +13,7 @@ public partial class LoginView : UserControl
     public LoginView(AppViewModel app)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _app = app;
         ServerBox.TextChanged += (_, _) =>
             HttpWarning.Visibility = ServerBox.Text.TrimStart().StartsWith("http://", StringComparison.OrdinalIgnoreCase)
@@ -37,7 +39,7 @@ public partial class LoginView : UserControl
         if (string.IsNullOrWhiteSpace(ServerBox.Text) || string.IsNullOrWhiteSpace(UsernameBox.Text))
         {
             Diagnostics.AppLog.Detail("login", "event=connect outcome=validation-failed");
-            ShowError("Server and username are required.");
+            ShowError(L.Text("LoginView.ServerAndUsernameAreRequired.b128c904"));
             return;
         }
 
@@ -81,7 +83,7 @@ public partial class LoginView : UserControl
         if (string.IsNullOrWhiteSpace(ServerBox.Text))
         {
             Diagnostics.AppLog.Detail("login", "event=quick_connect outcome=validation-failed");
-            ShowError("Enter the server address first.");
+            ShowError(L.Text("LoginView.EnterTheServerAddressFirst.9fb04179"));
             return;
         }
         var started = System.Diagnostics.Stopwatch.StartNew();
@@ -95,11 +97,11 @@ public partial class LoginView : UserControl
             {
                 Diagnostics.AppLog.Detail("login",
                     $"event=quick_connect outcome=unavailable elapsed_ms={started.ElapsedMilliseconds}");
-                ShowError("Quick Connect is not enabled on this server (or the server is unreachable).");
+                ShowError(L.Text("LoginView.QuickConnectIsNotEnabledOnThis.784bf866"));
                 return;
             }
             QcCodeText.Text = handshake.Code;
-            QcStatusText.Text = "Waiting for approval…";
+            LiveText.Bind(QcStatusText, "Text", () => L.Text("LoginView.WaitingForApproval.1da7fbf1"));
             QuickConnectPanel.Visibility = Visibility.Visible;
             _qcCts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
             try
@@ -119,7 +121,7 @@ public partial class LoginView : UserControl
                     }
                     Diagnostics.AppLog.Detail("login",
                         $"event=quick_connect outcome=rejected elapsed_ms={started.ElapsedMilliseconds}");
-                    ShowError(result.Error ?? "Quick Connect failed.");
+                    ShowError(result.Error ?? L.Text("LoginView.QuickConnectFailed.74a65193"));
                     break;
                 }
             }

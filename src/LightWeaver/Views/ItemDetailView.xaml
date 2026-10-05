@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.ItemDetailView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:img="clr-namespace:LightWeaver.Imaging"
@@ -56,7 +57,7 @@
                                 <Button Style="{StaticResource LwCardActionButton}"
                                         Width="34" Height="34" FontSize="20"
                                         Foreground="{StaticResource LwText1Brush}"
-                                        Content="{StaticResource IconPlay}" ToolTip="Play episode"
+                                        Content="{StaticResource IconPlay}" ToolTip="{loc:Text ItemDetailView.PlayEpisode.d054dc53}"
                                         HorizontalAlignment="Center" VerticalAlignment="Center"
                                         Click="OnEpisodeHoverPlay"
                                         AutomationProperties.AutomationId="EpisodeHoverPlay" />
@@ -306,7 +307,7 @@
                                         <views:ActivityDots />
                                         <!-- ActivityDots intentionally has no UIA peer. This transparent
                                              non-empty marker makes the click-wait state observable. -->
-                                        <TextBlock Text="Loading" Foreground="Transparent" FontSize="1"
+                                        <TextBlock Text="{loc:Text ItemDetailView.Loading.6e4bd645}" Foreground="Transparent" FontSize="1"
                                                    AutomationProperties.AutomationId="DownloadOptionsLoading" />
                                     </Grid>
                                 </Grid>
@@ -318,7 +319,7 @@
                             <Button x:Name="VersionsButton" Style="{StaticResource LwIconButton}"
                                     FontFamily="{StaticResource LwFontIcon}" FontSize="20"
                                     Content="{StaticResource IconVersions}" Click="OnVersions"
-                                    AutomationProperties.Name="Versions"
+                                    AutomationProperties.Name="{loc:Text ItemDetailView.Versions.1a9b12c2}"
                                     Margin="0,0,8,8" Visibility="Collapsed"
                                     AutomationProperties.AutomationId="DetailVersionsButton" />
                             <!-- Episodes only, and only when the episode knows its series -
@@ -328,7 +329,7 @@
                             <Button x:Name="MoreButton" Style="{StaticResource LwIconButton}"
                                     FontFamily="{StaticResource LwFontIcon}" FontSize="20"
                                     Content="{StaticResource IconMore}" Click="OnMore"
-                                    AutomationProperties.Name="More"
+                                    AutomationProperties.Name="{loc:Text ItemDetailView.More.ea3e8862}"
                                     Margin="0,0,0,8" Visibility="Collapsed"
                                     AutomationProperties.AutomationId="DetailMoreButton" />
                         </WrapPanel>
@@ -375,7 +376,7 @@
                     </StackPanel>
 
                     <StackPanel x:Name="CastSection" Grid.Column="1" Visibility="Collapsed">
-                        <TextBlock Text="Cast &amp; Crew" FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                        <TextBlock Text="{loc:Text ItemDetailView.CastCrew.a7115f5d}" FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
                                    Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,14" />
                         <ListBox x:Name="PeopleRow" Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -396,7 +397,7 @@
 
                 <!-- ===== More like this ===== -->
                 <StackPanel x:Name="SimilarSection" Visibility="Collapsed" Margin="0,30,0,0">
-                    <TextBlock Text="More like this" FontFamily="{StaticResource LwFontDisplay}"
+                    <TextBlock Text="{loc:Text ItemDetailView.MoreLikeThis.b149f8b3}" FontFamily="{StaticResource LwFontDisplay}"
                                FontSize="22" Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,10" />
                     <ListBox x:Name="SimilarRow" Style="{StaticResource MediaRowListBox}"
                              SelectionChanged="OnSimilarSelection"

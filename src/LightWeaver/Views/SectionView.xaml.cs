@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,6 +30,7 @@ public partial class SectionView : UserControl
     public SectionView(Func<int, int, Task<(List<MediaItem> Items, int TotalCount)>> query)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _query = query;
         SkeletonHost.Children.Add(SkeletonFactory.Grid(this, 12, "SectionSkeleton"));
         ItemsGrid.ItemsSource = _items;
@@ -64,7 +66,7 @@ public partial class SectionView : UserControl
             SkeletonScroll.Visibility = Visibility.Collapsed;
             UpdateCount();
             if (_items.Count == 0)
-                EmptyView.Show("Nothing here", "This section has no items right now.");
+                EmptyView.Show(() => L.Text("SectionView.NothingHere.a7f57eb9"), () => L.Text("SectionView.ThisSectionHasNoItemsRightNow.740c9867"));
             else
                 EmptyView.Visibility = Visibility.Collapsed;
             Diagnostics.AppLog.Detail("section",
@@ -81,7 +83,7 @@ public partial class SectionView : UserControl
             Diagnostics.AppLog.Detail("section",
                 $"event=load outcome=failure mode=initial generation={generation} elapsed_ms={started.ElapsedMilliseconds}", ex);
             SkeletonScroll.Visibility = Visibility.Collapsed;
-            StatusText.Text = $"Failed to load: {ex.Message}";
+            LiveText.Bind(StatusText, "Text", () => L.Format("SectionView.FailedToLoad.8dd51815", (ex.Message)));
             StatusText.Visibility = Visibility.Visible;
         }
     }
@@ -140,7 +142,7 @@ public partial class SectionView : UserControl
     }
 
     private void UpdateCount() =>
-        CountText.Text = _totalCount == 1 ? "1 item" : $"{_totalCount} items";
+        LiveText.Bind(CountText, "Text", () => _totalCount == 1 ? L.Text("SectionView.1Item.43dc7d9b") : L.Format("SectionView.Items.d8880750", (_totalCount)));
 
     /// <summary>Swap a refreshed item in place so watched/favorite badges follow changes
     /// made elsewhere (mirrors LibraryView/HomeView; MediaItem is immutable).</summary>

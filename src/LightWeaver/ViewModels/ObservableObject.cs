@@ -6,6 +6,11 @@ namespace LightWeaver.ViewModels;
 /// <summary>Hand-rolled INPC base — no MVVM package dependency yet (CommunityToolkit.Mvvm can replace later).</summary>
 public abstract class ObservableObject : INotifyPropertyChanged
 {
+    protected ObservableObject()
+        => Localization.LiveText.Observe(this, OnLanguageChanged);
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e) => OnPropertyChanged(null);
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

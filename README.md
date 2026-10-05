@@ -59,6 +59,8 @@ loads, and absent for local files and direct URLs.
   Leave the group before changing playback quality or the media version.
   In-progress downloads use the server stream in a group so every member can seek freely.
   Live session messages accept Jellyfin's compact and dashed identifiers for group and queue updates.
+  The participant list is checked against the server after every join and leave, so one of two
+  devices on the same account leaving does not empty it on the other.
 - Login including Quick Connect, with DPAPI-persisted tokens and auto-reconnect
 - Multiple server/user profiles with a `Ctrl+U` switcher. Sessions stay warm, so switching back is
   instant and restores that profile's exact browse state; playback and downloads continue under the
@@ -145,7 +147,9 @@ loads, and absent for local files and direct URLs.
 
 - Download movies, episodes, or whole seasons and series at original quality or a transcoded
   1080p/720p/480p tier, with size estimates
-- Pause, resume and cancel, with HTTP-Range resume and recovery across restarts
+- Pause, resume and cancel, with HTTP-Range resume and recovery across restarts. Downloading an
+  item again whose file is still on disk (after **Clear completed**, say) recognises a finished
+  original-quality file and marks it complete, and restarts any other leftover from the start
 - A Downloads screen behind its own nav-rail entry and downloaded badges on cards
 - Local-first playback: a downloaded item plays from disk with no server round-trip
 - Play a download while it is still downloading, from the bytes already on disk instead of pulling
@@ -215,6 +219,45 @@ Debug builds run in an isolated app-data environment (`%LOCALAPPDATA%\LightWeave
 their window "LightWeaver (Debug)", so running the dev build never touches the installed build's
 login, settings or watched state. This is selected automatically via `#if DEBUG`.
 
+## UI languages and translation editor
+
+UI text lives in [`localization/catalog.json`](localization/catalog.json). English is the
+source language. Language files in `localization/locales/` are embedded during the build;
+choose an available UI language in Settings to apply it immediately. The current view, inputs
+and playback stay in place. System default
+uses the Windows UI language when a matching pack is available. Missing, outdated or invalid
+translations fall back to English.
+The German (`de`) and Arabic (`ar`) packs each cover all 812 current catalog entries, including
+playback controls, settings, downloads, SyncPlay and error messages. Select Deutsch or العربية
+to use them.
+Standard library names such as Movies and TV Shows follow the interface language immediately.
+Under Settings > Library names, enter custom names for the current language and choose Save names.
+Leaving a field blank uses the translated standard name or the original custom name. Names are
+saved per server and library; Jellyfin and other clients keep their original names.
+Long translated headings wrap. On smaller windows, the SyncPlay panel scrolls while Close stays
+visible.
+
+Run the local editor from this checkout:
+
+```powershell
+dotnet run --project tools/TranslationEditor
+```
+
+Open [the translation editor](http://127.0.0.1:5386/). Add a language column, enter translations,
+then save. Each row includes its English source, key and source files. The editor checks format
+placeholders and warns when the English source has changed. A save updates only edited cells;
+filters do not remove other translations. Rebuild LightWeaver after editing a language file.
+
+Filters are shareable through the URL. `q` searches text and keys, `source` filters source files,
+`status` filters translation status, and `lang` chooses the language for that status. `keys`
+accepts comma-separated string keys. Use `changed=working-tree` for changes against HEAD, or
+`changed=<full-base-commit>` for a stable link to strings created or modified during a change.
+Source edits and translation edits both count. Start the editor before sharing a local link.
+
+Localize new UI text in the same change. Keep keys stable when changing English text and update
+existing translations. Protocol identifiers, persisted values, automation IDs and logs remain
+invariant. See [TECHNICAL.md](TECHNICAL.md) for the catalog format and verification commands.
+
 ## Keyboard shortcuts
 
 Every player key below is rebindable in Settings → Shortcuts. Rebinding *adds* a key rather than
@@ -282,6 +325,8 @@ One rule is load-bearing and everything else is arranged around it:
 Feature-complete for daily use and fully skinned in the "woven light" design system across every
 screen. Runs against **Jellyfin 12.0** and **10.11**. The client uses only current authorization
 forms, so 12.0 turning legacy authorization off does not affect it.
+Authenticated API, session socket and media requests carry the current client version and device
+identity alongside the token, so Jellyfin updates its device record after an app upgrade.
 
 Known issues and open work are tracked by the maintainer outside the repository.
 

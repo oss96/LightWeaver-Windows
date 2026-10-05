@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -102,6 +103,7 @@ public partial class OverlayWindow : Window
     public OverlayWindow(PlayerViewModel viewModel)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _syncPlayTrigger = new(SyncPlayPopup, SyncPlayButton);
         _syncPlayTrigger.Attach();
         _viewModel = viewModel;
@@ -178,6 +180,13 @@ public partial class OverlayWindow : Window
                 ApplyTrackSections();
         };
         UpdateSyncPlayControls();
+        LiveText.Observe(this, (_, _) =>
+        {
+            _videoPillWidth = _audioPillWidth = _subsPillWidth = 0;
+            UpdateSyncPlayControls();
+            RequestTrackButtonUpdate();
+            _viewModel.RefreshLiveStats();
+        });
         SyncPlayPopup.Closed += (_, _) =>
         {
             if (SyncPlayPopup.Child is SyncPlayFlyout content) content.Dispose();
@@ -550,9 +559,8 @@ public partial class OverlayWindow : Window
     public void SetFullscreen(bool on)
     {
         FullscreenButton.Content = (string)FindResource(on ? "IconFullscreenExit" : "IconFullscreen");
-        FullscreenButton.ToolTip = on ? "Leave fullscreen (F11)" : "Fullscreen (F11)";
-        System.Windows.Automation.AutomationProperties.SetName(
-            FullscreenButton, on ? "Leave fullscreen" : "Fullscreen");
+        LiveText.Bind(FullscreenButton, "ToolTip", () => on ? L.Text("OverlayWindow.LeaveFullscreenF11.cc80a00b") : L.Text("OverlayWindow.FullscreenF11.626a9555"));
+        LiveText.Bind(FullscreenButton, System.Windows.Automation.AutomationProperties.NameProperty, () => on ? L.Text("OverlayWindow.LeaveFullscreen.b7b5ca10") : L.Text("OverlayWindow.Fullscreen.510ad9f2"));
     }
 
     private void OnMiniPlayer(object sender, RoutedEventArgs e)
@@ -614,8 +622,8 @@ public partial class OverlayWindow : Window
     private void UpdateSyncPlayControls()
     {
         var group = _viewModel.SyncPlay;
-        var label = group is not null ? $"SyncPlay · {group.GroupName} · {_viewModel.SyncPlayStatus}"
-            : _viewModel.SyncPlayPending ? "SyncPlay · Joining…" : "SyncPlay groups";
+        var label = group is not null ? L.Format("OverlayWindow.Syncplay.1878c293", (group.GroupName), (_viewModel.SyncPlayStatus))
+            : _viewModel.SyncPlayPending ? L.Text("OverlayWindow.SyncplayJoining.a26b6aba") : L.Text("OverlayWindow.SyncplayGroups.2955453c");
         SyncPlayButtonLabel.Text = _viewModel.SyncPlayStatus;
         SyncPlayButtonLabel.Visibility = SyncPlayButtonLabel.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         SyncPlayButton.ToolTip = label;
@@ -624,11 +632,13 @@ public partial class OverlayWindow : Window
         QualityTierControl.IsEnabled = group is null;
         QualityForceTranscodeControl.IsEnabled = group is null;
         SpeedButton.IsEnabled = group is null;
-        VersionSection.ToolTip = group is null ? null : "Leave the SyncPlay group to change versions.";
-        QualityTierControl.ToolTip = QualityForceTranscodeControl.ToolTip = group is null
-            ? null : "Leave the SyncPlay group to change playback quality.";
-        SpeedButton.ToolTip = group is null ? "Playback speed (+/- keys)"
-            : "SyncPlay controls playback speed for the group.";
+        LiveText.Bind(VersionSection, "ToolTip", () => group is null ? null : L.Text("OverlayWindow.LeaveTheSyncplayGroupToChangeVersions.edda4a13"));
+        LiveText.Bind(QualityForceTranscodeControl, "ToolTip", () => group is null
+            ? null : L.Text("OverlayWindow.LeaveTheSyncplayGroupToChangePlayback.61dee088"));
+        LiveText.Bind(QualityTierControl, "ToolTip", () => group is null
+            ? null : L.Text("OverlayWindow.LeaveTheSyncplayGroupToChangePlayback.61dee088"));
+        LiveText.Bind(SpeedButton, "ToolTip", () => group is null ? L.Text("OverlayWindow.PlaybackSpeedKeys.47f6fa0b")
+            : L.Text("OverlayWindow.SyncplayControlsPlaybackSpeedForTheGroup.16ddeed2"));
         System.Windows.Controls.ToolTipService.SetShowOnDisabled(VersionSection, true);
         System.Windows.Controls.ToolTipService.SetShowOnDisabled(QualityTierControl, true);
         System.Windows.Controls.ToolTipService.SetShowOnDisabled(QualityForceTranscodeControl, true);

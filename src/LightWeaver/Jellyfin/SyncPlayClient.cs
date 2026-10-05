@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using Jellyfin.Sdk.Generated.Models;
 using LightWeaver.Diagnostics;
 using Microsoft.Kiota.Abstractions;
@@ -132,6 +133,11 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     /// every resume.</summary>
     private long _membershipEpoch;
 
+    /// <summary>Bumped on every <c>UserJoined</c>/<c>UserLeft</c>, so only the newest participant
+    /// refresh may land. Two refreshes in flight can be answered out of order, and the older answer
+    /// arriving last would put back a name the newer one had already settled.</summary>
+    private long _participantSequence;
+
     /// <summary>Guards <see cref="JoinAsync"/> against being run twice at once — a double-clicked
     /// group row would otherwise be two <c>POST /SyncPlay/Join</c> and two <c>GroupJoined</c>, and
     /// at the player binding two loads of the same file. The same shape as
@@ -201,6 +207,10 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     /// <summary>Something to tell the user that is not a state change. See
     /// <see cref="SyncPlayNoticeKind"/>.</summary>
     public event Action<SyncPlayNotice>? Notice;
+
+    /// <summary>The participant list was settled against the server after a join or leave notice,
+    /// and may differ from what the notice alone left it as. Carries the new list.</summary>
+    public event Action<IReadOnlyList<string>>? ParticipantsChanged;
 
     /// <summary>How the local player is doing. Set by the player binding; until then every command
     /// resolves against <see cref="SyncPlayPlayerState.Idle"/>, which is what a client with nothing
@@ -300,7 +310,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
         catch (Exception ex)
         {
             AppLog.Detail("syncplay", $"event=list outcome=failure error={ex.GetType().Name}");
-            if (throwOnFailure) throw new InvalidOperationException("Could not list SyncPlay groups.");
+            if (throwOnFailure) throw new InvalidOperationException(L.Text("SyncPlayClient.CouldNotListSyncplayGroups.74909313"));
             return [];
         }
     }
@@ -927,14 +937,27 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
 
     /// <summary>The membership list is kept in step here rather than waiting for the server to
     /// re-describe the group: <c>UserJoined</c> and <c>UserLeft</c> carry a display name and
-    /// nothing else, and no second <c>GroupJoined</c> follows them.</summary>
+    /// nothing else, and no second <c>GroupJoined</c> follows them.
+    ///
+    /// <para>A name is not a session. The server's list is one entry per USER, deduplicated, so the
+    /// same account on two devices is one name — and a <c>UserLeft</c> from one of them is no
+    /// evidence that the name has gone. When the name is this client's own it is evidence of the
+    /// opposite: this session is still in the group, and removing it left the remaining device
+    /// showing zero participants. So the change is applied at once, never dropping the own name,
+    /// and then settled against <c>GET /SyncPlay/List</c>, the one answer that knows which names
+    /// still have a session behind them.</para></summary>
     private void ApplyParticipant(string? name, bool joined)
     {
-        if (name is not { Length: > 0 })
+        if (name is not { Length: > 0 } || _group is not { } observed)
             return;
+        // Resolved before the lock, as every REST path does: the resolver is caller-supplied.
+        var self = _resolveSession(observed.ProfileKey)?.UserName;
+        Membership updated;
+        long epoch;
+        long sequence;
         lock (_lock)
         {
-            if (_group is not { } group)
+            if (_group is not { } group || group.GroupId != observed.GroupId)
                 return;
             var names = new List<string>(group.Participants);
             if (joined)
@@ -942,14 +965,62 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
                 if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
                     names.Add(name);
             }
+            else if (string.Equals(name, self, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Detail("syncplay", "event=participants outcome=self_kept");
+            }
             else
             {
                 names.RemoveAll(existing => string.Equals(existing, name, StringComparison.OrdinalIgnoreCase));
             }
-            _group = group with { Participants = names };
+            updated = group with { Participants = names };
+            _group = updated;
+            epoch = _membershipEpoch;
+            sequence = ++_participantSequence;
         }
         Raise(Notice, new SyncPlayNotice(joined ? SyncPlayNoticeKind.UserJoined : SyncPlayNoticeKind.UserLeft, name),
             joined ? SyncPlayGroupUpdateTypes.UserJoined : SyncPlayGroupUpdateTypes.UserLeft);
+        _ = DetachedAsync(() => ReconcileParticipantsAsync(updated, epoch, sequence), "participants");
+    }
+
+    /// <summary>Replaces the participant list with the server's, for the group a notice was applied
+    /// to. Nothing here can make or end a membership: the answer lands only if the SAME membership
+    /// is still held and no newer notice has started a refresh of its own, so a leave or a restore
+    /// inside the round trip simply drops it. A failed or empty answer keeps the list as the notice
+    /// left it — absent is not "gone", because <c>List</c> names only the groups whose queue this
+    /// user may see, and the membership has its own messages for ending.</summary>
+    private async Task ReconcileParticipantsAsync(Membership group, long epoch, long sequence)
+    {
+        IReadOnlyList<SyncPlayGroupSummary> groups;
+        try
+        {
+            groups = await ListGroupsAsync(group.ProfileKey, throwOnFailure: true).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            // ListGroupsAsync has already logged the failure by type. Info, not Detail: the list
+            // shown is now the optimistic one, and that is worth having in the incident ring.
+            AppLog.Info("syncplay", "event=participants outcome=kept reason=list_failed");
+            return;
+        }
+        if (groups.FirstOrDefault(listed => listed.GroupId == group.GroupId) is not { } listed)
+        {
+            AppLog.Detail("syncplay", "event=participants outcome=kept reason=unlisted");
+            return;
+        }
+        lock (_lock)
+        {
+            if (_disposed || _membershipEpoch != epoch || _participantSequence != sequence
+                || _group is not { } current || current.GroupId != group.GroupId)
+            {
+                AppLog.Detail("syncplay", "event=participants outcome=stale");
+                return;
+            }
+            _group = current with { Participants = listed.Participants };
+        }
+        AppLog.Detail("syncplay", FormattableString.Invariant(
+            $"event=participants outcome=reconciled participants={listed.Participants.Count}"));
+        Raise(ParticipantsChanged, listed.Participants, "participants");
     }
 
     /// <summary>A refused join. The pending join is dropped and NOTHING is joined: these two

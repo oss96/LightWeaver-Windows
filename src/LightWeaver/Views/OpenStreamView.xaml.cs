@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using LightWeaver.Player;
@@ -11,6 +12,7 @@ public partial class OpenStreamView : UserControl
     public OpenStreamView()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         Loaded += (_, _) => StreamUrlBox.Focus();
         // Navigation history holds views in memory; do not keep copied signed links there.
         Unloaded += (_, _) => StreamUrlBox.Clear();
@@ -35,7 +37,7 @@ public partial class OpenStreamView : UserControl
     {
         if (!StreamAddress.TryParse(StreamUrlBox.Text, out var address))
         {
-            StreamUrlError.Text = "Enter a full HTTP or HTTPS URL. URLs with a username or password are not supported.";
+            LiveText.Bind(StreamUrlError, "Text", () => L.Text("OpenStreamView.EnterAFullHttpOrHttpsUrl.aa9a2cb3"));
             StreamUrlError.Visibility = Visibility.Visible;
             return;
         }

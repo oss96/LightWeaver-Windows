@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows.Input;
 
 namespace LightWeaver.Views;
@@ -10,21 +11,34 @@ namespace LightWeaver.Views;
 /// </summary>
 public static class CardCommands
 {
+    static CardCommands()
+    {
+        L.Source.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(LocalizationSource.Revision)) return;
+            ToggleWatched.Text = L.Text("CardCommands.ToggleWatched.638fbe5f");
+            ShowMediaInfo.Text = L.Text("CardCommands.MediaInfo.6c137e38");
+            CopyStreamUrl.Text = L.Text("CardCommands.CopyStreamUrl.1673f88f");
+            OpenCardMenu.Text = L.Text("CardCommands.CardMenu.f6c7dbe6");
+            PlayItem.Text = L.Text("CardCommands.PlayItem.4fc83323");
+        };
+    }
+
     public static readonly RoutedUICommand ToggleWatched =
-        new("Toggle watched", nameof(ToggleWatched), typeof(CardCommands));
+        new(L.Text("CardCommands.ToggleWatched.638fbe5f"), nameof(ToggleWatched), typeof(CardCommands));
 
     public static readonly RoutedUICommand ShowMediaInfo =
-        new("Media info", nameof(ShowMediaInfo), typeof(CardCommands));
+        new(L.Text("CardCommands.MediaInfo.6c137e38"), nameof(ShowMediaInfo), typeof(CardCommands));
 
     public static readonly RoutedUICommand CopyStreamUrl =
-        new("Copy stream URL", nameof(CopyStreamUrl), typeof(CardCommands));
+        new(L.Text("CardCommands.CopyStreamUrl.1673f88f"), nameof(CopyStreamUrl), typeof(CardCommands));
 
     /// <summary>Opens the card's overflow menu (the ⋯ button) — the menu itself is built
     /// in MainWindow, mirroring ItemDetailView.OnMore.</summary>
     public static readonly RoutedUICommand OpenCardMenu =
-        new("Card menu", nameof(OpenCardMenu), typeof(CardCommands));
+        new(L.Text("CardCommands.CardMenu.f6c7dbe6"), nameof(OpenCardMenu), typeof(CardCommands));
 
     /// <summary>Plays the card's media item directly from the hover play button.</summary>
     public static readonly RoutedUICommand PlayItem =
-        new("Play item", nameof(PlayItem), typeof(CardCommands));
+        new(L.Text("CardCommands.PlayItem.4fc83323"), nameof(PlayItem), typeof(CardCommands));
 }

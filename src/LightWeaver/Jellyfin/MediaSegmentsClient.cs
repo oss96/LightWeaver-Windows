@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Text.Json;
 using Jellyfin.Sdk.Generated.Models;
 
@@ -21,9 +22,9 @@ public sealed record SkipSegment(
 {
     public string Label => Kind switch
     {
-        SkipSegmentKind.Credits => "Skip Credits",
-        SkipSegmentKind.Recap => "Skip Recap",
-        _ => "Skip Intro",
+        SkipSegmentKind.Credits => L.Text("MediaSegmentsClient.SkipCredits.82a7ac4b"),
+        SkipSegmentKind.Recap => L.Text("MediaSegmentsClient.SkipRecap.1ad0c678"),
+        _ => L.Text("MediaSegmentsClient.SkipIntro.f5b88b47"),
     };
 }
 

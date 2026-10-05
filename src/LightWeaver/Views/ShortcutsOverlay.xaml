@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.ShortcutsOverlay"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              Visibility="Collapsed" Focusable="True"
              AutomationProperties.AutomationId="ShortcutsOverlay">
     <!-- Keyboard-shortcuts panel (Phase 10 M9). Hosted in BOTH MainWindow and OverlayWindow:
@@ -58,13 +59,13 @@
                 <TranslateTransform x:Name="CardRise" />
             </Border.RenderTransform>
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Keyboard shortcuts"
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Text ShortcutsOverlay.KeyboardShortcuts.6058193f}"
                            FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
                            Foreground="{StaticResource LwText1Brush}" Margin="0,0,0,20"
                            AutomationProperties.AutomationId="ShortcutsTitle" />
                 <!-- Dismiss docks before the scroller so it stays reachable when the list
                      scrolls — at the 700x480 window minimum the columns do scroll. -->
-                <Button DockPanel.Dock="Bottom" x:Name="DismissButton" Content="Dismiss"
+                <Button DockPanel.Dock="Bottom" x:Name="DismissButton" Content="{loc:Text ShortcutsOverlay.Dismiss.3f79d6c9}"
                         Style="{StaticResource LwButtonGhost}" HorizontalAlignment="Right"
                         Margin="0,16,0,0" Click="OnDismiss"
                         AutomationProperties.AutomationId="ShortcutsDismissButton" />

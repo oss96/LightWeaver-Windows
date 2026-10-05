@@ -24,6 +24,10 @@ public enum UpdatePolicy
 /// </summary>
 public sealed class AppSettings
 {
+    /// <summary>UI culture code. Empty follows Windows; applied immediately.</summary>
+    public string UiLanguage { get; set; } = "";
+    /// <summary>Client-only library aliases keyed by server URL plus library ID, then culture.</summary>
+    public Dictionary<string, Dictionary<string, string>> LibraryNameTranslations { get; set; } = new();
     // Schema
     /// <summary>Schema marker for one-off default migrations (see <see cref="SettingsStore"/>).
     /// <b>Defaults to 0 on purpose</b> — every file written before the marker existed lacks the

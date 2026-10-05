@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LightWeaver · Translations</title>
+  <link rel="stylesheet" href="/editor.css">
+  <script type="module" src="/editor.js"></script>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">L</span><span>LightWeaver <span class="brand-detail">/ Translations</span></span></div>
+      <span class="local-tag">Local workspace</span>
+    </header>
+    <section class="intro">
+      <div><p class="eyebrow">STRING CATALOG</p><h1>Translate LightWeaver.</h1><p class="subtitle">Add a language and translate the words people see in the app.</p></div>
+      <div class="actions"><button id="reload" class="secondary" type="button">Reload</button><button id="open-language" class="secondary" type="button">+ Add language</button><button id="save" class="primary" type="button" disabled>Save changes</button></div>
+    </section>
+    <div id="message" role="status" aria-live="polite" hidden></div>
+    <section class="workspace" aria-label="Translation workspace">
+      <form id="filters" class="filters">
+        <label class="search">Search strings<input id="q" name="q" type="search" placeholder="Search English, translations, or keys"></label>
+        <label>Source file<select id="source" name="source"><option value="">All source files</option></select></label>
+        <label>Language<select id="lang" name="lang"><option value="">All languages</option></select></label>
+        <label>Translation status<select id="status" name="status"><option value="">Any status</option><option value="missing">Missing</option><option value="stale">Needs review</option><option value="translated">Translated</option></select></label>
+        <details class="more-filters"><summary>More filters</summary><div class="extra-filters"><label>Created or modified since<input id="changed" name="changed" placeholder="working-tree or Git commit hash" spellcheck="false"></label><label>Specific string keys<input id="keys" name="keys" placeholder="Separate keys with commas" spellcheck="false"></label><button type="submit" class="secondary">Apply filters</button><button id="clear-filters" type="button" class="quiet">Clear filters</button></div></details>
+      </form>
+      <div class="table-toolbar"><div><strong id="result-count">Loading strings…</strong><span id="filter-note"></span></div><span id="dirty-count">No unsaved changes</span></div>
+      <div class="table-scroll" tabindex="0" aria-label="Scrollable translation table"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
+      <div id="empty" class="empty" hidden><h2>No strings match these filters.</h2><p>Try another search or clear the filters.</p></div>
+      <footer class="table-footer"><span id="page-info"></span><div><button id="previous" type="button" class="secondary">Previous</button><button id="next" type="button" class="secondary">Next</button></div></footer>
+    </section>
+    <p class="help">English is the source. Keep placeholders such as <code>{0}</code> intact. “Needs review” means the English changed or the saved translation has invalid placeholders. Saving a reviewed translation records the current English version.</p>
+  </main>
+  <dialog id="language-dialog">
+    <form id="language-form"><div class="dialog-heading"><h2>Add a language</h2><button id="close-language" type="button" class="quiet" aria-label="Close add language dialog">✕</button></div><p>Each language gets its own editable column.</p><label>Find a language<input id="language-search" type="search" placeholder="German, français, ja…"></label><label>Language<select id="language-choice" aria-describedby="language-selection" required size="8"></select></label><p id="language-selection" aria-live="polite"></p><p id="language-error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-language" type="button" class="secondary">Cancel</button><button id="add-language" type="submit" class="primary">Add column</button></div></form>
+  </dialog>
+</body>
+</html>

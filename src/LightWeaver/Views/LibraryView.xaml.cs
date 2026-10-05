@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,20 +19,20 @@ public partial class LibraryView : UserControl
 {
     private const int PageSize = 50;
 
-    private static readonly (string Label, ItemSortBy Sort)[] SortChoices =
+    private static (string Label, ItemSortBy Sort)[] SortChoices =>
     [
-        ("Name", ItemSortBy.SortName),
-        ("Date added", ItemSortBy.DateCreated),
-        ("Premiere date", ItemSortBy.PremiereDate),
-        ("Community rating", ItemSortBy.CommunityRating),
-        ("Random", ItemSortBy.Random),
+        (L.Text("LibraryView.Name.25dc8233"), ItemSortBy.SortName),
+        (L.Text("LibraryView.DateAdded.b6b2b943"), ItemSortBy.DateCreated),
+        (L.Text("LibraryView.PremiereDate.73434a41"), ItemSortBy.PremiereDate),
+        (L.Text("LibraryView.CommunityRating.25d902ea"), ItemSortBy.CommunityRating),
+        (L.Text("LibraryView.Random.79ca58ae"), ItemSortBy.Random),
     ];
 
-    private static readonly (string Label, ItemFilter? Filter)[] FilterChoices =
+    private static (string Label, ItemFilter? Filter)[] FilterChoices =>
     [
-        ("All", null),
-        ("Unwatched", ItemFilter.IsUnplayed),
-        ("Watched", ItemFilter.IsPlayed),
+        (L.Text("LibraryView.All.e343cc96"), null),
+        (L.Text("LibraryView.Unwatched.cf8a01a1"), ItemFilter.IsUnplayed),
+        (L.Text("LibraryView.Watched.3eedb227"), ItemFilter.IsPlayed),
     ];
 
     private readonly AppViewModel _app;
@@ -73,6 +74,7 @@ public partial class LibraryView : UserControl
     public LibraryView(AppViewModel app, MediaItem source, string? genre = null)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         // Wired here, not in XAML: the runtime XAML EventConverter used for custom
         // element types (LwSegmentedControl) needs an exact SelectionChangedEventArgs
         // signature, while OnQueryChanged takes RoutedEventArgs (shared with the
@@ -103,7 +105,7 @@ public partial class LibraryView : UserControl
             foreach (var (label, _) in FilterChoices)
                 FilterBox.Items.Add(label);
             FilterBox.SelectedIndex = 0;
-            GenreBox.Items.Add("All genres");
+            GenreBox.Items.Add(L.Text("LibraryView.AllGenres.470d4399"));
             GenreBox.SelectedIndex = 0;
             SortPanel.Visibility = Visibility.Visible;
             // Genre controls are conditional: server genres exist only for movies/tvshows.
@@ -126,6 +128,7 @@ public partial class LibraryView : UserControl
         };
         ItemsGrid.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnScroll));
         SizeChanged += OnViewSizeChanged;
+        LiveText.Observe(this, OnLanguageChanged);
         BrowsePrefetcher.Progress += OnPrefetchProgress;
         Unloaded += (_, _) =>
         {
@@ -141,6 +144,30 @@ public partial class LibraryView : UserControl
     {
         UpdateHeaderLayout();
         UpdateRailVisibility();
+    }
+
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var initializing = _initializing;
+        _initializing = true;
+        try
+        {
+            if (LetterJumpBox.Items.Count > 0)
+            {
+                var selected = LetterJumpBox.SelectedIndex;
+                LetterJumpBox.Items[0] = AnyLetter;
+                LetterJumpBox.SelectedIndex = selected;
+            }
+            if (SortBox.Items.Count > 0) LiveText.ReplaceChoices(SortBox, SortChoices.Select(choice => choice.Label));
+            if (FilterBox.Items.Count > 0) LiveText.ReplaceChoices(FilterBox, FilterChoices.Select(choice => choice.Label));
+            if (GenreBox.Items.Count > 0)
+            {
+                var selected = GenreBox.SelectedIndex;
+                GenreBox.Items[0] = L.Text("LibraryView.AllGenres.470d4399");
+                GenreBox.SelectedIndex = selected;
+            }
+        }
+        finally { _initializing = initializing; }
     }
 
     /// <summary>M3.1: keep the sort/filter cluster from clipping at narrow widths. When the
@@ -194,7 +221,7 @@ public partial class LibraryView : UserControl
 
     /// <summary>Mirrors the rail's active letter onto the dropdown without re-firing the query —
     /// the two are one piece of state shown two ways.</summary>
-    private const string AnyLetter = "Any letter";
+    private static string AnyLetter => L.Text("LibraryView.AnyLetter.fd19bab2");
 
     private void SyncLetterJumpSelection()
     {
@@ -236,7 +263,7 @@ public partial class LibraryView : UserControl
 
             if (complete)
             {
-                if (StatusText.Text.StartsWith("Caching ", StringComparison.Ordinal))
+                if (_statusKind == StatusKind.Caching)
                     HideStatus();
 
                 if (!_localMode && items.Count > 0)
@@ -256,7 +283,7 @@ public partial class LibraryView : UserControl
             }
             else
             {
-                SetStatus($"Caching {have:N0} of {total:N0}...", active: true);
+                SetStatus(() => L.Format("LibraryView.CachingOf.7657db40", (have), (total)), active: true, StatusKind.Caching);
                 if (_items.Count == 0 && items.Count > 0)
                 {
                     var isDefaultQuery = SelectedSort == ItemSortBy.SortName &&
@@ -277,9 +304,13 @@ public partial class LibraryView : UserControl
         });
     }
 
-    private void SetStatus(string text, bool active = true)
+    private enum StatusKind { Other, Caching, Refreshing }
+    private StatusKind _statusKind;
+
+    private void SetStatus(Func<string> text, bool active = true, StatusKind kind = StatusKind.Other)
     {
-        StatusText.Text = text;
+        _statusKind = kind;
+        LiveText.Bind(StatusText, "Text", () => text());
         if (StatusDots is not null)
         {
             StatusDots.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
@@ -290,6 +321,7 @@ public partial class LibraryView : UserControl
 
     private void HideStatus()
     {
+        _statusKind = StatusKind.Other;
         StatusText.Visibility = Visibility.Collapsed;
     }
 
@@ -298,10 +330,9 @@ public partial class LibraryView : UserControl
         if (_items.Count == 0)
         {
             if (_letter is { Length: > 0 } active)
-                EmptyView.Show($"Nothing under {active}",
-                    "No titles here start with that letter. Pick another, or # to show them all.");
+                EmptyView.Show(() => L.Format("LibraryView.NothingUnder.ced1a7f3", (active)), () => L.Text("LibraryView.NoTitlesHereStartWithThatLetter.2a76e639"));
             else
-                EmptyView.Show("Nothing here", "No items match this view or its filters.");
+                EmptyView.Show(() => L.Text("LibraryView.NothingHere.6a3852d2"), () => L.Text("LibraryView.NoItemsMatchThisViewOrIts.f4014918"));
         }
         else
         {
@@ -453,7 +484,7 @@ public partial class LibraryView : UserControl
     {
         if (_paged && _totalCount > 0)
         {
-            CountText.Text = _totalCount == 1 ? "1 item" : $"{_totalCount:N0} items";
+            LiveText.Bind(CountText, "Text", () => _totalCount == 1 ? L.Text("LibraryView.1Item.2a0ae87a") : L.Format("LibraryView.Items.14975942", (_totalCount)));
             CountText.Visibility = Visibility.Visible;
         }
         else
@@ -617,7 +648,7 @@ public partial class LibraryView : UserControl
             UpdateCount();
             SkeletonHost.Visibility = Visibility.Collapsed;
             EmptyView.Visibility = Visibility.Collapsed;
-            SetStatus("Showing cached results while refreshing...", active: true);
+            SetStatus(() => L.Text("LibraryView.ShowingCachedResultsWhileRefreshing.a2cf5caa"), active: true, StatusKind.Refreshing);
         }
         else if (_items.Count == 0)
         {
@@ -691,11 +722,11 @@ public partial class LibraryView : UserControl
             EmptyView.Visibility = Visibility.Collapsed;
             if (hasCachedPage)
             {
-                SetStatus($"Offline - showing cached results from {cached!.CachedAtUtc.ToLocalTime():g}.", active: false);
+                SetStatus(() => L.Format("LibraryView.OfflineShowingCachedResultsFrom.fc87ef69", (cached!.CachedAtUtc.ToLocalTime())), active: false);
             }
             else
             {
-                SetStatus($"Failed to load: {ex.Message}", active: false);
+                SetStatus(() => L.Format("LibraryView.FailedToLoad.f9500460", (ex.Message)), active: false);
             }
         }
         finally
@@ -730,7 +761,7 @@ public partial class LibraryView : UserControl
             UpdateCount();
             SkeletonHost.Visibility = Visibility.Collapsed;
             UpdateEmptyState();
-            SetStatus("Showing cached results while refreshing...", active: true);
+            SetStatus(() => L.Text("LibraryView.ShowingCachedResultsWhileRefreshing.a2cf5caa"), active: true, StatusKind.Refreshing);
             Diagnostics.AppLog.Detail("library",
                 $"event=load outcome=success mode=local generation={generation} count={_items.Count} total={_totalCount} item={_source.Id:N} type={_source.Type}");
 
@@ -762,7 +793,7 @@ public partial class LibraryView : UserControl
             UpdateCount();
             SkeletonHost.Visibility = Visibility.Collapsed;
             UpdateEmptyState();
-            SetStatus($"Caching {folderEntry.Items.Count:N0} of {folderEntry.TotalCount:N0}...", active: true);
+            SetStatus(() => L.Format("LibraryView.CachingOf.7657db40", (folderEntry.Items.Count), (folderEntry.TotalCount)), active: true, StatusKind.Caching);
         }
         else if (_items.Count == 0)
         {
@@ -811,7 +842,7 @@ public partial class LibraryView : UserControl
                     return;
                 SkeletonHost.Visibility = Visibility.Collapsed;
                 EmptyView.Visibility = Visibility.Collapsed;
-                SetStatus($"Failed to load: {ex.Message}", active: false);
+                SetStatus(() => L.Format("LibraryView.FailedToLoad.f9500460", (ex.Message)), active: false);
             }
             finally
             {
@@ -916,7 +947,7 @@ public partial class LibraryView : UserControl
 
                 UpdateCount();
                 UpdateEmptyState();
-                if (StatusText.Text.StartsWith("Showing cached", StringComparison.Ordinal))
+                if (_statusKind == StatusKind.Refreshing)
                     HideStatus();
             });
 
@@ -954,7 +985,7 @@ public partial class LibraryView : UserControl
                 if (generation != _loadGeneration || profileKey != _app.ActiveSessionKey)
                     return;
 
-                SetStatus($"Offline - showing cached results from {cachedEntry.CachedAtUtc.ToLocalTime():g}.", active: false);
+                SetStatus(() => L.Format("LibraryView.OfflineShowingCachedResultsFrom.fc87ef69", (cachedEntry.CachedAtUtc.ToLocalTime())), active: false);
             });
         }
         finally

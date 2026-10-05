@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -86,7 +87,7 @@ public static class AudioPassthroughProbe
     /// </summary>
     public static PassthroughProbe Probe(string? mpvDeviceName)
     {
-        var name = "This output";
+        var name = L.Text("AudioPassthroughProbe.ThisOutput.f8192067");
         try
         {
             var device = GetDevice(mpvDeviceName);
@@ -143,11 +144,11 @@ public static class AudioPassthroughProbe
         return probe.Verdict switch
         {
             PassthroughVerdict.SomeSupported =>
-                $"{probe.DeviceName} accepts: {string.Join(", ", probe.Formats.Where(f => f.Supported).Select(f => f.Label))}.",
+                L.Format("AudioPassthroughProbe.Accepts.50573adf", (probe.DeviceName), (string.Join(", ", probe.Formats.Where(f => f.Supported).Select(f => f.Label)))),
             PassthroughVerdict.NoneSupported =>
-                $"{probe.DeviceName} accepts none of these formats — playback falls back to decoded audio.",
+                L.Format("AudioPassthroughProbe.AcceptsNoneOfTheseFormatsPlaybackFalls.f0c81a96", (probe.DeviceName)),
             PassthroughVerdict.NoExclusiveMode =>
-                $"{probe.DeviceName} does not allow exclusive-mode output, which passthrough requires — playback falls back to decoded audio.",
+                L.Format("AudioPassthroughProbe.DoesNotAllowExclusiveModeOutputWhich.08cbcf86", (probe.DeviceName)),
             _ => null,
         };
     }

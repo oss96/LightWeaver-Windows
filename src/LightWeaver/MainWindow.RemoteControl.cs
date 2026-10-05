@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using LightWeaver.Localization;
+using System.Windows;
 using LightWeaver.Jellyfin;
 using LightWeaver.Player;
 using LightWeaver.ViewModels;
@@ -241,7 +242,7 @@ public partial class MainWindow
         var applied = await ApplyStreamChangeAsync(
             new QualityRequest(_overrideMaxBitrateMbps, _overrideForceTranscode),
             newMediaSourceId: null,
-            off ? "no subtitles" : choice!.Display,
+            off ? L.Text("MainWindowRemoteControl.NoSubtitles.522610d7") : choice!.Display,
             audio ? "audio track" : "subtitles",
             (outcome, sequence) => RemoteStreamDetail(outcome, audio, index, sequence),
             pick);
@@ -367,16 +368,16 @@ public partial class MainWindow
                 PlayItem(items[start], message.StartPositionTicks ?? 0, fromQueue: true, session: jf);
                 break;
             case RemotePlayKind.PlayNext:
-                if (_syncPlay.IsInGroup) { ShowToast("Leave the group to append remote queue items."); return; }
+                if (_syncPlay.IsInGroup) { ShowToast(L.Text("MainWindowRemoteControl.LeaveTheGroupToAppendRemoteQueue.314d7ddd")); return; }
                 SeedQueueFromPlayingItem();
                 _app.Queue.InsertNext(items);
-                ShowToast(items.Count == 1 ? $"Playing next: {items[0].Name}" : $"Queued {items.Count} items to play next");
+                ShowToast(items.Count == 1 ? L.Format("MainWindowRemoteControl.PlayingNext.77e3707a", (items[0].Name)) : L.Format("MainWindowRemoteControl.QueuedItemsToPlayNext.096175d6", (items.Count)));
                 break;
             case RemotePlayKind.PlayLast:
-                if (_syncPlay.IsInGroup) { ShowToast("Leave the group to append remote queue items."); return; }
+                if (_syncPlay.IsInGroup) { ShowToast(L.Text("MainWindowRemoteControl.LeaveTheGroupToAppendRemoteQueue.314d7ddd")); return; }
                 SeedQueueFromPlayingItem();
                 _app.Queue.Append(items);
-                ShowToast(items.Count == 1 ? $"Added to queue: {items[0].Name}" : $"Added {items.Count} items to the queue");
+                ShowToast(items.Count == 1 ? L.Format("MainWindowRemoteControl.AddedToQueue.0caee923", (items[0].Name)) : L.Format("MainWindowRemoteControl.AddedItemsToTheQueue.07df3474", (items.Count)));
                 break;
         }
         LogRemote("play", profileKey, FormattableString.Invariant(
@@ -457,8 +458,8 @@ public partial class MainWindow
             if (serverUrl is { Length: > 0 })
                 foreach (var itemId in items)
                 {
-                    Imaging.MetadataCache.Remove($"streams:{serverUrl}:{itemId:N}");
-                    Imaging.MetadataCache.Remove($"versions:{serverUrl}:{itemId:N}");
+                    Imaging.MetadataCache.Remove($"streams:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
+                    Imaging.MetadataCache.Remove($"versions:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
                 }
         });
 

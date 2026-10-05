@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using LightWeaver.Jellyfin;
 using LightWeaver.Player;
@@ -11,6 +12,8 @@ public sealed record SyncPlayInfo(string GroupName, IReadOnlyList<string> Partic
 /// Badge is the two-letter language chip ("" = no badge).</summary>
 public sealed record TrackOption(int Id, string Display, bool IsSelected, string Badge = "")
 {
+    public Func<string>? DisplayProvider { get; init; }
+    public string LiveDisplay => DisplayProvider?.Invoke() ?? Display;
     public override string ToString() => Display;
 }
 
@@ -26,6 +29,8 @@ public sealed record SubtitleSelectionRequest(
 /// chosen before the file exists, so it can never be a TrackOption.</summary>
 public sealed record VersionOption(string Id, string Display, bool IsSelected)
 {
+    public Func<string>? DisplayProvider { get; init; }
+    public string LiveDisplay => DisplayProvider?.Invoke() ?? Display;
     public string Badge => "";
     public override string ToString() => Display;
 }
@@ -35,6 +40,8 @@ public sealed record VersionOption(string Id, string Display, bool IsSelected)
 /// the garnet-selected row template unchanged.</summary>
 public sealed record AudioDeviceOption(string Name, string Display, bool IsSelected)
 {
+    public Func<string>? DisplayProvider { get; init; }
+    public string LiveDisplay => DisplayProvider?.Invoke() ?? Display;
     public string Badge => "";
     public override string ToString() => Display;
 }
@@ -42,12 +49,17 @@ public sealed record AudioDeviceOption(string Name, string Display, bool IsSelec
 /// <summary>One label/value line of the overlay info panel.</summary>
 public sealed record InfoRow(string Label, string Value)
 {
+    public Func<string>? LabelProvider { get; init; }
+    public string LiveLabel => LabelProvider?.Invoke() ?? Label;
+    public string LiveValue => Value;
     public override string ToString() => $"{Label}: {Value}";
 }
 
 /// <summary>A row of the overlay queue popup. The playing row can't be removed.</summary>
 public sealed record QueueRow(int Index, string Display, bool IsCurrent, Guid? PlaylistItemId = null)
 {
+    public Func<string>? DisplayProvider { get; init; }
+    public string LiveDisplay => DisplayProvider?.Invoke() ?? Display;
     public bool CanRemove => !IsCurrent;
     public string Position => $"{Index + 1}.";
     public override string ToString() => Display;
@@ -107,8 +119,18 @@ public sealed class PlayerViewModel : ObservableObject
         }
     }
     public string SyncPlayStatus => SyncPlay is { } group
-        ? $"{(SyncPlayPending ? "Syncing\u2026" : string.IsNullOrWhiteSpace(group.State) ? "Connected" : group.State)} \u00b7 {group.Participants.Count}"
-        : SyncPlayPending ? "Joining\u2026" : "";
+        ? L.Format("PlayerViewModel.Value.3bc02e73", ((SyncPlayPending ? L.Text("PlayerViewModel.Syncing.2bdc0f46") : SyncPlayStateLabel(group.State))), (group.Participants.Count))
+        : SyncPlayPending ? L.Text("PlayerViewModel.Joining.f1e37263") : "";
+    public static string SyncPlayStateLabel(string? state) => state switch
+    {
+        "Waiting" => L.Text("PlayerViewModel.Waiting.4926e5d8"),
+        "Playing" => L.Text("PlayerViewModel.Playing.03d535f1"),
+        "Paused" => L.Text("PlayerViewModel.Paused.f39bfc1b"),
+        "Idle" => L.Text("PlayerViewModel.Idle.8db40edb"),
+        "Buffering" => L.Text("PlayerViewModel.Buffering.e34e3ba8"),
+        _ => L.Text("PlayerViewModel.Connected.f19541e0"),
+    };
+
     private IReadOnlyList<QueueRow>? _syncPlayRows;
     internal void SetSyncPlay(SyncPlayInfo? info)
     {
@@ -326,9 +348,13 @@ public sealed class PlayerViewModel : ObservableObject
                 // film are routinely named the same, and the flyout has no gesture column to
                 // put the disambiguator in the way the detail-view menu does.
                 version.Detail() is { Length: > 0 } detail
-                    ? $"{version.Label} · {detail}"
+                    ? L.Format("PlayerViewModel.Value.3bc02e73", (version.Label), (detail))
                     : version.Label,
-                IsSelected: false));
+                IsSelected: false)
+            {
+                DisplayProvider = () => version.Detail() is { Length: > 0 } text
+                    ? L.Format("PlayerViewModel.Value.3bc02e73", version.Label, text) : version.Label
+            });
         SetCurrentVersion(currentSourceId);
         OnPropertyChanged(nameof(HasVersionChoices));
         OnPropertyChanged(nameof(HasTrackChoices));
@@ -364,17 +390,17 @@ public sealed class PlayerViewModel : ObservableObject
             return;
         VideoTracks.Clear();
         foreach (var t in _player.Tracks.Where(t => t.Type == "video"))
-            VideoTracks.Add(new TrackOption(t.Id, t.Display, t.Selected));
+            VideoTracks.Add(new TrackOption(t.Id, t.Display, t.Selected) { DisplayProvider = () => t.Display });
 
         AudioTracks.Clear();
         foreach (var t in _player.Tracks.Where(t => t.Type == "audio"))
-            AudioTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)));
+            AudioTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)) { DisplayProvider = () => t.Display });
 
         SubtitleTracks.Clear();
         var subs = _player.Tracks.Where(t => t.Type == "sub").ToList();
-        SubtitleTracks.Add(new TrackOption(-1, "Off", subs.All(s => !s.Selected)));
+        SubtitleTracks.Add(new TrackOption(-1, L.Text("PlayerViewModel.Off.830d786d"), subs.All(s => !s.Selected)) { DisplayProvider = () => L.Text("PlayerViewModel.Off.830d786d") });
         foreach (var t in subs)
-            SubtitleTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)));
+            SubtitleTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)) { DisplayProvider = () => t.Display });
 
         var observedId = subs.FirstOrDefault(t => t.Selected)?.Id;
         if (_subtitleCursorGeneration != generation)
@@ -433,8 +459,9 @@ public sealed class PlayerViewModel : ObservableObject
             current = "auto";
         }
         AudioDevices.Clear();
-        AudioDevices.Add(new AudioDeviceOption("auto", "System default",
-            current == "auto" || devices.All(d => d.Name != current)));
+        AudioDevices.Add(new AudioDeviceOption("auto", L.Text("PlayerViewModel.SystemDefault.29baa166"),
+            current == "auto" || devices.All(d => d.Name != current))
+        { DisplayProvider = () => L.Text("PlayerViewModel.SystemDefault.29baa166") });
         foreach (var d in devices)
             AudioDevices.Add(new AudioDeviceOption(d.Name, d.Description, d.Name == current));
         var has = devices.Count >= 2;
@@ -766,7 +793,10 @@ public sealed class PlayerViewModel : ObservableObject
         }
         else if (_queue is { IsActive: true } q)
             for (var i = 0; i < q.Items.Count; i++)
-                QueueRows.Add(new QueueRow(i, q.Items[i].QueueDisplay, i == q.CurrentIndex));
+            {
+                var item = q.Items[i];
+                QueueRows.Add(new QueueRow(i, item.QueueDisplay, i == q.CurrentIndex) { DisplayProvider = () => item.QueueDisplay });
+            }
         OnPropertyChanged(nameof(HasQueue));
         OnPropertyChanged(nameof(QueueBadge));
         NotifySkipStateChanged();
@@ -844,8 +874,8 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>The pair shows when either direction is meaningful.</summary>
     public bool ShowNextPrevButtons => CanGoNext || CanGoPrevious;
 
-    public string NextTooltip => "Next (N)";
-    public string PreviousTooltip => "Previous (P)";
+    public string NextTooltip => L.Text("PlayerViewModel.NextN.842e5c33");
+    public string PreviousTooltip => L.Text("PlayerViewModel.PreviousP.476a01d0");
 
     /// <summary>Queue entry, else the armed Up Next, else — only with no active queue — the
     /// next episode in series order. Mirrors <see cref="CanGoNext"/> exactly.</summary>
@@ -967,7 +997,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     /// <summary>Empty in manual mode, so the text and the element's visibility agree — a test
     /// (or a reader) can assert on either and get the same answer.</summary>
-    public string UpNextCountdownText => _upNextCountdownActive ? $"Playing in {_upNextRemaining} s" : "";
+    public string UpNextCountdownText => _upNextCountdownActive ? L.Format("PlayerViewModel.PlayingInS.75ed9c94", (_upNextRemaining)) : "";
 
     /// <summary>Arms (or clears, with null) the Up Next card for the current playback.
     /// <paramref name="autoAdvance"/> false arms it as a manual offer: the card appears at the
@@ -1122,7 +1152,7 @@ public sealed class PlayerViewModel : ObservableObject
     private bool _updatingQuality;
     private int _qualityTierIndex;
     private bool _qualityForceTranscode;
-    private string _qualityStatus = "Unavailable for this playback";
+    private string _qualityStatus = L.Text("PlayerViewModel.UnavailableForThisPlayback.89fbc22d");
     private bool _qualityAvailable;
     private bool _qualityVisible;
 
@@ -1211,12 +1241,12 @@ public sealed class PlayerViewModel : ObservableObject
         var bitrate = maxBitrateMbps switch
         {
             null => settingsMaxBitrateMbps > 0
-                ? $"Default ({settingsMaxBitrateMbps} Mbps max)"
-                : "Default (Unlimited)",
-            0 => "Unlimited",
-            int value => $"{value} Mbps max",
+                ? L.Format("PlayerViewModel.DefaultMbpsMax.1d711255", (settingsMaxBitrateMbps))
+                : L.Text("PlayerViewModel.DefaultUnlimited.91b5c2ed"),
+            0 => L.Text("PlayerViewModel.Unlimited.b2d15726"),
+            int value => L.Format("PlayerViewModel.MbpsMax.f1aacf3d", (value)),
         };
-        return forceTranscode ? $"{bitrate} · Force transcode" : $"{bitrate} · Direct play allowed";
+        return forceTranscode ? L.Format("PlayerViewModel.ForceTranscode.351ee124", (bitrate)) : L.Format("PlayerViewModel.DirectPlayAllowed.710abbca", (bitrate));
     }
 
     /// <summary>Live mpv playback state; refreshed by the overlay while its info
@@ -1230,10 +1260,11 @@ public sealed class PlayerViewModel : ObservableObject
 
     // How the current stream reaches us ("Direct play" / "Transcode (HLS)");
     // null for local files — the info panel omits the row.
-    private string? _playMethod;
+    private Func<string?>? _playMethod;
 
     /// <summary>Sets the play-method row of the info panel; call per playback.</summary>
-    public void SetPlayMethod(string? method) => _playMethod = method;
+    public void SetPlayMethod(string? method) => _playMethod = method is null ? null : () => method;
+    public void SetLivePlayMethod(Func<string>? method) => _playMethod = method;
 
     /// <summary>Sets the media-info section per playback; null/empty hides it.</summary>
     public void SetMediaInfo(IEnumerable<InfoRow>? rows)
@@ -1254,12 +1285,12 @@ public sealed class PlayerViewModel : ObservableObject
 
         var rows = new List<InfoRow>();
 
-        if (_playMethod is { } method)
-            rows.Add(new InfoRow("Play method", method));
+        if (_playMethod?.Invoke() is { } method)
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.PlayMethod.c157a492"), method));
 
         // video-format is the short name ("h264"); video-codec is the long description.
         if ((Prop("video-format") ?? Prop("video-codec")) is { } vcodec)
-            rows.Add(new InfoRow("Video", vcodec));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.Video.d8239941"), vcodec));
         if (Prop("video-params/w") is { } w && Prop("video-params/h") is { } h)
         {
             var res = $"{w}x{h}";
@@ -1267,45 +1298,45 @@ public sealed class PlayerViewModel : ObservableObject
                 && double.TryParse(aspect, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out var a) && a > 0)
                 res += $" ({a:0.##}:1)";
-            rows.Add(new InfoRow("Resolution", res));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.Resolution.c7b75e89"), res));
         }
         if (Prop("container-fps") is { } fps
             && double.TryParse(fps, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var f))
-            rows.Add(new InfoRow("Frame rate", FormattableString.Invariant($"{f:0.###} fps")));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.FrameRate.d9c68e23"), L.Format("PlayerViewModel.Fps.36e2b0e8", (f))));
 
         var gamma = Prop("video-params/gamma");
         if (gamma is not null)
         {
-            var hdr = gamma is "pq" or "hlg" ? "HDR" : "SDR";
+            var hdr = gamma is "pq" or "hlg" ? L.Text("PlayerViewModel.Hdr.cfecb163") : L.Text("PlayerViewModel.Sdr.53a3d75f");
             var primaries = Prop("video-params/primaries");
-            rows.Add(new InfoRow("Dynamic range",
-                primaries is null ? $"{hdr} ({gamma})" : $"{hdr} ({gamma} / {primaries})"));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.DynamicRange.81c1f3ab"),
+                primaries is null ? L.Format("PlayerViewModel.Value.09b5a0bd", (hdr), (gamma)) : L.Format("PlayerViewModel.Value.a80886d3", (hdr), (gamma), (primaries))));
         }
 
-        rows.Add(new InfoRow("Hardware decoding",
-            Prop("hwdec-current") is { } hw and not "no" ? hw : "off"));
+        rows.Add(new InfoRow(L.Text("PlayerViewModel.HardwareDecoding.9c5ef5fa"),
+            Prop("hwdec-current") is { } hw and not "no" ? hw : L.Text("PlayerViewModel.Off.9b533bcb")));
 
         if (Prop("video-bitrate") is { } vbr
             && double.TryParse(vbr, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var bps) && bps > 0)
-            rows.Add(new InfoRow("Video bitrate", FormattableString.Invariant($"{bps / 1_000_000:0.0} Mbps")));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.VideoBitrate.7cabcad9"), L.Format("PlayerViewModel.Mbps.2364092a", (bps / 1_000_000))));
 
         if (Prop("audio-codec-name") is { } acodec)
         {
             var audio = acodec;
             if (Prop("audio-params/channel-count") is { } ch)
-                audio += $" · {ch} ch";
+                audio += L.Format("PlayerViewModel.Ch.175b305c", (ch));
             if (Prop("audio-params/samplerate") is { } sr && int.TryParse(sr, out var hz))
-                audio += $" · {hz / 1000.0:0.#} kHz";
-            rows.Add(new InfoRow("Audio", audio));
+                audio += L.Format("PlayerViewModel.Khz.b43a923c", (hz / 1000.0));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.Audio.317b9c84"), audio));
         }
 
-        rows.Add(new InfoRow("RTX",
-            $"VSR {(player.RtxVsrActive ? "on" : "off")} · RTX HDR {(player.RtxHdrActive ? "on" : "off")}"));
+        rows.Add(new InfoRow(L.Text("PlayerViewModel.Rtx.464c6962"),
+            L.Format("PlayerViewModel.VsrRtxHdr.2cc5bbb9", (player.RtxVsrActive ? L.Text("PlayerViewModel.On.e22b3186") : L.Text("PlayerViewModel.Off.9b533bcb")), (player.RtxHdrActive ? L.Text("PlayerViewModel.On.e22b3186") : L.Text("PlayerViewModel.Off.9b533bcb")))));
 
         if (Prop("frame-drop-count") is { } drops)
-            rows.Add(new InfoRow("Dropped frames", drops));
+            rows.Add(new InfoRow(L.Text("PlayerViewModel.DroppedFrames.f3eed14f"), drops));
 
         // Update in place when the row set is unchanged — a full reset every second
         // flickers and churns the automation tree out from under UIA readers.
@@ -1453,7 +1484,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     /// <summary>Caption under the activity ring, or empty when it should not be shown. One ring
     /// serves both states and the word is what tells them apart.</summary>
-    public string PlaybackStatusText => _isLoading ? "Loading…" : _isBuffering ? "Buffering…" : string.Empty;
+    public string PlaybackStatusText => _isLoading ? L.Text("PlayerViewModel.Loading.2df10e46") : _isBuffering ? L.Text("PlayerViewModel.Buffering.5f5334e6") : string.Empty;
 
     public bool HasPlaybackStatus => _isLoading || _isBuffering;
 
@@ -1484,12 +1515,12 @@ public sealed class PlayerViewModel : ObservableObject
     public bool RtxAvailable => _player?.RtxUnavailableReason is null;
 
     public string RtxVsrTooltip => _player?.RtxUnavailableReason is { } reason
-        ? $"Unavailable: {reason}"
-        : "RTX Video Super Resolution (d3d11vpp scaling-mode=nvidia)";
+        ? L.Format("PlayerViewModel.Unavailable.58d4d208", (reason))
+        : L.Text("PlayerViewModel.RtxVideoSuperResolutionD3D11VppScalingMode.50c071ea");
 
     public string RtxHdrTooltip => _player?.RtxUnavailableReason is { } reason
-        ? $"Unavailable: {reason}"
-        : "RTX Video HDR (d3d11vpp=nvidia-true-hdr)";
+        ? L.Format("PlayerViewModel.Unavailable.58d4d208", (reason))
+        : L.Text("PlayerViewModel.RtxVideoHdrD3D11VppNvidiaTrueHdr.e71e5010");
 
     // ---- OSD status badges (passive pills under the now-playing title) ----
 
@@ -1497,7 +1528,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// else null. Phase 8 M7.1: RTX-active state (HDR/VSR) is shown ONLY by the garnet
     /// gem toggles now, so this passive pill carries only what the toggles can't — the
     /// native-source HDR flag (RTX is suppressed on HDR sources, so the two never clash).</summary>
-    public string? StatusHdrLabel => _player is { } p && p.IsHdrContent ? "HDR" : null;
+    public string? StatusHdrLabel => _player is { } p && p.IsHdrContent ? L.Text("PlayerViewModel.Hdr.cfecb163") : null;
 
     public bool HasStatusHdr => StatusHdrLabel is not null;
 
@@ -1508,7 +1539,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Slot 3: source resolution label (4K / 1080p / 720p / SD), null while
     /// no video is loaded. Same thresholds as the detail-view gem pill.</summary>
     public string? StatusResolutionLabel => (_player?.VideoWidth ?? 0) is var w and > 0
-        ? w >= 3400 ? "4K" : w >= 1900 ? "1080p" : w >= 1200 ? "720p" : "SD"
+        ? w >= 3400 ? "4K" : w >= 1900 ? "1080p" : w >= 1200 ? "720p" : L.Text("PlayerViewModel.Sd.07ccd11b")
         : null;
 
     public bool HasStatusResolution => StatusResolutionLabel is not null;

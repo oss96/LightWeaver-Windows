@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Input;
 using LightWeaver.Player;
@@ -30,9 +31,9 @@ public partial class MainWindow
     private void OnStreamToolTipOpening(object sender, System.Windows.Controls.ToolTipEventArgs e)
     {
         var chord = PlayerActionDispatcher.Resolve(_settings.KeyBindings)[PlayerAction.OpenStream];
-        NavStream.ToolTip = string.IsNullOrWhiteSpace(chord)
-            ? "Stream from URL"
-            : $"Stream from URL ({PlayerActionDispatcher.DisplayChord(chord)})";
+        LiveText.Bind(NavStream, "ToolTip", () => string.IsNullOrWhiteSpace(chord)
+            ? L.Text("MainWindowStreaming.StreamFromUrl.899b8c83")
+            : L.Format("MainWindowStreaming.StreamFromUrl.5cf68527", (PlayerActionDispatcher.DisplayChord(chord))));
     }
 
     private void OnOpenStream(object sender, RoutedEventArgs e)
@@ -52,7 +53,7 @@ public partial class MainWindow
             if (!_windowClosing && ReferenceEquals(_nav.Current?.View, view))
                 PlayUrl(address.AbsoluteUri, null);
         };
-        _nav.Navigate(new ViewModels.NavFrame(view, "Stream from URL", NavStream));
+        _nav.Navigate(new ViewModels.NavFrame(view, L.Text("MainWindowStreaming.StreamFromUrl.899b8c83"), NavStream));
         ShowCurrentFrame();
     }
 }

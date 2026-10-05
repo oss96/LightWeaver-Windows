@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
@@ -20,6 +21,7 @@ public partial class SearchResultsView : UserControl
     public SearchResultsView()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         var view = new CollectionViewSource { Source = _items };
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(MediaItem.Type))
         {
@@ -38,7 +40,7 @@ public partial class SearchResultsView : UserControl
             _items.Add(item);
         StatusText.Visibility = Visibility.Collapsed;   // M24: composed empty state
         if (items.Count == 0)
-            EmptyView.Show("No results", "Try a different search term or the Advanced search filters.");
+            EmptyView.Show(() => L.Text("SearchResultsView.NoResults.33cf7927"), () => L.Text("SearchResultsView.TryADifferentSearchTermOrThe.fc5f1cbd"));
         else
             EmptyView.Visibility = Visibility.Collapsed;
     }
@@ -53,21 +55,34 @@ public partial class SearchResultsView : UserControl
         }
     }
 
-    /// <summary>Section label + display rank for an item type.</summary>
-    private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) => type switch
+    /// <summary>Invariant section identity and display rank for an item type.</summary>
+    private static TypeGroup GroupOf(BaseItemDto_Type type) => new(type switch
     {
-        BaseItemDto_Type.Movie => ("Movies", 0),
-        BaseItemDto_Type.Series => ("Shows", 1),
-        BaseItemDto_Type.Episode => ("Episodes", 2),
-        BaseItemDto_Type.BoxSet => ("Collections", 3),
-        BaseItemDto_Type.Person => ("People", 4),
-        _ => ("Other", 5),
-    };
+        BaseItemDto_Type.Movie => 0,
+        BaseItemDto_Type.Series => 1,
+        BaseItemDto_Type.Episode => 2,
+        BaseItemDto_Type.BoxSet => 3,
+        BaseItemDto_Type.Person => 4,
+        _ => 5,
+    });
+
+    private sealed record TypeGroup(int Rank)
+    {
+        public string Label => Rank switch
+        {
+            0 => L.Text("SearchResultsView.Movies.049dbe79"),
+            1 => L.Text("SearchResultsView.Shows.c9405784"),
+            2 => L.Text("SearchResultsView.Episodes.abbe28a9"),
+            3 => L.Text("SearchResultsView.Collections.1d60b322"),
+            4 => L.Text("SearchResultsView.People.63fea934"),
+            _ => L.Text("SearchResultsView.Other.9f077fc0"),
+        };
+    }
 
     private sealed class TypeGroupConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-            => value is BaseItemDto_Type t ? GroupOf(t).Label : "Other";
+            => value is BaseItemDto_Type t ? GroupOf(t) : new TypeGroup(5);
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => throw new NotSupportedException();

@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
@@ -67,8 +68,8 @@ public partial class MainWindow
         SyncPlayButtonLabel.Text = _playerViewModel.SyncPlayStatus;
         SyncPlayButtonLabel.Visibility = SyncPlayButtonLabel.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         var label = _playerViewModel.SyncPlay is { } group
-            ? $"SyncPlay · {group.GroupName} · {_playerViewModel.SyncPlayStatus}"
-            : _playerViewModel.SyncPlayPending ? "SyncPlay · Joining…" : "SyncPlay groups";
+            ? L.Format("MainWindowSyncPlayUi.Syncplay.5bd69e40", (group.GroupName), (_playerViewModel.SyncPlayStatus))
+            : _playerViewModel.SyncPlayPending ? L.Text("MainWindowSyncPlayUi.SyncplayJoining.80dcb609") : L.Text("MainWindowSyncPlayUi.SyncplayGroups.634e8cfc");
         SyncPlayButton.ToolTip = label;
         System.Windows.Automation.AutomationProperties.SetName(SyncPlayButton, label);
     }

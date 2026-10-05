@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.AdvancedSearchView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:LightWeaver.Views"
@@ -135,7 +136,7 @@
                     <!-- Deep-link context chip (M5 person / M6 genre) — the seed is visible
                          and removable instead of an invisible filter. -->
                     <StackPanel x:Name="SeedFacet" Margin="0,0,14,8" Visibility="Collapsed">
-                        <TextBlock x:Name="SeedCaption" Text="PERSON" Style="{StaticResource FacetCaption}" />
+                        <TextBlock x:Name="SeedCaption" Text="{loc:Text AdvancedSearchView.Person.e7b4d265}" Style="{StaticResource FacetCaption}" />
                         <!-- P10 M5: height-bound radius (h38 -> 19) — a person/genre name makes
                              this chip far wider than tall, so LwRPill drew a lens. -->
                         <Border Height="38"
@@ -152,7 +153,7 @@
                                         VerticalAlignment="Center" Cursor="Hand" Padding="0"
                                         FontFamily="{StaticResource LwFontIcon}" FontSize="14"
                                         Foreground="#EEB9C4" Content="{StaticResource IconClose}"
-                                        Click="OnSeedRemoved" ToolTip="Remove this filter"
+                                        Click="OnSeedRemoved" ToolTip="{loc:Text AdvancedSearchView.RemoveThisFilter.1a6e5074}"
                                         AutomationProperties.AutomationId="AsSeedChipRemove">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
@@ -175,12 +176,12 @@
 
                     <!-- Free text: the single search input on this screen (P5). -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="SEARCH" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Search.3d8f0927}" Style="{StaticResource FacetCaption}" />
                         <Grid Height="38" Width="300">
                             <TextBox x:Name="SearchBox" Style="{StaticResource LwTextField}"
                                      KeyDown="OnSearchKeyDown" TextChanged="OnSearchTextChanged"
                                      AutomationProperties.AutomationId="AsSearchBox" />
-                            <TextBlock x:Name="SearchPlaceholder" Text="Title, keyword…" IsHitTestVisible="False"
+                            <TextBlock x:Name="SearchPlaceholder" Text="{loc:Text AdvancedSearchView.TitleKeyword.dc1c5cca}" IsHitTestVisible="False"
                                        Foreground="{StaticResource LwText3Brush}" FontSize="14"
                                        VerticalAlignment="Center" Margin="15,0,0,0" />
                             <Border x:Name="SearchEngaged" Style="{StaticResource EngagedRing}" />
@@ -189,7 +190,7 @@
 
                     <!-- Item type (multi) -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="TYPE" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Type.26fdba17}" Style="{StaticResource FacetCaption}" />
                         <Grid>
                             <local:CheckDropdown x:Name="TypeFilter" Width="170" Height="38"
                                                  AutomationProperties.AutomationId="AsTypeFilter" />
@@ -204,13 +205,13 @@
                         <TextBlock Text=" " Style="{StaticResource FacetCaption}" />
                         <ToggleButton x:Name="MoreFiltersButton" Style="{StaticResource OrderToggle}"
                                       Checked="OnMoreFiltersToggled" Unchecked="OnMoreFiltersToggled"
-                                      ToolTip="Genre, watched state and year"
+                                      ToolTip="{loc:Text AdvancedSearchView.GenreWatchedStateAndYear.ff9b4726}"
                                       AutomationProperties.AutomationId="AsMoreFiltersButton">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="MoreFiltersGlyph" FontFamily="{StaticResource LwFontIcon}"
                                            FontSize="17" VerticalAlignment="Center" Margin="0,0,6,0"
                                            Text="{StaticResource IconExpandMore}" />
-                                <TextBlock Text="More filters" VerticalAlignment="Center" />
+                                <TextBlock Text="{loc:Text AdvancedSearchView.MoreFilters.cca65959}" VerticalAlignment="Center" />
                                 <Border x:Name="MoreFiltersBadge" Visibility="Collapsed"
                                         Margin="8,0,0,0" Height="20" MinWidth="20" Padding="6,0"
                                         VerticalAlignment="Center"
@@ -241,15 +242,15 @@
                          APPLIED person still shows in Row A as the garnet seed chip, so the
                          filter is never invisible while the panel is shut. -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="PERSON" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Person.e7b4d265}" Style="{StaticResource FacetCaption}" />
                         <Grid Height="38">
                             <TextBox x:Name="PersonBox" Style="{StaticResource LwTextField}" Width="200"
-                                     ToolTip="Filter by an actor or director"
+                                     ToolTip="{loc:Text AdvancedSearchView.FilterByAnActorOrDirector.58dd9931}"
                                      TextChanged="OnPersonTextChanged"
                                      PreviewKeyDown="OnPersonKeyDown"
                                      LostKeyboardFocus="OnPersonLostFocus"
                                      AutomationProperties.AutomationId="AsPersonBox" />
-                            <TextBlock x:Name="PersonPlaceholder" Text="Actor, director…" IsHitTestVisible="False"
+                            <TextBlock x:Name="PersonPlaceholder" Text="{loc:Text AdvancedSearchView.ActorDirector.7a0cb327}" IsHitTestVisible="False"
                                        Foreground="{StaticResource LwText3Brush}" FontSize="13.5"
                                        VerticalAlignment="Center" Margin="13,0,0,0" />
                             <Border x:Name="PersonEngaged" Style="{StaticResource EngagedRing}" />
@@ -272,7 +273,7 @@
                                     <!-- Non-empty Text is load-bearing: WPF prunes an empty
                                          TextBlock from the UIA tree, so a suite could never see
                                          it. It is collapsed when there is nothing to say. -->
-                                    <TextBlock x:Name="PersonSuggestStatus" Text="No people found"
+                                    <TextBlock x:Name="PersonSuggestStatus" Text="{loc:Text AdvancedSearchView.NoPeopleFound.f655e71d}"
                                                Visibility="Collapsed" Margin="8,5"
                                                Foreground="{StaticResource LwText3Brush}" FontSize="13.5"
                                                AutomationProperties.AutomationId="AsPersonSuggestStatus" />
@@ -290,7 +291,7 @@
 
                     <!-- Genre (multi) -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="GENRE" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Genre.e093f2c2}" Style="{StaticResource FacetCaption}" />
                         <Grid Height="38">
                             <local:CheckDropdown x:Name="GenreFilter" Width="200" Height="38"
                                                  AutomationProperties.AutomationId="AsGenreFilter" />
@@ -300,7 +301,7 @@
 
                     <!-- Watched state: the shipped M22 segmented control (all options visible). -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="WATCHED" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Watched.1c765764}" Style="{StaticResource FacetCaption}" />
                         <Grid VerticalAlignment="Bottom">
                             <!-- SelectionChanged wired in code-behind: the runtime XAML event
                                  converter for custom element types needs exact delegate
@@ -314,15 +315,15 @@
 
                     <!-- Year range (P4): From / To placeholders, clear affordance. -->
                     <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="YEAR" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Year.91c609b1}" Style="{StaticResource FacetCaption}" />
                         <StackPanel Orientation="Horizontal" Height="38">
                             <Grid>
                                 <TextBox x:Name="MinYearBox" Style="{StaticResource LwTextField}" Width="74"
-                                         MaxLength="4" ToolTip="From year"
+                                         MaxLength="4" ToolTip="{loc:Text AdvancedSearchView.FromYear.ae098473}"
                                          KeyDown="OnYearKeyDown" LostFocus="OnYearCommitted"
                                          TextChanged="OnYearTextChanged"
                                          AutomationProperties.AutomationId="AsMinYear" />
-                                <TextBlock x:Name="MinYearPlaceholder" Text="From" IsHitTestVisible="False"
+                                <TextBlock x:Name="MinYearPlaceholder" Text="{loc:Text AdvancedSearchView.From.3943755e}" IsHitTestVisible="False"
                                            Foreground="{StaticResource LwText3Brush}" FontSize="13.5"
                                            VerticalAlignment="Center" Margin="13,0,0,0" />
                                 <Border x:Name="MinYearEngaged" Style="{StaticResource EngagedRing}" />
@@ -331,11 +332,11 @@
                                        Foreground="{StaticResource LwText3Brush}" />
                             <Grid>
                                 <TextBox x:Name="MaxYearBox" Style="{StaticResource LwTextField}" Width="74"
-                                         MaxLength="4" ToolTip="To year"
+                                         MaxLength="4" ToolTip="{loc:Text AdvancedSearchView.ToYear.347db0a0}"
                                          KeyDown="OnYearKeyDown" LostFocus="OnYearCommitted"
                                          TextChanged="OnYearTextChanged"
                                          AutomationProperties.AutomationId="AsMaxYear" />
-                                <TextBlock x:Name="MaxYearPlaceholder" Text="To" IsHitTestVisible="False"
+                                <TextBlock x:Name="MaxYearPlaceholder" Text="{loc:Text AdvancedSearchView.To.3b4d35bc}" IsHitTestVisible="False"
                                            Foreground="{StaticResource LwText3Brush}" FontSize="13.5"
                                            VerticalAlignment="Center" Margin="13,0,0,0" />
                                 <Border x:Name="MaxYearEngaged" Style="{StaticResource EngagedRing}" />
@@ -350,7 +351,7 @@
                 <DockPanel Grid.Row="1" Margin="0,12,0,0" LastChildFill="False">
                     <!-- Sort field -->
                     <StackPanel DockPanel.Dock="Left" Margin="0,0,14,0">
-                        <TextBlock Text="SORT" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Sort.f6478d16}" Style="{StaticResource FacetCaption}" />
                         <ComboBox x:Name="SortBox" Style="{StaticResource LwDropdown}" Width="170" Height="38"
                                   SelectionChanged="OnQueryChanged"
                                   AutomationProperties.AutomationId="AsSortBox" />
@@ -359,16 +360,16 @@
                     <!-- Sort direction (P10): labelled toggle, text follows the sort field;
                          hidden for Random (direction is meaningless there). -->
                     <StackPanel x:Name="OrderFacet" DockPanel.Dock="Left">
-                        <TextBlock Text="ORDER" Style="{StaticResource FacetCaption}" />
+                        <TextBlock Text="{loc:Text AdvancedSearchView.Order.42484afc}" Style="{StaticResource FacetCaption}" />
                         <ToggleButton x:Name="OrderButton" Style="{StaticResource OrderToggle}"
                                       Checked="OnQueryChanged" Unchecked="OnQueryChanged"
-                                      ToolTip="Sort direction"
+                                      ToolTip="{loc:Text AdvancedSearchView.SortDirection.67c1a62f}"
                                       AutomationProperties.AutomationId="AsOrderButton">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="OrderGlyph" FontFamily="{StaticResource LwFontIcon}"
                                            FontSize="17" VerticalAlignment="Center" Margin="0,0,6,0"
                                            Text="{StaticResource IconSortAsc}" />
-                                <TextBlock x:Name="OrderLabel" Text="A–Z" VerticalAlignment="Center"
+                                <TextBlock x:Name="OrderLabel" Text="{loc:Text AdvancedSearchView.AZ.b6238d3c}" VerticalAlignment="Center"
                                            AutomationProperties.AutomationId="AsOrderLabel" />
                             </StackPanel>
                         </ToggleButton>
@@ -431,15 +432,15 @@
             <local:EmptyState x:Name="EmptyView" />
             <StackPanel x:Name="StarterChips" Orientation="Horizontal" HorizontalAlignment="Center"
                         Margin="0,18,0,0" Visibility="Collapsed">
-                <Button Style="{StaticResource StarterChip}" Content="Browse movies"
+                <Button Style="{StaticResource StarterChip}" Content="{loc:Text AdvancedSearchView.BrowseMovies.d0128a8f}"
                         Click="OnStarterMovies" AutomationProperties.AutomationId="AsStarterMovies" />
-                <Button Style="{StaticResource StarterChip}" Content="Browse series"
+                <Button Style="{StaticResource StarterChip}" Content="{loc:Text AdvancedSearchView.BrowseSeries.03762c37}"
                         Click="OnStarterSeries" AutomationProperties.AutomationId="AsStarterSeries" />
-                <Button Style="{StaticResource StarterChip}" Content="Browse episodes"
+                <Button Style="{StaticResource StarterChip}" Content="{loc:Text AdvancedSearchView.BrowseEpisodes.10a3632a}"
                         Click="OnStarterEpisodes" AutomationProperties.AutomationId="AsStarterEpisodes" />
             </StackPanel>
             <Button x:Name="ClearFiltersBtn" Style="{StaticResource LwLinkButton}" FontSize="13"
-                    Content="Clear all filters" HorizontalAlignment="Center" Margin="0,14,0,0"
+                    Content="{loc:Text AdvancedSearchView.ClearAllFilters.d403d28d}" HorizontalAlignment="Center" Margin="0,14,0,0"
                     Visibility="Collapsed" Click="OnClearAllFilters"
                     AutomationProperties.AutomationId="AsClearFilters" />
         </StackPanel>

@@ -1,7 +1,8 @@
 <Window x:Class="LightWeaver.Views.SwitchServerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Switch user or server" Width="460" Height="400"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
+        Title="{loc:Text SwitchServerWindow.SwitchUserOrServer.c70bc0aa}" Width="460" Height="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
         Background="{StaticResource LwStorm1Brush}"
         Foreground="{StaticResource LwText1Brush}"
@@ -11,15 +12,15 @@
         <DockPanel>
             <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="0,16,0,0">
-                <Button x:Name="AddServerButton" Content="Add server…" Style="{StaticResource LwButtonSecondary}"
+                <Button x:Name="AddServerButton" Content="{loc:Text SwitchServerWindow.AddServer.1b14d77b}" Style="{StaticResource LwButtonSecondary}"
                         Click="OnAddServer" AutomationProperties.AutomationId="AddServerButton" />
-                <Button x:Name="SwitchButton" Content="Switch" Style="{StaticResource LwButtonPrimary}"
+                <Button x:Name="SwitchButton" Content="{loc:Text SwitchServerWindow.Switch.92082594}" Style="{StaticResource LwButtonPrimary}"
                         MinWidth="92" Margin="10,0,0,0" IsDefault="True" IsEnabled="False" Click="OnSwitch"
                         AutomationProperties.AutomationId="SwitchButton" />
-                <Button Content="Cancel" Style="{StaticResource LwButtonGhost}" Margin="10,0,0,0" IsCancel="True"
+                <Button Content="{loc:Text SwitchServerWindow.Cancel.e624e4d6}" Style="{StaticResource LwButtonGhost}" Margin="10,0,0,0" IsCancel="True"
                         AutomationProperties.AutomationId="SwitchCancelButton" />
             </StackPanel>
-            <TextBlock DockPanel.Dock="Top" Text="Saved profiles"
+            <TextBlock DockPanel.Dock="Top" Text="{loc:Text SwitchServerWindow.SavedProfiles.aa242e2d}"
                        FontFamily="{StaticResource LwFontDisplay}" FontSize="19"
                        Foreground="{StaticResource LwText1Brush}" Margin="2,0,0,10" />
             <!-- P10 M8 task 3, the half GenresView's fix left unaudited. Measured on the live

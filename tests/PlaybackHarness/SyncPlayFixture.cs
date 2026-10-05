@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using LightWeaver.Jellyfin;
 using LightWeaver.ViewModels;
@@ -189,6 +190,7 @@ internal static class SyncPlayFixture
             await CheckQueueContractsAsync(Check).ConfigureAwait(false);
             await CheckRestoreRaceAsync(Check).ConfigureAwait(false);
             await CheckJoinRefusalAsync(Check).ConfigureAwait(false);
+            await CheckParticipantReconcileAsync(Check).ConfigureAwait(false);
             await CheckSessionLossAsync(Check).ConfigureAwait(false);
             Console.WriteLine($"RESULT: PASS ({count} sync play assertions)");
             return 0;
@@ -1483,6 +1485,197 @@ internal static class SyncPlayFixture
             check(!client.IsInGroup && client.GroupId is null
                 && events.Joined.Count == 0 && events.Left.Count == 0,
                 $"{type} leaves no membership and no GroupJoined behind");
+        }
+    }
+
+    // A UserLeft names a USER, and the server's participant list is one name per user however many
+    // sessions it has in the group. So when one of two sessions of an account leaves, the other is
+    // told that its own name left — and removing it showed a client that was still in the group
+    // with nobody in it. Its own server and client, because the List answer is scripted per leg.
+    private static async Task CheckParticipantReconcileAsync(Action<bool, string> check)
+    {
+        const string profileKey = "sync-play-participants-profile";
+        using var server = new LiveSessionFixture.FakeJellyfinServer();
+        using var service = new JellyfinService();
+        check(await service.ReconnectAsync(new SavedCredentials(server.Origin, "TEST", "synthetic-fixture-token", server.UserId))
+                .ConfigureAwait(false),
+            "the participant fixture session connects");
+        check(service.UserName == "TEST", "the session carries the user name the server knows it by");
+
+        var group = Guid.NewGuid();
+        // What GET /SyncPlay/List answers for the held group, and when. Swapped per leg; the
+        // override reads them when the request arrives, never when it was set.
+        var listed = new[] { "TEST", "bob" };
+        var listFails = false;
+        var gate = Task.CompletedTask;
+        var answered = 0;
+        server.ResponseOverride = async capture =>
+        {
+            if (!capture.Path.EndsWith("/SyncPlay/List", StringComparison.OrdinalIgnoreCase))
+                return null;
+            // Both read on ARRIVAL, before the gate: two refreshes held at once each answer with
+            // what the server held when it was asked, which is what makes their order matter.
+            var participants = Volatile.Read(ref listed);
+            var release = Volatile.Read(ref gate);
+            await release.ConfigureAwait(false);
+            Interlocked.Increment(ref answered);
+            if (Volatile.Read(ref listFails))
+                return "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            var json = JsonSerializer.Serialize(new[]
+            {
+                new { GroupId = group, GroupName = "Movie night", State = "Paused", Participants = participants },
+            });
+            return "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                + $"Content-Length: {System.Text.Encoding.UTF8.GetByteCount(json)}\r\nConnection: close\r\n\r\n{json}";
+        };
+
+        using var live = new LiveSessionService(key => key == profileKey ? service : null);
+        using var client = new SyncPlayClient(live, key => key == profileKey ? service : null);
+        var events = new Recorder(client);
+        var reconciled = 0;
+        client.ParticipantsChanged += _ => Interlocked.Increment(ref reconciled);
+        live.StartProfile(profileKey);
+        await server.NextUpgradeAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        var connection = await server.NextConnectionAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        await client.JoinAsync(profileKey, group).ConfigureAwait(false);
+        await connection.SendAsync(GroupJoinedFrame(group, "Movie night", "Paused", "TEST", "bob")).ConfigureAwait(false);
+        check(await SettlesAsync(() => client.IsInGroup && client.Participants is ["TEST", "bob"],
+                TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the client is in the group with its own name listed before the participant legs");
+
+        // This account's OTHER device leaves. The refresh is held open, so what is read in between
+        // is the optimistic list alone and not the server's answer having already corrected it.
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Volatile.Write(ref gate, held.Task);
+        var lists = server.CountOf("/SyncPlay/List");
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserLeft", "\"TEST\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => events.Notices.Count == 1 && server.CountOf("/SyncPlay/List") == lists + 1,
+                TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && events.Notices[0] is { Kind: SyncPlayNoticeKind.UserLeft, Text: "TEST" },
+            "a UserLeft is still a notice, and it asks the server who is left");
+        check(client.Participants is ["TEST", "bob"],
+            "a UserLeft carrying this client's own name does not remove it while this session is a member");
+        held.SetResult();
+        check(await SettlesAsync(() => Volatile.Read(ref reconciled) == 1, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && client.Participants is ["TEST", "bob"],
+            "the same-user leave settles on the server's list, which still names this user");
+
+        // Another user with two devices: one leaves, and the name has to come back from the list.
+        Volatile.Write(ref gate, Task.CompletedTask);
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserLeft", "\"bob\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => Volatile.Read(ref reconciled) == 2, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && client.Participants is ["TEST", "bob"],
+            "another user leaving one of two sessions is reconciled back from the server's list");
+        // And the same name leaving for real: the list stops naming it, and so does the client.
+        Volatile.Write(ref listed, new[] { "TEST" });
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserLeft", "\"bob\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => Volatile.Read(ref reconciled) == 3, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && client.Participants is ["TEST"],
+            "a user whose last session left is gone once the server's list agrees");
+        Volatile.Write(ref listed, new[] { "TEST", "carol" });
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserJoined", "\"carol\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => Volatile.Read(ref reconciled) == 4, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && client.Participants is ["TEST", "carol"],
+            "a UserJoined is reconciled against the server's list too");
+
+        // Two refreshes in flight at once, answered newest first. The older one was asked before
+        // frank left, so it still names him; landing last, it would put back a name the newer
+        // answer had already settled. Still in the group throughout, so only the ordering guard
+        // can drop it — the leave leg below is dropped by the missing membership first.
+        var older = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var newer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lists = server.CountOf("/SyncPlay/List");
+        var answeredBefore = Volatile.Read(ref answered);
+        Volatile.Write(ref gate, older.Task);
+        Volatile.Write(ref listed, new[] { "TEST", "carol", "frank" });
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserJoined", "\"frank\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => server.CountOf("/SyncPlay/List") == lists + 1, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the first of two refreshes is held at the server");
+        Volatile.Write(ref gate, newer.Task);
+        Volatile.Write(ref listed, new[] { "TEST", "carol" });
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserLeft", "\"frank\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => server.CountOf("/SyncPlay/List") == lists + 2, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the second refresh is held behind it");
+        newer.SetResult();
+        check(await SettlesAsync(() => Volatile.Read(ref reconciled) == 5, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+            && client.Participants is ["TEST", "carol"],
+            "the newer refresh lands first and settles the list");
+        older.SetResult();
+        check(await SettlesAsync(() => Volatile.Read(ref answered) == answeredBefore + 2, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the older refresh is answered after it");
+        await Task.Delay(500).ConfigureAwait(false);
+        check(client.IsInGroup && client.Participants is ["TEST", "carol"] && Volatile.Read(ref reconciled) == 5,
+            "an older refresh answered last does not overwrite the newer one");
+
+        // A refresh still in flight when the user leaves. Its answer names the group and three
+        // people; applying it would put the client back in a group it has left.
+        var late = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Volatile.Write(ref gate, late.Task);
+        Volatile.Write(ref listed, new[] { "TEST", "carol", "dave" });
+        lists = server.CountOf("/SyncPlay/List");
+        var answers = Volatile.Read(ref answered);
+        await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserJoined", "\"dave\"")).ConfigureAwait(false);
+        check(await SettlesAsync(() => server.CountOf("/SyncPlay/List") == lists + 1, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the refresh is in flight when the leave lands");
+        await client.LeaveAsync().ConfigureAwait(false);
+        var joins = events.Joined.Count;
+        late.SetResult();
+        // The answer is delivered, then given time to be (wrongly) applied: what is asserted is an
+        // absence, and the response having left the server is the most the outside can see.
+        check(await SettlesAsync(() => Volatile.Read(ref answered) == answers + 1, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the held refresh is answered after the leave");
+        await Task.Delay(500).ConfigureAwait(false);
+        check(!client.IsInGroup && client.GroupId is null && client.Participants.Count == 0
+            && events.Joined.Count == joins && Volatile.Read(ref reconciled) == 5,
+            "a refresh that lands after Leave does not bring the group back");
+
+        // A refresh the server fails: the optimistic list stands, and the failure is on record.
+        Volatile.Write(ref gate, Task.CompletedTask);
+        await BackInGroupAsync(check, client, connection, profileKey, group, "failing refresh").ConfigureAwait(false);
+        Volatile.Write(ref listFails, true);
+        var verbose = LightWeaver.Diagnostics.AppLog.Verbose;
+        LightWeaver.Diagnostics.AppLog.Verbose = true;
+        try
+        {
+            var logged = AppLogCount("event=participants outcome=kept reason=list_failed");
+            await connection.SendAsync(LiveSessionFixture.GroupUpdate(group, "UserJoined", "\"erin\"")).ConfigureAwait(false);
+            check(await SettlesAsync(() => AppLogCount("event=participants outcome=kept reason=list_failed") == logged + 1,
+                    TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+                "a failed participant refresh is logged");
+            check(client.Participants is ["bob", "erin"] && client.IsInGroup && Volatile.Read(ref reconciled) == 5,
+                "a failed participant refresh keeps the optimistic list");
+        }
+        finally
+        {
+            LightWeaver.Diagnostics.AppLog.Verbose = verbose;
+        }
+    }
+
+    /// <summary>How many lines of this run's app.log contain <paramref name="needle"/>; 0 before
+    /// the file exists. Shared read, retried: the logger opens and closes the file per line, so a
+    /// read can land mid-write.</summary>
+    private static int AppLogCount(string needle)
+    {
+        var path = Path.Combine(LightWeaver.Diagnostics.AppLog.Dir, "app.log");
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return 0;
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                var count = 0;
+                while (reader.ReadLine() is { } line)
+                    if (line.Contains(needle, StringComparison.Ordinal))
+                        count++;
+                return count;
+            }
+            catch (IOException) when (attempt < 50)
+            {
+                Thread.Sleep(20);
+            }
         }
     }
 

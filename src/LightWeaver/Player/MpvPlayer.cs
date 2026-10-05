@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows.Threading;
 using LightWeaver.Player.Native;
 using LightWeaver.Settings;
@@ -22,9 +23,9 @@ public sealed record MpvTrack(int Id, string Type, string? Title, string? Lang, 
     {
         get
         {
-            var name = Title ?? Lang ?? $"Track {Id}";
+            var name = Title ?? Lang ?? L.Format("MpvPlayer.Track.1ff5dd9a", (Id));
             if (Title is not null && Lang is not null)
-                name = $"{Title} ({Lang})";
+                name = L.Format("MpvPlayer.Value.9db73e6e", (Title), (Lang));
             if (Type == "video")
             {
                 var detail = string.Join(" ", new[]
@@ -33,9 +34,9 @@ public sealed record MpvTrack(int Id, string Type, string? Title, string? Lang, 
                     Width > 0 && Height > 0 ? $"{Width}x{Height}" : null,
                 }.Where(s => s is not null));
                 if (detail.Length > 0)
-                    name = $"{name} · {detail}";
+                    name = L.Format("MpvPlayer.Value.0d3c3091", (name), (detail));
             }
-            return Forced ? $"{name} [forced]" : name;
+            return Forced ? L.Format("MpvPlayer.Forced.0483da29", (name)) : name;
         }
     }
 }
@@ -453,7 +454,7 @@ public sealed class MpvPlayer : IDisposable
             // surfaced at all: LogMessage reaches Trace and nothing else, and a setting that
             // silently does nothing is exactly how the passthrough stall (B31) stayed hidden.
             if (wantNormalization)
-                AudioFilterUnavailable?.Invoke("Volume normalization could not be applied — playing unprocessed audio.");
+                AudioFilterUnavailable?.Invoke(L.Text("MpvPlayer.VolumeNormalizationCouldNotBeAppliedPlaying.ab834de9"));
         }
         // One record per APPLY (startup and each settings save), not per file: this is the audio
         // configuration every later audio record has to be read against, and the passthrough stall
@@ -642,8 +643,8 @@ public sealed class MpvPlayer : IDisposable
         var device = GetPropertyString("audio-device");
         var label = device is { Length: > 0 } and not "auto"
             ? GetAudioDevices().FirstOrDefault(d => d.Name == device)?.Description ?? device
-            : AudioPassthroughProbe.DefaultDeviceName() ?? "the current audio device";
-        return $"{label} can't take passthrough audio — playing decoded audio instead.";
+            : AudioPassthroughProbe.DefaultDeviceName() ?? L.Text("MpvPlayer.TheCurrentAudioDevice.281d4745");
+        return L.Format("MpvPlayer.CanTTakePassthroughAudioPlayingDecoded.7d3b527a", (label));
     }
 
     // ---- Audio-restart-point drift after an output change (B39) ----
@@ -681,9 +682,8 @@ public sealed class MpvPlayer : IDisposable
     /// a person's hardware.</summary>
     public event Action<string>? AudioResyncFailed;
 
-    private const string AudioResyncFailureMessage =
-        "Audio stopped after the output device changed and could not be resynchronised — "
-        + "seek or reselect the audio track to restore it.";
+    private static string AudioResyncFailureMessage =>
+        L.Text("MpvPlayer.AudioStoppedAfterTheOutputDeviceChangedAndCouldNotBeResynchronisedSeek.50d73217");
 
     // The check's numbers, all read off the two captures (see ArmAudioSyncCheck for the one behind
     // the delay). The divergence threshold sits well above the 0.2-0.5 s async-queue scale and the
@@ -920,8 +920,8 @@ public sealed class MpvPlayer : IDisposable
     /// both stages are spent for this load. The payload is a ready-to-show sentence.</summary>
     public event Action<string>? PlaybackStalled;
 
-    private const string PlaybackStallFailureMessage =
-        "Playback stopped and could not be restarted — seek, or reload the item, to resume.";
+    private static string PlaybackStallFailureMessage =>
+        L.Text("MpvPlayer.PlaybackStoppedAndCouldNotBeRestarted.7f574ba2");
 
     /// <summary>How long a stall has to persist before it counts as one. Healthy restarts in the
     /// B41 capture complete in 60-220 ms, so this is ~20x the observed worst case; the margin is
@@ -1278,12 +1278,16 @@ public sealed class MpvPlayer : IDisposable
     }
 
     /// <summary>Sets the Authorization header for subsequent network loads
-    /// (e.g. <c>MediaBrowser Token="…"</c>); null clears it. Keeps tokens out of URLs.</summary>
+    /// (including client metadata); null clears it. Keeps tokens out of URLs.</summary>
     public void SetHttpHeaders(string? authorizationValue)
     {
         CheckAlive();
-        LibMpv.mpv_set_property_string(_ctx, "http-header-fields",
-            authorizationValue is null ? "" : $"Authorization: {authorizationValue}");
+        // String-property assignment splits at commas, including the commas in MediaBrowser
+        // metadata. Append a single list item instead so the complete header reaches the server.
+        Check(LibMpv.Command(_ctx, "change-list", "http-header-fields", "clr", ""), "clear HTTP headers");
+        if (authorizationValue is not null)
+            Check(LibMpv.Command(_ctx, "change-list", "http-header-fields", "append",
+                $"Authorization: {authorizationValue}"), "set HTTP authorization header");
     }
 
     public void Stop()
@@ -1426,7 +1430,7 @@ public sealed class MpvPlayer : IDisposable
         {
             ({ Length: > 0 }, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, "auto", title, lang),
             ({ Length: > 0 }, _) => LibMpv.Command(_ctx, "sub-add", url, "auto", title),
-            (_, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, "auto", "External", lang),
+            (_, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, "auto", L.Text("MpvPlayer.External.8bf7fc85"), lang),
             _ => LibMpv.Command(_ctx, "sub-add", url, "auto"),
         };
         // Structural: the URL is a stream URL on the user's server and carries the item behind it.
@@ -1722,7 +1726,7 @@ public sealed class MpvPlayer : IDisposable
         }
 
         var reason = GpuCapabilities.RtxUnavailableReason
-            ?? (hdrContent ? "HDR source (NVIDIA video processing is SDR-only)" : null);
+            ?? (hdrContent ? L.Text("MpvPlayer.HdrSourceNvidiaVideoProcessingIsSdr.456ffeee") : null);
         if (reason != RtxUnavailableReason)
         {
             RtxUnavailableReason = reason;

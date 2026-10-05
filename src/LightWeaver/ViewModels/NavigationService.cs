@@ -6,7 +6,11 @@ namespace LightWeaver.ViewModels;
 /// state restores byte-for-exact on back/forward), its header title, the nav-rail item
 /// that should be lit while it shows, and whether it is a rail root (Home / a library
 /// opened from the rail — used to de-dupe re-selecting the rail item you're already on).</summary>
-public sealed record NavFrame(UserControl View, string Title, RadioButton? Rail, bool IsRailRoot = false);
+public sealed record NavFrame(UserControl View, string Title, RadioButton? Rail, bool IsRailRoot = false,
+    Func<string>? TitleProvider = null)
+{
+    public string DisplayTitle => TitleProvider?.Invoke() ?? Title;
+}
 
 /// <summary>
 /// Back + forward browse history (Phase 7 M3). Replaces the old append-only,

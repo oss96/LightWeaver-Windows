@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -29,11 +30,18 @@ public partial class CheckDropdown : UserControl
     public CheckDropdown()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         UpdateSummary();
+        LiveText.Observe(this, (_, _) => UpdateSummary());
     }
 
     /// <summary>Placeholder shown when nothing is selected (e.g. "All types", "Any genre").</summary>
-    public string Placeholder { get; set; } = "Any";
+    private string? _placeholder;
+    public string Placeholder
+    {
+        get => _placeholder ?? L.Text("CheckDropdown.Any.03f8503c");
+        set { _placeholder = value; UpdateSummary(); }
+    }
 
     /// <summary>Whether the option set has been populated (async facet sources load late).</summary>
     public bool HasOptions => _options.Count > 0;

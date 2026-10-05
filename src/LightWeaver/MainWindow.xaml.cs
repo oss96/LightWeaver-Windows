@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -166,6 +167,7 @@ public partial class MainWindow : Window
         public HomeView? Home;
         public SearchResultsView? Search;
         public bool LibrariesLoaded;
+        public List<Jellyfin.MediaItem> Libraries { get; set; } = [];
         public List<RadioButton> RailItems { get; } = [];
         public Dictionary<Guid, RadioButton> LibraryNav { get; } = new();
     }
@@ -229,7 +231,9 @@ public partial class MainWindow : Window
         // work regardless, but the verbose level has to be known before the first mpv instance
         // and before the first Info() call decides whether to reach app.log.
         Diagnostics.AppLog.Verbose = _settings.VerboseLogging;
+        LibraryNames.Configure(_settings);
         InitializeComponent();
+        LiveText.Watch(this);
         _updateService = new UpdateService(_settings);
         _updateService.StatusChanged += OnUpdateStatusChanged;
         // One socket per warm profile (see LiveSessionService); MainWindow.RemoteControl records
@@ -283,7 +287,7 @@ public partial class MainWindow : Window
             d => _app.FindSessionByServer(d.ServerUrl)?.AuthorizationHeader);
         _downloads.Completed += d => Dispatcher.BeginInvoke(() =>
         {
-            ShowToast($"Download complete: {d.Title}");
+            ShowToast(L.Format("MainWindow.DownloadComplete.a3df8de3", (d.Title)));
             _ = BroadcastDownloadBadgeAsync(d.ItemId);
         });
         _playerViewModel.Configure(_settings);
@@ -329,7 +333,7 @@ public partial class MainWindow : Window
             Jellyfin.BrowsePrefetcher.CancelProfile(key);
         });
         _app.SessionExpired += name => Dispatcher.Invoke(() =>
-            ShowToast($"The session for {name} expired — please sign in again."));
+            ShowToast(L.Format("MainWindow.TheSessionForExpiredPleaseSignIn.637d6e1f", (name))));
 
         // Card hover action bar (Phase 7 M10): the shared card templates raise these
         // routed commands (cards have no code-behind); handle them once here.
@@ -372,6 +376,15 @@ public partial class MainWindow : Window
         IsVisibleChanged += (_, _) => SyncOverlayBounds();
         Activated += (_, _) => SyncOverlayBounds();
         App.StartupLog($"MainWindow ctor exit, Title='{Title}'");
+        LiveText.Observe(this, OnLanguageChanged);
+    }
+
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        UpdateBrowseHeader();
+        UpdateSyncPlayControls();
+        if (_playingItem is { } item)
+            _playerViewModel.SetNowPlaying(item.PlaybackTitle, item.PlaybackSubtitle, item.PlaybackRelease);
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -446,32 +459,32 @@ public partial class MainWindow : Window
         var update = status.Update;
         UpdateMenuItem.Visibility = update is not null || status.Phase == UpdatePhase.Error
             ? Visibility.Visible : Visibility.Collapsed;
-        UpdateMenuItem.Header = status.Phase switch
+        LiveText.Bind(UpdateMenuItem, "Header", () => status.Phase switch
         {
             UpdatePhase.ReadyToInstall when _settings.UpdatePolicy == Settings.UpdatePolicy.AutoDownloadAndInstall
-                => $"Update {update?.DisplayVersion} ready — installs when LightWeaver closes",
-            UpdatePhase.ReadyToInstall => $"Update {update?.DisplayVersion} ready — click to install",
+                => L.Format("MainWindow.UpdateReadyInstallsWhenLightweaverCloses.06d15187", (update?.DisplayVersion)),
+            UpdatePhase.ReadyToInstall => L.Format("MainWindow.UpdateReadyClickToInstall.c3d0fb12", (update?.DisplayVersion)),
             UpdatePhase.Downloading when status.Progress is { } progress
-                => $"Downloading update {update?.DisplayVersion} — {progress:P0}",
-            UpdatePhase.Downloading => $"Downloading update {update?.DisplayVersion}…",
-            UpdatePhase.Installing => $"Installing update → {update?.DisplayVersion}",
-            UpdatePhase.Error => "Retry update",
-            _ => $"Update available → {update?.DisplayVersion}",
-        };
+                => L.Format("MainWindow.DownloadingUpdate.e0bc4a8a", (update?.DisplayVersion), (progress)),
+            UpdatePhase.Downloading => L.Format("MainWindow.DownloadingUpdate.e964dce1", (update?.DisplayVersion)),
+            UpdatePhase.Installing => L.Format("MainWindow.InstallingUpdate.beb97cc8", (update?.DisplayVersion)),
+            UpdatePhase.Error => L.Text("MainWindow.RetryUpdate.3c610c57"),
+            _ => L.Format("MainWindow.UpdateAvailable.f0ccaeb7", (update?.DisplayVersion)),
+        });
         UpdateMenuItem.IsEnabled = status.Phase is not UpdatePhase.Downloading and not UpdatePhase.Installing;
-        UpdateBannerText.Text = status.Phase switch
+        LiveText.Bind(UpdateBannerText, "Text", () => status.Phase switch
         {
             UpdatePhase.Downloading => status.Progress is { } progress
-                ? $"Downloading update {update?.DisplayVersion} — {progress:P0}"
-                : $"Downloading update {update?.DisplayVersion}…",
+                ? L.Format("MainWindow.DownloadingUpdate.e0bc4a8a", (update?.DisplayVersion), (progress))
+                : L.Format("MainWindow.DownloadingUpdate.e964dce1", (update?.DisplayVersion)),
             UpdatePhase.ReadyToInstall when _settings.UpdatePolicy == Settings.UpdatePolicy.AutoDownloadAndInstall
-                => $"Update {update?.DisplayVersion} ready — installs when LightWeaver closes",
-            UpdatePhase.ReadyToInstall => $"Update {update?.DisplayVersion} ready — click to install",
-            UpdatePhase.Installing => $"Installing update {update?.DisplayVersion}…",
-            UpdatePhase.Error => "Update failed — open Settings to retry",
-            _ when update?.SetupAssetUri is null => $"Update available: {update?.DisplayVersion} — click to open release page",
-            _ => $"Update available: {update?.DisplayVersion} — click to download",
-        };
+                => L.Format("MainWindow.UpdateReadyInstallsWhenLightweaverCloses.06d15187", (update?.DisplayVersion)),
+            UpdatePhase.ReadyToInstall => L.Format("MainWindow.UpdateReadyClickToInstall.c3d0fb12", (update?.DisplayVersion)),
+            UpdatePhase.Installing => L.Format("MainWindow.InstallingUpdate.20b56e4f", (update?.DisplayVersion)),
+            UpdatePhase.Error => L.Text("MainWindow.UpdateFailedOpenSettingsToRetry.83b8a30c"),
+            _ when update?.SetupAssetUri is null => L.Format("MainWindow.UpdateAvailableClickToOpenReleasePage.5d7b3206", (update?.DisplayVersion)),
+            _ => L.Format("MainWindow.UpdateAvailableClickToDownload.3be9df23", (update?.DisplayVersion)),
+        });
         UpdateBanner.Visibility = _app.State == AppState.Browse && update is not null
             && status.Phase != UpdatePhase.Error && !_updateBannerDismissed
             ? Visibility.Visible : Visibility.Collapsed;
@@ -490,7 +503,7 @@ public partial class MainWindow : Window
             if (await _updateService.InstallNowAsync())
                 Close();
             else
-                ShowToast("The staged update could not be started.");
+                ShowToast(L.Text("MainWindow.TheStagedUpdateCouldNotBeStarted.8c9f8ddf"));
             return;
         }
         if (status.Update is null)
@@ -587,7 +600,7 @@ public partial class MainWindow : Window
                     _shell.Home = new HomeView(_app);
                     _shell.Home.ItemSelected += OnBrowseItemSelected;
                     _shell.Home.SeeAllRequested += OnSeeAllRequested;
-                    _nav.Reset(new NavFrame(_shell.Home, "Home", NavHome, IsRailRoot: true));
+                    _nav.Reset(new NavFrame(_shell.Home, L.Text("MainWindow.Home.87ce0665"), NavHome, IsRailRoot: true, TitleProvider: () => L.Text("MainWindow.Home.87ce0665")));
                 }
                 ShellHost.Content = _nav.Current!.View;
                 BrowseLayer.Visibility = Visibility.Visible;
@@ -621,9 +634,9 @@ public partial class MainWindow : Window
 
     /// <summary>Push a new destination onto history. New frames inherit the current
     /// frame's rail highlight (a detail/search opened from a library keeps that library lit).</summary>
-    private void NavigateTo(System.Windows.Controls.UserControl view, string title)
+    private void NavigateTo(System.Windows.Controls.UserControl view, string title, Func<string>? titleProvider = null)
     {
-        _nav.Navigate(new NavFrame(view, title, _nav.Current?.Rail));
+        _nav.Navigate(new NavFrame(view, title, _nav.Current?.Rail, TitleProvider: titleProvider));
         ShowCurrentFrame();
     }
 
@@ -713,19 +726,19 @@ public partial class MainWindow : Window
     private void OnSeeAllRequested(Settings.HomeSectionId id)
     {
         var jf = _app.Jellyfin;
-        (string Title, Func<int, int, Task<(List<Jellyfin.MediaItem>, int)>> Query)? section = id switch
+        (Func<string> Title, Func<int, int, Task<(List<Jellyfin.MediaItem>, int)>> Query)? section = id switch
         {
-            Settings.HomeSectionId.Resume => ("Continue Watching", jf.GetResumePagedAsync),
-            Settings.HomeSectionId.NextUp => ("Next Up", jf.GetNextUpPagedAsync),
-            Settings.HomeSectionId.Latest => ("Recently Added", jf.GetLatestPagedAsync),
-            Settings.HomeSectionId.Favorites => ("Favorites", jf.GetFavoritesPagedAsync),
+            Settings.HomeSectionId.Resume => (() => L.Text("MainWindow.ContinueWatching.9caddea3"), jf.GetResumePagedAsync),
+            Settings.HomeSectionId.NextUp => (() => L.Text("MainWindow.NextUp.384edff8"), jf.GetNextUpPagedAsync),
+            Settings.HomeSectionId.Latest => (() => L.Text("MainWindow.RecentlyAdded.ed82647c"), jf.GetLatestPagedAsync),
+            Settings.HomeSectionId.Favorites => (() => L.Text("MainWindow.Favorites.599eff59"), jf.GetFavoritesPagedAsync),
             _ => null,   // Libraries has no see-all: the rail is already the complete list
         };
         if (section is not { } s)
             return;
         var view = new Views.SectionView(s.Query);
         view.ItemSelected += OnBrowseItemSelected;
-        NavigateTo(view, s.Title);
+        NavigateTo(view, s.Title(), s.Title);
     }
 
     // ---- Card hover action bar (Phase 7 M10) ----------------------------------------
@@ -751,7 +764,7 @@ public partial class MainWindow : Window
         {
             Diagnostics.AppLog.Detail("main",
                 $"event=card_action action=toggle-watched outcome=failure item={item.Id:N} type={item.Type}", ex);
-            ShowToast("Could not update watched state.");
+            ShowToast(L.Text("MainWindow.CouldNotUpdateWatchedState.f13a0822"));
         }
     }
 
@@ -773,17 +786,17 @@ public partial class MainWindow : Window
         Diagnostics.AppLog.Detail("main", $"event=card_action action=copy-stream-url item={item.Id:N} type={item.Type}");
         if (_app.Jellyfin.GetShareableStreamUrl(item.Id) is not { } url)
         {
-            ShowToast("Not connected to a server.");
+            ShowToast(L.Text("MainWindow.NotConnectedToAServer.be7bffc6"));
             return;
         }
         try
         {
             Clipboard.SetText(url);
-            ShowToast("Stream URL copied.");
+            ShowToast(L.Text("MainWindow.StreamUrlCopied.b94f2cd2"));
         }
         catch
         {
-            ShowToast("Could not access the clipboard.");
+            ShowToast(L.Text("MainWindow.CouldNotAccessTheClipboard.3937e266"));
         }
     }
 
@@ -810,17 +823,17 @@ public partial class MainWindow : Window
             if (!failed)
                 Diagnostics.AppLog.Detail("main",
                     $"event=card_action action=media-info outcome=empty elapsed_ms={started.ElapsedMilliseconds} item={item.Id:N} type={item.Type}");
-            ShowToast("No media info available.");
+            ShowToast(L.Text("MainWindow.NoMediaInfoAvailable.867efab2"));
             return;
         }
 
         var rows = new List<Jellyfin.MediaInfoField>(streams.Summary);
         if (streams.Video.Count > 1)
-            rows.Add(new Jellyfin.MediaInfoField("Video tracks", streams.Video.Count.ToString()));
+            rows.Add(new Jellyfin.MediaInfoField(L.Text("MainWindow.VideoTracks.604a3bf4"), streams.Video.Count.ToString()) { LabelKey = "MainWindow.VideoTracks.604a3bf4" });
         if (streams.Audio.Count > 0)
-            rows.Add(new Jellyfin.MediaInfoField("Audio", string.Join(" · ", streams.Audio.Select(a => a.Display))));
+            rows.Add(new Jellyfin.MediaInfoField(L.Text("MainWindow.Audio.809faaff"), string.Join(" · ", streams.Audio.Select(a => a.Display))) { LabelKey = "MainWindow.Audio.809faaff" });
         if (streams.Subtitles.Count > 0)
-            rows.Add(new Jellyfin.MediaInfoField("Subtitles", string.Join(" · ", streams.Subtitles.Select(s => s.Display))));
+            rows.Add(new Jellyfin.MediaInfoField(L.Text("MainWindow.Subtitles.d183eb2e"), string.Join(" · ", streams.Subtitles.Select(s => s.Display))) { LabelKey = "MainWindow.Subtitles.d183eb2e" });
 
         var list = new ItemsControl
         {
@@ -840,7 +853,7 @@ public partial class MainWindow : Window
         var panel = new StackPanel();
         panel.Children.Add(title);
         panel.Children.Add(list);
-        var popup = new Window
+        var popup = LiveText.Bind(new Window
         {
             Owner = this,
             WindowStyle = WindowStyle.None,
@@ -850,7 +863,6 @@ public partial class MainWindow : Window
             SizeToContent = SizeToContent.WidthAndHeight,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ShowInTaskbar = false,
-            Title = "Media info",
             Content = new Border
             {
                 Background = (Brush)FindResource("LwStorm2Brush"),
@@ -861,10 +873,11 @@ public partial class MainWindow : Window
                 CornerRadius = (CornerRadius)FindResource("LwR3"),
                 Padding = new Thickness(18, 14, 18, 14),
                 Child = panel,
-            },
-        };
+            }
+        }, "Title", () => L.Text("MainWindow.MediaInfo.36f82419"));
         // Non-modal on purpose: click-away (Deactivated) or Esc dismisses; a modal
         // ShowDialog would also block UIA invokes in the verify suite.
+        LiveText.Watch(popup);
         popup.Deactivated += (_, _) => popup.Close();
         popup.KeyDown += (_, args) => { if (args.Key == Key.Escape) popup.Close(); };
         popup.Show();
@@ -881,21 +894,22 @@ public partial class MainWindow : Window
             return;
         Diagnostics.AppLog.Detail("main", $"event=card_action action=open-menu item={item.Id:N} type={item.Type}");
         var menu = new ContextMenu { Style = (Style)FindResource("LwContextMenu") };
-        menu.Items.Add(CardMenuItem("Media info",
+        menu.Items.Add(CardMenuItem(() => L.Text("MainWindow.MediaInfo.36f82419"),
             () => CardCommands.ShowMediaInfo.Execute(item, this)));
-        menu.Items.Add(CardMenuItem("Copy stream URL",
+        menu.Items.Add(CardMenuItem(() => L.Text("MainWindow.CopyStreamUrl.d7188f29"),
             () => CardCommands.CopyStreamUrl.Execute(item, this)));
         menu.Items.Add(new Separator { Style = (Style)FindResource("LwMenuSeparator") });
-        menu.Items.Add(CardMenuItem(item.Played ? "Mark as unwatched" : "Mark as watched",
+        menu.Items.Add(CardMenuItem(() => item.Played ? L.Text("MainWindow.MarkAsUnwatched.0b4368ff") : L.Text("MainWindow.MarkAsWatched.1f5c0d39"),
             () => CardCommands.ToggleWatched.Execute(item, this)));
         menu.PlacementTarget = e.OriginalSource as UIElement ?? this;
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         menu.IsOpen = true;
     }
 
-    private MenuItem CardMenuItem(string header, Action action)
+    private MenuItem CardMenuItem(Func<string> header, Action action)
     {
-        var item = new MenuItem { Header = header, Style = (Style)FindResource("LwMenuItem") };
+        var item = new MenuItem { Style = (Style)FindResource("LwMenuItem") };
+        LiveText.Bind(item, "Header", () => header());
         item.Click += (_, _) => action();
         return item;
     }
@@ -908,7 +922,7 @@ public partial class MainWindow : Window
         BrowseHeader.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         BrowseBackBtn.Visibility = show && _nav.CanGoBack ? Visibility.Visible : Visibility.Collapsed;
         BrowseForwardBtn.Visibility = show && _nav.CanGoForward ? Visibility.Visible : Visibility.Collapsed;
-        BrowseTitle.Text = show && _nav.Current is { } f ? f.Title : "";
+        BrowseTitle.Text = show && _nav.Current is { } f ? f.DisplayTitle : "";
         // ASS redesign P5/P6: on the Advanced Search screen its own field is the single
         // search input — the global quick-search pill and the (redundant) Advanced
         // affordance hide; both return on any navigation away.
@@ -967,7 +981,7 @@ public partial class MainWindow : Window
         if (_shell.Home is null)
             return;   // not yet in a browse session
         // Records history (Back returns to where you were) instead of truncating it.
-        _nav.Navigate(new NavFrame(_shell.Home, "Home", NavHome, IsRailRoot: true));
+        _nav.Navigate(new NavFrame(_shell.Home, L.Text("MainWindow.Home.87ce0665"), NavHome, IsRailRoot: true, TitleProvider: () => L.Text("MainWindow.Home.87ce0665")));
         ShowCurrentFrame();
     }
 
@@ -981,10 +995,10 @@ public partial class MainWindow : Window
         if (_downloadsView is null)
         {
             _downloadsView = new DownloadsView(_downloads,
-                (title, body) => Modal.ConfirmAsync(title, body, "Delete", destructive: true));
+                (title, body) => Modal.ConfirmAsync(title, body, L.Text("MainWindow.Delete.56bb9077"), destructive: true));
             _downloadsView.PlayRequested += OnDownloadPlayRequested;
         }
-        _nav.Navigate(new NavFrame(_downloadsView, "Downloads", NavDownloads, IsRailRoot: true));
+        _nav.Navigate(new NavFrame(_downloadsView, L.Text("MainWindow.Downloads.4bb41a3c"), NavDownloads, IsRailRoot: true, TitleProvider: () => L.Text("MainWindow.Downloads.4bb41a3c")));
         ShowCurrentFrame();
     }
 
@@ -1020,7 +1034,7 @@ public partial class MainWindow : Window
         if (_downloads.TryGetPartialStreamUrl(download.ItemId) is { } partialUrl)
             PlayUrl(partialUrl, null, download.ItemId, download.Title, download.Subtitle);
         else
-            ShowToast("Not enough of this download has arrived yet.");
+            ShowToast(L.Text("MainWindow.NotEnoughOfThisDownloadHasArrived.6f4c9c8c"));
     }
 
     // ---- Download flows (M20) ---------------------------------------------------------
@@ -1038,13 +1052,13 @@ public partial class MainWindow : Window
     {
         if (options.Count == 0)
         {
-            ShowToast("No downloadable video source.");
+            ShowToast(L.Text("MainWindow.NoDownloadableVideoSource.db0a9714"));
             return null;
         }
         var pre = options.ToList().FindIndex(o =>
             o.Resolution.Equals(_settings.DefaultDownloadResolution, StringComparison.OrdinalIgnoreCase));
-        var pick = await Modal.ChooseAsync("Download", title,
-            options.Select(o => o.Label).ToList(), "Download", Math.Max(0, pre));
+        var pick = await Modal.ChooseAsync(L.Text("MainWindow.Download.6b5dfaec"), title,
+            options.Select(o => o.Label).ToList(), L.Text("MainWindow.Download.6b5dfaec"), Math.Max(0, pre));
         return pick is { } i ? options[i] : null;
     }
 
@@ -1057,12 +1071,12 @@ public partial class MainWindow : Window
             return;
         if (options is null)
         {
-            ShowToast("Could not load download options. Check your connection and try again.");
+            ShowToast(L.Text("MainWindow.CouldNotLoadDownloadOptionsCheckYour.0de30316"));
             return;
         }
         if (options.Count == 0)
         {
-            ShowToast("No downloadable video source for this item.");
+            ShowToast(L.Text("MainWindow.NoDownloadableVideoSourceForThisItem.c87f7a33"));
             return;
         }
 
@@ -1070,13 +1084,13 @@ public partial class MainWindow : Window
         if (opt is null)
             return;
         EnqueueDownload(item, opt, includeSourceId: true);
-        ShowToast($"Downloading “{item.Name}”.");
+        ShowToast(L.Format("MainWindow.Downloading.3777412c", (item.Name)));
     }
 
     private async void OnDownloadRemoveRequested(Jellyfin.MediaItem item)
     {
-        if (!await Modal.ConfirmAsync("Delete download?",
-                $"“{item.Name}” will be removed from this device.", "Delete", destructive: true))
+        if (!await Modal.ConfirmAsync(L.Text("MainWindow.DeleteDownload.9f4d343e"),
+                L.Format("MainWindow.WillBeRemovedFromThisDevice.d7453c65", (item.Name)), L.Text("MainWindow.Delete.56bb9077"), destructive: true))
             return;
         _downloads.Remove(item.Id);
         await BroadcastDownloadBadgeAsync(item.Id);
@@ -1105,22 +1119,22 @@ public partial class MainWindow : Window
             episodes = episodes.Where(i => !_downloads.IsDownloaded(i.Id)).ToList();
             if (episodes.Count == 0)
             {
-                ShowToast("Nothing new to download.");
+                ShowToast(L.Text("MainWindow.NothingNewToDownload.ca8b424e"));
                 return;
             }
             var opt = await PickDownloadOptionAsync(episodes[0].Id,
-                $"{container.Name} — {episodes.Count} episode{(episodes.Count == 1 ? "" : "s")}");
+                episodes.Count == 1 ? L.Format("MainWindow.1Episode.151f7c91", container.Name) : L.Format("MainWindow.Episodes.6dc37413", container.Name, episodes.Count));
             if (opt is null)
                 return;
             // Batch items omit the sampled MediaSourceId — it belongs to the first
             // episode only; the server serves each item's default source without it.
             foreach (var ep in episodes)
                 EnqueueDownload(ep, opt, includeSourceId: false);
-            ShowToast($"Queued {episodes.Count} download{(episodes.Count == 1 ? "" : "s")}.");
+            ShowToast(episodes.Count == 1 ? L.Text("MainWindow.Queued1Download.ed12bfce") : L.Format("MainWindow.QueuedDownloads.c3e812a0", episodes.Count));
         }
         catch (Exception ex)
         {
-            ShowToast($"Could not queue downloads: {ex.Message}");
+            ShowToast(L.Format("MainWindow.CouldNotQueueDownloads.dade3799", (ex.Message)));
         }
     }
 
@@ -1186,7 +1200,7 @@ public partial class MainWindow : Window
     {
         var name = Jellyfin.CredentialStore.Load()?.Username;
         if (string.IsNullOrWhiteSpace(name))
-            name = "Account";
+            name = L.Text("MainWindow.Account.8cc6b0b8");
         ProfileButton.ApplyTemplate();
         if (ProfileButton.Template.FindName("ProfileName", ProfileButton) is TextBlock nameBlock)
             nameBlock.Text = name;
@@ -1209,6 +1223,7 @@ public partial class MainWindow : Window
         try
         {
             var libraries = await jf.GetLibrariesAsync();
+            shell.Libraries = libraries;
             shell.RailItems.Clear();
             shell.LibraryNav.Clear();
             foreach (var lib in libraries)
@@ -1219,6 +1234,8 @@ public partial class MainWindow : Window
             }
             if (ReferenceEquals(shell, _shell))
             {
+                if (ReferenceEquals(_nav.Current?.View, _settingsView))
+                    _settingsView?.SetLibraries(jf.ServerUrl ?? "", libraries);
                 LibrariesNav.Children.Clear();
                 foreach (var item in shell.RailItems)
                     LibrariesNav.Children.Add(item);
@@ -1247,6 +1264,8 @@ public partial class MainWindow : Window
         };
         item.SetValue(System.Windows.Automation.AutomationProperties.AutomationIdProperty,
             "NavLibrary_" + lib.Name);
+        LiveText.Bind(item, "Content", () => lib.LibraryDisplayName);
+        LiveText.Bind(item, "ToolTip", () => lib.LibraryDisplayName);
         item.Click += (_, _) => OnRailLibraryClick(lib, item);
         return item;
     }
@@ -1257,7 +1276,8 @@ public partial class MainWindow : Window
         SearchBox.Clear();
         // Records history (Back no longer nukes the chain you came from); the rail root
         // de-dupe makes re-clicking the library you're already at a no-op.
-        _nav.Navigate(new NavFrame(CreateLibraryView(lib), lib.Name, item, IsRailRoot: true));
+        _nav.Navigate(new NavFrame(CreateLibraryView(lib), lib.Name, item, IsRailRoot: true,
+            TitleProvider: () => lib.LibraryDisplayName));
         ShowCurrentFrame();
     }
 
@@ -1358,14 +1378,14 @@ public partial class MainWindow : Window
             if (shell.Search is not null && ReferenceEquals(_nav.Current?.View, shell.Search))
             {
                 // refine in place instead of stacking a view per keystroke
-                _nav.ReplaceCurrent(new NavFrame(shell.Search, $"Search: {term}", _nav.Current!.Rail));
+                _nav.ReplaceCurrent(new NavFrame(shell.Search, L.Format("MainWindow.Search.74fc6ef3", (term)), _nav.Current!.Rail, TitleProvider: () => L.Format("MainWindow.Search.74fc6ef3", (term))));
                 UpdateBrowseHeader();
             }
             else
             {
                 shell.Search = new SearchResultsView();
                 shell.Search.ItemSelected += OnBrowseItemSelected;
-                NavigateTo(shell.Search, $"Search: {term}");
+                NavigateTo(shell.Search, L.Format("MainWindow.Search.74fc6ef3", (term)), () => L.Format("MainWindow.Search.74fc6ef3", (term)));
             }
             shell.Search.SetResults(results);
             Diagnostics.AppLog.Detail("search",
@@ -1427,7 +1447,7 @@ public partial class MainWindow : Window
         }
         else if (item.IsBrowsable)
         {
-            NavigateTo(CreateLibraryView(item), item.Name);
+            NavigateTo(CreateLibraryView(item), item.Name, () => item.LibraryDisplayName);
         }
     }
 
@@ -1445,8 +1465,8 @@ public partial class MainWindow : Window
     {
         var genres = new GenresView(_app, library);
         genres.GenreSelected += genre =>
-            NavigateTo(CreateLibraryView(library, genre), $"{library.Name} · {genre}");
-        NavigateTo(genres, $"{library.Name} · Genres");
+            NavigateTo(CreateLibraryView(library, genre), $"{library.LibraryDisplayName} · {genre}", () => $"{library.LibraryDisplayName} · {genre}");
+        NavigateTo(genres, L.Format("MainWindow.Genres.89403381", library.LibraryDisplayName), () => L.Format("MainWindow.Genres.89403381", library.LibraryDisplayName));
     }
 
     private void OnAdvancedSearch(object sender, RoutedEventArgs e) => OpenAdvancedSearch();
@@ -1461,7 +1481,7 @@ public partial class MainWindow : Window
         view.ItemSelected += OnBrowseItemSelected;
         // Global search — belongs to no library, so navigate railless (Rail=null); the
         // header's rail logic then clears any active-library highlight.
-        _nav.Navigate(new NavFrame(view, "Advanced search", null));
+        _nav.Navigate(new NavFrame(view, L.Text("MainWindow.AdvancedSearch.63af2684"), null, TitleProvider: () => L.Text("MainWindow.AdvancedSearch.63af2684")));
         ShowCurrentFrame();
     }
 
@@ -1533,7 +1553,7 @@ public partial class MainWindow : Window
             _playingLocal = true;
             _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
                 available: false, visible: false);
-            _playerViewModel.SetPlayMethod("Local file");
+            _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.LocalFile.cdf72b6f"));
             PlayCore(local.FilePath, null);
             return;
         }
@@ -1557,7 +1577,7 @@ public partial class MainWindow : Window
             _partialStreamSequence = playbackSequence;
             _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
                 available: false, visible: false);
-            _playerViewModel.SetPlayMethod("Local file (downloading)");
+            _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.LocalFileDownloading.de8ba257"));
             PlayCore(partialUrl, null);
             return;
         }
@@ -1633,7 +1653,7 @@ public partial class MainWindow : Window
             items = items.Where(i => i.IsPlayable).ToList();
             if (items.Count == 0)
             {
-                ShowToast("Nothing playable in here.");
+                ShowToast(L.Text("MainWindow.NothingPlayableInHere.380074e4"));
                 return;
             }
             // M15: a show/season plays through its UNWATCHED episodes; a fully-watched
@@ -1660,7 +1680,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ShowToast($"Could not start the queue: {ex.Message}");
+            ShowToast(L.Format("MainWindow.CouldNotStartTheQueue.073622ef", (ex.Message)));
         }
     }
 
@@ -1691,7 +1711,7 @@ public partial class MainWindow : Window
             return; // user navigated away, or replayed, while negotiating
         }
         _playbackDecision = decision;
-        _playerViewModel.SetPlayMethod(decision is { IsTranscode: true } ? "Transcode (HLS)" : "Direct play");
+        _playerViewModel.SetLivePlayMethod(() => decision is { IsTranscode: true } ? L.Text("MainWindow.TranscodeHls.380bd75b") : L.Text("MainWindow.DirectPlay.1e80cd9c"));
         // The version list is fetched in parallel and usually lands first, when the only source
         // id in hand is the pick (null for an unpicked item). This is where the source actually
         // serving the stream becomes known, so it is where the marked row is settled.
@@ -1718,7 +1738,7 @@ public partial class MainWindow : Window
         // for why an item-id-only guard is not enough.
         var playbackSequence = _playbackSequence;
         _playerViewModel.SetQualityState(_overrideMaxBitrateMbps, true,
-            _settings.MaxStreamingBitrateMbps, "Retrying through the server transcoder...",
+            _settings.MaxStreamingBitrateMbps, L.Text("MainWindow.RetryingThroughTheServerTranscoder.4f3837ce"),
             available: false);
         _app.PublishStopReport(_reporter?.Stop());
         var reportBarrier = _app.PendingStopReport ?? Task.CompletedTask;
@@ -1742,9 +1762,9 @@ public partial class MainWindow : Window
         {
             _playbackDecision = decision;
             _overrideForceTranscode = true;
-            _playerViewModel.SetPlayMethod("Transcode (HLS)");
+            _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.TranscodeHls.380bd75b"));
             _playerViewModel.SetQualityState(_overrideMaxBitrateMbps, true,
-                _settings.MaxStreamingBitrateMbps, "Loading server transcode...",
+                _settings.MaxStreamingBitrateMbps, L.Text("MainWindow.LoadingServerTranscode.8f468d59"),
                 available: false);
             PlayCore(decision.Url, jf.AuthorizationHeader, reportBarrier,
                 _qualityTrackSelection);
@@ -1754,7 +1774,7 @@ public partial class MainWindow : Window
             if (decision is not null)
                 _ = jf.DiscardUnplayedDecisionAsync(decision);
             StopPlaybackAndReturn();
-            ShowToast($"Playback failed: {reason}");
+            ShowToast(L.Format("MainWindow.PlaybackFailed.9dbf7713", (reason)));
         }
     }
 
@@ -1777,7 +1797,7 @@ public partial class MainWindow : Window
         var playbackSequence = _playbackSequence;
         var label = _playerViewModel.Versions
             .FirstOrDefault(v => string.Equals(v.Id, mediaSourceId, StringComparison.Ordinal))
-            ?.Display ?? "the chosen version";
+            ?.Display ?? L.Text("MainWindow.TheChosenVersion.2cb14f6d");
         var applied = await ApplyStreamChangeAsync(
             new QualityRequest(_overrideMaxBitrateMbps, _overrideForceTranscode), mediaSourceId,
             label, "version",
@@ -1815,12 +1835,21 @@ public partial class MainWindow : Window
     /// <param name="forced">An explicit source-stream pick to negotiate instead of whatever the
     /// live selection carries, or null to keep reading it back from mpv.</param>
     /// <returns>Whether the change reached the stream.</returns>
+    private static string StreamChangeNoun(string noun) => noun switch
+    {
+        "quality" => L.Text("MainWindow.Quality.b2237701"),
+        "version" => L.Text("MainWindow.Version.4e9eee4a"),
+        "audio track" => L.Text("MainWindow.AudioTrack.fedd5ee0"),
+        "subtitles" => L.Text("MainWindow.Subtitles.0a38ced3"),
+        _ => noun,
+    };
+
     private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,
         string description, string noun, Action<string, int> detail, ForcedStreamPick? forced = null)
     {
         if (_syncPlay.IsInGroup)
         {
-            ShowToast("Leave the group to change playback quality or version.");
+            ShowToast(L.Text("MainWindow.LeaveTheGroupToChangePlaybackQuality.202c2ebb"));
             return false;
         }
         if (_playingItem is not { } item || _playingLocal || _player is not { } player
@@ -1835,7 +1864,7 @@ public partial class MainWindow : Window
         var requestedBitrateBps = (request.MaxBitrateMbps ?? _settings.MaxStreamingBitrateMbps)
             * 1_000_000;
         _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
-            _settings.MaxStreamingBitrateMbps, $"Applying {description}…");
+            _settings.MaxStreamingBitrateMbps, L.Format("MainWindow.Applying.bd4ff2cb", (description)));
         detail("requested", requestSequence);
 
         var jf = _playbackJf ?? _app.Jellyfin;
@@ -1895,9 +1924,9 @@ public partial class MainWindow : Window
                 priorForceTranscode, _settings.MaxStreamingBitrateMbps);
             _playerViewModel.SetQualityState(priorMaxBitrate, priorForceTranscode,
                 _settings.MaxStreamingBitrateMbps,
-                $"Could not change {noun}. Still using {priorDescription}.");
+                L.Format("MainWindow.CouldNotChangeStillUsing.bf5bade5", StreamChangeNoun(noun), (priorDescription)));
             detail("failure", requestSequence);
-            ShowToast($"Could not change playback {noun}.");
+            ShowToast(L.Format("MainWindow.CouldNotChangePlayback.4449b18d", StreamChangeNoun(noun)));
             return false;
         }
 
@@ -1928,7 +1957,7 @@ public partial class MainWindow : Window
             AdoptChosenSource(newMediaSourceId);
             _playerViewModel.SetCurrentVersion(priorDecision.MediaSourceId);
             _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
-                _settings.MaxStreamingBitrateMbps, $"{description} · Direct play");
+                _settings.MaxStreamingBitrateMbps, L.Format("MainWindow.DirectPlay.c48265cc", (description)));
             detail("no_reload", requestSequence);
             await jf.DiscardUnplayedDecisionAsync(decision);
             return true;
@@ -1950,10 +1979,10 @@ public partial class MainWindow : Window
         // still carries the outgoing one — so a version switch is a clean stop of the old source
         // followed by a start of the new one, never a session silently retargeted.
         _playerViewModel.SetCurrentVersion(decision.MediaSourceId);
-        var playMethod = decision.IsTranscode ? "Transcode (HLS)" : "Direct play";
-        _playerViewModel.SetPlayMethod(playMethod);
+        var playMethod = decision.IsTranscode ? L.Text("MainWindow.TranscodeHls.380bd75b") : L.Text("MainWindow.DirectPlay.1e80cd9c");
+        _playerViewModel.SetLivePlayMethod(() => decision.IsTranscode ? L.Text("MainWindow.TranscodeHls.380bd75b") : L.Text("MainWindow.DirectPlay.1e80cd9c"));
         _playerViewModel.SetQualityState(request.MaxBitrateMbps, request.ForceTranscode,
-            _settings.MaxStreamingBitrateMbps, $"Loading {description}...",
+            _settings.MaxStreamingBitrateMbps, L.Format("MainWindow.Loading.afe7bd08", (description)),
             available: false);
 
         try
@@ -1971,7 +2000,7 @@ public partial class MainWindow : Window
                 && _app.State == AppState.Playing)
                 StopPlaybackAndReturn();
             _ = jf.DiscardUnplayedDecisionAsync(decision);
-            ShowToast($"Playback failed: {ex.Message}");
+            ShowToast(L.Format("MainWindow.PlaybackFailed.9dbf7713", (ex.Message)));
             return false;
         }
         return true;
@@ -2288,7 +2317,7 @@ public partial class MainWindow : Window
         {
             var mediaInfo = await jf.GetMediaInfoAsync(item.Id);
             if (StillCurrent() && mediaInfo.Count > 0)
-                _playerViewModel.SetMediaInfo(mediaInfo.Select(f => new InfoRow(f.Label, f.Value)));
+                _playerViewModel.SetMediaInfo(mediaInfo.Select(f => new InfoRow(f.Label, f.Value) { LabelProvider = () => f.LiveLabel }));
         });
 
         // Alternate versions → the player's VERSIONS section. Local playback is skipped: the
@@ -2360,9 +2389,8 @@ public partial class MainWindow : Window
         {
             // M23: branded in-app alert instead of the native MessageBox.
             Diagnostics.AppLog.Error("player", "mpv failed to initialize", ex);
-            _ = Modal.AlertAsync("Playback engine failed",
-                $"Failed to initialize mpv:\n{ex.Message}\n\n" +
-                "Make sure libmpv-2.dll (mpv ≥ 0.40) is next to the exe or on PATH.");
+            _ = Modal.AlertAsync(L.Text("MainWindow.PlaybackEngineFailed.7e7cd92b"),
+                L.Format("MainWindow.FailedToInitializeMpvMakeSureLibmpv2DllMpv040IsNextToTheExeOrOnPath.c510cab0", ex.Message));
             return;
         }
 
@@ -2401,7 +2429,7 @@ public partial class MainWindow : Window
             Diagnostics.AppLog.Error("player", FormattableString.Invariant(
                 $"event=partial_stream_fallback outcome=unavailable item={partialItem:N}; the download stopped before the end of the file"));
             ReleasePartialStream();
-            ShowToast("The download stopped, so playback ended early.");
+            ShowToast(L.Text("MainWindow.TheDownloadStoppedSoPlaybackEndedEarly.dc8b8add"));
         };
         _playerViewModel.Attach(_player);
         AttachSyncPlayPlayer();
@@ -2498,7 +2526,7 @@ public partial class MainWindow : Window
             WritePlaybackFailureLog(reason, "playback stopped");
             if (_app.State == AppState.Playing)
                 StopPlaybackAndReturn();
-            ShowToast($"Playback failed: {reason}");
+            ShowToast(L.Format("MainWindow.PlaybackFailed.9dbf7713", (reason)));
         };
         // The provider is sampled at each Start(): reports pin to the session that
         // started the playback, surviving mid-play profile switches.
@@ -2543,7 +2571,7 @@ public partial class MainWindow : Window
             if (!stale && !_playingLocal && _playingItem is not null)
             {
                 var playMethod = _playbackDecision is { IsTranscode: true }
-                    ? "Transcode (HLS)" : "Direct play";
+                    ? L.Text("MainWindow.TranscodeHls.380bd75b") : L.Text("MainWindow.DirectPlay.1e80cd9c");
                 var quality = PlayerViewModel.QualityDescription(_overrideMaxBitrateMbps,
                     _overrideForceTranscode, _settings.MaxStreamingBitrateMbps);
                 _playerViewModel.SetQualityState(_overrideMaxBitrateMbps,
@@ -3041,7 +3069,7 @@ public partial class MainWindow : Window
     public void PlayUrl(string url, string? authHeader, Guid? partialStreamItem = null,
         string? title = null, string? subtitle = null)
     {
-        if (_syncPlay.IsInGroup) { ShowToast("Leave the group to open a local file or stream."); return; }
+        if (_syncPlay.IsInGroup) { ShowToast(L.Text("MainWindow.LeaveTheGroupToOpenALocal.cfca5a03")); return; }
         _syncPlayBinding?.Reset();
         _ = DiscardUnreportedLoad();
         // Retire the OUTGOING publication only. PlayItem publishes after its release (:1468 then
@@ -3157,7 +3185,7 @@ public partial class MainWindow : Window
             // No LoadPlaybackMetadataAsync re-run, unlike the server branch below: that pass is
             // re-run there because it first ran under _playingLocal, and this playback is still
             // local. Nothing it decided has changed.
-            _playerViewModel.SetPlayMethod("Local file");
+            _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.LocalFile.cdf72b6f"));
             PlayCore(local.FilePath, null);
             return true;
         }
@@ -3273,8 +3301,11 @@ public partial class MainWindow : Window
 
     private static Task DiscardUnreportedGeneration(SubtitleGenerationState? state)
     {
-        if (state is not { ReportStarted: false, DecisionDiscarded: false,
-                ReportDecision: { } decision, ReportOwner: { } owner })
+        if (state is not
+            {
+                ReportStarted: false, DecisionDiscarded: false,
+                ReportDecision: { } decision, ReportOwner: { } owner
+            })
             return state?.DiscardTask ?? Task.CompletedTask;
         state.DecisionDiscarded = true;
         return state.DiscardTask = owner.DiscardUnplayedDecisionAsync(decision);
@@ -3706,8 +3737,8 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Open media file",
-            Filter = "Media files|*.mkv;*.mp4;*.avi;*.mov;*.webm;*.ts;*.m2ts;*.flac;*.mp3;*.m4a|All files|*.*",
+            Filter = L.Text("MainWindow.MediaFiles.26c1af2d").Replace('|', ' ') + "|*.mkv;*.mp4;*.avi;*.mov;*.webm;*.ts;*.m2ts;*.flac;*.mp3;*.m4a|" + L.Text("MainWindow.AllFiles.8fc632e9").Replace('|', ' ') + "|*.*",
+            Title = L.Text("MainWindow.OpenMediaFile.c67c1c44")
         };
         if (dialog.ShowDialog(this) == true)
             PlayUrl(dialog.FileName, null);
@@ -3741,13 +3772,14 @@ public partial class MainWindow : Window
         }
 
         _settingsView ??= new SettingsView(_settings, () => _player, _playerViewModel, _updateService);
+        _settingsView.SetLibraries(_app.Jellyfin.ServerUrl ?? "", _shell.Libraries);
         if (ReferenceEquals(_nav.Current?.View, _settingsView))
         {
             Diagnostics.AppLog.Detail("main", "event=interaction action=open-settings outcome=already-current");
             return;
         }
         Diagnostics.AppLog.Detail("main", "event=interaction action=open-settings outcome=navigate");
-        _nav.Navigate(new NavFrame(_settingsView, "Settings", null));
+        _nav.Navigate(new NavFrame(_settingsView, L.Text("MainWindow.Settings.c52a02f6"), null, TitleProvider: () => L.Text("MainWindow.Settings.c52a02f6")));
         ShowCurrentFrame();
     }
 
@@ -3759,7 +3791,8 @@ public partial class MainWindow : Window
     {
         Diagnostics.AppLog.Detail("main", "event=interaction action=open-profile-switcher");
         var dialog = new Views.SwitchServerWindow(Jellyfin.CredentialStore.LoadProfiles(),
-            _app.IsSessionWarm) { Owner = this };
+            _app.IsSessionWarm)
+        { Owner = this };
         if (dialog.ShowDialog() != true)
         {
             Diagnostics.AppLog.Detail("main", "event=interaction action=profile-switch outcome=cancel");
@@ -3778,7 +3811,7 @@ public partial class MainWindow : Window
         if (!await _app.SwitchProfileAsync(profile))
         {
             Diagnostics.AppLog.Detail("main", "event=interaction action=profile-switch outcome=failure");
-            ShowToast($"Could not connect to {profile.ServerName ?? profile.ServerUrl} — the saved session may have expired.");
+            ShowToast(L.Format("MainWindow.CouldNotConnectToTheSavedSession.1ef8f20a", (profile.ServerName ?? profile.ServerUrl)));
         }
         else
         {
@@ -3789,9 +3822,9 @@ public partial class MainWindow : Window
     private async void OnLogout(object sender, RoutedEventArgs e)
     {
         // M23: destructive confirm through the in-app modal, not a native MessageBox.
-        if (!await Modal.ConfirmAsync("Log out?",
-                "This removes the saved session for this profile on this device.",
-                "Log out", destructive: true))
+        if (!await Modal.ConfirmAsync(L.Text("MainWindow.LogOut.85285b4a"),
+                L.Text("MainWindow.ThisRemovesTheSavedSessionForThisProfileOnThisDevice.713533aa"),
+                L.Text("MainWindow.LogOut.fa23e120"), destructive: true))
         {
             Diagnostics.AppLog.Detail("main", "event=interaction action=logout outcome=cancel");
             return;

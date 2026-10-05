@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
@@ -81,6 +82,7 @@ public partial class ActivityDots : UserControl
     public ActivityDots()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         // Deferred to Loaded so values set in XAML are in place first; the constructor
         // runs before any attribute is applied.
         Loaded += OnLoaded;

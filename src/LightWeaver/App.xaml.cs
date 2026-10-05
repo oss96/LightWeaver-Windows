@@ -8,17 +8,22 @@ namespace LightWeaver;
 /// </summary>
 public partial class App : Application
 {
+    public App()
+    {
+        // Generated Main calls InitializeComponent before OnStartup. Select the culture
+        // before App.xaml loads dictionaries containing localized templates.
+        InstallCrashHandlers();
+        Diagnostics.AppLog.StartSession();
+        MigrateLegacyAppData();
+        Localization.L.Initialize(Settings.SettingsStore.Load().UiLanguage);
+    }
+
     /// <summary>File passed on the command line to play at startup, if any.</summary>
     public string? StartupFile { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // First thing in the process, before the app-data migration and before any window
-        // exists: a crash during startup is precisely the one that leaves no other evidence.
-        InstallCrashHandlers();
-        Diagnostics.AppLog.StartSession();
         StartupLog($"App.OnStartup enter (args={e.Args.Length})");
-        MigrateLegacyAppData();
         if (e.Args.Length > 0)
             StartupFile = e.Args[0];
         base.OnStartup(e);

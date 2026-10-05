@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using LightWeaver.Jellyfin;
@@ -16,7 +17,7 @@ public partial class SwitchServerWindow : Window
     {
         public string ActiveMark => IsActive ? "✓" : "";
         public string Title => $"{Profile.Username} @ {Profile.ServerName ?? Profile.ServerUrl}";
-        public string Detail => IsWarm && !IsActive ? $"{Profile.ServerUrl}   ·   warm" : Profile.ServerUrl;
+        public string Detail => IsWarm && !IsActive ? L.Format("SwitchServerWindow.Warm.52333be5", (Profile.ServerUrl)) : Profile.ServerUrl;
         public override string ToString() => Title;
     }
 
@@ -29,6 +30,7 @@ public partial class SwitchServerWindow : Window
     public SwitchServerWindow(CredentialProfiles profiles, Func<SavedCredentials, bool>? isWarm = null)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         for (var i = 0; i < profiles.Profiles.Count; i++)
             ProfilesList.Items.Add(new ProfileRow(profiles.Profiles[i], i == profiles.ActiveIndex,
                 isWarm?.Invoke(profiles.Profiles[i]) ?? false));

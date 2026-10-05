@@ -50,6 +50,7 @@ internal static class PartialStreamFixture
             CheckConnectionLimits(root);
             CheckStallBound(root);
             CheckResumeCoverage();
+            CheckRangeRefusal(root);
             CheckPlayerAgainstServer(root);
         }
         finally
@@ -567,6 +568,296 @@ internal static class PartialStreamFixture
                 oneHour, twoHours), "with the pad covered it is offered");
         });
     }
+
+    // ---- the real download engine against a real server --------------------------------
+
+    /// <summary>
+    /// What the engine does when a resume is answered 416. The target path is deterministic and
+    /// "Clear completed" keeps the file, so downloading an item again resumes from a file that is
+    /// already COMPLETE: the server refuses <c>bytes=N-</c> on an N-byte resource, and that used to
+    /// end as "Failed · HTTP 416" with the finished file sitting right there.
+    ///
+    /// <para>The real <see cref="DownloadManager"/>, driven through <c>Enqueue</c> exactly as the
+    /// UI drives it, against a raw TcpListener in the <see cref="HttpMediaFixture"/> shape that
+    /// records what it was asked and what it sent. Offscreen: no window, no mpv, loopback only.
+    /// The index lands under the run's own LIGHTWEAVER_TEST_APPDATA_ROOT.</para>
+    /// </summary>
+    private static void CheckRangeRefusal(string root)
+    {
+        var content = new byte[256 * 1024];
+        for (var i = 0; i < content.Length; i++)
+            content[i] = FakeDownload.At(i);
+        var whole = (long)content.Length;
+
+        Test("a complete leftover file is recognised as complete, not downloaded again", () =>
+        {
+            var path = Path.Combine(root, "dl-complete.mkv");
+            File.WriteAllBytes(path, content);
+            using var server = new RangeServer(content);
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(null, done.ErrorMessage, "no error on the row");
+            Expect(whole, done.TotalBytes, "TotalBytes is the file's size");
+            Expect(whole, done.BytesDownloaded, "BytesDownloaded is the file's size");
+            Expect(1d, done.Progress, "progress");
+            Expect(1, completions, "Completed is raised once");
+            var served = server.Served;
+            Expect(1, served.Count, "one request, and no second full download");
+            Expect(FormattableString.Invariant($"bytes={whole}-"), served[0].Range, "the resume asked from the file's end");
+            Expect(416, served[0].Status, "the server refused it");
+            Expect(0L, served.Sum(s => s.BodyBytes), "no body bytes were sent");
+            ExpectFile(path, content);
+        });
+
+        Test("an oversized leftover file is restarted from byte 0 and ends at the right size", () =>
+        {
+            var path = Path.Combine(root, "dl-oversized.mkv");
+            var corrupt = new byte[content.Length + 1000];
+            Array.Fill(corrupt, (byte)0xEE);
+            File.WriteAllBytes(path, corrupt);
+            using var server = new RangeServer(content);
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(whole, done.TotalBytes, "TotalBytes is the server's size, not the leftover's");
+            Expect(1, completions, "Completed is raised once");
+            var served = server.Served;
+            Expect(2, served.Count, "one refused resume and one restart");
+            Expect(FormattableString.Invariant($"bytes={corrupt.Length}-"), served[0].Range, "the resume");
+            Expect(416, served[0].Status, "the resume was refused");
+            Expect(null, served[1].Range, "the restart asks for the whole file");
+            Expect(200, served[1].Status, "the restart is a plain 200");
+            Expect(whole, served[1].BodyBytes, "the restart fetched the whole file once");
+            ExpectFile(path, content);
+        });
+
+        Test("a 416 with no Content-Range restarts rather than trusting the leftover", () =>
+        {
+            // The safe reading of a 416 that names no total: nothing proves the file complete, and a
+            // wrong Completed is the expensive mistake — PlayItem prefers it over the server (B15).
+            var path = Path.Combine(root, "dl-no-content-range.mkv");
+            File.WriteAllBytes(path, content);
+            using var server = new RangeServer(content) { OmitContentRange = true };
+            var (done, _) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(2, server.Served.Count, "refused, then restarted");
+            Expect(null, server.Served[1].Range, "the restart asks for the whole file");
+            ExpectFile(path, content);
+        });
+
+        Test("a transcoded download is restarted on a 416 even when the sizes match", () =>
+        {
+            // An encode is not byte-identical from one run to the next, so the right SIZE is not
+            // evidence of the right bytes for a transcode the way it is for the original file.
+            var path = Path.Combine(root, "dl-transcoded.mkv");
+            File.WriteAllBytes(path, content);
+            using var server = new RangeServer(content);
+            var (done, _) = RunDownload(server, path, transcoded: true);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(2, server.Served.Count, "refused, then restarted");
+            Expect(200, server.Served[1].Status, "the restart is a plain 200");
+            ExpectFile(path, content);
+        });
+
+        Test("a server that refuses the restart too fails the row instead of looping", () =>
+        {
+            var path = Path.Combine(root, "dl-refuse-all.mkv");
+            File.WriteAllBytes(path, new byte[content.Length + 1000]);
+            using var server = new RangeServer(content) { RefuseEverything = true };
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Failed, done.Status, "status");
+            Expect("HTTP 416", done.ErrorMessage, "the row names the refusal");
+            Expect(0, completions, "nothing completed");
+            Thread.Sleep(300);
+            Expect(2, server.Served.Count, "one resume and one restart, never a third");
+        });
+
+        Test("a partial leftover file still resumes with a 206 from its own length", () =>
+        {
+            const int prefix = 100_000;
+            var path = Path.Combine(root, "dl-partial.mkv");
+            File.WriteAllBytes(path, content.AsSpan(0, prefix).ToArray());
+            using var server = new RangeServer(content);
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(whole, done.TotalBytes, "TotalBytes");
+            Expect(1, completions, "Completed is raised once");
+            var served = server.Served;
+            Expect(1, served.Count, "one request");
+            Expect(FormattableString.Invariant($"bytes={prefix}-"), served[0].Range, "resumed from the file's length");
+            Expect(206, served[0].Status, "the server honoured the range");
+            Expect(whole - prefix, served[0].BodyBytes, "only the missing tail was sent");
+            ExpectFile(path, content);
+        });
+    }
+
+    /// <summary>Enqueues one item on a fresh engine and waits for it to settle. A fresh engine per
+    /// leg so no leg's state is another's precondition; the shared on-disk index only ever holds
+    /// settled entries with their own ids, which a new engine loads and leaves alone.</summary>
+    private static (DownloadItem Item, int Completions) RunDownload(RangeServer server, string path,
+        bool transcoded = false)
+    {
+        using var manager = new DownloadManager(() => 1, _ => server.Url, _ => "MediaBrowser Token=\"fixture\"");
+        var completions = 0;
+        manager.Completed += _ => Interlocked.Increment(ref completions);
+        var id = Guid.NewGuid();
+        manager.Enqueue(new DownloadItem
+        {
+            ItemId = id,
+            ServerUrl = server.Origin,
+            Title = "fixture",
+            FilePath = path,
+            MaxWidth = transcoded ? 1280 : null,
+            AddedTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        });
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        DownloadItem? item;
+        while ((item = manager.Snapshot().FirstOrDefault(i => i.ItemId == id)) is not
+               { Status: DownloadStatus.Completed or DownloadStatus.Failed }
+               && DateTime.UtcNow < deadline)
+            Thread.Sleep(20);
+        // Completed is persisted BEFORE the event is raised, so the status above can be seen a
+        // moment ahead of the raise. Waited for, then given a beat more so a second raise would
+        // be counted too.
+        if (item is { Status: DownloadStatus.Completed })
+        {
+            var raised = DateTime.UtcNow.AddSeconds(2);
+            while (Volatile.Read(ref completions) == 0 && DateTime.UtcNow < raised)
+                Thread.Sleep(10);
+            Thread.Sleep(100);
+        }
+        return (item ?? throw new InvalidOperationException("the download was never tracked"),
+            Volatile.Read(ref completions));
+    }
+
+    /// <summary>The file holds exactly <paramref name="expected"/>. Polled, because Completed is
+    /// persisted while the engine's writer may still hold the tail in its buffer.</summary>
+    private static void ExpectFile(string path, byte[] expected)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        byte[] actual;
+        do
+        {
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                actual = new byte[stream.Length];
+                stream.ReadExactly(actual);
+            }
+            if (actual.AsSpan().SequenceEqual(expected))
+                return;
+            Thread.Sleep(20);
+        }
+        while (DateTime.UtcNow < deadline);
+        Expect(expected.Length, actual.Length, "file size");
+        throw new InvalidOperationException("the file's bytes are not the server's.");
+    }
+
+    /// <summary>One media resource over raw HTTP with Range, 206 and 416 — the
+    /// <see cref="HttpMediaFixture"/> shape — recording every request it answered.</summary>
+    private sealed class RangeServer : IDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _cancellation = new();
+        private readonly byte[] _content;
+        private readonly List<ServedRequest> _served = [];
+
+        public RangeServer(byte[] content)
+        {
+            _content = content;
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            Origin = $"http://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
+            _ = AcceptAsync(_cancellation.Token);
+        }
+
+        public string Origin { get; }
+        public string Url => Origin + "/Items/fixture/Download";
+
+        /// <summary>Answer a 416 without naming the total, as a server is allowed to.</summary>
+        public bool OmitContentRange { get; init; }
+
+        /// <summary>Answer EVERY request 416, ranged or not: the restart's own refusal.</summary>
+        public bool RefuseEverything { get; init; }
+
+        public IReadOnlyList<ServedRequest> Served
+        {
+            get
+            {
+                lock (_served)
+                    return [.. _served];
+            }
+        }
+
+        public void Dispose()
+        {
+            _cancellation.Cancel();
+            _listener.Stop();
+        }
+
+        private async Task AcceptAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is OperationCanceledException or SocketException or ObjectDisposedException)
+                {
+                    return;
+                }
+                _ = ServeAsync(client, token);
+            }
+        }
+
+        private async Task ServeAsync(TcpClient client, CancellationToken token)
+        {
+            using (client)
+            try
+            {
+                var stream = client.GetStream();
+                using var reader = new StreamReader(stream, Encoding.ASCII, false, 1024, leaveOpen: true);
+                await reader.ReadLineAsync(token).ConfigureAwait(false);
+                string? range = null;
+                string? line;
+                while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(token).ConfigureAwait(false)))
+                    if (line.StartsWith("Range:", StringComparison.OrdinalIgnoreCase)) range = line[6..].Trim();
+                long start = 0, end = _content.Length - 1;
+                var partial = range?.StartsWith("bytes=", StringComparison.Ordinal) == true;
+                if (partial)
+                {
+                    var parts = range![6..].Split('-');
+                    start = long.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+                    if (parts.Length > 1 && parts[1].Length > 0)
+                        end = Math.Min(end, long.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+                }
+                if (RefuseEverything || start < 0 || start >= _content.Length || end < start)
+                {
+                    Record(range, 416, 0);
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 416 Range Not Satisfiable\r\n"
+                        + (OmitContentRange ? "" : $"Content-Range: bytes */{_content.Length}\r\n")
+                        + "Content-Length: 0\r\nConnection: close\r\n\r\n"), token).ConfigureAwait(false);
+                    return;
+                }
+                var length = end - start + 1;
+                Record(range, partial ? 206 : 200, length);
+                var header = $"HTTP/1.1 {(partial ? "206 Partial Content" : "200 OK")}\r\nContent-Type: video/x-matroska\r\n"
+                    + $"Content-Length: {length}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n"
+                    + (partial ? $"Content-Range: bytes {start}-{end}/{_content.Length}\r\n" : "") + "\r\n";
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(header), token).ConfigureAwait(false);
+                await stream.WriteAsync(_content.AsMemory((int)start, (int)length), token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or OperationCanceledException or SocketException) { }
+        }
+
+        private void Record(string? range, int status, long bodyBytes)
+        {
+            lock (_served)
+                _served.Add(new ServedRequest(range, status, bodyBytes));
+        }
+    }
+
+    private sealed record ServedRequest(string? Range, int Status, long BodyBytes);
 
     // ---- the real player against the real server ---------------------------------------
 

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using LightWeaver.Localization;
 
 namespace LightWeaver.Views;
 
@@ -10,6 +11,7 @@ public partial class EmptyState : UserControl
     public EmptyState()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         Visibility = Visibility.Collapsed;
     }
 
@@ -17,6 +19,13 @@ public partial class EmptyState : UserControl
     {
         HeadlineText.Text = headline;
         SublineText.Text = subline;
+        Visibility = Visibility.Visible;
+    }
+
+    public void Show(Func<string> headline, Func<string> subline)
+    {
+        LiveText.Bind(HeadlineText, "Text", () => headline());
+        LiveText.Bind(SublineText, "Text", () => subline());
         Visibility = Visibility.Visible;
     }
 }

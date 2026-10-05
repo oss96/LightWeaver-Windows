@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,6 +38,7 @@ public partial class HomeView : UserControl
     public HomeView(AppViewModel app)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         // M25: structured skeletons instead of a bare "Loading..." label.
         SkeletonHost.Children.Add(SkeletonFactory.Rail(this, 4, landscape: true, "HomeSkeleton"));
         SkeletonHost.Children.Add(SkeletonFactory.Rail(this, 7, landscape: false, "HomeSkeleton2"));
@@ -92,11 +94,11 @@ public partial class HomeView : UserControl
 
     private static string DisplayName(HomeSectionId id) => id switch
     {
-        HomeSectionId.Resume => "Continue Watching",
-        HomeSectionId.NextUp => "Next Up",
-        HomeSectionId.Latest => "Recently Added",
-        HomeSectionId.Favorites => "Favorites",
-        HomeSectionId.Libraries => "Libraries",
+        HomeSectionId.Resume => L.Text("HomeView.ContinueWatching.be7224b6"),
+        HomeSectionId.NextUp => L.Text("HomeView.NextUp.6c2092fe"),
+        HomeSectionId.Latest => L.Text("HomeView.RecentlyAdded.8a99c3ce"),
+        HomeSectionId.Favorites => L.Text("HomeView.Favorites.5b6dab09"),
+        HomeSectionId.Libraries => L.Text("HomeView.Libraries.0e9d6add"),
         _ => id.ToString(),
     };
 
@@ -149,7 +151,7 @@ public partial class HomeView : UserControl
             Diagnostics.AppLog.Detail("home",
                 $"event=load outcome=failure mode=initial elapsed_ms={started.ElapsedMilliseconds}", ex);
             SkeletonHost.Visibility = Visibility.Collapsed;
-            ErrorText.Text = $"Failed to load home screen: {ex.Message}";
+            LiveText.Bind(ErrorText, "Text", () => L.Format("HomeView.FailedToLoadHomeScreen.b18674b7", (ex.Message)));
             ErrorText.Visibility = Visibility.Visible;
         }
         finally
@@ -528,9 +530,8 @@ public partial class HomeView : UserControl
         RebuildEditor(rows);
         // The id sits on the header TextBlock, not the Border/StackPanel — neither has
         // an automation peer, so an id there is invisible to UIA (repo-known gotcha).
-        var header = new TextBlock
+        var header = LiveText.Bind(new TextBlock
         {
-            Text = "Customize home",
             // Explicit font: the Popup inherits properties through PlacementTarget (the
             // customize BUTTON, styled with the icon font) — without this the icon
             // font's ligature renders "home" as the house glyph (seen live).
@@ -538,8 +539,8 @@ public partial class HomeView : UserControl
             FontSize = 13.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)FindResource("LwText2Brush"),
-            Margin = new Thickness(0, 0, 0, 8),
-        };
+            Margin = new Thickness(0, 0, 0, 8)
+        }, "Text", () => L.Text("HomeView.CustomizeHome.57d1d6db"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(header, "HomeCustomizePopup");
         var panel = new StackPanel { MinWidth = 250 };
         panel.Children.Add(header);
@@ -591,11 +592,11 @@ public partial class HomeView : UserControl
             {
                 Style = (Style)FindResource("LwToggleSwitch"),
                 IsChecked = pref.Enabled,
-                Content = DisplayName(pref.Id),
                 Margin = new Thickness(10, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
             System.Windows.Automation.AutomationProperties.SetAutomationId(toggle, $"SectionToggle{pref.Id}");
+            LiveText.Bind(toggle, "Content", () => DisplayName(pref.Id));
             toggle.Checked += (_, _) => SetSectionEnabled(pref.Id, true);
             toggle.Unchecked += (_, _) => SetSectionEnabled(pref.Id, false);
             Grid.SetColumn(toggle, 2);
@@ -664,7 +665,7 @@ public partial class HomeView : UserControl
         chrome.AppendChild(presenter);
         template.VisualTree = chrome;
 
-        var handle = new Button
+        var handle = LiveText.Bind(new Button
         {
             Template = template,
             Content = dots,
@@ -673,11 +674,10 @@ public partial class HomeView : UserControl
             Margin = new Thickness(8, 0, 0, 0),
             Background = System.Windows.Media.Brushes.Transparent,
             Cursor = System.Windows.Input.Cursors.SizeNS,
-            ToolTip = "Drag to reorder",
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+            VerticalAlignment = VerticalAlignment.Center
+        }, "ToolTip", () => L.Text("HomeView.DragToReorder.10c3f0cc"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(handle, $"SectionGrip{id}");
-        System.Windows.Automation.AutomationProperties.SetName(handle, $"Reorder {DisplayName(id)}");
+        LiveText.Bind(handle, System.Windows.Automation.AutomationProperties.NameProperty, () => L.Format("HomeView.Reorder.b60fbcb8", (DisplayName(id))));
         handle.PreviewMouseLeftButtonDown += (s, e) => BeginEditorDrag((FrameworkElement)s, panel, e);
         handle.PreviewMouseMove += (s, e) => UpdateEditorDrag((FrameworkElement)s, panel, e);
         handle.PreviewMouseLeftButtonUp += (s, e) => EndEditorDrag((FrameworkElement)s, panel, e);

@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Text.Json;
@@ -39,7 +40,7 @@ public sealed class GitHubUpdateClient
         if (doc.RootElement.ValueKind != JsonValueKind.Array)
         {
             Detail("event=feed outcome=failure reason=root_shape");
-            throw new JsonException("The release feed root is not an array.");
+            throw new JsonException(L.Text("GitHubUpdateClient.TheReleaseFeedRootIsNotAn.cd93485f"));
         }
         // The feed's own content is never recorded — only how many releases it carried and which
         // class of endpoint served it.
@@ -51,7 +52,7 @@ public sealed class GitHubUpdateClient
             if (release.ValueKind != JsonValueKind.Object)
             {
                 Detail("event=release outcome=failure reason=release_shape");
-                throw new JsonException("The release feed contains a non-object release.");
+                throw new JsonException(L.Text("GitHubUpdateClient.TheReleaseFeedContainsANonObject.3da710ea"));
             }
             var draft = GetBoolean(release, "draft");
             if (draft || GetBoolean(release, "prerelease"))
@@ -65,13 +66,13 @@ public sealed class GitHubUpdateClient
             {
                 // The tag itself is feed-supplied text and is not recorded; only that it was rejected.
                 Detail("event=release outcome=failure reason=version_shape");
-                throw new JsonException("The latest stable release tag is not a three-part version.");
+                throw new JsonException(L.Text("GitHubUpdateClient.TheLatestStableReleaseTagIsNot.cdb93598"));
             }
             var page = RequiredUri(release, "html_url");
             if (!IsAllowedEndpoint(page, allowFixture: IsDebugFixture))
             {
                 Detail("event=release outcome=failure reason=endpoint_not_allowed");
-                throw new JsonException("The latest stable release page is not an approved endpoint.");
+                throw new JsonException(L.Text("GitHubUpdateClient.TheLatestStableReleasePageIsNot.c864abed"));
             }
             if (version <= CurrentVersion)
             {
@@ -88,14 +89,14 @@ public sealed class GitHubUpdateClient
                 if (assets.ValueKind != JsonValueKind.Array)
                 {
                     Detail("event=asset outcome=failure reason=assets_shape");
-                    throw new JsonException("Release assets are not an array.");
+                    throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsAreNotAnArray.3c183ac7"));
                 }
                 foreach (var asset in assets.EnumerateArray())
                 {
                     if (asset.ValueKind != JsonValueKind.Object)
                     {
                         Detail("event=asset outcome=failure reason=asset_shape");
-                        throw new JsonException("Release assets contain a non-object asset.");
+                        throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsContainANonObjectAsset.e2ee2786"));
                     }
                     if (GetOptionalString(asset, "name") == expectedName
                         && TryGetAbsoluteUri(GetOptionalString(asset, "browser_download_url"), out var candidate)
@@ -106,7 +107,7 @@ public sealed class GitHubUpdateClient
                             || !size.TryGetInt64(out var bytes) || bytes <= 0)
                         {
                             Detail("event=asset outcome=failure reason=size_invalid");
-                            throw new JsonException("The installer asset size is missing or invalid.");
+                            throw new JsonException(L.Text("GitHubUpdateClient.TheInstallerAssetSizeIsMissingOr.fdad4dfe"));
                         }
                         expectedSize = bytes;
                         break;
@@ -117,7 +118,7 @@ public sealed class GitHubUpdateClient
             if (IsDebugFixture && download is not null && fixtureHash is null)
             {
                 Detail("event=asset outcome=failure reason=fixture_hash_missing");
-                throw new JsonException("The debug update fixture is missing its exact SHA-256.");
+                throw new JsonException(L.Text("GitHubUpdateClient.TheDebugUpdateFixtureIsMissingIts.13a127ac"));
             }
             // The asset NAME is the app's own expectedName and the URI is never recorded: what the
             // selection is diagnosed from is whether one matched, for which version, and how big.
@@ -152,20 +153,20 @@ public sealed class GitHubUpdateClient
         {
             JsonValueKind.True => true,
             JsonValueKind.False => false,
-            _ => throw new JsonException($"Release property {property} is not a boolean."),
+            _ => throw new JsonException(L.Format("GitHubUpdateClient.ReleasePropertyIsNotABoolean.394f9500", (property))),
         };
     }
 
     private static string RequiredString(JsonElement element, string property) =>
         GetOptionalString(element, property) is { Length: > 0 } value
-            ? value : throw new JsonException($"Release property {property} is missing.");
+            ? value : throw new JsonException(L.Format("GitHubUpdateClient.ReleasePropertyIsMissing.76916b56", (property)));
 
     private static string? GetOptionalString(JsonElement element, string property) =>
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     private static Uri RequiredUri(JsonElement element, string property) =>
         TryGetAbsoluteUri(RequiredString(element, property), out var uri)
-            ? uri : throw new JsonException($"Release property {property} is not an absolute URI.");
+            ? uri : throw new JsonException(L.Format("GitHubUpdateClient.ReleasePropertyIsNotAnAbsoluteUri.1bb8d91c", (property)));
 
     private static bool TryParseThreePartVersion(string tag, out Version version)
     {

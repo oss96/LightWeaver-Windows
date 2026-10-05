@@ -24,6 +24,16 @@ Video HDR and HDR passthrough, which are core requirements. Playback controls go
 transparent overlay window, not inside the video HWND's rect.
 
 ## Rules
+- Localize UI text while developing. Add or update keyed English strings in
+  `localization/catalog.json` in the same change, and use `L.Text`, `L.Format`, or
+  `{loc:Text Key}` in the UI. Update existing translations for changed text; translations
+  awaiting review must stay marked stale so the app falls back to English. Preserve format
+  placeholders. Protocol identifiers, saved values, resource keys, automation IDs and logs
+  stay invariant.
+- Every UI-text handoff must include a translation-editor link filtered to the strings
+  created or modified by that work. Use `http://127.0.0.1:5386/?changed=<base-commit>` with
+  the full commit hash from before the change. Start the local editor before handing over
+  the link. Use a fixed base commit so the filter still works after committing the change.
 - `dotnet build -warnaserror` must pass before every commit. Warnings are errors here; do not
   commit around them.
 - After every significant code change, update `README.md`.

@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -148,7 +149,7 @@ public sealed class UpdateService : IDisposable
                 $"event=check trigger={trigger} outcome=available from_version={fromVersion} to_version={update.DisplayVersion} asset={(update.SetupAssetUri is null ? "absent" : "present")} elapsed_ms={started.ElapsedMilliseconds}"));
             SetStatus(new(UpdatePhase.Available, update,
                 Detail: update.SetupAssetUri is null
-                    ? $"Version {update.DisplayVersion} is available, but it has no Windows installer asset."
+                    ? L.Format("UpdateService.VersionIsAvailableButItHasNo.2c5063cb", (update.DisplayVersion))
                     : null,
                 LastCheckedUtc: _lastCheckedUtc));
             if (_settings.UpdatePolicy is UpdatePolicy.AutoDownload or UpdatePolicy.AutoDownloadAndInstall
@@ -158,22 +159,22 @@ public sealed class UpdateService : IDisposable
         catch (TaskCanceledException ex)
         {
             RecordCheckFailure(trigger, "timeout", ex, started);
-            SetCheckError(staged, "The update check timed out. Try again.");
+            SetCheckError(staged, L.Text("UpdateService.TheUpdateCheckTimedOutTryAgain.2825ac19"));
         }
         catch (JsonException ex)
         {
             RecordCheckFailure(trigger, "invalid_feed", ex, started);
-            SetCheckError(staged, "The update server returned invalid release information.");
+            SetCheckError(staged, L.Text("UpdateService.TheUpdateServerReturnedInvalidReleaseInformation.9294aae1"));
         }
         catch (HttpRequestException ex)
         {
             RecordCheckFailure(trigger, "unreachable", ex, started);
-            SetCheckError(staged, "LightWeaver could not reach the update server.");
+            SetCheckError(staged, L.Text("UpdateService.LightweaverCouldNotReachTheUpdateServer.2b3497e5"));
         }
         catch (IOException ex)
         {
             RecordCheckFailure(trigger, "read_error", ex, started);
-            SetCheckError(staged, "LightWeaver could not read the update response.");
+            SetCheckError(staged, L.Text("UpdateService.LightweaverCouldNotReadTheUpdateResponse.3a2ddc58"));
         }
         finally
         {
@@ -286,7 +287,7 @@ public sealed class UpdateService : IDisposable
                 // the policy switching to Manual. A transfer TIMEOUT is a failure and is recorded as
                 // one by SetDownloadError.
                 Detail("event=download trigger=automatic outcome=cancelled reason=policy stage=transfer");
-                SetStatus(new(UpdatePhase.Available, update, Detail: "Download paused.", LastCheckedUtc: _lastCheckedUtc));
+                SetStatus(new(UpdatePhase.Available, update, Detail: L.Text("UpdateService.DownloadPaused.6a65f1f5"), LastCheckedUtc: _lastCheckedUtc));
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException
                 or CryptographicException or OperationCanceledException)
@@ -298,7 +299,7 @@ public sealed class UpdateService : IDisposable
             Detail("event=download trigger=automatic outcome=cancelled reason=policy stage=gate");
             lock (_automaticCancellationLock)
                 if (ReferenceEquals(_automaticDownloadCancellation, cancellation))
-                    SetStatus(new(UpdatePhase.Available, update, Detail: "Download paused.", LastCheckedUtc: _lastCheckedUtc));
+                    SetStatus(new(UpdatePhase.Available, update, Detail: L.Text("UpdateService.DownloadPaused.6a65f1f5"), LastCheckedUtc: _lastCheckedUtc));
         }
         finally
         {
@@ -327,7 +328,7 @@ public sealed class UpdateService : IDisposable
     private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)
     {
         if (update.SetupAssetUri is null || update.AssetName is null)
-            throw new InvalidOperationException("The selected release has no approved installer asset.");
+            throw new InvalidOperationException(L.Text("UpdateService.TheSelectedReleaseHasNoApprovedInstaller.43516acb"));
         Directory.CreateDirectory(_stagingDirectory);
         var started = Stopwatch.StartNew();
         var finalPath = Path.Combine(_stagingDirectory, update.AssetName);
@@ -385,7 +386,7 @@ public sealed class UpdateService : IDisposable
                 // Hop number only. Neither the rejected target nor the approved one is recorded.
                 Detail(FormattableString.Invariant(
                     $"event=redirect outcome=failure reason={(next is null ? "no_location" : "endpoint_not_allowed")} hop={redirects + 1}"));
-                throw new HttpRequestException("Update download redirected to an unapproved endpoint.");
+                throw new HttpRequestException(L.Text("UpdateService.UpdateDownloadRedirectedToAnUnapprovedEndpoint.77071807"));
             }
             Detail(FormattableString.Invariant($"event=redirect outcome=success hop={redirects + 1}"));
             downloadUri = next;
@@ -395,7 +396,7 @@ public sealed class UpdateService : IDisposable
             if (response is null)
             {
                 Detail("event=download outcome=failure reason=redirect_limit");
-                throw new HttpRequestException("Update download exceeded the redirect limit.");
+                throw new HttpRequestException(L.Text("UpdateService.UpdateDownloadExceededTheRedirectLimit.d11108e7"));
             }
             if (existing > 0 && response.StatusCode == HttpStatusCode.OK)
             {
@@ -409,7 +410,7 @@ public sealed class UpdateService : IDisposable
             {
                 Detail(FormattableString.Invariant(
                     $"event=resume outcome=failure reason=range_invalid bytes_done={existing} status={(int)response.StatusCode}"));
-                throw new HttpRequestException("The update server returned an invalid Range response.");
+                throw new HttpRequestException(L.Text("UpdateService.TheUpdateServerReturnedAnInvalidRange.38697564"));
             }
             long? total = expectedDownloadSize
                 ?? (response.Content.Headers.ContentLength is { } length ? existing + length : null);
@@ -421,7 +422,7 @@ public sealed class UpdateService : IDisposable
             {
                 Detail(FormattableString.Invariant(
                     $"event=download outcome=failure reason=size_mismatch bytes_done={existing} bytes_total={declaredSize}"));
-                throw new IOException("The update response size did not match the release metadata.");
+                throw new IOException(L.Text("UpdateService.TheUpdateResponseSizeDidNotMatch.a0bd8f3d"));
             }
             SetStatus(new(UpdatePhase.Downloading, update, existing, total, LastCheckedUtc: _lastCheckedUtc));
             long downloaded = existing;
@@ -434,7 +435,7 @@ public sealed class UpdateService : IDisposable
                 while ((read = await input.ReadAsync(buffer, downloadToken).ConfigureAwait(false)) > 0)
                 {
                     if (total is { } maximum && read > maximum - downloaded)
-                        throw new IOException("The update response exceeded its declared size.");
+                        throw new IOException(L.Text("UpdateService.TheUpdateResponseExceededItsDeclaredSize.497229e8"));
                     await output.WriteAsync(buffer.AsMemory(0, read), downloadToken).ConfigureAwait(false);
                     downloaded += read;
                     // Nothing is recorded in this loop: the only record it can produce is the 10%
@@ -450,7 +451,7 @@ public sealed class UpdateService : IDisposable
             {
                 Detail(FormattableString.Invariant(
                     $"event=download outcome=failure reason=length_mismatch bytes_done={downloaded} bytes_total={BytesToken(total)}"));
-                throw new IOException("Downloaded update length did not match the response.");
+                throw new IOException(L.Text("UpdateService.DownloadedUpdateLengthDidNotMatchThe.2fc49ca5"));
             }
             Detail(FormattableString.Invariant(
                 $"event=download outcome=success trigger={trigger} bytes_done={downloaded} bytes_total={BytesToken(total)} elapsed_ms={started.ElapsedMilliseconds}"));
@@ -470,7 +471,7 @@ public sealed class UpdateService : IDisposable
             Diagnostics.AppLog.Error("updates", FormattableString.Invariant(
                 $"event=promote outcome=failure reason=verification to_version={update.DisplayVersion} bytes_done={downloaded}"));
             DeleteFailedPartial(partPath, partialPath);
-            throw new CryptographicException("Update package did not pass integrity verification.");
+            throw new CryptographicException(L.Text("UpdateService.UpdatePackageDidNotPassIntegrityVerification.f8ad747f"));
         }
         var packageSha256 = await UpdatePackageVerifier.ComputeSha256Async(partPath, cancellationToken).ConfigureAwait(false);
         File.Move(partPath, finalPath, overwrite: true);
@@ -564,7 +565,7 @@ public sealed class UpdateService : IDisposable
             // Type only: a launch failure's message names the installer path.
             Diagnostics.AppLog.Error("updates",
                 $"event=launch outcome=failure to_version={update.DisplayVersion} error={ex.GetType().Name}");
-            SetStatus(new(UpdatePhase.Error, update, Detail: "Installer could not be started.", LastCheckedUtc: _lastCheckedUtc));
+            SetStatus(new(UpdatePhase.Error, update, Detail: L.Text("UpdateService.InstallerCouldNotBeStarted.840f1b04"), LastCheckedUtc: _lastCheckedUtc));
             return false;
         }
     }
@@ -613,7 +614,7 @@ public sealed class UpdateService : IDisposable
         _stagedUpdate = null;
         DeletePendingAndInstaller(assetName);
         SetStatus(new(UpdatePhase.Error, update,
-            Detail: "The staged installer failed revalidation and was not started.", LastCheckedUtc: _lastCheckedUtc));
+            Detail: L.Text("UpdateService.TheStagedInstallerFailedRevalidationAndWas.b75bfb00"), LastCheckedUtc: _lastCheckedUtc));
         return false;
     }
 
@@ -852,12 +853,12 @@ public sealed class UpdateService : IDisposable
     {
         var (detail, reason) = exception switch
         {
-            CryptographicException => ("The downloaded installer failed package verification.", "verification"),
-            OperationCanceledException => ("The update download timed out or was cancelled.", "timeout"),
-            HttpRequestException => ("The update installer could not be downloaded.", "transport"),
-            UnauthorizedAccessException => ("LightWeaver could not write to its update staging folder.", "access"),
-            IOException => ("The update installer could not be saved.", "io"),
-            _ => ("The update download failed.", "unknown"),
+            CryptographicException => (L.Text("UpdateService.TheDownloadedInstallerFailedPackageVerification.2919e43c"), "verification"),
+            OperationCanceledException => (L.Text("UpdateService.TheUpdateDownloadTimedOutOrWas.57806d3b"), "timeout"),
+            HttpRequestException => (L.Text("UpdateService.TheUpdateInstallerCouldNotBeDownloaded.8f2d0011"), "transport"),
+            UnauthorizedAccessException => (L.Text("UpdateService.LightweaverCouldNotWriteToItsUpdate.3cdb79f7"), "access"),
+            IOException => (L.Text("UpdateService.TheUpdateInstallerCouldNotBeSaved.d9a6e8ed"), "io"),
+            _ => (L.Text("UpdateService.TheUpdateDownloadFailed.53e6bde2"), "unknown"),
         };
         // failure, never cancelled: the caller-owned cancellation legs are taken by their own
         // `when (cancellation.IsCancellationRequested)` filters, so an OperationCanceledException

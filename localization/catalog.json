@@ -1,0 +1,5714 @@
+{
+  "version": 1,
+  "sourceLanguage": "en",
+  "strings": {
+    "AdvancedSearchView.1Result.6c5fbe10": {
+      "text": "1 result",
+      "context": "private static string FormatSummary(int total, List<(BaseItemKind Kind, int Total)>? breakdown)",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.AZ.b6238d3c": {
+      "text": "A–Z",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml",
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.ActorDirector.7a0cb327": {
+      "text": "Actor, director…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.All.93e8893c": {
+      "text": "All",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] WatchedChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.AllTypes.9b322cbd": {
+      "text": "All types",
+      "context": "public AdvancedSearchView(AppViewModel app, AdvancedSearchQuery? seed = null)",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.AnyGenre.f3c243e1": {
+      "text": "Any genre",
+      "context": "public AdvancedSearchView(AppViewModel app, AdvancedSearchQuery? seed = null)",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Ascending.e8a49187": {
+      "text": "Ascending",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.BrowseEpisodes.10a3632a": {
+      "text": "Browse episodes",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.BrowseMovies.d0128a8f": {
+      "text": "Browse movies",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.BrowseSeries.03762c37": {
+      "text": "Browse series",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.ClearAllFilters.d403d28d": {
+      "text": "Clear all filters",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.CombineTextWithTypeGenreYearAnd.0c235b79": {
+      "text": "Combine text with type, genre, year and watched filters — across every library.",
+      "context": "private void ShowPrompt()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.CommunityRating.247aeee3": {
+      "text": "Community rating",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.DateAdded.cf93c1b6": {
+      "text": "Date added",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Descending.aafc8c46": {
+      "text": "Descending",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Episode.757c1c06": {
+      "text": "episode",
+      "context": "Advanced search media type noun",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Episodes.01fc855d": {
+      "text": "Episodes",
+      "context": "private static readonly (string Label, string Plural, BaseItemKind Kind)[] TypeChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Episodes.76883a65": {
+      "text": "episodes",
+      "context": "Advanced search media type noun",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.FailedToLoad.8cefcd6d": {
+      "text": "Failed to load: {0}",
+      "context": "private async Task LoadAsync()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.FilterByAnActorOrDirector.58dd9931": {
+      "text": "Filter by an actor or director",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.From.3943755e": {
+      "text": "From",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.FromYear.ae098473": {
+      "text": "From year",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Genre.e093f2c2": {
+      "text": "GENRE",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml",
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.GenreWatchedStateAndYear.ff9b4726": {
+      "text": "Genre, watched state and year",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Highest.39875e69": {
+      "text": "Highest",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Lowest.05a52637": {
+      "text": "Lowest",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.MoreFilters.cca65959": {
+      "text": "More filters",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Movie.70d184d4": {
+      "text": "movie",
+      "context": "Advanced search media type noun",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Movies.b932e79c": {
+      "text": "Movies",
+      "context": "private static readonly (string Label, string Plural, BaseItemKind Kind)[] TypeChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Movies.d5bfa6ca": {
+      "text": "movies",
+      "context": "Advanced search media type noun",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Name.2b6dd5ff": {
+      "text": "Name",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Newest.11182163": {
+      "text": "Newest",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.NoItemsMatchTheseFiltersTryLoosening.20ccc9be": {
+      "text": "No items match these filters - try loosening them.",
+      "context": "private void ShowSingle()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.NoPeopleFound.f655e71d": {
+      "text": "No people found",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.NothingHere.256616a3": {
+      "text": "Nothing here",
+      "context": "private void ShowSingle()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Oldest.d1af3ebe": {
+      "text": "Oldest",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Order.42484afc": {
+      "text": "ORDER",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Person.d4c5f321": {
+      "text": "Person",
+      "context": "private void UpdateSeedChip()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Person.e7b4d265": {
+      "text": "PERSON",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml",
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.PremiereDate.98567950": {
+      "text": "Premiere date",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Random.79107541": {
+      "text": "Random",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.RemoveThisFilter.1a6e5074": {
+      "text": "Remove this filter",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Results.035513e7": {
+      "text": "{0} results",
+      "context": "private static string FormatSummary(int total, List<(BaseItemKind Kind, int Total)>? breakdown)",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Search.3d8f0927": {
+      "text": "SEARCH",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.SearchEverything.ed0f1661": {
+      "text": "Search everything",
+      "context": "private void ShowPrompt()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Series.57b4e8b8": {
+      "text": "series",
+      "context": "Advanced search media type noun",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Series.ceca6d59": {
+      "text": "Series",
+      "context": "private static readonly (string Label, string Plural, BaseItemKind Kind)[] TypeChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.ShowOnly.eed6db84": {
+      "text": "Show only {0} →",
+      "context": "Narrow grouped search to selected media type",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Sort.f6478d16": {
+      "text": "SORT",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.SortDirection.67c1a62f": {
+      "text": "Sort direction",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.TitleKeyword.dc1c5cca": {
+      "text": "Title, keyword…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.To.3b4d35bc": {
+      "text": "To",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.ToYear.347db0a0": {
+      "text": "To year",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Type.26fdba17": {
+      "text": "TYPE",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Unwatched.2487a533": {
+      "text": "Unwatched",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] WatchedChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Watched.0d662522": {
+      "text": "Watched",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] WatchedChoices =",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AdvancedSearchView.Watched.1c765764": {
+      "text": "WATCHED",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.Year.91c609b1": {
+      "text": "YEAR",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml"
+      ]
+    },
+    "AdvancedSearchView.ZA.b0b49ab3": {
+      "text": "Z–A",
+      "context": "private void UpdateOrderUi()",
+      "sources": [
+        "src/LightWeaver/Views/AdvancedSearchView.xaml.cs"
+      ]
+    },
+    "AppShortcuts.AudioSubtitles.8c9a85d9": {
+      "text": "Audio & subtitles",
+      "context": "public static string GroupTitle(ShortcutGroup group) ",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Back.54e480b1": {
+      "text": "Back",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.BackForward.f6075622": {
+      "text": "Back / forward",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ClosePanelLeaveFullscreenOrClearSearch.6f167aee": {
+      "text": "Close panel, leave fullscreen, or clear search",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Enter.fae48132": {
+      "text": "Enter",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.General.a42bcd89": {
+      "text": "General",
+      "context": "public static string GroupTitle(ShortcutGroup group) ",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.KeyboardShortcutsThisPanel.463485e7": {
+      "text": "Keyboard shortcuts (this panel)",
+      "context": "public static readonly ChromeShortcut ShowShortcuts = new(",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Mouse.af8ea09d": {
+      "text": "Mouse",
+      "context": "public static string GroupTitle(ShortcutGroup group) ",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Mouse4Mouse5.53098a35": {
+      "text": "Mouse 4 / Mouse 5",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.OpenFile.a046add4": {
+      "text": "Open file…",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.PlayPause.0592b946": {
+      "text": "Play / pause",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.PlayTheNextEpisodeNowWhileUp.fd98dec8": {
+      "text": "Play the next episode now (while Up Next shows)",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Playback.f740617d": {
+      "text": "Playback",
+      "context": "public static string GroupTitle(ShortcutGroup group) ",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ScrollARowSideways.065b160a": {
+      "text": "Scroll a row sideways",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Settings.d0fd4f98": {
+      "text": "Settings",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ShiftWheel.afa7860e": {
+      "text": "Shift + Wheel",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.SwitchServer.18623bcb": {
+      "text": "Switch server",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ToggleFullscreen.b46f7946": {
+      "text": "Toggle fullscreen",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ToggleMiniPlayer.c5a8790b": {
+      "text": "Toggle mini-player",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.VolumeOverThePlayer.3e1534cd": {
+      "text": "Volume (over the player)",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.Wheel.a7db831a": {
+      "text": "Wheel",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppViewModel.LoginFailed.ad94f0a5": {
+      "text": "Login failed.",
+      "context": "public async Task<string?> LoginAsync(string serverUrl, string username, string password)",
+      "sources": [
+        "src/LightWeaver/ViewModels/AppViewModel.cs"
+      ]
+    },
+    "AudioPassthroughProbe.Accepts.50573adf": {
+      "text": "{0} accepts: {1}.",
+      "context": "public static string? Describe(PassthroughProbe probe)",
+      "sources": [
+        "src/LightWeaver/Player/AudioPassthroughProbe.cs"
+      ]
+    },
+    "AudioPassthroughProbe.AcceptsNoneOfTheseFormatsPlaybackFalls.f0c81a96": {
+      "text": "{0} accepts none of these formats — playback falls back to decoded audio.",
+      "context": "public static string? Describe(PassthroughProbe probe)",
+      "sources": [
+        "src/LightWeaver/Player/AudioPassthroughProbe.cs"
+      ]
+    },
+    "AudioPassthroughProbe.DoesNotAllowExclusiveModeOutputWhich.08cbcf86": {
+      "text": "{0} does not allow exclusive-mode output, which passthrough requires — playback falls back to decoded audio.",
+      "context": "public static string? Describe(PassthroughProbe probe)",
+      "sources": [
+        "src/LightWeaver/Player/AudioPassthroughProbe.cs"
+      ]
+    },
+    "AudioPassthroughProbe.ThisOutput.f8192067": {
+      "text": "This output",
+      "context": "public static PassthroughProbe Probe(string? mpvDeviceName)",
+      "sources": [
+        "src/LightWeaver/Player/AudioPassthroughProbe.cs"
+      ]
+    },
+    "CardCommands.CardMenu.f6c7dbe6": {
+      "text": "Card menu",
+      "context": "public static readonly RoutedUICommand OpenCardMenu =",
+      "sources": [
+        "src/LightWeaver/Views/CardCommands.cs"
+      ]
+    },
+    "CardCommands.CopyStreamUrl.1673f88f": {
+      "text": "Copy stream URL",
+      "context": "public static readonly RoutedUICommand CopyStreamUrl =",
+      "sources": [
+        "src/LightWeaver/Views/CardCommands.cs"
+      ]
+    },
+    "CardCommands.MediaInfo.6c137e38": {
+      "text": "Media info",
+      "context": "public static readonly RoutedUICommand ShowMediaInfo =",
+      "sources": [
+        "src/LightWeaver/Views/CardCommands.cs"
+      ]
+    },
+    "CardCommands.PlayItem.4fc83323": {
+      "text": "Play item",
+      "context": "public static readonly RoutedUICommand PlayItem =",
+      "sources": [
+        "src/LightWeaver/Views/CardCommands.cs"
+      ]
+    },
+    "CardCommands.ToggleWatched.638fbe5f": {
+      "text": "Toggle watched",
+      "context": "public static readonly RoutedUICommand ToggleWatched =",
+      "sources": [
+        "src/LightWeaver/Views/CardCommands.cs"
+      ]
+    },
+    "CheckDropdown.Any.03f8503c": {
+      "text": "Any",
+      "context": "public string Placeholder { get; set; } = \"Any\";",
+      "sources": [
+        "src/LightWeaver/Views/CheckDropdown.xaml.cs"
+      ]
+    },
+    "CheckDropdown.ClearSelection.3e5fa329": {
+      "text": "Clear selection",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/CheckDropdown.xaml"
+      ]
+    },
+    "DownloadManager.ConnectionStalledNoDataForSAt.399dfbdd": {
+      "text": "connection stalled: no data for {0:0}s at byte {1}",
+      "context": "private async Task RunDownloadAsync(Guid itemId, CancellationToken ct)",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "DownloadManager.Http.dc88d2a1": {
+      "text": "HTTP {0}",
+      "context": "private async Task RunDownloadAsync(Guid itemId, CancellationToken ct)",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "DownloadManager.NoSignedInSessionForThisServer.90661eab": {
+      "text": "No signed-in session for this server.",
+      "context": "private async Task RunDownloadAsync(Guid itemId, CancellationToken ct)",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "DownloadManager.TruncatedTransferGotOfBytes.dd0dadac": {
+      "text": "truncated transfer: got {0} of {1} bytes",
+      "context": "private async Task RunDownloadAsync(Guid itemId, CancellationToken ct)",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "DownloadsView.CancelDownload.6e134573": {
+      "text": "Cancel download",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.ClearCompleted.625f39a8": {
+      "text": "Clear completed",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.Completed.fb232f94": {
+      "text": "Completed · {0} · {1}",
+      "context": "Completed download status",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.DeleteAll.5f670623": {
+      "text": "Delete all",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.DeleteAllDownloads.800e08eb": {
+      "text": "Delete all downloads?",
+      "context": "Delete all downloads confirmation title",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.DeleteDownload.a54b0aa3": {
+      "text": "Delete download?",
+      "context": "Delete finished download confirmation title",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.DeleteDownload.f707aea7": {
+      "text": "Delete download",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.Downloading.387c6dd5": {
+      "text": "Downloading · {0:0}% · {1} / {2}",
+      "context": "Download progress status",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Downloading.c4b8cf6f": {
+      "text": "Downloading · {0}",
+      "context": "Download status with unknown total size",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.EveryDownloadIncludingFinishedFilesWillBeRemovedFromThisDevice.de0a58a6": {
+      "text": "Every download — including finished files — will be removed from this device.",
+      "context": "Delete all downloads confirmation body",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Failed.c1793f06": {
+      "text": "Failed · {0}",
+      "context": "Failed download status",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.NothingDownloaded.5a0d555c": {
+      "text": "Nothing downloaded",
+      "context": "private void SyncRows()",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Original.b0322603": {
+      "text": "Original",
+      "context": "Original download resolution label",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Pause.f12f706f": {
+      "text": "Pause",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.PauseAll.fcb2cc03": {
+      "text": "Pause all",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.Paused.a569a3df": {
+      "text": "Paused · {0}",
+      "context": "Download status with unknown total size",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Paused.fe6c3cdf": {
+      "text": "Paused · {0:0}% · {1} / {2}",
+      "context": "Download progress status",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Play.d9e1bf7a": {
+      "text": "Play",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.Queued.ea0112da": {
+      "text": "Queued · {0}",
+      "context": "Download queued status",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.Resume.147bfad5": {
+      "text": "Resume",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml"
+      ]
+    },
+    "DownloadsView.UnknownError.11276586": {
+      "text": "unknown error",
+      "context": "Unknown download error",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.UseTheDownloadButtonOnAMovie.05f30ee0": {
+      "text": "Use the download button on a movie, season, or series.",
+      "context": "private void SyncRows()",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "DownloadsView.WillBeRemovedFromThisDevice.2723a2bd": {
+      "text": "“{0}” will be removed from this device.",
+      "context": "Delete finished download confirmation body",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "GenresView.FailedToLoad.a24e7310": {
+      "text": "Failed to load: {0}",
+      "context": "private async Task LoadAsync()",
+      "sources": [
+        "src/LightWeaver/Views/GenresView.xaml.cs"
+      ]
+    },
+    "GenresView.Loading.bf4fbb09": {
+      "text": "Loading…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/GenresView.xaml"
+      ]
+    },
+    "GenresView.NoGenresHere.badfde2e": {
+      "text": "No genres here",
+      "context": "private async Task LoadAsync()",
+      "sources": [
+        "src/LightWeaver/Views/GenresView.xaml.cs"
+      ]
+    },
+    "GenresView.ThisLibraryHasNoGenreTagsTo.264c90f5": {
+      "text": "This library has no genre tags to browse.",
+      "context": "private async Task LoadAsync()",
+      "sources": [
+        "src/LightWeaver/Views/GenresView.xaml.cs"
+      ]
+    },
+    "GitHubUpdateClient.ReleaseAssetsAreNotAnArray.3c183ac7": {
+      "text": "Release assets are not an array.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.ReleaseAssetsContainANonObjectAsset.e2ee2786": {
+      "text": "Release assets contain a non-object asset.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.ReleasePropertyIsMissing.76916b56": {
+      "text": "Release property {0} is missing.",
+      "context": "private static string RequiredString(JsonElement element, string property) ",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.ReleasePropertyIsNotABoolean.394f9500": {
+      "text": "Release property {0} is not a boolean.",
+      "context": "private static bool GetBoolean(JsonElement element, string property)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.ReleasePropertyIsNotAnAbsoluteUri.1bb8d91c": {
+      "text": "Release property {0} is not an absolute URI.",
+      "context": "private static Uri RequiredUri(JsonElement element, string property) ",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheDebugUpdateFixtureIsMissingIts.13a127ac": {
+      "text": "The debug update fixture is missing its exact SHA-256.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheInstallerAssetSizeIsMissingOr.fdad4dfe": {
+      "text": "The installer asset size is missing or invalid.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheLatestStableReleasePageIsNot.c864abed": {
+      "text": "The latest stable release page is not an approved endpoint.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheLatestStableReleaseTagIsNot.cdb93598": {
+      "text": "The latest stable release tag is not a three-part version.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheReleaseFeedContainsANonObject.3da710ea": {
+      "text": "The release feed contains a non-object release.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GitHubUpdateClient.TheReleaseFeedRootIsNotAn.cd93485f": {
+      "text": "The release feed root is not an array.",
+      "context": "public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/GitHubUpdateClient.cs"
+      ]
+    },
+    "GpuCapabilities.NoNvidiaRtxGpuDetected.cfd9cb0a": {
+      "text": "no NVIDIA RTX GPU detected",
+      "context": "private static string? Detect()",
+      "sources": [
+        "src/LightWeaver/Player/GpuCapabilities.cs"
+      ]
+    },
+    "GpuCapabilities.ThisNvidiaGpuHasNoRtxVideo.eebdfe23": {
+      "text": "this NVIDIA GPU has no RTX video support",
+      "context": "public static string RtxUnavailableToken { get; } = RtxUnavailableReason switch",
+      "sources": [
+        "src/LightWeaver/Player/GpuCapabilities.cs"
+      ]
+    },
+    "HomeView.ContinueWatching.be7224b6": {
+      "text": "Continue Watching",
+      "context": "private static string DisplayName(HomeSectionId id) ",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml",
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.CustomizeHome.57d1d6db": {
+      "text": "Customize home",
+      "context": "Home layout editor heading",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.CustomizeHomeSections.7efc8cf0": {
+      "text": "Customize home sections",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml"
+      ]
+    },
+    "HomeView.DragToReorder.10c3f0cc": {
+      "text": "Drag to reorder",
+      "context": "private Button EditorDragHandle(HomeSectionId id, StackPanel panel)",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.FailedToLoadHomeScreen.b18674b7": {
+      "text": "Failed to load home screen: {0}",
+      "context": "private async Task LoadAsync()",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.Favorites.5b6dab09": {
+      "text": "Favorites",
+      "context": "private static string DisplayName(HomeSectionId id) ",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml",
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.Libraries.0e9d6add": {
+      "text": "Libraries",
+      "context": "private static string DisplayName(HomeSectionId id) ",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml",
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.Loading.789a0f0e": {
+      "text": "Loading…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml"
+      ]
+    },
+    "HomeView.NextUp.6c2092fe": {
+      "text": "Next Up",
+      "context": "private static string DisplayName(HomeSectionId id) ",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml",
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.RecentlyAdded.8a99c3ce": {
+      "text": "Recently Added",
+      "context": "private static string DisplayName(HomeSectionId id) ",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml",
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.Reorder.b60fbcb8": {
+      "text": "Reorder {0}",
+      "context": "private Button EditorDragHandle(HomeSectionId id, StackPanel panel)",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml.cs"
+      ]
+    },
+    "HomeView.SeeAll.8018207d": {
+      "text": "See all",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/HomeView.xaml"
+      ]
+    },
+    "ItemDetailView.AddToFavorites.5fdaa540": {
+      "text": "Add to favorites",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Album.25a8aef7": {
+      "text": "ALBUM",
+      "context": "Item detail media kind eyebrow",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Artist.c01ec4ba": {
+      "text": "ARTIST",
+      "context": "Item detail media kind eyebrow",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Audio.5d16b7dd": {
+      "text": "AUDIO",
+      "context": "Item detail media kind eyebrow",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.CastCrew.a7115f5d": {
+      "text": "Cast & Crew",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.Default.e5bbae81": {
+      "text": "Default",
+      "context": "private void RenderVersionsAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Download.b111587a": {
+      "text": "Download",
+      "context": "private void RefreshDownloadAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Downloaded.2d672268": {
+      "text": "Downloaded",
+      "context": "private void RefreshDownloadAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.DownloadedClickToRemove.945b5b37": {
+      "text": "Downloaded — click to remove",
+      "context": "private void RefreshDownloadAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.E.020adbce": {
+      "text": "E{0}",
+      "context": "private void RenderEyebrow()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Episodes.5524ea7e": {
+      "text": "Episodes",
+      "context": "private void RenderSeason(List<MediaItem> episodes)",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Favorite.c88ee617": {
+      "text": "Favorite",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.FromStart.fbbe69c1": {
+      "text": "From start",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.GoToSeason.42e4052e": {
+      "text": "Go to season",
+      "context": "private void OnMore(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.GoToSeries.85c600de": {
+      "text": "Go to series",
+      "context": "private void OnMore(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Loading.6e4bd645": {
+      "text": "Loading",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.LoadingDownloadOptions.1836d81b": {
+      "text": "Loading download options",
+      "context": "private void RefreshDownloadAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.MarkAsUnwatched.62bd3524": {
+      "text": "Mark as unwatched",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.MarkAsWatched.ac0f315a": {
+      "text": "Mark as watched",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.MarkWatched.6830793c": {
+      "text": "Mark watched",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.More.ea3e8862": {
+      "text": "More",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.MoreLikeThis.b149f8b3": {
+      "text": "More like this",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.Movie.06782159": {
+      "text": "MOVIE",
+      "context": "Item detail media kind eyebrow",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.MusicVideo.48704f26": {
+      "text": "MUSIC VIDEO",
+      "context": "private static string TypeLabel(BaseItemType type) ",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Play.feccb3cc": {
+      "text": "Play",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.PlayEpisode.d054dc53": {
+      "text": "Play episode",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.RemoveFromFavorites.102a41cf": {
+      "text": "Remove from favorites",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Resume.6c296c19": {
+      "text": "Resume {0}",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Sd.c03901ee": {
+      "text": "SD",
+      "context": "private static string? ResolutionLabel(string resolution)",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Season.0e18411e": {
+      "text": "Season",
+      "context": "private void OpenSeason()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Season.1a99847d": {
+      "text": "Season {0}",
+      "context": "private void RenderEyebrow()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Series.0f7f782c": {
+      "text": "Series",
+      "context": "private void OpenSeries()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Trailer.c9af45dc": {
+      "text": "Trailer",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Version.922cfa9c": {
+      "text": "Version: {0}",
+      "context": "private void RenderVersionsAction()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Versions.1a9b12c2": {
+      "text": "Versions",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml"
+      ]
+    },
+    "ItemDetailView.Video.b5fdab38": {
+      "text": "VIDEO",
+      "context": "Item detail media kind eyebrow",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.ViewAllEpisodes.4aea9630": {
+      "text": "View all {0} episodes",
+      "context": "Item detail episode list link",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.Watched.f0af4d3d": {
+      "text": "Watched",
+      "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "JellyfinService.Aspect.6855bee5": {
+      "text": "Aspect",
+      "context": "Media info row label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Audio.abfdd187": {
+      "text": "Audio {0}",
+      "context": "Numbered media audio track row label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Audio.e37cf36e": {
+      "text": "Audio",
+      "context": "public async Task<List<MediaInfoField>> GetMediaInfoAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Codec.887157f5": {
+      "text": "Codec",
+      "context": "private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.ConnectionTimedOut.41c4ae79": {
+      "text": "Connection timed out.",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Container.f74e0b4d": {
+      "text": "Container",
+      "context": "public async Task<List<MediaInfoField>> GetMediaInfoAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.CouldNotConnectToTheServer.720e1bea": {
+      "text": "Could not connect to the server.",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.External.87c24893": {
+      "text": " (external)",
+      "context": "External subtitle track suffix",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.LoginFailed.6804c382": {
+      "text": "Login failed: {0}",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.LoginFailedHttp.718592ee": {
+      "text": "Login failed (HTTP {0}).",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.NetworkError.065e7a0f": {
+      "text": "Network error: {0}",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Original.4bdcf56b": {
+      "text": "Original · {0} · {1}",
+      "context": "public async Task<List<DownloadOption>> GetDownloadOptionsAsync(Guid itemId,",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.P.98dfcb0c": {
+      "text": "{0}p · {1}",
+      "context": "public async Task<List<DownloadOption>> GetDownloadOptionsAsync(Guid itemId,",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Range.827aa9ba": {
+      "text": "Range",
+      "context": "private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Resolution.7db02fde": {
+      "text": "Resolution",
+      "context": "private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.ServerErrorIsThisAJellyfinServer.d3ef45d5": {
+      "text": "Server error ({0}). Is this a Jellyfin server?",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.ServerNotFoundCheckTheUrl.0f8e009f": {
+      "text": "Server not found. Check the URL.",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.ServerReturnedAnIncompleteLoginResponse.bec97f62": {
+      "text": "Server returned an incomplete login response.",
+      "context": "Sign-in error shown to user",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Size.023f0579": {
+      "text": "Size",
+      "context": "Media info row label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Subtitles.8dad0b56": {
+      "text": "Subtitles",
+      "context": "public async Task<List<MediaInfoField>> GetMediaInfoAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.TheQuickConnectCodeExpiredTryAgain.b7ac2b2c": {
+      "text": "The Quick Connect code expired. Try again.",
+      "context": "Quick Connect error shown to user",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.TotalBitrate.5b8db2fe": {
+      "text": "Total bitrate",
+      "context": "Media info row label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Transcoded.1825889f": {
+      "text": "Transcoded",
+      "context": "public async Task<List<DownloadOption>> GetDownloadOptionsAsync(Guid itemId,",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Unknown.73a0420c": {
+      "text": "unknown",
+      "context": "Unknown subtitle track label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Unknown.7821959d": {
+      "text": "Unknown",
+      "context": "private static string StreamDisplay(MediaStream s)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.UnknownSize.6af2778f": {
+      "text": "Unknown size",
+      "context": "public async Task<List<DownloadOption>> GetDownloadOptionsAsync(Guid itemId,",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.UnknownVersion.ec489412": {
+      "text": "Unknown version",
+      "context": "private static string DerivedVersionLabel(MediaStream? video, string? container)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Video.92c0e00e": {
+      "text": "Video {0}",
+      "context": "Numbered media video track row label",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.Video.a20d541d": {
+      "text": "Video",
+      "context": "public async Task<List<MediaInfoField>> GetMediaInfoAsync(Guid itemId)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "JellyfinService.WrongUsernameOrPassword.9dca7e44": {
+      "text": "Wrong username or password.",
+      "context": "private static string FriendlyError(Exception ex) ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "Languages.ArabicAra.912229fb": {
+      "text": "Arabic (ara)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.ChineseZho.094b43f6": {
+      "text": "Chinese (zho)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.CzechCes.7b8e68b3": {
+      "text": "Czech (ces)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.DanishDan.c4b1fe89": {
+      "text": "Danish (dan)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.DutchNld.a573043f": {
+      "text": "Dutch (nld)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.EnglishEng.88a1521d": {
+      "text": "English (eng)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.FinnishFin.b0dd47e0": {
+      "text": "Finnish (fin)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.FrenchFra.d4348786": {
+      "text": "French (fra)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.GermanDeu.da9ad6a6": {
+      "text": "German (deu)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.GreekEll.a13487aa": {
+      "text": "Greek (ell)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.HebrewHeb.c46022b1": {
+      "text": "Hebrew (heb)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.HindiHin.5af93b54": {
+      "text": "Hindi (hin)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.HungarianHun.de895eca": {
+      "text": "Hungarian (hun)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.IndonesianInd.4e58498f": {
+      "text": "Indonesian (ind)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.ItalianIta.065e69bd": {
+      "text": "Italian (ita)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.JapaneseJpn.fc9df014": {
+      "text": "Japanese (jpn)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.KoreanKor.c60636e0": {
+      "text": "Korean (kor)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.None.9a0dbd36": {
+      "text": "None",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.NorwegianNor.0f8a47d7": {
+      "text": "Norwegian (nor)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.PolishPol.472d4009": {
+      "text": "Polish (pol)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.PortuguesePor.9d7efad5": {
+      "text": "Portuguese (por)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.RomanianRon.ce6d326b": {
+      "text": "Romanian (ron)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.RussianRus.6600cfa3": {
+      "text": "Russian (rus)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.SpanishSpa.58b3d5f6": {
+      "text": "Spanish (spa)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.SwedishSwe.e931a51d": {
+      "text": "Swedish (swe)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.ThaiTha.fee6aea0": {
+      "text": "Thai (tha)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.TurkishTur.e55cdf2d": {
+      "text": "Turkish (tur)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.UkrainianUkr.68f307d8": {
+      "text": "Ukrainian (ukr)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "Languages.VietnameseVie.ad7c7e7d": {
+      "text": "Vietnamese (vie)",
+      "context": "public static readonly IReadOnlyList<Option> Choices =",
+      "sources": [
+        "src/LightWeaver/Player/Languages.cs"
+      ]
+    },
+    "LibraryNames.Audiobooks": {
+      "text": "Audiobooks",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryNames.Books": {
+      "text": "Books",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryNames.Collections": {
+      "text": "Collections",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryNames.Movies": {
+      "text": "Movies",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryNames.Music": {
+      "text": "Music",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryNames.TvShows": {
+      "text": "TV Shows",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Localization/LibraryNames.cs"
+      ]
+    },
+    "LibraryView.1Item.2a0ae87a": {
+      "text": "1 item",
+      "context": "private void UpdateCount()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.All.e343cc96": {
+      "text": "All",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] FilterChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.AllGenres.470d4399": {
+      "text": "All genres",
+      "context": "public LibraryView(AppViewModel app, MediaItem source, string? genre = null)",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.AnyLetter.fd19bab2": {
+      "text": "Any letter",
+      "context": "private const string AnyLetter = \"Any letter\";",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.CachingOf.7657db40": {
+      "text": "Caching {0:N0} of {1:N0}...",
+      "context": "private void OnPrefetchProgress(string key, int have, int total, bool complete, IReadOnlyList<MediaItem> items)",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.CommunityRating.25d902ea": {
+      "text": "Community rating",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.DateAdded.b6b2b943": {
+      "text": "Date added",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Download.2d9a3527": {
+      "text": "Download",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.FailedToLoad.f9500460": {
+      "text": "Failed to load: {0}",
+      "context": "private async Task LoadSeriesOrSeasonAsync(int generation, string profileKey, System.Diagnostics.Stopwatch started)",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Genres.f80febd7": {
+      "text": "Genres",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.Items.14975942": {
+      "text": "{0:N0} items",
+      "context": "private void UpdateCount()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Loading.f9dad424": {
+      "text": "Loading…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.Name.25dc8233": {
+      "text": "Name",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.NoItemsMatchThisViewOrIts.f4014918": {
+      "text": "No items match this view or its filters.",
+      "context": "private void UpdateEmptyState()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.NoTitlesHereStartWithThatLetter.2a76e639": {
+      "text": "No titles here start with that letter. Pick another, or # to show them all.",
+      "context": "private void UpdateEmptyState()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.NothingHere.6a3852d2": {
+      "text": "Nothing here",
+      "context": "private void UpdateEmptyState()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.NothingUnder.ced1a7f3": {
+      "text": "Nothing under {0}",
+      "context": "private void UpdateEmptyState()",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.OfflineShowingCachedResultsFrom.fc87ef69": {
+      "text": "Offline - showing cached results from {0:g}.",
+      "context": "private async Task LoadSeriesOrSeasonAsync(int generation, string profileKey, System.Diagnostics.Stopwatch started)",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.PlayAll.d1c4049d": {
+      "text": "  Play all",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.PremiereDate.73434a41": {
+      "text": "Premiere date",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Random.79ca58ae": {
+      "text": "Random",
+      "context": "private static readonly (string Label, ItemSortBy Sort)[] SortChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.ShowOnlyOneLetter.66d01777": {
+      "text": "Show only one letter",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.ShowingCachedResultsWhileRefreshing.a2cf5caa": {
+      "text": "Showing cached results while refreshing...",
+      "context": "private async Task LoadSeriesOrSeasonAsync(int generation, string profileKey, System.Diagnostics.Stopwatch started)",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Shuffle.00d45113": {
+      "text": "🔀  Shuffle",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.SortOrder.f1d2c72a": {
+      "text": "Sort order",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
+    "LibraryView.Unwatched.cf8a01a1": {
+      "text": "Unwatched",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] FilterChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.Watched.3eedb227": {
+      "text": "Watched",
+      "context": "private static readonly (string Label, ItemFilter? Filter)[] FilterChoices =",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LoadMoreIndicator.LoadingMore.985f8514": {
+      "text": "Loading more…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoadMoreIndicator.xaml"
+      ]
+    },
+    "LoginView.Cancel.c7de30cc": {
+      "text": "Cancel",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.EnterTheServerAddressFirst.9fb04179": {
+      "text": "Enter the server address first.",
+      "context": "private async void OnQuickConnect(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "LoginView.EnterThisCodeInYourJellyfinApp.eaafd9da": {
+      "text": "Enter this code in your Jellyfin app or web UI",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.HttpIsUnencryptedCredentialsTravelInPlain.25d96c74": {
+      "text": "HTTP is unencrypted — credentials travel in plain text.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.LightweaverMpvD3D11.3d368186": {
+      "text": "LIGHTWEAVER · MPV · D3D11",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.Password.6c4492e4": {
+      "text": "PASSWORD",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.QuickConnectFailed.74a65193": {
+      "text": "Quick Connect failed.",
+      "context": "private async void OnQuickConnect(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "LoginView.QuickConnectIsNotEnabledOnThis.784bf866": {
+      "text": "Quick Connect is not enabled on this server (or the server is unreachable).",
+      "context": "private async void OnQuickConnect(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "LoginView.Server.51a339ca": {
+      "text": "SERVER",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.ServerAndUsernameAreRequired.b128c904": {
+      "text": "Server and username are required.",
+      "context": "private async Task ConnectAsync()",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "LoginView.SignIn.49e18cd4": {
+      "text": "Sign in",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.SignInToYourJellyfinServer.6ae9b440": {
+      "text": "Sign in to your Jellyfin server",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.UseQuickConnectCodeInstead.3a6c8790": {
+      "text": "Use Quick Connect code instead",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.Username.2cbcb1d9": {
+      "text": "USERNAME",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml"
+      ]
+    },
+    "LoginView.WaitingForApproval.1da7fbf1": {
+      "text": "Waiting for approval…",
+      "context": "private async void OnQuickConnect(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml",
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "MainWindow.1Episode.151f7c91": {
+      "text": "{0} — 1 episode",
+      "context": "Download series picker singular title",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Account.8cc6b0b8": {
+      "text": "Account",
+      "context": "private void RefreshProfileAffordance()",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Advanced.7861b1ae": {
+      "text": "Advanced",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.AdvancedSearch.63af2684": {
+      "text": "Advanced search",
+      "context": "private void OpenAdvancedSearch(Jellyfin.AdvancedSearchQuery? seed = null)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.AllFiles.8fc632e9": {
+      "text": "All files",
+      "context": "Open file dialog all-files filter label",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Applying.bd4ff2cb": {
+      "text": "Applying {0}…",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Audio.809faaff": {
+      "text": "Audio",
+      "context": "private async void OnCardShowMediaInfo(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.AudioTrack.fedd5ee0": {
+      "text": "audio track",
+      "context": "Playback stream-change failure UI noun",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.ContinueWatching.9caddea3": {
+      "text": "Continue Watching",
+      "context": "private void OnSeeAllRequested(Settings.HomeSectionId id)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CopyStreamUrl.d7188f29": {
+      "text": "Copy stream URL",
+      "context": "private void OnCardMenu(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotAccessTheClipboard.3937e266": {
+      "text": "Could not access the clipboard.",
+      "context": "private void OnCardCopyStreamUrl(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotChangePlayback.4449b18d": {
+      "text": "Could not change playback {0}.",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotChangeStillUsing.bf5bade5": {
+      "text": "Could not change {0}. Still using {1}.",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotConnectToTheSavedSession.1ef8f20a": {
+      "text": "Could not connect to {0} — the saved session may have expired.",
+      "context": "private async void OnSwitchServer(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotLoadDownloadOptionsCheckYour.0de30316": {
+      "text": "Could not load download options. Check your connection and try again.",
+      "context": "private async Task OnDownloadRequested(ItemDetailView source, Jellyfin.MediaItem item,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotQueueDownloads.dade3799": {
+      "text": "Could not queue downloads: {0}",
+      "context": "private async void OnDownloadAllRequested(Jellyfin.MediaItem container)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotStartTheQueue.073622ef": {
+      "text": "Could not start the queue: {0}",
+      "context": "private async void OnPlayAllRequested(Jellyfin.MediaItem source, bool shuffle)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.CouldNotUpdateWatchedState.f13a0822": {
+      "text": "Could not update watched state.",
+      "context": "private async void OnCardToggleWatched(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Delete.56bb9077": {
+      "text": "Delete",
+      "context": "private void OnNavDownloads(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DeleteDownload.9f4d343e": {
+      "text": "Delete download?",
+      "context": "private async void OnDownloadRemoveRequested(Jellyfin.MediaItem item)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DirectPlay.1e80cd9c": {
+      "text": "Direct play",
+      "context": "private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item, int playbackSequence)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DirectPlay.c48265cc": {
+      "text": "{0} · Direct play",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Download.6b5dfaec": {
+      "text": "Download",
+      "context": "private async Task<Jellyfin.DownloadOption?> PickDownloadOptionAsync(",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DownloadComplete.a3df8de3": {
+      "text": "Download complete: {0}",
+      "context": "public MainWindow()",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Downloading.3777412c": {
+      "text": "Downloading “{0}”.",
+      "context": "private async Task OnDownloadRequested(ItemDetailView source, Jellyfin.MediaItem item,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DownloadingUpdate.e0bc4a8a": {
+      "text": "Downloading update {0} — {1:P0}",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.DownloadingUpdate.e964dce1": {
+      "text": "Downloading update {0}…",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Downloads.4bb41a3c": {
+      "text": "Downloads",
+      "context": "private void OnNavDownloads(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Episodes.6dc37413": {
+      "text": "{0} — {1} episodes",
+      "context": "Download series picker plural title",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Exit.89ddd0f4": {
+      "text": "Exit",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.FailedToInitializeMpvMakeSureLibmpv2DllMpv040IsNextToTheExeOrOnPath.c510cab0": {
+      "text": "Failed to initialize mpv:\n{0}\n\nMake sure libmpv-2.dll (mpv ≥ 0.40) is next to the exe or on PATH.",
+      "context": "Playback engine initialization alert body",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Favorites.599eff59": {
+      "text": "Favorites",
+      "context": "private void OnSeeAllRequested(Settings.HomeSectionId id)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Genres.89403381": {
+      "text": "{0} · Genres",
+      "context": "private void OnGenresRequested(Jellyfin.MediaItem library)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Home.87ce0665": {
+      "text": "Home",
+      "context": "private void ApplyState(AppState state)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.InstallingUpdate.20b56e4f": {
+      "text": "Installing update {0}…",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.InstallingUpdate.beb97cc8": {
+      "text": "Installing update → {0}",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LeaveTheGroupToChangePlaybackQuality.202c2ebb": {
+      "text": "Leave the group to change playback quality or version.",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LeaveTheGroupToOpenALocal.cfca5a03": {
+      "text": "Leave the group to open a local file or stream.",
+      "context": "public void PlayUrl(string url, string? authHeader, Guid? partialStreamItem = null,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Loading.afe7bd08": {
+      "text": "Loading {0}...",
+      "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LoadingServerTranscode.8f468d59": {
+      "text": "Loading server transcode...",
+      "context": "private async Task RetryViaTranscodeAsync(Jellyfin.MediaItem item, string reason)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LocalFile.cdf72b6f": {
+      "text": "Local file",
+      "context": "private void PlayItem(Jellyfin.MediaItem item, long resumeTicks, bool fromQueue = false,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LocalFileDownloading.de8ba257": {
+      "text": "Local file (downloading)",
+      "context": "private void PlayItem(Jellyfin.MediaItem item, long resumeTicks, bool fromQueue = false,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LogOut.85285b4a": {
+      "text": "Log out?",
+      "context": "Logout confirmation title",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.LogOut.fa23e120": {
+      "text": "Log out",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.MarkAsUnwatched.0b4368ff": {
+      "text": "Mark as unwatched",
+      "context": "private void OnCardMenu(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.MarkAsWatched.1f5c0d39": {
+      "text": "Mark as watched",
+      "context": "private void OnCardMenu(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.MediaFiles.26c1af2d": {
+      "text": "Media files",
+      "context": "Open file dialog media filter label",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.MediaInfo.36f82419": {
+      "text": "Media info",
+      "context": "private void OnCardMenu(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NextUp.384edff8": {
+      "text": "Next Up",
+      "context": "private void OnSeeAllRequested(Settings.HomeSectionId id)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NoDownloadableVideoSource.db0a9714": {
+      "text": "No downloadable video source.",
+      "context": "private async Task<Jellyfin.DownloadOption?> PickDownloadOptionAsync(",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NoDownloadableVideoSourceForThisItem.c87f7a33": {
+      "text": "No downloadable video source for this item.",
+      "context": "private async Task OnDownloadRequested(ItemDetailView source, Jellyfin.MediaItem item,",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NoMediaInfoAvailable.867efab2": {
+      "text": "No media info available.",
+      "context": "private async void OnCardShowMediaInfo(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NotConnectedToAServer.be7bffc6": {
+      "text": "Not connected to a server.",
+      "context": "private void OnCardCopyStreamUrl(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NotEnoughOfThisDownloadHasArrived.6f4c9c8c": {
+      "text": "Not enough of this download has arrived yet.",
+      "context": "private async void OnDownloadPlayRequested(Downloads.DownloadItem download)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NothingNewToDownload.ca8b424e": {
+      "text": "Nothing new to download.",
+      "context": "private async void OnDownloadAllRequested(Jellyfin.MediaItem container)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.NothingPlayableInHere.380074e4": {
+      "text": "Nothing playable in here.",
+      "context": "private async void OnPlayAllRequested(Jellyfin.MediaItem source, bool shuffle)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.OpenLocalFile.8503c0f2": {
+      "text": "Open local file…",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.OpenMediaFile.c67c1c44": {
+      "text": "Open media file",
+      "context": "private void OnOpenFileCommand()",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.PlaybackEngineFailed.7e7cd92b": {
+      "text": "Playback engine failed",
+      "context": "private void OnVideoHwndReady(nint hwnd)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.PlaybackFailed.9dbf7713": {
+      "text": "Playback failed: {0}",
+      "context": "private async Task RetryViaTranscodeAsync(Jellyfin.MediaItem item, string reason)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Quality.b2237701": {
+      "text": "quality",
+      "context": "Playback stream-change failure UI noun",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Queued1Download.ed12bfce": {
+      "text": "Queued 1 download.",
+      "context": "One download queued toast",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.QueuedDownloads.c3e812a0": {
+      "text": "Queued {0} downloads.",
+      "context": "Multiple downloads queued toast",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.RecentlyAdded.ed82647c": {
+      "text": "Recently Added",
+      "context": "private void OnSeeAllRequested(Settings.HomeSectionId id)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.RetryUpdate.3c610c57": {
+      "text": "Retry update",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.RetryingThroughTheServerTranscoder.4f3837ce": {
+      "text": "Retrying through the server transcoder...",
+      "context": "private async Task RetryViaTranscodeAsync(Jellyfin.MediaItem item, string reason)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Search.74fc6ef3": {
+      "text": "Search: {0}",
+      "context": "private async Task RunSearchAsync()",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.SearchMoviesSeriesAndEpisodesMin2.c14d0f80": {
+      "text": "Search movies, series and episodes (min. 2 characters)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.SearchYourLibraries.1bc99981": {
+      "text": "Search your libraries",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.Searching.f27d1001": {
+      "text": "Searching",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.Settings.c52a02f6": {
+      "text": "Settings",
+      "context": "private void OnOpenSettings(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.StreamFromUrl.c4483468": {
+      "text": "Stream from URL",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.StreamUrlCopied.b94f2cd2": {
+      "text": "Stream URL copied.",
+      "context": "private void OnCardCopyStreamUrl(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Subtitles.0a38ced3": {
+      "text": "subtitles",
+      "context": "Playback stream-change failure UI noun",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Subtitles.d183eb2e": {
+      "text": "Subtitles",
+      "context": "private async void OnCardShowMediaInfo(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.SwitchUserServer.cad78101": {
+      "text": "Switch user / server…",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.SyncplayGroups.402c56fb": {
+      "text": "SyncPlay groups",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml"
+      ]
+    },
+    "MainWindow.TheChosenVersion.2cb14f6d": {
+      "text": "the chosen version",
+      "context": "private async Task ApplyVersionChangeAsync(string mediaSourceId)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.TheDownloadStoppedSoPlaybackEndedEarly.dc8b8add": {
+      "text": "The download stopped, so playback ended early.",
+      "context": "private void OnVideoHwndReady(nint hwnd)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.TheSessionForExpiredPleaseSignIn.637d6e1f": {
+      "text": "The session for {0} expired — please sign in again.",
+      "context": "public MainWindow()",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.TheStagedUpdateCouldNotBeStarted.8c9f8ddf": {
+      "text": "The staged update could not be started.",
+      "context": "private async void OnInstallUpdate(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.ThisRemovesTheSavedSessionForThisProfileOnThisDevice.713533aa": {
+      "text": "This removes the saved session for this profile on this device.",
+      "context": "Logout confirmation body",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.TranscodeHls.380bd75b": {
+      "text": "Transcode (HLS)",
+      "context": "private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item, int playbackSequence)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateAvailable.f0ccaeb7": {
+      "text": "Update available → {0}",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateAvailableClickToDownload.3be9df23": {
+      "text": "Update available: {0} — click to download",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateAvailableClickToOpenReleasePage.5d7b3206": {
+      "text": "Update available: {0} — click to open release page",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateFailedOpenSettingsToRetry.83b8a30c": {
+      "text": "Update failed — open Settings to retry",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateReadyClickToInstall.c3d0fb12": {
+      "text": "Update {0} ready — click to install",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.UpdateReadyInstallsWhenLightweaverCloses.06d15187": {
+      "text": "Update {0} ready — installs when LightWeaver closes",
+      "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.Version.4e9eee4a": {
+      "text": "version",
+      "context": "Playback stream-change failure UI noun",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.VideoTracks.604a3bf4": {
+      "text": "Video tracks",
+      "context": "private async void OnCardShowMediaInfo(object sender, ExecutedRoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindow.WillBeRemovedFromThisDevice.d7453c65": {
+      "text": "“{0}” will be removed from this device.",
+      "context": "private async void OnDownloadRemoveRequested(Jellyfin.MediaItem item)",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "MainWindowRemoteControl.AddedItemsToTheQueue.07df3474": {
+      "text": "Added {0} items to the queue",
+      "context": "private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowRemoteControl.AddedToQueue.0caee923": {
+      "text": "Added to queue: {0}",
+      "context": "private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowRemoteControl.LeaveTheGroupToAppendRemoteQueue.314d7ddd": {
+      "text": "Leave the group to append remote queue items.",
+      "context": "private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowRemoteControl.NoSubtitles.522610d7": {
+      "text": "no subtitles",
+      "context": "private async Task ApplyRemoteStreamIndexAsync(string profileKey, bool audio, int index)",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowRemoteControl.PlayingNext.77e3707a": {
+      "text": "Playing next: {0}",
+      "context": "private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowRemoteControl.QueuedItemsToPlayNext.096175d6": {
+      "text": "Queued {0} items to play next",
+      "context": "private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,",
+      "sources": [
+        "src/LightWeaver/MainWindow.RemoteControl.cs"
+      ]
+    },
+    "MainWindowStreaming.StreamFromUrl.5cf68527": {
+      "text": "Stream from URL ({0})",
+      "context": "private void OnStreamToolTipOpening(object sender, System.Windows.Controls.ToolTipEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.Streaming.cs"
+      ]
+    },
+    "MainWindowStreaming.StreamFromUrl.899b8c83": {
+      "text": "Stream from URL",
+      "context": "private void OnStreamToolTipOpening(object sender, System.Windows.Controls.ToolTipEventArgs e)",
+      "sources": [
+        "src/LightWeaver/MainWindow.Streaming.cs"
+      ]
+    },
+    "MainWindowSyncPlay.CouldNotJoinTheGroupNoLonger.7ccefaf4": {
+      "text": "Could not join: the group no longer exists",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.CouldNotJoinYouCannotSeeWhat.1f27c777": {
+      "text": "Could not join: you cannot see what the group is playing",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.CouldNotLoadTheGroupSItem.44a2ebfb": {
+      "text": "Could not load the group's item.",
+      "context": "private async Task LoadGroupItemAsync(SyncPlayQueueItem entry, long ticks)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.GroupItem.c4de4a0d": {
+      "text": "Group item {0}",
+      "context": "private void RefreshSyncPlayQueueRows()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.JoinedTheGroup.85544a3b": {
+      "text": "{0} joined the group",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.LeaveTheGroupToPlayFromAnother.67c4b48a": {
+      "text": "Leave the group to play from another server or account.",
+      "context": "private bool SubmitSyncPlayQueue(IReadOnlyList<MediaItem> items, int index, long ticks, JellyfinService owner)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.LeaveTheGroupToUseThatControl.201079cc": {
+      "text": "Leave the group to use that control.",
+      "context": "private bool OnLocalTransport(TransportRequest request)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.LeftTheGroup.cbbf2346": {
+      "text": "{0} left the group",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.LeftTheGroupTheConnectionWasLost.8c9b0086": {
+      "text": "Left the group: the connection was lost too long",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.SyncplayRefusedThisSession.89c06147": {
+      "text": "SyncPlay refused this session",
+      "context": "private void AttachSyncPlay()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.TheGroupCouldNotBeReached.6a08c586": {
+      "text": "The group could not be reached.",
+      "context": "private async Task<bool> PostSyncPlayAsync(Func<Task<bool>> post)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.TheGroupDidNotAcceptThatTry.046df7a1": {
+      "text": "The group did not accept that. Try again.",
+      "context": "private async Task<bool> PostSyncPlayAsync(Func<Task<bool>> post)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.ThisAccountCannotCreateSyncplayGroups.34ac0772": {
+      "text": "This account cannot create SyncPlay groups.",
+      "context": "internal async Task<bool> CreateSyncPlayGroupAsync(string name)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.ThisAccountCannotJoinSyncplayGroups.73f1839b": {
+      "text": "This account cannot join SyncPlay groups.",
+      "context": "internal async Task<bool> JoinSyncPlayGroupAsync(Guid groupId)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlay.WaitForTheGroupSItemTo.77f45ca0": {
+      "text": "Wait for the group's item to load.",
+      "context": "private bool OnLocalTransport(TransportRequest request)",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlay.cs"
+      ]
+    },
+    "MainWindowSyncPlayUi.Syncplay.5bd69e40": {
+      "text": "SyncPlay · {0} · {1}",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlayUi.cs"
+      ]
+    },
+    "MainWindowSyncPlayUi.SyncplayGroups.634e8cfc": {
+      "text": "SyncPlay groups",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlayUi.cs"
+      ]
+    },
+    "MainWindowSyncPlayUi.SyncplayJoining.80dcb609": {
+      "text": "SyncPlay · Joining…",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/MainWindow.SyncPlayUi.cs"
+      ]
+    },
+    "MediaItem.HMin.88092aee": {
+      "text": "{0}h {1}min",
+      "context": "public string RuntimeDisplay",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaItem.cs"
+      ]
+    },
+    "MediaItem.HMinLeft.d678dc2d": {
+      "text": "{0}H {1}MIN LEFT",
+      "context": "Continue watching remaining time with hours",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaItem.cs"
+      ]
+    },
+    "MediaItem.Min.2fdd6dc5": {
+      "text": "{0}min",
+      "context": "public string RuntimeDisplay",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaItem.cs"
+      ]
+    },
+    "MediaItem.MinLeft.374388d2": {
+      "text": "{0}MIN LEFT",
+      "context": "Continue watching remaining time in minutes",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaItem.cs"
+      ]
+    },
+    "MediaItem.Se.7aa8faab": {
+      "text": "S{0}E{1}",
+      "context": "public string EpisodeTag ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaItem.cs"
+      ]
+    },
+    "MediaSegmentsClient.SkipCredits.82a7ac4b": {
+      "text": "Skip Credits",
+      "context": "public string Label ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaSegmentsClient.cs"
+      ]
+    },
+    "MediaSegmentsClient.SkipIntro.f5b88b47": {
+      "text": "Skip Intro",
+      "context": "public string Label ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaSegmentsClient.cs"
+      ]
+    },
+    "MediaSegmentsClient.SkipRecap.1ad0c678": {
+      "text": "Skip Recap",
+      "context": "public string Label ",
+      "sources": [
+        "src/LightWeaver/Jellyfin/MediaSegmentsClient.cs"
+      ]
+    },
+    "MediaTemplates.More.806ed266": {
+      "text": "More",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/MediaTemplates.xaml"
+      ]
+    },
+    "MediaTemplates.Play.02c5a21d": {
+      "text": "Play",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/MediaTemplates.xaml"
+      ]
+    },
+    "MediaTemplates.ToggleWatched.001a4ba2": {
+      "text": "Toggle watched",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/MediaTemplates.xaml"
+      ]
+    },
+    "ModalHost.Cancel.1acd3773": {
+      "text": "Cancel",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/ModalHost.xaml"
+      ]
+    },
+    "ModalHost.Confirm.d80d8052": {
+      "text": "Confirm",
+      "context": "Modal confirmation button",
+      "sources": [
+        "src/LightWeaver/Views/ModalHost.xaml.cs"
+      ]
+    },
+    "ModalHost.Ok.d9b68574": {
+      "text": "OK",
+      "context": "Modal alert dismissal button",
+      "sources": [
+        "src/LightWeaver/Views/ModalHost.xaml.cs"
+      ]
+    },
+    "ModalHost.Select.a37ea5c5": {
+      "text": "Select",
+      "context": "Modal option selection button",
+      "sources": [
+        "src/LightWeaver/Views/ModalHost.xaml.cs"
+      ]
+    },
+    "MpvPlayer.AudioStoppedAfterTheOutputDeviceChangedAndCouldNotBeResynchronisedSeek.50d73217": {
+      "text": "Audio stopped after the output device changed and could not be resynchronised — seek or reselect the audio track to restore it.",
+      "context": "Audio resynchronization error toast",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.CanTTakePassthroughAudioPlayingDecoded.7d3b527a": {
+      "text": "{0} can't take passthrough audio — playing decoded audio instead.",
+      "context": "private string PassthroughFailureMessage()",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.External.8bf7fc85": {
+      "text": "External",
+      "context": "public void AddExternalSubtitle(string url, string? title, string? lang)",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.Forced.0483da29": {
+      "text": "{0} [forced]",
+      "context": "public string Display",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.HdrSourceNvidiaVideoProcessingIsSdr.456ffeee": {
+      "text": "HDR source (NVIDIA video processing is SDR-only)",
+      "context": "private void ApplyRtxFilterChain()",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.PlaybackStoppedAndCouldNotBeRestarted.7f574ba2": {
+      "text": "Playback stopped and could not be restarted — seek, or reload the item, to resume.",
+      "context": "private const string PlaybackStallFailureMessage =",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.TheCurrentAudioDevice.281d4745": {
+      "text": "the current audio device",
+      "context": "private string PassthroughFailureMessage()",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.Track.1ff5dd9a": {
+      "text": "Track {0}",
+      "context": "public string Display",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.Value.0d3c3091": {
+      "text": "{0} · {1}",
+      "context": "public string Display",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.Value.9db73e6e": {
+      "text": "{0} ({1})",
+      "context": "public string Display",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "MpvPlayer.VolumeNormalizationCouldNotBeAppliedPlaying.ab834de9": {
+      "text": "Volume normalization could not be applied — playing unprocessed audio.",
+      "context": "public void ApplyAudioOptions(AppSettings settings)",
+      "sources": [
+        "src/LightWeaver/Player/MpvPlayer.cs"
+      ]
+    },
+    "OpenStreamView.EnterAFullHttpOrHttpsUrl.aa9a2cb3": {
+      "text": "Enter a full HTTP or HTTPS URL. URLs with a username or password are not supported.",
+      "context": "private void OnPlay(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml.cs"
+      ]
+    },
+    "OpenStreamView.NoLinkHistoryIsSavedBufferingUses.82f790bb": {
+      "text": "No link history is saved. Buffering uses the recommended setting unless you change it in Settings.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OpenStreamView.PasteAVideoLink.762bb6a0": {
+      "text": "Paste a video link",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OpenStreamView.Play.67cefb55": {
+      "text": "Play",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OpenStreamView.PlayADirectVideoOrLiveStream.73336491": {
+      "text": "Play a direct video or live-stream link with your usual player controls.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OpenStreamView.UseAFullHttpOrHttpsLink.163b1c5c": {
+      "text": "Use a full http:// or https:// link to the media, rather than a webpage.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OpenStreamView.VideoUrl.b9f5332d": {
+      "text": "Video URL",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OpenStreamView.xaml"
+      ]
+    },
+    "OverlayWindow.Audio.9abeea5f": {
+      "text": "Audio",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Audio.cd723f76": {
+      "text": "AUDIO",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.AudioOutputDevice.2967a1a2": {
+      "text": "Audio output device",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.AudioTracksA.d48af41f": {
+      "text": "Audio tracks (A)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.BackToBrowsing.cd1be2d3": {
+      "text": "Back to browsing",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Buffering.775bb628": {
+      "text": "Buffering",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.ClickToTypeAPosition.a1898aeb": {
+      "text": "Click to type a position",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Default.23be1904": {
+      "text": "Default",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Dismiss.fcc705ec": {
+      "text": "Dismiss",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.ForceTranscode.edd0f99c": {
+      "text": "Force transcode",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Fullscreen.510ad9f2": {
+      "text": "Fullscreen",
+      "context": "public void SetFullscreen(bool on)",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml",
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.FullscreenF11.626a9555": {
+      "text": "Fullscreen (F11)",
+      "context": "public void SetFullscreen(bool on)",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml",
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.JumpBackLeftArrow.be72716d": {
+      "text": "Jump back (Left arrow)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.JumpForwardRightArrow.4c1d1ce5": {
+      "text": "Jump forward (Right arrow)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.KeyboardShortcuts.32c7f6ef": {
+      "text": "Keyboard shortcuts (?)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.LeaveFullscreen.b7b5ca10": {
+      "text": "Leave fullscreen",
+      "context": "public void SetFullscreen(bool on)",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.LeaveFullscreenF11.cc80a00b": {
+      "text": "Leave fullscreen (F11)",
+      "context": "public void SetFullscreen(bool on)",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.LeaveMiniPlayerCtrlM.1e2857d5": {
+      "text": "Leave mini-player (Ctrl+M)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.LeaveTheSyncplayGroupToChangePlayback.61dee088": {
+      "text": "Leave the SyncPlay group to change playback quality.",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.LeaveTheSyncplayGroupToChangeVersions.edda4a13": {
+      "text": "Leave the SyncPlay group to change versions.",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.MaxBitrate.1152f0c3": {
+      "text": "Max bitrate",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.MediaInfo.36723d57": {
+      "text": "Media info",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.MiniPlayerCtrlM.8002b3ca": {
+      "text": "Mini-player (Ctrl+M)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.MuteM.2e4ba5be": {
+      "text": "Mute (M)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.NextChapter.8cc8223b": {
+      "text": "Next chapter (])",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.PlayNow.4943f2c7": {
+      "text": "Play now",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Playback.d305bd73": {
+      "text": "PLAYBACK",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.PlaybackAndMediaInfo.f4b354fe": {
+      "text": "Playback and media info",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.PlaybackQueue.8eab0a24": {
+      "text": "Playback queue",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.PlaybackSpeedKeys.47f6fa0b": {
+      "text": "Playback speed (+/- keys)",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml",
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.PreviousChapter.0e775e85": {
+      "text": "Previous chapter ([)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Quality.a353280b": {
+      "text": "QUALITY",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Queue.c837088e": {
+      "text": "Queue",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.RemoveFromQueue.6eb7df26": {
+      "text": "Remove from queue",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Resize.390b40a8": {
+      "text": "Resize",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.RtxHdr.7aea71b5": {
+      "text": "RTX HDR",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.RtxVsr.33ca5a93": {
+      "text": "RTX VSR",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.SsMmSsOrHhMmSs.f3d1e5a4": {
+      "text": "ss, mm:ss or hh:mm:ss - Enter seeks, Esc cancels",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Subs.49239a86": {
+      "text": "Subs",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.SubtitleTracksS.038c1184": {
+      "text": "Subtitle tracks (S)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Subtitles.96bfdc36": {
+      "text": "SUBTITLES",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Syncplay.1878c293": {
+      "text": "SyncPlay · {0} · {1}",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.SyncplayControlsPlaybackSpeedForTheGroup.16ddeed2": {
+      "text": "SyncPlay controls playback speed for the group.",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.SyncplayGroups.2955453c": {
+      "text": "SyncPlay groups",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml",
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.SyncplayJoining.a26b6aba": {
+      "text": "SyncPlay · Joining…",
+      "context": "private void UpdateSyncPlayControls()",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
+      ]
+    },
+    "OverlayWindow.Tracks.9e5d1f57": {
+      "text": "Tracks",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Unlimited.a8ea161a": {
+      "text": "Unlimited",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.UpNext.2f6b3cf4": {
+      "text": "UP NEXT",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Versions.8dba17bf": {
+      "text": "VERSIONS",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Video.62af9e6d": {
+      "text": "Video",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Video.a0248e59": {
+      "text": "VIDEO",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.VideoAudioAndSubtitleTracksVA.f9145b24": {
+      "text": "Video, audio and subtitle tracks (V/A/S cycle)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.VideoTracksV.1fa6008a": {
+      "text": "Video tracks (V)",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Volume.a82a60d2": {
+      "text": "Volume",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "PlayerActions.Alt.9be36c95": {
+      "text": "Alt",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Backspace.46280906": {
+      "text": "Backspace",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Ctrl.4294439e": {
+      "text": "Ctrl",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.CycleAudioTrack.79382828": {
+      "text": "Cycle audio track",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.CycleSubtitleTrack.19c7538b": {
+      "text": "Cycle subtitle track",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.CycleVideoTrack.c207af5f": {
+      "text": "Cycle video track",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Delete.d6cb7244": {
+      "text": "Delete",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Down.073d0e08": {
+      "text": "Down",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.End.31f0df28": {
+      "text": "End",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Enter.e761ccbf": {
+      "text": "Enter",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Esc.abeb1d0a": {
+      "text": "Esc",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Home.47fcf378": {
+      "text": "Home",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Insert.129db0a7": {
+      "text": "Insert",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Left.0795e838": {
+      "text": "Left",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Mute.4b40494c": {
+      "text": "Mute",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.NextChapter.a0b24056": {
+      "text": "Next chapter",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.NextFrame.6bec0a7b": {
+      "text": "Next frame",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.NextInQueue.7a013309": {
+      "text": "Next in queue",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Pagedown.36cb25c7": {
+      "text": "PageDown",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Pageup.8883ccb6": {
+      "text": "PageUp",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.PlayPause.07245d65": {
+      "text": "Play / pause",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.PreviousChapter.3e967ea5": {
+      "text": "Previous chapter",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.PreviousFrame.c980e379": {
+      "text": "Previous frame",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.PreviousInQueue.994ad41d": {
+      "text": "Previous in queue",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Right.e9a2228f": {
+      "text": "Right",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SeekBack.ab02e67d": {
+      "text": "Seek back",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SeekBackLarge.c9d9175f": {
+      "text": "Seek back (large)",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SeekForward.804babac": {
+      "text": "Seek forward",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SeekForwardLarge.a826683b": {
+      "text": "Seek forward (large)",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Shift.0f1fc6ac": {
+      "text": "Shift",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SkipIntroCredits.6edab871": {
+      "text": "Skip intro/credits",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Space.42b61e2c": {
+      "text": "Space",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SpeedDown.dc493c6c": {
+      "text": "Speed down",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.SpeedUp.eb352570": {
+      "text": "Speed up",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.StreamFromUrlWhileBrowsing.933b9de0": {
+      "text": "Stream from URL (while browsing)",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Tab.aea77d7d": {
+      "text": "Tab",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.ToggleFullscreen.ac72de7e": {
+      "text": "Toggle fullscreen",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Unbound.7f895535": {
+      "text": "(unbound)",
+      "context": "Unassigned keyboard shortcut display",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.Up.f09e69a7": {
+      "text": "Up",
+      "context": "Keyboard shortcut display key name",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.VolumeDown.d7df69cb": {
+      "text": "Volume down",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerActions.VolumeUp.d9bb5687": {
+      "text": "Volume up",
+      "context": "public static string DisplayName(PlayerAction action) ",
+      "sources": [
+        "src/LightWeaver/Player/PlayerActions.cs"
+      ]
+    },
+    "PlayerViewModel.Audio.317b9c84": {
+      "text": "Audio",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Buffering.5f5334e6": {
+      "text": "Buffering…",
+      "context": "public string PlaybackStatusText ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Buffering.e34e3ba8": {
+      "text": "Buffering",
+      "context": "SyncPlay group state display",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Ch.175b305c": {
+      "text": " · {0} ch",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Connected.f19541e0": {
+      "text": "Connected",
+      "context": "Unknown or absent SyncPlay group state",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.DefaultMbpsMax.1d711255": {
+      "text": "Default ({0} Mbps max)",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.DefaultUnlimited.91b5c2ed": {
+      "text": "Default (Unlimited)",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.DirectPlayAllowed.710abbca": {
+      "text": "{0} · Direct play allowed",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.DroppedFrames.f3eed14f": {
+      "text": "Dropped frames",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.DynamicRange.81c1f3ab": {
+      "text": "Dynamic range",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.ForceTranscode.351ee124": {
+      "text": "{0} · Force transcode",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Fps.36e2b0e8": {
+      "text": "{0:0.###} fps",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.FrameRate.d9c68e23": {
+      "text": "Frame rate",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.HardwareDecoding.9c5ef5fa": {
+      "text": "Hardware decoding",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Hdr.cfecb163": {
+      "text": "HDR",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Idle.8db40edb": {
+      "text": "Idle",
+      "context": "SyncPlay group state display",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Joining.f1e37263": {
+      "text": "Joining…",
+      "context": "public string SyncPlayStatus ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Khz.b43a923c": {
+      "text": " · {0:0.#} kHz",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Loading.2df10e46": {
+      "text": "Loading…",
+      "context": "public string PlaybackStatusText ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Mbps.2364092a": {
+      "text": "{0:0.0} Mbps",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.MbpsMax.f1aacf3d": {
+      "text": "{0} Mbps max",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.NextN.842e5c33": {
+      "text": "Next (N)",
+      "context": "public string NextTooltip ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Off.830d786d": {
+      "text": "Off",
+      "context": "private void RebuildTrackOptions(int generation)",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Off.9b533bcb": {
+      "text": "off",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.On.e22b3186": {
+      "text": "on",
+      "context": "RTX enabled status",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Paused.f39bfc1b": {
+      "text": "Paused",
+      "context": "SyncPlay group state display",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.PlayMethod.c157a492": {
+      "text": "Play method",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Playing.03d535f1": {
+      "text": "Playing",
+      "context": "SyncPlay group state display",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.PlayingInS.75ed9c94": {
+      "text": "Playing in {0} s",
+      "context": "public string UpNextCountdownText ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.PreviousP.476a01d0": {
+      "text": "Previous (P)",
+      "context": "public string PreviousTooltip ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Resolution.c7b75e89": {
+      "text": "Resolution",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Rtx.464c6962": {
+      "text": "RTX",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.RtxVideoHdrD3D11VppNvidiaTrueHdr.e71e5010": {
+      "text": "RTX Video HDR (d3d11vpp=nvidia-true-hdr)",
+      "context": "public string RtxHdrTooltip ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.RtxVideoSuperResolutionD3D11VppScalingMode.50c071ea": {
+      "text": "RTX Video Super Resolution (d3d11vpp scaling-mode=nvidia)",
+      "context": "public string RtxVsrTooltip ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Sd.07ccd11b": {
+      "text": "SD",
+      "context": "public string? StatusResolutionLabel ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Sdr.53a3d75f": {
+      "text": "SDR",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Syncing.2bdc0f46": {
+      "text": "Syncing…",
+      "context": "Pending SyncPlay status",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.SystemDefault.29baa166": {
+      "text": "System default",
+      "context": "public void RefreshAudioDevices()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Unavailable.58d4d208": {
+      "text": "Unavailable: {0}",
+      "context": "public string RtxVsrTooltip ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.UnavailableForThisPlayback.89fbc22d": {
+      "text": "Unavailable for this playback",
+      "context": "private string _qualityStatus = \"Unavailable for this playback\";",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Unlimited.b2d15726": {
+      "text": "Unlimited",
+      "context": "public static string QualityDescription(int? maxBitrateMbps, bool forceTranscode,",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Value.09b5a0bd": {
+      "text": "{0} ({1})",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Value.3bc02e73": {
+      "text": "{0} · {1}",
+      "context": "public string SyncPlayStatus ",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Value.a80886d3": {
+      "text": "{0} ({1} / {2})",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Video.d8239941": {
+      "text": "Video",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.VideoBitrate.7cabcad9": {
+      "text": "Video bitrate",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.VsrRtxHdr.2cc5bbb9": {
+      "text": "VSR {0} · RTX HDR {1}",
+      "context": "public void RefreshLiveStats()",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "PlayerViewModel.Waiting.4926e5d8": {
+      "text": "Waiting",
+      "context": "SyncPlay group state display",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "SearchResultsView.Collections.1d60b322": {
+      "text": "Collections",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.Episodes.abbe28a9": {
+      "text": "Episodes",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.Movies.049dbe79": {
+      "text": "Movies",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.NoResults.33cf7927": {
+      "text": "No results",
+      "context": "public void SetResults(IReadOnlyList<MediaItem> items)",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.Other.9f077fc0": {
+      "text": "Other",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.People.63fea934": {
+      "text": "People",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.Searching.a1ec7731": {
+      "text": "Searching…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml"
+      ]
+    },
+    "SearchResultsView.Shows.c9405784": {
+      "text": "Shows",
+      "context": "private static (string Label, int Rank) GroupOf(BaseItemDto_Type type) ",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SearchResultsView.TryADifferentSearchTermOrThe.fc5f1cbd": {
+      "text": "Try a different search term or the Advanced search filters.",
+      "context": "public void SetResults(IReadOnlyList<MediaItem> items)",
+      "sources": [
+        "src/LightWeaver/Views/SearchResultsView.xaml.cs"
+      ]
+    },
+    "SectionView.1Item.43dc7d9b": {
+      "text": "1 item",
+      "context": "private void UpdateCount() ",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml.cs"
+      ]
+    },
+    "SectionView.FailedToLoad.8dd51815": {
+      "text": "Failed to load: {0}",
+      "context": "private async Task LoadFirstAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml.cs"
+      ]
+    },
+    "SectionView.Items.d8880750": {
+      "text": "{0} items",
+      "context": "private void UpdateCount() ",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml.cs"
+      ]
+    },
+    "SectionView.Loading.4654bbde": {
+      "text": "Loading…",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml"
+      ]
+    },
+    "SectionView.NothingHere.a7f57eb9": {
+      "text": "Nothing here",
+      "context": "private async Task LoadFirstAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml.cs"
+      ]
+    },
+    "SectionView.ThisSectionHasNoItemsRightNow.740c9867": {
+      "text": "This section has no items right now.",
+      "context": "private async Task LoadFirstAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SectionView.xaml.cs"
+      ]
+    },
+    "SettingsView.0B.b17da85c": {
+      "text": "0 B",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AdditionalItemsWaitAsQueued.08b8c60a": {
+      "text": "Additional items wait as Queued",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AdvancedVideoBuffer.1be72077": {
+      "text": "Advanced video buffer",
+      "context": "XAML Header",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Audio.56bc57d0": {
+      "text": "AUDIO",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AutoDownload.b44f785a": {
+      "text": "Auto-download",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.AutoDownloadAndInstall.0f40ada9": {
+      "text": "Auto-download and install",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.AutoPlayCountdownSeconds.b2484c53": {
+      "text": "Auto-play countdown (seconds)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AutoPlayTheNextEpisode.f84f1bc6": {
+      "text": "Auto-play the next episode",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AutomaticallySkipCredits.3fb0334d": {
+      "text": "Automatically skip credits",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AutomaticallySkipIntrosAndRecaps.fa3203e8": {
+      "text": "Automatically skip intros and recaps",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.B.22d53ad5": {
+      "text": "{0} B",
+      "context": "private static string FormatBytes(long bytes) ",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Behavior.b02d814e": {
+      "text": "BEHAVIOR",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.BitstreamAc3Eac3DtsTruehdToThe.34cd4fcb": {
+      "text": "Bitstream AC3/EAC3/DTS/TrueHD to the device",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.BorderColorRrggbbEmptyBlack.29a20602": {
+      "text": "Border color (#RRGGBB, empty = black)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.BorderSizeDefault3.e1ae5a2b": {
+      "text": "Border size (default 3)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Browse.a8cde17e": {
+      "text": "Browse...",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ChangesSaveImmediatelyLanguageAndAutoSkip.2b940636": {
+      "text": "Changes save immediately. Audio/subtitle preferences and auto-skip apply from the next playback.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.CheckForUpdates.b964dc04": {
+      "text": "Check for updates",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.CheckingForUpdates.716abad2": {
+      "text": "Checking for updates…",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ChooseTheDownloadFolder.37147ee3": {
+      "text": "Choose the download folder",
+      "context": "private void OnBrowseDownloadDir(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Clear.ffbee473": {
+      "text": "Clear",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ClearAllCaches.91d9ede6": {
+      "text": "Clear all caches",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.CurrentVersionLastChecked.deff5f18": {
+      "text": "Current version: {0} · Last checked: {1}",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Custom.cf0bc965": {
+      "text": "Custom",
+      "context": "XAML ComboBoxItem",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.CustomSize321024Mib.f3bf7d38": {
+      "text": "Custom size (32–1024 MiB)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.D3D11Va.cb90e75f": {
+      "text": "d3d11va",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.DevicesAreListedOncePlaybackHasStarted.bfd88419": {
+      "text": "Devices are listed once playback has started.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Diagnostics.afaa146b": {
+      "text": "DIAGNOSTICS",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Download.9ccefefe": {
+      "text": "Download",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.DownloadAndInstall.35531833": {
+      "text": "Download and install",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.DownloadFolder.963446ec": {
+      "text": "Download folder",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.DownloadUpdate.02c1beaa": {
+      "text": "Download update",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.DownloadingVersion.8a4557dc": {
+      "text": "Downloading version {0}…",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Downloads.c87e5c91": {
+      "text": "DOWNLOADS",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.DynaudnormMutuallyExclusiveWithPassthrough.7d926f57": {
+      "text": "dynaudnorm · mutually exclusive with passthrough",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.EmptyLightweaverSAppDataDownloadsFolder.f1cdbe70": {
+      "text": "Empty = LightWeaver's app-data downloads folder",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.EmptyPlayerDefault.c97e3622": {
+      "text": "Empty = player default",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.EnabledByDefaultOnRtxGpus.95db4426": {
+      "text": "Enabled by default on RTX GPUs",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.EnterAWholeNumberFrom32To.b6003a6e": {
+      "text": "Enter a whole number from 32 to 1024 MiB. Last saved: {0} MiB.",
+      "context": "private void OnChanged(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Export.419f870c": {
+      "text": "Export…",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ExportFailed.d8568efd": {
+      "text": "export failed: {0}",
+      "context": "private void OnExportLogs(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ExportLightweaverLogs.f46ec341": {
+      "text": "Export LightWeaver logs",
+      "context": "private void OnExportLogs(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Exported1FileTo.a005f55e": {
+      "text": "exported 1 file to {0}",
+      "context": "Exported one diagnostics file",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ExportedFilesTo.0ab1ae50": {
+      "text": "exported {0} files to {1}",
+      "context": "Exported multiple diagnostics files",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ExternalMetadata.7fe53556": {
+      "text": "EXTERNAL METADATA",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ExternalMetadataOmdb.40273ee5": {
+      "text": "External metadata (OMDB)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.FolderCacheLimit.43376c44": {
+      "text": "Folder cache limit",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Font.aa9f1bdc": {
+      "text": "Font",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.FontSizeTextSubsDefault38.b1aa3d5d": {
+      "text": "Font size (text subs, default 38)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Gb.b4766b60": {
+      "text": " GB",
+      "context": "private static string FormatBytes(long bytes) ",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.HardwareDecoding.f60b25fe": {
+      "text": "Hardware decoding",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ImageCacheLimit.2a714794": {
+      "text": "Image cache limit",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ImagesPostersThumbnailsTrickplay.1628db4f": {
+      "text": "Images (posters, thumbnails, trickplay)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ImdbRottenTomatoesMetacriticScoresOnThe.a3fb9ec9": {
+      "text": "IMDb / Rotten Tomatoes / Metacritic scores on the detail view · omdbapi.com",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.InstallNow.e4cf6a26": {
+      "text": "Install now",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.InstallUpdateNow.48605ebe": {
+      "text": "Install update now",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.InterfaceLanguage.1aef0b8c": {
+      "text": "Interface language",
+      "context": "Settings interface language label",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.JumpBackSecondsLeftArrow.781e92ab": {
+      "text": "Jump back (seconds, Left arrow)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.JumpForwardSecondsRightArrow.83f8d3fc": {
+      "text": "Jump forward (seconds, Right arrow)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Kb.ac2a41e1": {
+      "text": " KB",
+      "context": "private static string FormatBytes(long bytes) ",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.KeepsFullMpvOutputAndPlaybackSession.e49557fc": {
+      "text": "Keeps full mpv output and playback/session events on disk · off, only crashes and playback failures are written",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.KeyboardShortcutsClickABindingThenPress.b61da8ba": {
+      "text": "Keyboard shortcuts · click a binding, then press the new key (Esc cancels). Assigning a key in use unbinds it from the other action.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LargeJumpSecondsCtrlLeftRightArrows.07952a26": {
+      "text": "Large jump (seconds, Ctrl+Left/Right arrows)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LastCheck.f89df2b0": {
+      "text": " Last check: {0}",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.LessMemory.eaa82daf": {
+      "text": "Less memory",
+      "context": "XAML ComboBoxItem",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LessMemorySuitsConstrainedDevicesMoreRead.1a49d512": {
+      "text": "Less memory suits constrained devices. More read-ahead can help intermittent dips but uses more RAM.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LibraryNameDefault": {
+      "text": "Default: {0}",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.LibraryNameFor": {
+      "text": "Name for {0}",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.LibraryNames": {
+      "text": "Library names",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LibraryNamesHint": {
+      "text": "Names for {0}. Leave blank to use the default.",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.LightweaverIsUpToDate.522503ca": {
+      "text": "LightWeaver is up to date.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.LogFiles.68bcb2b9": {
+      "text": "Log files",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.LruEvictionTrimsThePosterThumbnailCache.0b148c6f": {
+      "text": "LRU eviction trims the poster/thumbnail cache to this",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ManualInstall.137212a0": {
+      "text": "Manual install",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ManualIsTheDefaultEveryOptionStill.ae57a554": {
+      "text": "Manual is the default; every option still checks automatically",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MaxStreamingBitrate.01c1507d": {
+      "text": "Max streaming bitrate",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MaximumItemsCachedPerLibraryFolder.5e86a3a4": {
+      "text": "Maximum items cached per library folder",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Mb.67a3de26": {
+      "text": "{0} MB",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Mb.6bb5abe0": {
+      "text": " MB",
+      "context": "private static string FormatBytes(long bytes) ",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Mbps0UnlimitedAboveTheCapTranscodes.3dc9b605": {
+      "text": "Mbps · 0 = unlimited · above the cap transcodes on the server",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MediaInfo.e0c50633": {
+      "text": "Media info",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MediaKeyThePlayerSNextButton.18c82417": {
+      "text": "media key + the player's next button",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MediaKeyThePlayerSPreviousButton.d18927d8": {
+      "text": "media key + the player's previous button",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MediaNextDoes.9d8a65fd": {
+      "text": "Media Next does",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MediaPreviousDoes.d884b4d8": {
+      "text": "Media Previous does",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MoreReadAhead.ef150aea": {
+      "text": "More read-ahead",
+      "context": "XAML ComboBoxItem",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.MoreReadAheadCannotFixAConsistently.de87ee99": {
+      "text": "More read-ahead cannot fix a consistently slow connection.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Never.b8c49021": {
+      "text": "Never",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.NextChapter.7feee55d": {
+      "text": "Next chapter",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.NextInQueue.a5abcc0f": {
+      "text": "Next in queue",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.NitsMatchTheNvidiaAppValueFor.25d06913": {
+      "text": "nits · match the NVIDIA App value for your display",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.NoUpdateCheckHasRunYet.b888684f": {
+      "text": "No update check has run yet.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.NothingToExportNoLogsHaveBeen.5570c384": {
+      "text": "nothing to export — no logs have been written",
+      "context": "private void OnExportLogs(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.OffStillShowsTheUpNextCard.36f22457": {
+      "text": "Off still shows the Up Next card — it just waits for you to press Play",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.OmdbApiKey.dfbf0fe4": {
+      "text": "OMDB API key",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.OpenFolder.fd396b9a": {
+      "text": "Open folder",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.OpenReleasePage.e7bd56f3": {
+      "text": "Open release page",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.OpenUpdateReleasePage.7bf96c83": {
+      "text": "Open update release page",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Original.a8d63619": {
+      "text": "Original",
+      "context": "Original download resolution label",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.OutputDevice.aa9731ec": {
+      "text": "Output device",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Passthrough.be72a073": {
+      "text": "Passthrough",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Playback.ad41a31d": {
+      "text": "PLAYBACK",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.PreferredDownloadQuality.60aebff1": {
+      "text": "Preferred download quality",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.PreferredLanguage.419c9982": {
+      "text": "Preferred language",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.PreselectedInThePickerSourcesBelowThe.6ed0420e": {
+      "text": "Preselected in the picker; sources below the tier offer Original only",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.PressAKey.dab8168a": {
+      "text": "Press a key…",
+      "context": "private void OnShortcutCaptureClick(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.PreviousChapter.1f1ecf33": {
+      "text": "Previous chapter",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.PreviousInQueue.bd53ab82": {
+      "text": "Previous in queue",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Recommended.d70aa591": {
+      "text": "Recommended",
+      "context": "XAML ComboBoxItem",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ResetToDefaults.2f8aa8cd": {
+      "text": "Reset to defaults",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Retry.8a625e56": {
+      "text": "Retry",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.RtxHdrPeakBrightness.27a9c730": {
+      "text": "RTX HDR peak brightness",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.RtxVideoHdr.7c967b29": {
+      "text": "RTX Video HDR",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.RtxVideoSuperResolution.dd557561": {
+      "text": "RTX Video Super Resolution",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.SaveAllLogFilesAsOneZip.fb9cc13f": {
+      "text": "Save all log files as one zip",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.SaveLibraryNames": {
+      "text": "Save names",
+      "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Saved.22a48118": {
+      "text": "{0} (saved)",
+      "context": "private static void PopulateLanguages(System.Windows.Controls.ComboBox box, string saved)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.SeekBack.58ae379b": {
+      "text": "Seek back",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.SeekForward.86fd3e75": {
+      "text": "Seek forward",
+      "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Settings.ab089ec2": {
+      "text": "Settings",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ShadowOffset0None.70004051": {
+      "text": "Shadow offset (0 = none)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Shortcuts.6b2fd38c": {
+      "text": "SHORTCUTS",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ShowHideTheKey.f560351d": {
+      "text": "Show / hide the key",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ShowOrHideTheKey.1f056043": {
+      "text": "Show or hide the key",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.SimultaneousDownloads.a87d5eb2": {
+      "text": "Simultaneous downloads",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Size.a2135b08": {
+      "text": "Size",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.StartingTheInstaller.0f1f95e3": {
+      "text": "Starting the installer…",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Storage.e0e3e2f4": {
+      "text": "STORAGE",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.StoresUpcomingVideoToSmoothBriefNetwork.a64e6d82": {
+      "text": "Stores upcoming video to smooth brief network dips. Recommended works for most streams.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Subtitles.f567c565": {
+      "text": "SUBTITLES",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.SystemDefault.d56d22d4": {
+      "text": "System default",
+      "context": "private void PopulateAudioDevices(string saved)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.SystemLanguage.2d8bcd37": {
+      "text": "System language",
+      "context": "Settings automatic interface language option",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.TextColorRrggbbEmptyWhite.f11dd71b": {
+      "text": "Text color (#RRGGBB, empty = white)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ToneMapsSdrToHdrByDefault.4cf5d554": {
+      "text": "Tone-maps SDR to HDR by default",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.TransportSeekAmountSeconds.a8749b3e": {
+      "text": "Transport seek amount (seconds)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UpdateDownloadProgress.eb0734cd": {
+      "text": "Update download progress",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UpdateHandling.5d6b08c4": {
+      "text": "Update handling",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UpdateHandlingPolicy.e73a1a78": {
+      "text": "Update handling policy",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UpdateOperationFailed.6a3b525a": {
+      "text": "Update operation failed.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.UpdateStatus.3ed2ab35": {
+      "text": "Update status",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Updates.81f10b50": {
+      "text": "UPDATES",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UseTheAppDataDownloadsFolder.39141335": {
+      "text": "Use the app-data downloads folder",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.VerboseLogging.9b2f78c1": {
+      "text": "Verbose logging",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.VersionIsAvailable.863cd3d7": {
+      "text": "Version {0} is available.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.VersionIsReadyItWillInstallWhen.15e2a08e": {
+      "text": "Version {0} is ready — it will install when LightWeaver closes.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.VersionIsVerifiedAndReadyToInstall.a3763580": {
+      "text": "Version {0} is verified and ready to install.",
+      "context": "private void UpdateUpdateUi(UpdateStatus status)",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.VerticalPosition100BottomSmallerHigher.19fd94b4": {
+      "text": "Vertical position (100 = bottom, smaller = higher)",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.VideoBuffer.1d50fba1": {
+      "text": "Video buffer",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.VolumeNormalization.20ee6742": {
+      "text": "Volume normalization",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ZipArchive.15f41101": {
+      "text": "Zip archive",
+      "context": "Diagnostics export file filter label",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "ShortcutsOverlay.Dismiss.3f79d6c9": {
+      "text": "Dismiss",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/ShortcutsOverlay.xaml"
+      ]
+    },
+    "ShortcutsOverlay.KeyboardShortcuts.6058193f": {
+      "text": "Keyboard shortcuts",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/ShortcutsOverlay.xaml"
+      ]
+    },
+    "SkeletonFactory.Loading.ce31f455": {
+      "text": "Loading",
+      "context": "public static StackPanel Tiles(FrameworkElement resources, int tiles, string automationId)",
+      "sources": [
+        "src/LightWeaver/Views/SkeletonFactory.cs"
+      ]
+    },
+    "SwitchServerWindow.AddServer.1b14d77b": {
+      "text": "Add server…",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml"
+      ]
+    },
+    "SwitchServerWindow.Cancel.e624e4d6": {
+      "text": "Cancel",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml"
+      ]
+    },
+    "SwitchServerWindow.SavedProfiles.aa242e2d": {
+      "text": "Saved profiles",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml"
+      ]
+    },
+    "SwitchServerWindow.Switch.92082594": {
+      "text": "Switch",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml"
+      ]
+    },
+    "SwitchServerWindow.SwitchUserOrServer.c70bc0aa": {
+      "text": "Switch user or server",
+      "context": "XAML Title",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml"
+      ]
+    },
+    "SwitchServerWindow.Warm.52333be5": {
+      "text": "{0}   ·   warm",
+      "context": "public string Detail ",
+      "sources": [
+        "src/LightWeaver/Views/SwitchServerWindow.xaml.cs"
+      ]
+    },
+    "SyncPlayClient.CouldNotListSyncplayGroups.74909313": {
+      "text": "Could not list SyncPlay groups.",
+      "context": "public async Task<IReadOnlyList<SyncPlayGroupSummary>> ListGroupsAsync(string profileKey, bool throwOnFailure = false)",
+      "sources": [
+        "src/LightWeaver/Jellyfin/SyncPlayClient.cs"
+      ]
+    },
+    "SyncPlayFlyout.1Participant.9336161c": {
+      "text": "1 participant",
+      "context": "Single participant group row",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.AvailableGroups.787650d8": {
+      "text": "Available groups",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.CancelJoining.b50340ba": {
+      "text": "Cancel joining",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.ChooseAGroupOrCreateOne.fa38305d": {
+      "text": "Choose a group or create one.",
+      "context": "private void UpdateState()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.ChooseAGroupToJoin.29471076": {
+      "text": "Choose a group to join.",
+      "context": "private async Task RefreshAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.Close.319a2f71": {
+      "text": "Close",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.ContactingTheServer.4f962b7c": {
+      "text": "Contacting the server…",
+      "context": "private async Task RunAsync(Func<Task<bool>> operation, string failed)",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.CouldNotCreateTheGroupCheckYour.8c060dc3": {
+      "text": "Could not create the group. Check your server permissions and try again.",
+      "context": "private async void OnCreate(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.CouldNotJoinTheGroupRefreshAnd.edfc697d": {
+      "text": "Could not join the group. Refresh and try again.",
+      "context": "private async void OnJoin(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.CouldNotLeaveTheGroupTryAgain.ea2628e2": {
+      "text": "Could not leave the group. Try again.",
+      "context": "private async void OnLeave(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.CouldNotLoadGroupsCheckTheConnection.c7a23786": {
+      "text": "Could not load groups. Check the connection and try Refresh.",
+      "context": "private async Task RefreshAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.Create.a6d8d3f1": {
+      "text": "Create",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.CreateAGroup.16d8b841": {
+      "text": "Create a group",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.EnterANameForTheGroup.9d97c2b0": {
+      "text": "Enter a name for the group.",
+      "context": "private async void OnCreate(object sender, RoutedEventArgs e)",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.JoinGroup.2b376b91": {
+      "text": "Join group",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.LeaveGroup.888a2744": {
+      "text": "Leave group",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.LookingForGroups.684ed5ed": {
+      "text": "Looking for groups…",
+      "context": "private async Task RefreshAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.NewGroupName.f8af2d3d": {
+      "text": "New group name",
+      "context": "XAML AutomationProperties.Name",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.NoGroupsAreAvailableCreateOneTo.c65147ff": {
+      "text": "No groups are available. Create one to watch together.",
+      "context": "private async Task RefreshAsync()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.Participants.a12917fe": {
+      "text": "{0} participants",
+      "context": "Multiple participants group row",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.PlaybackControlsApplyToEveryoneInThe.07666199": {
+      "text": "Playback controls apply to everyone in the group.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.Refresh.6eda4307": {
+      "text": "Refresh",
+      "context": "XAML Content",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.StartsWithTheCurrentPlaybackQueueIf.fd702128": {
+      "text": "Starts with the current playback queue, if one is open.",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.Syncplay.fd084776": {
+      "text": "SyncPlay",
+      "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml"
+      ]
+    },
+    "SyncPlayFlyout.UnnamedGroup.f3cd2d6e": {
+      "text": "Unnamed group",
+      "context": "public string GroupName ",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.WaitingForTheServer.7c137dd1": {
+      "text": "Waiting for the server…",
+      "context": "private void UpdateState()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "SyncPlayFlyout.YouAreInThisGroup.8bb22d79": {
+      "text": "You are in this group.",
+      "context": "private void UpdateState()",
+      "sources": [
+        "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "UpdateService.DownloadPaused.6a65f1f5": {
+      "text": "Download paused.",
+      "context": "private async Task DownloadAutomaticAsync(UpdateInfo update)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.DownloadedUpdateLengthDidNotMatchThe.2fc49ca5": {
+      "text": "Downloaded update length did not match the response.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.InstallerCouldNotBeStarted.840f1b04": {
+      "text": "Installer could not be started.",
+      "context": "private bool LaunchStagedInstaller(bool silent)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.LightweaverCouldNotReachTheUpdateServer.2b3497e5": {
+      "text": "LightWeaver could not reach the update server.",
+      "context": "private async Task CheckAsync(string trigger)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.LightweaverCouldNotReadTheUpdateResponse.3a2ddc58": {
+      "text": "LightWeaver could not read the update response.",
+      "context": "private async Task CheckAsync(string trigger)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.LightweaverCouldNotWriteToItsUpdate.3cdb79f7": {
+      "text": "LightWeaver could not write to its update staging folder.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheDownloadedInstallerFailedPackageVerification.2919e43c": {
+      "text": "The downloaded installer failed package verification.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheSelectedReleaseHasNoApprovedInstaller.43516acb": {
+      "text": "The selected release has no approved installer asset.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheStagedInstallerFailedRevalidationAndWas.b75bfb00": {
+      "text": "The staged installer failed revalidation and was not started.",
+      "context": "private bool DiscardStagedInstaller(UpdateInfo update, string assetName)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateCheckTimedOutTryAgain.2825ac19": {
+      "text": "The update check timed out. Try again.",
+      "context": "private async Task CheckAsync(string trigger)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateDownloadFailed.53e6bde2": {
+      "text": "The update download failed.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateDownloadTimedOutOrWas.57806d3b": {
+      "text": "The update download timed out or was cancelled.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateInstallerCouldNotBeDownloaded.8f2d0011": {
+      "text": "The update installer could not be downloaded.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateInstallerCouldNotBeSaved.d9a6e8ed": {
+      "text": "The update installer could not be saved.",
+      "context": "private void SetDownloadError(UpdateInfo update, Exception exception)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateResponseExceededItsDeclaredSize.497229e8": {
+      "text": "The update response exceeded its declared size.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateResponseSizeDidNotMatch.a0bd8f3d": {
+      "text": "The update response size did not match the release metadata.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateServerReturnedAnInvalidRange.38697564": {
+      "text": "The update server returned an invalid Range response.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.TheUpdateServerReturnedInvalidReleaseInformation.9294aae1": {
+      "text": "The update server returned invalid release information.",
+      "context": "private async Task CheckAsync(string trigger)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.UpdateDownloadExceededTheRedirectLimit.d11108e7": {
+      "text": "Update download exceeded the redirect limit.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.UpdateDownloadRedirectedToAnUnapprovedEndpoint.77071807": {
+      "text": "Update download redirected to an unapproved endpoint.",
+      "context": "private async Task DownloadCoreAsync(UpdateInfo update, string trigger, CancellationToken cancellationToken)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.UpdatePackageDidNotPassIntegrityVerification.f8ad747f": {
+      "text": "Update package did not pass integrity verification.",
+      "context": "private async Task CompleteStagedDownloadAsync(UpdateInfo update, string partPath, string finalPath,",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    },
+    "UpdateService.VersionIsAvailableButItHasNo.2c5063cb": {
+      "text": "Version {0} is available, but it has no Windows installer asset.",
+      "context": "private async Task CheckAsync(string trigger)",
+      "sources": [
+        "src/LightWeaver/Updates/UpdateService.cs"
+      ]
+    }
+  }
+}

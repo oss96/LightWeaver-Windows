@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
@@ -370,22 +371,50 @@ public sealed class DownloadManager : IDisposable
             var url = _urlBuilder(item);
             var auth = _authHeader(item);
             if (url is null || auth is null)
-                throw new InvalidOperationException("No signed-in session for this server.");
+                throw new InvalidOperationException(L.Text("DownloadManager.NoSignedInSessionForThisServer.90661eab"));
 
             Directory.CreateDirectory(Path.GetDirectoryName(item.FilePath)!);
             var startByte = File.Exists(item.FilePath) ? new FileInfo(item.FilePath).Length : 0L;
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.TryAddWithoutValidation("Authorization", auth);
-            if (startByte > 0)
-                request.Headers.TryAddWithoutValidation("Range", $"bytes={startByte}-");
             Log($"start {itemId:N} from byte {startByte}");
             Detail("start", running, FormattableString.Invariant($"resume_from={startByte}"));
 
-            using var response = await Http.SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            var response = await SendAsync(url, auth, startByte, ct).ConfigureAwait(false);
+            // A 416 to a resume is not a failure of the download, it is the server saying the file
+            // on disk already reaches (or overshoots) the end. "Clear completed" keeps the file and
+            // drops the entry, and the target path is deterministic, so downloading that item again
+            // resumes from a COMPLETE file — which used to end as "Failed · HTTP 416" with the
+            // finished file sitting right there. One decision, never a loop: either the server's
+            // total proves the file complete, or the file is restarted once from byte 0 and that
+            // answer stands or fails on its own.
+            if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable && startByte > 0)
+            {
+                var serverTotal = response.Content.Headers.ContentRange is { HasLength: true } range
+                    ? range.Length
+                    : null;
+                response.Dispose();
+                // Completion only on the server's own word for the length, and never for a
+                // transcode: an encode is not byte-identical from one run to the next, so a
+                // leftover of the right size may still be the front of one encode and the back of
+                // another. Marking a wrong file Completed is the expensive mistake — PlayItem
+                // prefers it over the server (B15) — so anything short of proof is a restart.
+                if (!item.IsTranscoded && serverTotal == startByte)
+                {
+                    Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
+                        $"event=range_refused outcome=complete item={itemId:N} bytes_on_disk={startByte} bytes_total={serverTotal}"));
+                    MarkCompleted(itemId, startByte, started);
+                    return;
+                }
+                Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
+                    $"event=range_refused outcome=restart item={itemId:N} bytes_on_disk={startByte} bytes_total={serverTotal ?? -1} transcoded={(item.IsTranscoded ? "true" : "false")}"));
+                Log($"restart {itemId:N} from byte 0 (416 at {startByte})");
+                startByte = 0;
+                response = await SendAsync(url, auth, startByte, ct).ConfigureAwait(false);
+            }
+            // Whichever answer survived the 416 check is the one the transfer reads from.
+            using var owned = response;
             if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.PartialContent))
-                throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
+                throw new HttpRequestException(L.Format("DownloadManager.Http.dc88d2a1", ((int)response.StatusCode)));
 
             var partial = response.StatusCode == HttpStatusCode.PartialContent;
             var contentLength = response.Content.Headers.ContentLength ?? -1L;
@@ -439,8 +468,7 @@ public sealed class DownloadManager : IDisposable
                         }
                         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                         {
-                            throw new IOException(FormattableString.Invariant(
-                                $"connection stalled: no data for {ReadStallTimeout.TotalSeconds:0}s at byte {totalRead}"));
+                            throw new IOException(L.Format("DownloadManager.ConnectionStalledNoDataForSAt.399dfbdd", (ReadStallTimeout.TotalSeconds), (totalRead)));
                         }
                     }
                     if (read <= 0)
@@ -465,26 +493,9 @@ public sealed class DownloadManager : IDisposable
                 // corrupt local file INSTEAD of falling back to the server (B15). The partial file
                 // is deliberately left in place: the existing Range resume is the right recovery.
                 if (totalBytes > 0 && totalRead < totalBytes)
-                    throw new IOException(FormattableString.Invariant(
-                        $"truncated transfer: got {totalRead} of {totalBytes} bytes"));
+                    throw new IOException(L.Format("DownloadManager.TruncatedTransferGotOfBytes.dd0dadac", (totalRead), (totalBytes)));
 
-                Log($"complete {itemId:N} bytes={totalRead}");
-                // Info, not Detail: a completed download is sparse, is worth having in the incident
-                // ring, and is the one download event a non-verbose app.log should be able to show.
-                Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
-                    $"event=complete item={itemId:N} bytes_done={totalRead} elapsed_ms={started.ElapsedMilliseconds}"));
-                if (_live.TryGetValue(itemId, out var done))
-                {
-                    var completed = done with
-                    {
-                        Status = DownloadStatus.Completed,
-                        Progress = 1,
-                        BytesDownloaded = totalRead,
-                        TotalBytes = totalRead,
-                    };
-                    Persist(completed);
-                    Completed?.Invoke(completed);
-                }
+                MarkCompleted(itemId, totalRead, started);
             }
         }
         catch (OperationCanceledException)
@@ -521,6 +532,42 @@ public sealed class DownloadManager : IDisposable
         {
             _active.TryRemove(itemId, out _);
             Pump();
+        }
+    }
+
+    /// <summary>One GET of the item, resuming from <paramref name="startByte"/> when it is past 0.
+    /// Headers only: the body is streamed by the caller.</summary>
+    private static async Task<HttpResponseMessage> SendAsync(string url, string auth, long startByte,
+        CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.TryAddWithoutValidation("Authorization", auth);
+        if (startByte > 0)
+            request.Headers.TryAddWithoutValidation("Range", $"bytes={startByte}-");
+        return await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>The Completed transition, for a transfer that reached the end and for a resume the
+    /// server answered with "you already have all of it" alike — same record, same event.</summary>
+    private void MarkCompleted(Guid itemId, long bytes, System.Diagnostics.Stopwatch started)
+    {
+        Log($"complete {itemId:N} bytes={bytes}");
+        // Info, not Detail: a completed download is sparse, is worth having in the incident
+        // ring, and is the one download event a non-verbose app.log should be able to show.
+        Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
+            $"event=complete item={itemId:N} bytes_done={bytes} elapsed_ms={started.ElapsedMilliseconds}"));
+        if (_live.TryGetValue(itemId, out var done))
+        {
+            var completed = done with
+            {
+                Status = DownloadStatus.Completed,
+                Progress = 1,
+                BytesDownloaded = bytes,
+                TotalBytes = bytes,
+            };
+            Persist(completed);
+            Completed?.Invoke(completed);
         }
     }
 

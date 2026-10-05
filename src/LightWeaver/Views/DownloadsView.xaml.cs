@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -54,6 +55,9 @@ public sealed class DownloadRow : ObservableObject
     public bool CanCancel => Status != DownloadStatus.Completed;
     public bool CanDelete => Status == DownloadStatus.Completed;
 
+    private static string DisplayResolution(string resolution) => resolution == "Original"
+        ? L.Text("DownloadsView.Original.b0322603") : resolution;
+
     public void Update(DownloadItem item)
     {
         Item = item;
@@ -61,17 +65,15 @@ public sealed class DownloadRow : ObservableObject
         Status = item.Status;
         StatusText = item.Status switch
         {
-            DownloadStatus.Queued => $"Queued · {item.Resolution}",
-            DownloadStatus.Downloading when item.TotalBytes > 0 => FormattableString.Invariant(
-                $"Downloading · {item.Progress * 100:0}% · {DownloadManager.FormatBytes(item.BytesDownloaded)} / {DownloadManager.FormatBytes(item.TotalBytes)}"),
+            DownloadStatus.Queued => L.Format("DownloadsView.Queued.ea0112da", DisplayResolution(item.Resolution)),
+            DownloadStatus.Downloading when item.TotalBytes > 0 => L.Format("DownloadsView.Downloading.387c6dd5", item.Progress * 100, DownloadManager.FormatBytes(item.BytesDownloaded), DownloadManager.FormatBytes(item.TotalBytes)),
             DownloadStatus.Downloading =>
-                $"Downloading · {DownloadManager.FormatBytes(item.BytesDownloaded)}",
-            DownloadStatus.Paused when item.TotalBytes > 0 => FormattableString.Invariant(
-                $"Paused · {item.Progress * 100:0}% · {DownloadManager.FormatBytes(item.BytesDownloaded)} / {DownloadManager.FormatBytes(item.TotalBytes)}"),
-            DownloadStatus.Paused => $"Paused · {DownloadManager.FormatBytes(item.BytesDownloaded)}",
+                L.Format("DownloadsView.Downloading.c4b8cf6f", DownloadManager.FormatBytes(item.BytesDownloaded)),
+            DownloadStatus.Paused when item.TotalBytes > 0 => L.Format("DownloadsView.Paused.fe6c3cdf", item.Progress * 100, DownloadManager.FormatBytes(item.BytesDownloaded), DownloadManager.FormatBytes(item.TotalBytes)),
+            DownloadStatus.Paused => L.Format("DownloadsView.Paused.a569a3df", DownloadManager.FormatBytes(item.BytesDownloaded)),
             DownloadStatus.Completed =>
-                $"Completed · {item.Resolution} · {DownloadManager.FormatBytes(item.TotalBytes)}",
-            DownloadStatus.Failed => $"Failed · {item.ErrorMessage ?? "unknown error"}",
+                L.Format("DownloadsView.Completed.fb232f94", DisplayResolution(item.Resolution), DownloadManager.FormatBytes(item.TotalBytes)),
+            DownloadStatus.Failed => L.Format("DownloadsView.Failed.c1793f06", item.ErrorMessage ?? L.Text("DownloadsView.UnknownError.11276586")),
             _ => "",
         };
     }
@@ -93,6 +95,7 @@ public partial class DownloadsView : UserControl
     public DownloadsView(DownloadManager manager, Func<string, string, Task<bool>> confirm)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _manager = manager;
         _confirm = confirm;
         Rows.ItemsSource = _rows;
@@ -111,6 +114,7 @@ public partial class DownloadsView : UserControl
         _refresh.Start();
         _manager.DownloadsChanged += () => _dirty = true;
         SyncRows();
+        LiveText.Observe(this, (_, _) => SyncRows());
         Diagnostics.AppLog.Detail("downloads-view", $"event=load outcome=success count={_rows.Count}");
     }
 
@@ -143,7 +147,7 @@ public partial class DownloadsView : UserControl
 
         var empty = _rows.Count == 0;
         if (empty)
-            Empty.Show("Nothing downloaded", "Use the download button on a movie, season, or series.");
+            Empty.Show(() => L.Text("DownloadsView.NothingDownloaded.5a0d555c"), () => L.Text("DownloadsView.UseTheDownloadButtonOnAMovie.05f30ee0"));
         else
             Empty.Visibility = Visibility.Collapsed;
         PageScroll.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
@@ -189,7 +193,7 @@ public partial class DownloadsView : UserControl
         // Cancelling an in-flight download is cheap to redo; deleting a finished file
         // isn't — only the latter gets a confirm.
         if (row.Item.Status == DownloadStatus.Completed
-            && !await _confirm("Delete download?", $"“{row.Item.Title}” will be removed from this device."))
+            && !await _confirm(L.Text("DownloadsView.DeleteDownload.a54b0aa3"), L.Format("DownloadsView.WillBeRemovedFromThisDevice.2723a2bd", row.Item.Title)))
         {
             Diagnostics.AppLog.Detail("downloads-view", $"event=interaction action=remove outcome=cancel item={row.Item.ItemId:N}");
             return;
@@ -212,8 +216,8 @@ public partial class DownloadsView : UserControl
 
     private async void OnDeleteAll(object sender, RoutedEventArgs e)
     {
-        if (await _confirm("Delete all downloads?",
-                "Every download — including finished files — will be removed from this device."))
+        if (await _confirm(L.Text("DownloadsView.DeleteAllDownloads.800e08eb"),
+                L.Text("DownloadsView.EveryDownloadIncludingFinishedFilesWillBeRemovedFromThisDevice.de0a58a6")))
         {
             Diagnostics.AppLog.Detail("downloads-view", "event=interaction action=delete-all outcome=confirm");
             _manager.DeleteAll();

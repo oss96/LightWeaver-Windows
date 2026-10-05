@@ -1,8 +1,10 @@
+using LightWeaver.Localization;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Encodings.Web;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
 using Microsoft.Kiota.Abstractions;
@@ -14,8 +16,18 @@ public sealed record LoginResult(bool Success, string? Error, SavedCredentials? 
 /// <summary>An external (sidecar) subtitle stream, resolved to an absolute URL for mpv.</summary>
 public sealed record ExternalSubtitle(string Url, string? Title, string? Language);
 
-/// <summary>One label/value line of an item's media metadata (info panel).</summary>
-public sealed record MediaInfoField(string Label, string Value);
+/// <summary>One label/value line of an item's media metadata. Id is an invariant lookup
+/// name for summary facts; Label is translated presentation text.</summary>
+public sealed record MediaInfoField(string Label, string Value, string? Id = null)
+{
+    public string? LabelKey { get; init; }
+    public int? LabelNumber { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string LiveLabel => LabelKey is not { } key ? Label
+        : LabelNumber is { } number ? L.Resolve(key, number) : L.Resolve(key);
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string LiveValue => Value;
+}
 
 /// <summary>One selectable stream of the item's default media source. Index is
 /// Jellyfin's global stream index (spans all types); TypeOrdinal is the 0-based
@@ -105,10 +117,26 @@ public sealed class JellyfinService : IDisposable
     public string? AccessToken { get; private set; }
     public Guid UserId { get; private set; }
 
+    /// <summary>The signed-in user's server-side name, as the server spells it — which is what
+    /// SyncPlay's participant list and its UserJoined/UserLeft carry. Null until a session is
+    /// established, and for a server whose answer left it out.</summary>
+    public string? UserName { get; private set; }
+
     public bool IsConnected => AccessToken is not null;
 
-    /// <summary>Header value mpv uses to authenticate stream requests (token stays out of URLs).</summary>
-    public string AuthorizationHeader => $"MediaBrowser Token=\"{AccessToken}\"";
+    /// <summary>Client identity and the current token for SDK, socket and media requests.
+    /// The SDK settings also carry the pending token while a saved session is validated.</summary>
+    public string AuthorizationHeader
+    {
+        get
+        {
+            var encoder = UrlEncoder.Default;
+            var version = typeof(JellyfinService).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
+            var header = $"MediaBrowser Client=\"LightWeaver\", Device=\"{encoder.Encode(Environment.MachineName)}\", "
+                + $"DeviceId=\"{encoder.Encode(_deviceId)}\", Version=\"{encoder.Encode(version)}\"";
+            return _settings.AccessToken is { } token ? header + $", Token=\"{token}\"" : header;
+        }
+    }
 
     public JellyfinApiClient Client => _client;
 
@@ -140,7 +168,7 @@ public sealed class JellyfinService : IDisposable
         };
 
         _client = new JellyfinApiClient(
-            new JellyfinRequestAdapter(new JellyfinAuthenticationProvider(_settings), _settings, _httpClient));
+            new JellyfinRequestAdapter(new ClientAuthenticationProvider(this), _settings, _httpClient));
     }
 
     public async Task<LoginResult> LoginAsync(string serverUrl, string username, string password)
@@ -156,9 +184,9 @@ public sealed class JellyfinService : IDisposable
             }).ConfigureAwait(false);
 
             if (auth?.AccessToken is null || auth.User?.Id is null)
-                return new LoginResult(false, "Server returned an incomplete login response.", null);
+                return new LoginResult(false, L.Text("JellyfinService.ServerReturnedAnIncompleteLoginResponse.bec97f62"), null);
 
-            ApplySession(url, auth.AccessToken, auth.User.Id.Value);
+            ApplySession(url, auth.AccessToken, auth.User.Id.Value, auth.User.Name ?? username);
             var credentials = new SavedCredentials(url, username, auth.AccessToken, auth.User.Id.Value,
                 await GetServerNameAsync().ConfigureAwait(false));
             return new LoginResult(true, null, credentials);
@@ -225,7 +253,7 @@ public sealed class JellyfinService : IDisposable
         }
         catch (ApiException ex) when (ex.ResponseStatusCode == 404)
         {
-            return new LoginResult(false, "The Quick Connect code expired. Try again.", null);
+            return new LoginResult(false, L.Text("JellyfinService.TheQuickConnectCodeExpiredTryAgain.b7ac2b2c"), null);
         }
         catch
         {
@@ -241,8 +269,14 @@ public sealed class JellyfinService : IDisposable
                 Secret = secret,
             }).ConfigureAwait(false);
             if (auth?.AccessToken is null || auth.User?.Id is null || _quickConnectUrl is not { } url)
-                return new LoginResult(false, "Server returned an incomplete login response.", null);
-            ApplySession(url, auth.AccessToken, auth.User.Id.Value);
+                return new LoginResult(false, L.Text("JellyfinService.ServerReturnedAnIncompleteLoginResponse.bec97f62"), null);
+            // No fallback for a missing Name, unlike the password path's typed username: Quick
+            // Connect never asks for one, and the only other source is Users/Me, which answers with
+            // the same UserDto this response already carries — a server that leaves Name out here
+            // leaves it out there too, so a second request would buy nothing. Jellyfin always fills
+            // it (it is the account's username). What a server that does not costs is SyncPlay's
+            // own-name guard on a UserLeft for this profile; the List reconcile still corrects it.
+            ApplySession(url, auth.AccessToken, auth.User.Id.Value, auth.User.Name);
             var credentials = new SavedCredentials(url, auth.User.Name ?? "user",
                 auth.AccessToken, auth.User.Id.Value, await GetServerNameAsync().ConfigureAwait(false));
             return new LoginResult(true, null, credentials);
@@ -263,7 +297,7 @@ public sealed class JellyfinService : IDisposable
             var me = await _client.Users.Me.GetAsync().ConfigureAwait(false);
             if (me?.Id is null)
                 return false;
-            ApplySession(saved.ServerUrl, saved.AccessToken, me.Id.Value);
+            ApplySession(saved.ServerUrl, saved.AccessToken, me.Id.Value, me.Name ?? saved.Username);
             return true;
         }
         catch (Exception ex)
@@ -274,8 +308,12 @@ public sealed class JellyfinService : IDisposable
             // it and guessing at the network (see the pipeline notes in CLAUDE.md).
             Diagnostics.AppLog.Error("jellyfin",
                 "saved session was rejected; falling back to the login form", ex);
-            _settings.SetAccessToken(null);
             return false;
+        }
+        finally
+        {
+            // A failed or incomplete validation must not leave its pending token on later requests.
+            _settings.SetAccessToken(AccessToken);
         }
     }
 
@@ -353,6 +391,7 @@ public sealed class JellyfinService : IDisposable
         AccessToken = null;
         ServerUrl = null;
         UserId = Guid.Empty;
+        UserName = null;
         _settings.SetAccessToken(null);
     }
 
@@ -510,8 +549,11 @@ public sealed class JellyfinService : IDisposable
     /// <summary>Library tiles (movies, shows, …).</summary>
     public async Task<List<MediaItem>> GetLibrariesAsync()
     {
+        var server = ServerUrl;
         var result = await WithRetry(() => _client.UserViews.GetAsync()).ConfigureAwait(false);
-        return Map(result?.Items);
+        var libraries = Map(result?.Items);
+        foreach (var library in libraries) library.LibraryNameServer = server;
+        return libraries;
     }
 
     /// <summary>The kinds the two Continue Watching queries ask for. Deliberately the same set
@@ -1004,12 +1046,12 @@ public sealed class JellyfinService : IDisposable
 
         var fields = new List<MediaInfoField>();
         if (source.Container is { Length: > 0 } container)
-            fields.Add(new MediaInfoField("Container", container.ToUpperInvariant()));
+            fields.Add(new MediaInfoField(L.Text("JellyfinService.Container.f74e0b4d"), container.ToUpperInvariant()) { LabelKey = "JellyfinService.Container.f74e0b4d" });
         // Invariant: user-visible decimals must not follow the OS locale ("7,5 GB").
         if (source.Size is > 0)
-            fields.Add(new MediaInfoField("Size", FormattableString.Invariant($"{source.Size.Value / 1_073_741_824.0:0.00} GB")));
+            fields.Add(new MediaInfoField(L.Text("JellyfinService.Size.023f0579"), FormattableString.Invariant($"{source.Size.Value / 1_073_741_824.0:0.00} GB")) { LabelKey = "JellyfinService.Size.023f0579" });
         if (source.Bitrate is > 0)
-            fields.Add(new MediaInfoField("Total bitrate", FormattableString.Invariant($"{source.Bitrate.Value / 1_000_000.0:0.0} Mbps")));
+            fields.Add(new MediaInfoField(L.Text("JellyfinService.TotalBitrate.5b8db2fe"), FormattableString.Invariant($"{source.Bitrate.Value / 1_000_000.0:0.0} Mbps")) { LabelKey = "JellyfinService.TotalBitrate.5b8db2fe" });
 
         var streams = source.MediaStreams ?? [];
 
@@ -1031,8 +1073,9 @@ public sealed class JellyfinService : IDisposable
             if (v.BitRate is > 0)
                 parts.Add(FormattableString.Invariant($"{v.BitRate.Value / 1_000_000.0:0.0} Mbps"));
             if (parts.Count > 0)
-                fields.Add(new MediaInfoField(videoIndex == 1 ? "Video" : $"Video {videoIndex}",
-                    string.Join(" · ", parts)));
+                fields.Add(new MediaInfoField(videoIndex == 1 ? L.Text("JellyfinService.Video.a20d541d") : L.Format("JellyfinService.Video.92c0e00e", videoIndex),
+                    string.Join(" · ", parts))
+                { LabelKey = videoIndex == 1 ? "JellyfinService.Video.a20d541d" : "JellyfinService.Video.92c0e00e", LabelNumber = videoIndex == 1 ? null : videoIndex });
         }
 
         var audioIndex = 0;
@@ -1051,16 +1094,17 @@ public sealed class JellyfinService : IDisposable
             if (a.BitRate is > 0)
                 parts.Add($"{a.BitRate.Value / 1000} kbps");
             if (parts.Count > 0)
-                fields.Add(new MediaInfoField(audioIndex == 1 ? "Audio" : $"Audio {audioIndex}",
-                    string.Join(" · ", parts)));
+                fields.Add(new MediaInfoField(audioIndex == 1 ? L.Text("JellyfinService.Audio.e37cf36e") : L.Format("JellyfinService.Audio.abfdd187", audioIndex),
+                    string.Join(" · ", parts))
+                { LabelKey = audioIndex == 1 ? "JellyfinService.Audio.e37cf36e" : "JellyfinService.Audio.abfdd187", LabelNumber = audioIndex == 1 ? null : audioIndex });
         }
 
         var subs = streams
             .Where(s => s.Type == MediaStream_Type.Subtitle)
-            .Select(s => (s.Language ?? s.Title ?? "unknown") + (s.IsExternal == true ? " (external)" : ""))
+            .Select(s => (s.Language ?? s.Title ?? L.Text("JellyfinService.Unknown.73a0420c")) + (s.IsExternal == true ? L.Text("JellyfinService.External.87c24893") : ""))
             .ToList();
         if (subs.Count > 0)
-            fields.Add(new MediaInfoField("Subtitles", string.Join(", ", subs)));
+            fields.Add(new MediaInfoField(L.Text("JellyfinService.Subtitles.8dad0b56"), string.Join(", ", subs)) { LabelKey = "JellyfinService.Subtitles.8dad0b56" });
 
         return fields;
     }
@@ -1070,10 +1114,11 @@ public sealed class JellyfinService : IDisposable
     /// RTX Video HDR display toggle) for the detail view's preselection dropdowns.
     /// Disk-cached (M19): the projection is user-state-free playback metadata, so a
     /// 1 h TTL makes re-opened details instant and spares the flaky LAN a PlaybackInfo
-    /// round-trip. (Item-detail responses are deliberately NOT cached — they carry
+    /// round-trip. The cache scope includes the UI language and catalog revision because
+    /// this projection carries translated display labels. (Item-detail responses are deliberately NOT cached — they carry
     /// UserData whose staleness would regress watched/resume freshness.)</summary>
     public Task<MediaSourceStreams?> GetMediaStreamsAsync(Guid itemId)
-        => Imaging.MetadataCache.GetOrFetchAsync($"streams:{ServerUrl}:{itemId:N}",
+        => Imaging.MetadataCache.GetOrFetchAsync($"streams:{ServerUrl}:{itemId:N}:{L.CacheIdentity}",
             TimeSpan.FromHours(1), () => FetchMediaStreamsAsync(itemId));
 
     private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId)
@@ -1115,22 +1160,24 @@ public sealed class JellyfinService : IDisposable
         {
             if (v is { Width: > 0, Height: > 0 })
             {
-                summary.Add(new MediaInfoField("Resolution", $"{v.Width}x{v.Height}"));
-                summary.Add(new MediaInfoField("Aspect", v.AspectRatio is { Length: > 0 } ar
+                summary.Add(new MediaInfoField(L.Text("JellyfinService.Resolution.7db02fde"), $"{v.Width}x{v.Height}", "Resolution") { LabelKey = "JellyfinService.Resolution.7db02fde" });
+                summary.Add(new MediaInfoField(L.Text("JellyfinService.Aspect.6855bee5"), v.AspectRatio is { Length: > 0 } ar
                     ? ar
-                    : FormattableString.Invariant($"{(double)v.Width.Value / v.Height.Value:0.##}:1")));
+                    : FormattableString.Invariant($"{(double)v.Width.Value / v.Height.Value:0.##}:1"))
+                { LabelKey = "JellyfinService.Aspect.6855bee5" });
             }
             if (v.Codec is { Length: > 0 } codec)
-                summary.Add(new MediaInfoField("Codec", v.Profile is { Length: > 0 } profile
+                summary.Add(new MediaInfoField(L.Text("JellyfinService.Codec.887157f5"), v.Profile is { Length: > 0 } profile
                     ? $"{codec.ToUpperInvariant()} {profile}"
-                    : codec.ToUpperInvariant()));
-            summary.Add(new MediaInfoField("Range", HdrLabel(v.VideoRangeType?.ToString())));
+                    : codec.ToUpperInvariant())
+                { LabelKey = "JellyfinService.Codec.887157f5" });
+            summary.Add(new MediaInfoField(L.Text("JellyfinService.Range.827aa9ba"), HdrLabel(v.VideoRangeType?.ToString()), "Range") { LabelKey = "JellyfinService.Range.827aa9ba" });
         }
         // Default audio stream → a compact codec + channels badge (detail gem pill).
         var defaultAudio = streams.Where(s => s.Type == MediaStream_Type.Audio)
             .OrderByDescending(s => s.IsDefault == true).FirstOrDefault();
         if (defaultAudio is not null && AudioPillLabel(defaultAudio) is { Length: > 0 } audioBadge)
-            summary.Add(new MediaInfoField("Audio", audioBadge));
+            summary.Add(new MediaInfoField(L.Text("JellyfinService.Audio.e37cf36e"), audioBadge, "Audio") { LabelKey = "JellyfinService.Audio.e37cf36e" });
 
         return new MediaSourceStreams(source.Id, video, audio, subtitles, summary);
     }
@@ -1142,7 +1189,7 @@ public sealed class JellyfinService : IDisposable
         var external = s.IsExternal == true;
         if (s.DisplayTitle is { Length: > 0 } dt)
             return external && !dt.Contains("external", StringComparison.OrdinalIgnoreCase)
-                ? dt + " (external)"
+                ? dt + L.Text("JellyfinService.External.87c24893")
                 : dt;
 
         var parts = new List<string>();
@@ -1163,8 +1210,8 @@ public sealed class JellyfinService : IDisposable
         }
         if (s.Language is { Length: > 0 } lang)
             parts.Add($"({lang})");
-        var display = parts.Count > 0 ? string.Join(" · ", parts) : "Unknown";
-        return external ? display + " (external)" : display;
+        var display = parts.Count > 0 ? string.Join(" · ", parts) : L.Text("JellyfinService.Unknown.7821959d");
+        return external ? display + L.Text("JellyfinService.External.87c24893") : display;
     }
 
     /// <summary>Native source dynamic range label from the server's VideoRangeType
@@ -1274,8 +1321,11 @@ public sealed class JellyfinService : IDisposable
                         && p.ValueKind == System.Text.Json.JsonValueKind.Number ? p.GetInt32() : 0;
                     var info = new TrickplayInfo(source.Name, Get("Width"), Get("Height"),
                         Get("TileWidth"), Get("TileHeight"), Get("ThumbnailCount"), Get("Interval"));
-                    if (info is not { Width: > 0, Height: > 0, TileWidth: > 0, TileHeight: > 0,
-                        ThumbnailCount: > 0, IntervalMs: > 0 })
+                    if (info is not
+                        {
+                            Width: > 0, Height: > 0, TileWidth: > 0, TileHeight: > 0,
+                            ThumbnailCount: > 0, IntervalMs: > 0
+                        })
                         continue;
                     if (best is null || Math.Abs(info.Width - 320) < Math.Abs(best.Width - 320))
                         best = info;
@@ -1606,8 +1656,8 @@ public sealed class JellyfinService : IDisposable
             var resLabel = ResolutionLabel(video.Width, height);
             var sizeLabel = source.Size is { } size
                 ? Downloads.DownloadManager.FormatBytes(size)
-                : "Unknown size";
-            options.Add(new DownloadOption($"Original · {resLabel} · {sizeLabel}",
+                : L.Text("JellyfinService.UnknownSize.6af2778f");
+            options.Add(new DownloadOption(L.Format("JellyfinService.Original.4bdcf56b", (resLabel), (sizeLabel)),
                 source.Id, IsOriginal: true, MaxWidth: null, VideoBitRate: null,
                 EstimatedSizeBytes: source.Size, source.Container, "Original"));
 
@@ -1625,9 +1675,9 @@ public sealed class JellyfinService : IDisposable
                     continue;
                 var estLabel = estimated is { } e
                     ? $"~{Downloads.DownloadManager.FormatBytes(e)}"
-                    : "Transcoded";
+                    : L.Text("JellyfinService.Transcoded.1825889f");
                 options.Add(new DownloadOption(
-                    FormattableString.Invariant($"{tierHeight}p · {estLabel}"),
+                    L.Format("JellyfinService.P.98dfcb0c", (tierHeight), (estLabel)),
                     source.Id, IsOriginal: false, tierWidth, tierBitrate,
                     estimated, "mp4", FormattableString.Invariant($"{tierHeight}p")));
             }
@@ -1662,7 +1712,7 @@ public sealed class JellyfinService : IDisposable
     /// answer is stored — an enumeration that failed must retry on the next open rather than
     /// sit on a hidden button for the whole TTL.</para></summary>
     public async Task<IReadOnlyList<MediaVersion>> GetMediaVersionsAsync(Guid itemId)
-        => await Imaging.MetadataCache.GetOrFetchAsync($"versions:{ServerUrl}:{itemId:N}",
+        => await Imaging.MetadataCache.GetOrFetchAsync($"versions:{ServerUrl}:{itemId:N}:{L.CacheIdentity}",
             TimeSpan.FromHours(1), () => FetchMediaVersionsAsync(itemId)).ConfigureAwait(false)
             ?? [];
 
@@ -1727,7 +1777,7 @@ public sealed class JellyfinService : IDisposable
             sb.Append(sb.Length > 0 ? " " : "").Append(codec.ToUpperInvariant());
         if (container is { Length: > 0 } c)
             sb.Append(sb.Length > 0 ? $" ({c})" : c);
-        return sb.Length > 0 ? sb.ToString() : "Unknown version";
+        return sb.Length > 0 ? sb.ToString() : L.Text("JellyfinService.UnknownVersion.ec489412");
     }
 
     /// <summary>
@@ -1963,11 +2013,12 @@ public sealed class JellyfinService : IDisposable
 
     private static string TagParam(string? tag) => tag is null ? "" : $"&tag={tag}";
 
-    private void ApplySession(string url, string token, Guid userId)
+    private void ApplySession(string url, string token, Guid userId, string? userName)
     {
         ServerUrl = url;
         AccessToken = token;
         UserId = userId;
+        UserName = userName;
         _settings.SetAccessToken(token);
     }
 
@@ -1982,13 +2033,13 @@ public sealed class JellyfinService : IDisposable
 
     private static string FriendlyError(Exception ex) => ex switch
     {
-        ApiException { ResponseStatusCode: 401 } => "Wrong username or password.",
-        ApiException { ResponseStatusCode: var s and >= 500 } => $"Server error ({s}). Is this a Jellyfin server?",
-        ApiException { ResponseStatusCode: var s } => $"Login failed (HTTP {s}).",
-        HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError } => "Server not found. Check the URL.",
-        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError } => "Could not connect to the server.",
-        HttpRequestException hre => $"Network error: {hre.Message}",
-        TaskCanceledException => "Connection timed out.",
-        _ => $"Login failed: {ex.Message}",
+        ApiException { ResponseStatusCode: 401 } => L.Text("JellyfinService.WrongUsernameOrPassword.9dca7e44"),
+        ApiException { ResponseStatusCode: var s and >= 500 } => L.Format("JellyfinService.ServerErrorIsThisAJellyfinServer.d3ef45d5", (s)),
+        ApiException { ResponseStatusCode: var s } => L.Format("JellyfinService.LoginFailedHttp.718592ee", (s)),
+        HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError } => L.Text("JellyfinService.ServerNotFoundCheckTheUrl.0f8e009f"),
+        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError } => L.Text("JellyfinService.CouldNotConnectToTheServer.720e1bea"),
+        HttpRequestException hre => L.Format("JellyfinService.NetworkError.065e7a0f", (hre.Message)),
+        TaskCanceledException => L.Text("JellyfinService.ConnectionTimedOut.41c4ae79"),
+        _ => L.Format("JellyfinService.LoginFailed.6804c382", (ex.Message)),
     };
 }

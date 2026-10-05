@@ -1,6 +1,7 @@
 <Window x:Class="LightWeaver.Views.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:LightWeaver.ViewModels"
@@ -33,7 +34,7 @@
         <Button x:Name="BackButton" Style="{StaticResource LwOsdButton}"
                 HorizontalAlignment="Left" VerticalAlignment="Top"
                 Margin="28,24,0,0" Width="38" Height="38" FontSize="17"
-                Content="{StaticResource IconBack}" Click="OnBackClick" ToolTip="Back to browsing"
+                Content="{StaticResource IconBack}" Click="OnBackClick" ToolTip="{loc:Text OverlayWindow.BackToBrowsing.cd1be2d3}"
                 AutomationProperties.AutomationId="BackButton" />
         <StackPanel x:Name="TitlePanel"
                     HorizontalAlignment="Left" VerticalAlignment="Top"
@@ -99,13 +100,13 @@
         <StackPanel x:Name="GemPillPanel" Orientation="Vertical"
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,28,36,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <ToggleButton Content="RTX HDR" Style="{StaticResource LwOsdGemToggle}"
+            <ToggleButton Content="{loc:Text OverlayWindow.RtxHdr.7aea71b5}" Style="{StaticResource LwOsdGemToggle}"
                           IsChecked="{Binding RtxHdrEnabled}"
                           Visibility="{Binding RtxAvailable, Converter={StaticResource BoolToVisibleConverter}}"
                           ToolTip="{Binding RtxHdrTooltip}"
                           Margin="0,0,8,0"
                           AutomationProperties.AutomationId="RtxHdrToggle" />
-            <ToggleButton Content="RTX VSR" Style="{StaticResource LwOsdGemToggle}"
+            <ToggleButton Content="{loc:Text OverlayWindow.RtxVsr.33ca5a93}" Style="{StaticResource LwOsdGemToggle}"
                           IsChecked="{Binding RtxVsrEnabled}"
                           Visibility="{Binding RtxAvailable, Converter={StaticResource BoolToVisibleConverter}}"
                           ToolTip="{Binding RtxVsrTooltip}"
@@ -116,7 +117,7 @@
                            Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <ToggleButton x:Name="SyncPlayButton" Style="{StaticResource LwOsdGemToggle}" Width="36" Height="36" Padding="0"
                         ClickMode="Press" IsChecked="{Binding IsOpen, ElementName=SyncPlayPopup, Mode=TwoWay}"
-                        Checked="OnSyncPlayChecked" ToolTip="SyncPlay groups" AutomationProperties.AutomationId="OverlaySyncPlayButton">
+                        Checked="OnSyncPlayChecked" ToolTip="{loc:Text OverlayWindow.SyncplayGroups.2955453c}" AutomationProperties.AutomationId="OverlaySyncPlayButton">
                     <TextBlock Text="{StaticResource IconSyncPlay}" FontFamily="{StaticResource LwFontIcon}" FontSize="22" />
                 </ToggleButton>
             </StackPanel>
@@ -184,7 +185,7 @@
                 MouseLeftButtonUp="OnUpNextCardClick"
                 Visibility="{Binding UpNextVisible, Converter={StaticResource BoolToVisibleConverter}}">
             <StackPanel>
-                <TextBlock Text="UP NEXT" Style="{StaticResource LwTypeLabel}" Margin="1,0,0,7" />
+                <TextBlock Text="{loc:Text OverlayWindow.UpNext.2f6b3cf4}" Style="{StaticResource LwTypeLabel}" Margin="1,0,0,7" />
                 <Border CornerRadius="{StaticResource LwR1}" Height="157" Background="{StaticResource LwStorm2Brush}">
                     <!-- Clip on the Grid, not the Image — an Image with UniformToFill reports the
                          stretched content size, not its slot, so a clip on it can trim nothing. -->
@@ -210,10 +211,10 @@
                                FontFamily="{StaticResource LwFontUi}"
                                Visibility="{Binding UpNextHasCountdown, Converter={StaticResource BoolToVisibleConverter}}"
                                AutomationProperties.AutomationId="UpNextCountdown" />
-                    <Button DockPanel.Dock="Right" Content="Play now" Style="{StaticResource LwButtonPrimary}"
+                    <Button DockPanel.Dock="Right" Content="{loc:Text OverlayWindow.PlayNow.4943f2c7}" Style="{StaticResource LwButtonPrimary}"
                             Height="30" Padding="12,0" Click="OnUpNextPlay" Margin="8,0,0,0"
                             AutomationProperties.AutomationId="UpNextPlayButton" />
-                    <Button DockPanel.Dock="Right" Content="Dismiss" Style="{StaticResource LwButtonGhost}"
+                    <Button DockPanel.Dock="Right" Content="{loc:Text OverlayWindow.Dismiss.fcc705ec}" Style="{StaticResource LwButtonGhost}"
                             Height="30" Padding="12,0" Click="OnUpNextDismiss"
                             AutomationProperties.AutomationId="UpNextDismissButton" />
                 </DockPanel>
@@ -242,7 +243,7 @@
                      pruning of empty elements (M25 foot-gun). Kept on this element, and kept
                      spelled "Buffering", because test-buffering.ps1 finds the indicator by
                      this id. -->
-                <TextBlock Text="Buffering" Foreground="Transparent" FontSize="10"
+                <TextBlock Text="{loc:Text OverlayWindow.Buffering.775bb628}" Foreground="Transparent" FontSize="10"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            AutomationProperties.AutomationId="BufferingIndicator" />
             </Grid>
@@ -309,7 +310,7 @@
                                FontFamily="{StaticResource LwFontMono}" FontSize="12"
                                Foreground="{StaticResource LwText2Brush}"
                                Background="#01000000"
-                               ToolTip="Click to type a position"
+                               ToolTip="{loc:Text OverlayWindow.ClickToTypeAPosition.a1898aeb}"
                                MouseLeftButtonUp="OnTimeTextClick"
                                MouseEnter="OnTimeTextMouseEnter"
                                MouseLeave="OnTimeTextMouseLeave" />
@@ -325,7 +326,7 @@
                              Style="{StaticResource LwTextField}" Visibility="Collapsed"
                              Width="80" Height="20" Padding="8,0"
                              FontFamily="{StaticResource LwFontMono}" FontSize="12"
-                             ToolTip="ss, mm:ss or hh:mm:ss - Enter seeks, Esc cancels"
+                             ToolTip="{loc:Text OverlayWindow.SsMmSsOrHhMmSs.f3d1e5a4}"
                              LostKeyboardFocus="OnTimeEditLostFocus"
                              AutomationProperties.AutomationId="TimeEditBox" />
                 </DockPanel>
@@ -350,11 +351,11 @@
 
                     <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpBack}"
                             Margin="6,0,0,0" Click="OnJumpBack"
-                            ToolTip="Jump back (Left arrow)"
+                            ToolTip="{loc:Text OverlayWindow.JumpBackLeftArrow.be72716d}"
                             AutomationProperties.AutomationId="JumpBackButton" />
                     <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpForward}"
                             Margin="4,0,0,0" Click="OnJumpForward"
-                            ToolTip="Jump forward (Right arrow)"
+                            ToolTip="{loc:Text OverlayWindow.JumpForwardRightArrow.4c1d1ce5}"
                             AutomationProperties.AutomationId="JumpForwardButton" />
 
                     <!-- ONE next/previous pair (P10). This replaces the old queue pair and the
@@ -378,12 +379,12 @@
 
                     <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconPrevChapter}"
                             Margin="6,0,0,0" Click="OnPrevChapter"
-                            ToolTip="Previous chapter ([)"
+                            ToolTip="{loc:Text OverlayWindow.PreviousChapter.0e775e85}"
                             Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibleConverter}}"
                             AutomationProperties.AutomationId="PrevChapterButton" />
                     <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconNextChapter}"
                             Margin="4,0,0,0" Click="OnNextChapter"
-                            ToolTip="Next chapter (])"
+                            ToolTip="{loc:Text OverlayWindow.NextChapter.8cc8223b}"
                             Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibleConverter}}"
                             AutomationProperties.AutomationId="NextChapterButton" />
 
@@ -392,7 +393,7 @@
                         <!-- Mute toggle (M13): mpv's real mute flag, glyph follows IsMuted;
                              independent of the volume slider so unmute restores the level. -->
                         <Button x:Name="MuteButton" Style="{StaticResource LwOsdButton}"
-                                Click="OnToggleMute" ToolTip="Mute (M)" VerticalAlignment="Center"
+                                Click="OnToggleMute" ToolTip="{loc:Text OverlayWindow.MuteM.2e4ba5be}" VerticalAlignment="Center"
                                 AutomationProperties.AutomationId="MuteButton">
                             <Button.Content>
                                 <TextBlock FontFamily="{StaticResource LwFontIcon}" FontSize="18"
@@ -421,13 +422,13 @@
                         <Slider x:Name="VolumeSlider" Style="{StaticResource LwSlider}"
                                 Width="96" Minimum="0" Maximum="100"
                                 Value="{Binding Volume, Mode=TwoWay}"
-                                VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="Volume" />
+                                VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="{loc:Text OverlayWindow.Volume.a82a60d2}" />
                         <!-- Output device switcher: hidden unless there is a real choice
                              (>= 2 devices). Lives with the volume cluster (output routing),
                              glyph distinct from the mute speaker. -->
                         <Button x:Name="AudioDeviceButton" Style="{StaticResource LwOsdButton}"
                                 Content="{StaticResource IconAudioDevice}" Margin="6,0,0,0"
-                                Click="OnAudioDeviceButton" ToolTip="Audio output device"
+                                Click="OnAudioDeviceButton" ToolTip="{loc:Text OverlayWindow.AudioOutputDevice.2967a1a2}"
                                 VerticalAlignment="Center"
                                 Visibility="{Binding HasAudioDeviceChoices, Converter={StaticResource BoolToVisibleConverter}}"
                                 AutomationProperties.AutomationId="AudioDeviceButton" />
@@ -442,35 +443,35 @@
                          MainWindow.ToggleFullscreen, so it cannot disagree with the real state. -->
                     <Button x:Name="FullscreenButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconFullscreen}" Margin="6,0,0,0"
-                            Click="OnFullscreenButton" ToolTip="Fullscreen (F11)"
-                            AutomationProperties.Name="Fullscreen"
+                            Click="OnFullscreenButton" ToolTip="{loc:Text OverlayWindow.FullscreenF11.626a9555}"
+                            AutomationProperties.Name="{loc:Text OverlayWindow.Fullscreen.510ad9f2}"
                             AutomationProperties.AutomationId="FullscreenButton" />
                     <Button x:Name="MiniRestoreButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconMiniRestore}" Margin="6,0,0,0" Visibility="Collapsed"
-                            Click="OnMiniRestore" ToolTip="Leave mini-player (Ctrl+M)"
+                            Click="OnMiniRestore" ToolTip="{loc:Text OverlayWindow.LeaveMiniPlayerCtrlM.1e2857d5}"
                             AutomationProperties.AutomationId="MiniRestoreButton" />
                     <Button x:Name="MiniPlayerButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconMiniPlayer}" Margin="6,0,0,0"
-                            Click="OnMiniPlayer" ToolTip="Mini-player (Ctrl+M)"
+                            Click="OnMiniPlayer" ToolTip="{loc:Text OverlayWindow.MiniPlayerCtrlM.8002b3ca}"
                             AutomationProperties.AutomationId="MiniPlayerButton" />
                     <Button x:Name="ShortcutsButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconKeyboard}" Margin="6,0,0,0"
-                            Click="OnShortcutsButton" ToolTip="Keyboard shortcuts (?)"
+                            Click="OnShortcutsButton" ToolTip="{loc:Text OverlayWindow.KeyboardShortcuts.32c7f6ef}"
                             AutomationProperties.AutomationId="ShortcutsButton" />
                     <Button x:Name="InfoButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconInfo}" Margin="6,0,0,0"
-                            Click="OnInfoButton" ToolTip="Playback and media info"
+                            Click="OnInfoButton" ToolTip="{loc:Text OverlayWindow.PlaybackAndMediaInfo.f4b354fe}"
                             AutomationProperties.AutomationId="InfoButton" />
                     <Button x:Name="SpeedButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
                             Content="{Binding SpeedDisplay}" Margin="6,0,0,0" MinWidth="48"
-                            Click="OnSpeedButton" ToolTip="Playback speed (+/- keys)"
+                            Click="OnSpeedButton" ToolTip="{loc:Text OverlayWindow.PlaybackSpeedKeys.47f6fa0b}"
                             AutomationProperties.AutomationId="SpeedButton" />
                     <Button x:Name="QueueButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
-                            Margin="6,0,0,0" Click="OnQueueButton" ToolTip="Playback queue"
+                            Margin="6,0,0,0" Click="OnQueueButton" ToolTip="{loc:Text OverlayWindow.PlaybackQueue.8eab0a24}"
                             Visibility="{Binding HasQueue, Converter={StaticResource BoolToVisibleConverter}}"
                             AutomationProperties.AutomationId="QueueButton">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Queue" />
+                            <TextBlock Text="{loc:Text OverlayWindow.Queue.c837088e}" />
                             <TextBlock Text="{Binding QueueBadge}" Margin="6,0,0,0" Opacity="0.7"
                                        AutomationProperties.AutomationId="QueueBadge" />
                         </StackPanel>
@@ -494,20 +495,20 @@
                          a measurement that included them would depend on the decision it is
                          about to make, and the two states would oscillate at the boundary. -->
                     <Button x:Name="SubtitleTracksButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
-                            Content="Subs" Margin="6,0,0,0" Visibility="Collapsed"
-                            Click="OnSubtitleTracksButton" ToolTip="Subtitle tracks (S)"
+                            Content="{loc:Text OverlayWindow.Subs.49239a86}" Margin="6,0,0,0" Visibility="Collapsed"
+                            Click="OnSubtitleTracksButton" ToolTip="{loc:Text OverlayWindow.SubtitleTracksS.038c1184}"
                             AutomationProperties.AutomationId="SubtitleTracksButton" />
                     <Button x:Name="AudioTracksButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
-                            Content="Audio" Margin="6,0,0,0" Visibility="Collapsed"
-                            Click="OnAudioTracksButton" ToolTip="Audio tracks (A)"
+                            Content="{loc:Text OverlayWindow.Audio.9abeea5f}" Margin="6,0,0,0" Visibility="Collapsed"
+                            Click="OnAudioTracksButton" ToolTip="{loc:Text OverlayWindow.AudioTracksA.d48af41f}"
                             AutomationProperties.AutomationId="AudioTracksButton" />
                     <Button x:Name="VideoTracksButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
-                            Content="Video" Margin="12,0,0,0" Visibility="Collapsed"
-                            Click="OnVideoTracksButton" ToolTip="Video tracks (V)"
+                            Content="{loc:Text OverlayWindow.Video.62af9e6d}" Margin="12,0,0,0" Visibility="Collapsed"
+                            Click="OnVideoTracksButton" ToolTip="{loc:Text OverlayWindow.VideoTracksV.1fa6008a}"
                             AutomationProperties.AutomationId="VideoTracksButton" />
                     <Button x:Name="TracksButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
-                            Content="Tracks" Margin="12,0,0,0" Visibility="Collapsed"
-                            Click="OnTracksButton" ToolTip="Video, audio and subtitle tracks (V/A/S cycle)"
+                            Content="{loc:Text OverlayWindow.Tracks.9e5d1f57}" Margin="12,0,0,0" Visibility="Collapsed"
+                            Click="OnTracksButton" ToolTip="{loc:Text OverlayWindow.VideoAudioAndSubtitleTracksVA.f9145b24}"
                             AutomationProperties.AutomationId="TracksButton" />
                 </DockPanel>
             </Grid>
@@ -564,23 +565,23 @@
                     <StackPanel x:Name="QualitySection"
                                 Visibility="{Binding QualityVisible, Converter={StaticResource BoolToVisibleConverter}}"
                                 IsEnabled="{Binding QualityAvailable}">
-                        <TextBlock Text="QUALITY" Style="{StaticResource LwTypeLabel}" Margin="2,0,0,6" />
+                        <TextBlock Text="{loc:Text OverlayWindow.Quality.a353280b}" Style="{StaticResource LwTypeLabel}" Margin="2,0,0,6" />
                         <views:LwSegmentedControl x:Name="QualityTierControl"
                                                   Style="{StaticResource LwSegmented}"
                                                   SelectedIndex="{Binding QualityTierIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                            <ListBoxItem Content="Default" AutomationProperties.AutomationId="QualityDefault" />
-                            <ListBoxItem Content="Unlimited" AutomationProperties.AutomationId="QualityUnlimited" />
+                            <ListBoxItem Content="{loc:Text OverlayWindow.Default.23be1904}" AutomationProperties.AutomationId="QualityDefault" />
+                            <ListBoxItem Content="{loc:Text OverlayWindow.Unlimited.a8ea161a}" AutomationProperties.AutomationId="QualityUnlimited" />
                             <ListBoxItem Content="20" AutomationProperties.AutomationId="Quality20Mbps" />
                             <ListBoxItem Content="10" AutomationProperties.AutomationId="Quality10Mbps" />
                             <ListBoxItem Content="4" AutomationProperties.AutomationId="Quality4Mbps" />
                             <ListBoxItem Content="1" AutomationProperties.AutomationId="Quality1Mbps" />
                         </views:LwSegmentedControl>
                         <DockPanel Margin="2,8,2,0" LastChildFill="True">
-                            <CheckBox x:Name="QualityForceTranscodeControl" DockPanel.Dock="Right" Content="Force transcode"
+                            <CheckBox x:Name="QualityForceTranscodeControl" DockPanel.Dock="Right" Content="{loc:Text OverlayWindow.ForceTranscode.edd0f99c}"
                                       Style="{StaticResource LwToggleSwitch}"
                                       IsChecked="{Binding QualityForceTranscode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                       AutomationProperties.AutomationId="QualityForceTranscode" />
-                            <TextBlock Text="Max bitrate" VerticalAlignment="Center"
+                            <TextBlock Text="{loc:Text OverlayWindow.MaxBitrate.1152f0c3}" VerticalAlignment="Center"
                                        Foreground="{StaticResource LwText2Brush}" />
                         </DockPanel>
                         <TextBlock Text="{Binding QualityStatus}" Margin="2,7,2,0"
@@ -588,11 +589,11 @@
                                    TextWrapping="Wrap"
                                    AutomationProperties.AutomationId="QualityStatus" />
                     </StackPanel>
-                    <TextBlock Text="PLAYBACK" Style="{StaticResource LwTypeLabel}" Margin="2,10,0,6" />
+                    <TextBlock Text="{loc:Text OverlayWindow.Playback.d305bd73}" Style="{StaticResource LwTypeLabel}" Margin="2,10,0,6" />
                     <ItemsControl ItemsSource="{Binding LiveStats}"
                                   ItemTemplate="{StaticResource InfoRowTemplate}"
                                   AutomationProperties.AutomationId="LiveStatsList" />
-                    <Expander Header="Media info" Margin="0,8,0,0" IsExpanded="False"
+                    <Expander Header="{loc:Text OverlayWindow.MediaInfo.36723d57}" Margin="0,8,0,0" IsExpanded="False"
                               AutomationProperties.AutomationId="MediaInfoExpander"
                               Visibility="{Binding HasMediaInfo, Converter={StaticResource BoolToVisibleConverter}}">
                         <ItemsControl ItemsSource="{Binding MediaInfoRows}" Margin="0,6,0,0"
@@ -650,11 +651,11 @@
                                         FontSize="14" Padding="0" Margin="8,0,0,0"
                                         Background="Transparent" BorderThickness="0"
                                         Click="OnQueueRowRemove" Tag="{Binding}"
-                                        ToolTip="Remove from queue"
+                                        ToolTip="{loc:Text OverlayWindow.RemoveFromQueue.6eb7df26}"
                                         Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibleConverter}}" />
                                 <TextBlock DockPanel.Dock="Left" Text="{Binding Position}" Opacity="0.5"
                                            Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Display}" VerticalAlignment="Center"
+                                <TextBlock Text="{Binding LiveDisplay}" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                         </DataTemplate>
@@ -680,7 +681,7 @@
                     <StackPanel x:Name="TracksSections" Margin="0,0,4,0"
                                 PreviewMouseWheel="OnTracksWheel">
                         <StackPanel x:Name="VideoSection" Visibility="Collapsed">
-                            <TextBlock Text="VIDEO" Style="{StaticResource LwOsdFlyoutSectionHeader}"
+                            <TextBlock Text="{loc:Text OverlayWindow.Video.a0248e59}" Style="{StaticResource LwOsdFlyoutSectionHeader}"
                                        AutomationProperties.AutomationId="TracksVideoHeader" />
                             <ListBox x:Name="VideoList" Background="Transparent" BorderThickness="0"
                                      ItemsSource="{Binding VideoTracks}" SelectionChanged="OnVideoTrackPicked"
@@ -690,7 +691,7 @@
                                      ItemTemplate="{StaticResource TrackOptionTemplate}" />
                         </StackPanel>
                         <StackPanel x:Name="AudioSection" Visibility="Collapsed">
-                            <TextBlock Text="AUDIO" Style="{StaticResource LwOsdFlyoutSectionHeader}"
+                            <TextBlock Text="{loc:Text OverlayWindow.Audio.cd723f76}" Style="{StaticResource LwOsdFlyoutSectionHeader}"
                                        AutomationProperties.AutomationId="TracksAudioHeader" />
                             <ListBox x:Name="AudioList" Background="Transparent" BorderThickness="0"
                                      ItemsSource="{Binding AudioTracks}" SelectionChanged="OnAudioTrackPicked"
@@ -700,7 +701,7 @@
                                      ItemTemplate="{StaticResource TrackOptionTemplate}" />
                         </StackPanel>
                         <StackPanel x:Name="SubsSection" Visibility="Collapsed">
-                            <TextBlock Text="SUBTITLES" Style="{StaticResource LwOsdFlyoutSectionHeader}"
+                            <TextBlock Text="{loc:Text OverlayWindow.Subtitles.96bfdc36}" Style="{StaticResource LwOsdFlyoutSectionHeader}"
                                        AutomationProperties.AutomationId="TracksSubsHeader" />
                             <ListBox x:Name="SubsList" Background="Transparent" BorderThickness="0"
                                      ItemsSource="{Binding SubtitleTracks}" SelectionChanged="OnSubtitleTrackPicked"
@@ -713,7 +714,7 @@
                              RELOADS the stream: the three sections above change the playing
                              file, this one replaces it. -->
                         <StackPanel x:Name="VersionSection" Visibility="Collapsed">
-                            <TextBlock Text="VERSIONS" Style="{StaticResource LwOsdFlyoutSectionHeader}"
+                            <TextBlock Text="{loc:Text OverlayWindow.Versions.8dba17bf}" Style="{StaticResource LwOsdFlyoutSectionHeader}"
                                        AutomationProperties.AutomationId="TracksVersionHeader" />
                             <ListBox x:Name="VersionList" Background="Transparent" BorderThickness="0"
                                      ItemsSource="{Binding Versions}" SelectionChanged="OnVersionPicked"
@@ -750,7 +751,7 @@
                    Background="#01000000"
                    Padding="12,12,0,0"
                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,2"
-                   Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="Resize"
+                   Cursor="SizeNWSE" Visibility="Collapsed" ToolTip="{loc:Text OverlayWindow.Resize.390b40a8}"
                    MouseLeftButtonDown="OnMiniResizeGrip"
                    AutomationProperties.AutomationId="MiniResizeGrip">
             <!-- M7.4: match the OSD icon rest/hover language (dim -> lit on hover), like the

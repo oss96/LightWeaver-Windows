@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.IO;
 using LightWeaver.Jellyfin;
 
@@ -226,7 +227,7 @@ public sealed class AppViewModel : ObservableObject
     {
         var result = await Jellyfin.LoginAsync(serverUrl, username, password);
         if (!result.Success)
-            return result.Error ?? "Login failed.";
+            return result.Error ?? L.Text("AppViewModel.LoginFailed.ad94f0a5");
         Activate(result.Credentials!, Jellyfin);
         State = AppState.Browse;
         return null;

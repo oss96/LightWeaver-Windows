@@ -16,10 +16,27 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] is LocalizationUiFixture.Mode or LocalizationUiFixture.RestartMode or LocalizationUiFixture.GermanMode or LocalizationUiFixture.EnglishMode)
+            return LocalizationUiFixture.Run(args);
         if (args.Length == 4 && args[0] == "--serve")
             return HttpMediaFixture.Run(args[1], args[2], args[3]).GetAwaiter().GetResult();
+        // Both halves of the two-client SyncPlay run come BEFORE the default app-data root below.
+        // A worker brings its own root, and AppPaths resolves the root once, on first use — so a
+        // default set here would hand both workers one device id and one credential store, which
+        // is one client twice. The controller touches no app data at all. Guest-only: the workers
+        // open windows.
+        if (args.Length > 0 && args[0] == SyncPlayTwoClientWorker.Mode)
+            return SyncPlayTwoClientWorker.Run(args);
+        if (args.Contains(SyncPlayTwoClientFixture.Mode))
+            return SyncPlayTwoClientFixture.Run();
         Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT",
             Path.Combine(Path.GetTempPath(), "lw-playback-harness-" + Guid.NewGuid().ToString("N")));
+        if (args.Contains("--http-headers"))
+        {
+            HttpHeaderFixture.Run(Test);
+            Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_failures} HTTP header failures)");
+            return _failures == 0 ? 0 : 1;
+        }
         if (args.Contains("--quality-contract"))
             return QualityContractFixture.RunAsync().GetAwaiter().GetResult();
         if (args.Contains("--live-session"))
@@ -46,6 +63,10 @@ internal static class Program
             return SyncPlayUiFixture.Run();
         if (args.Contains("--sync-play-integration"))
             return SyncPlayIntegrationFixture.Run();
+        // The server the two-client mode stands on, with raw clients and no window: runnable
+        // anywhere, and where its barrier, attribution and timing claims are executed.
+        if (args.Contains(SyncPlayTwoClientFixture.ServerMode))
+            return SyncPlayTwoClientFixture.RunServer();
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_MUTE", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_AUDIO", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_UPDATE_DEFER_START", "1");
@@ -87,6 +108,13 @@ internal static class Program
             var once = (string)redact.Invoke(null, [input])!;
             Equal(once, (string)redact.Invoke(null, [once])!);
             Equal("http://", (string)redact.Invoke(null, ["http://?private"])!);
+            var header = "MediaBrowser Client=\"LightWeaver\", Device=\"synthetic-machine\", "
+                + "DeviceId=\"synthetic-device\", Version=\"1.4.0\", Token=\"synthetic-secret-token\"";
+            var redactedHeader = (string)redact.Invoke(null, [header])!;
+            Equal(false, redactedHeader.Contains("synthetic-secret-token", StringComparison.Ordinal));
+            foreach (var metadata in new[] { "Client=\"LightWeaver\"", "Device=\"synthetic-machine\"",
+                "DeviceId=\"synthetic-device\"", "Version=\"1.4.0\"" })
+                Equal(true, redactedHeader.Contains(metadata, StringComparison.Ordinal));
             AppLog.Verbose = false;
         });
         Test("stream shortcut resolves saved bindings and help consistently", () =>
@@ -119,6 +147,7 @@ internal static class Program
             player.ApplyVideoBuffer(settings);
             Equal("33554432", player.GetPropertyString("demuxer-max-bytes"));
         });
+        HttpHeaderFixture.Run(Test);
         // Ungated on purpose, unlike its flagged neighbours below: it needs no server, no profile
         // and no Application — just hand-built track rows and the production matcher.
         StickySubtitleFixture.Run(Test);

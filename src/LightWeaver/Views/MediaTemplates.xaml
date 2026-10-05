@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
                     xmlns:jf="clr-namespace:LightWeaver.Jellyfin"
                     xmlns:lw="clr-namespace:LightWeaver"
                     xmlns:img="clr-namespace:LightWeaver.Imaging"
@@ -38,7 +39,7 @@
                 </Border>
                 <!-- ItemStatus mirrors the data selection state ("True"/"False") so UIA
                      tests can read the selected track now that the check glyph is gone. -->
-                <TextBlock x:Name="SelText" Text="{Binding Display}" VerticalAlignment="Center"
+                <TextBlock x:Name="SelText" Text="{Binding LiveDisplay}" VerticalAlignment="Center"
                            AutomationProperties.ItemStatus="{Binding IsSelected}" />
             </StackPanel>
         </Border>
@@ -64,7 +65,7 @@
         <Border x:Name="SelBorder" CornerRadius="{StaticResource LwR1}" BorderThickness="1.5"
                 BorderBrush="Transparent" Background="Transparent" Padding="10,5" Margin="2,1"
                 HorizontalAlignment="Stretch">
-            <TextBlock x:Name="SelText" Text="{Binding Display}" VerticalAlignment="Center"
+            <TextBlock x:Name="SelText" Text="{Binding LiveDisplay}" VerticalAlignment="Center"
                        AutomationProperties.ItemStatus="{Binding IsSelected}" />
         </Border>
         <DataTemplate.Triggers>
@@ -85,8 +86,8 @@
                 <ColumnDefinition Width="130" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{Binding Label}" Opacity="0.6" VerticalAlignment="Top" />
-            <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding LiveLabel}" Opacity="0.6" VerticalAlignment="Top" />
+            <TextBlock Grid.Column="1" Text="{Binding LiveValue}" TextWrapping="Wrap" />
         </Grid>
     </DataTemplate>
 
@@ -201,7 +202,7 @@
                         <Button Style="{StaticResource LwCardActionButton}"
                                 Width="44" Height="44" FontSize="26"
                                 Foreground="{StaticResource LwText1Brush}"
-                                Content="{StaticResource IconPlay}" ToolTip="Play"
+                                Content="{StaticResource IconPlay}" ToolTip="{loc:Text MediaTemplates.Play.02c5a21d}"
                                 Command="{x:Static views:CardCommands.PlayItem}"
                                 CommandParameter="{Binding}"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -212,12 +213,12 @@
                     <Border Style="{StaticResource LwCardActionBar}">
                         <StackPanel Orientation="Horizontal">
                             <Button Style="{StaticResource LwCardActionButton}"
-                                     Content="{StaticResource IconCheck}" ToolTip="Toggle watched"
+                                     Content="{StaticResource IconCheck}" ToolTip="{loc:Text MediaTemplates.ToggleWatched.001a4ba2}"
                                      Command="{x:Static views:CardCommands.ToggleWatched}"
                                      CommandParameter="{Binding}"
                                      AutomationProperties.AutomationId="CardWatchedToggle" />
                             <Button Style="{StaticResource LwCardActionButton}"
-                                     Content="{StaticResource IconMore}" ToolTip="More"
+                                     Content="{StaticResource IconMore}" ToolTip="{loc:Text MediaTemplates.More.806ed266}"
                                      Command="{x:Static views:CardCommands.OpenCardMenu}"
                                      CommandParameter="{Binding}"
                                      AutomationProperties.AutomationId="CardOverflow" />
@@ -251,7 +252,7 @@
                            AutomationProperties.AutomationId="LibraryTile"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Margin="0,9,0,0"
+            <TextBlock Text="{Binding LibraryDisplayName}" FontSize="14" FontWeight="SemiBold" Margin="0,9,0,0"
                        Foreground="{StaticResource LwText1Brush}"
                        TextTrimming="CharacterEllipsis" />
         </StackPanel>
@@ -303,7 +304,7 @@
                         <Button Style="{StaticResource LwCardActionButton}"
                                 Width="44" Height="44" FontSize="26"
                                 Foreground="{StaticResource LwText1Brush}"
-                                Content="{StaticResource IconPlay}" ToolTip="Play"
+                                Content="{StaticResource IconPlay}" ToolTip="{loc:Text MediaTemplates.Play.02c5a21d}"
                                 Command="{x:Static views:CardCommands.PlayItem}"
                                 CommandParameter="{Binding}"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -313,12 +314,12 @@
                     <Border Style="{StaticResource LwCardActionBar}">
                         <StackPanel Orientation="Horizontal">
                             <Button Style="{StaticResource LwCardActionButton}"
-                                    Content="{StaticResource IconCheck}" ToolTip="Toggle watched"
+                                    Content="{StaticResource IconCheck}" ToolTip="{loc:Text MediaTemplates.ToggleWatched.001a4ba2}"
                                     Command="{x:Static views:CardCommands.ToggleWatched}"
                                     CommandParameter="{Binding}"
                                     AutomationProperties.AutomationId="CardWatchedToggle" />
                             <Button Style="{StaticResource LwCardActionButton}"
-                                    Content="{StaticResource IconMore}" ToolTip="More"
+                                    Content="{StaticResource IconMore}" ToolTip="{loc:Text MediaTemplates.More.806ed266}"
                                     Command="{x:Static views:CardCommands.OpenCardMenu}"
                                     CommandParameter="{Binding}"
                                     AutomationProperties.AutomationId="CardOverflow" />

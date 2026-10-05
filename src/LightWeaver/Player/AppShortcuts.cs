@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows.Input;
 using LightWeaver.Settings;
 
@@ -76,18 +77,18 @@ public static class AppShortcuts
     /// which are different virtual keys — so the match is on the typed character and the
     /// <see cref="ChromeShortcut.Key"/> below is only what the panel prints.
     /// </summary>
-    public static readonly ChromeShortcut ShowShortcuts = new(
+    public static ChromeShortcut ShowShortcuts => new(
         "ShowShortcuts", Key.OemQuestion, ModifierKeys.Shift,
-        "Keyboard shortcuts (this panel)", ShortcutGroup.General, Registered: false);
+        L.Text("AppShortcuts.KeyboardShortcutsThisPanel.463485e7"), ShortcutGroup.General, Registered: false);
 
     /// <summary>The app-chrome chords, in panel order. <c>MainWindow</c>'s ctor registers every
     /// entry whose <see cref="ChromeShortcut.Registered"/> is true.</summary>
-    public static IReadOnlyList<ChromeShortcut> Chrome { get; } =
+    public static IReadOnlyList<ChromeShortcut> Chrome =>
     [
         // Space is deliberately in two places: this guarded InputBinding, and
         // PlayerAction.TogglePause's default chord. Both registrations are real, so both stay —
         // DuplicateOf keeps the panel from printing "Play / pause" twice.
-        new(TogglePause, Key.Space, ModifierKeys.None, "Play / pause",
+        new(TogglePause, Key.Space, ModifierKeys.None, L.Text("AppShortcuts.PlayPause.0592b946"),
             ShortcutGroup.Playback, DuplicateOf: PlayerAction.TogglePause),
         // F11 is the second dual registration, on the same terms as Space above: the chrome binding
         // stays unconditional, so rebinding ToggleFullscreen to (say) F gives the user F11 AND F,
@@ -106,33 +107,33 @@ public static class AppShortcuts
         // order, and the panel still prints "Toggle fullscreen  F11" — so for them the panel is
         // wrong on day one. The capture flow cannot reach this state (it unbinds the previous owner),
         // so it needs a hand-written or pre-update file; left as-is with the rest of the wart.
-        new(Fullscreen, Key.F11, ModifierKeys.None, "Toggle fullscreen", ShortcutGroup.General,
+        new(Fullscreen, Key.F11, ModifierKeys.None, L.Text("AppShortcuts.ToggleFullscreen.b46f7946"), ShortcutGroup.General,
             DuplicateOf: PlayerAction.ToggleFullscreen),
-        new(MiniPlayer, Key.M, ModifierKeys.Control, "Toggle mini-player", ShortcutGroup.General),
-        new(Escape, Key.Escape, ModifierKeys.None, "Close panel, leave fullscreen, or clear search",
+        new(MiniPlayer, Key.M, ModifierKeys.Control, L.Text("AppShortcuts.ToggleMiniPlayer.c5a8790b"), ShortcutGroup.General),
+        new(Escape, Key.Escape, ModifierKeys.None, L.Text("AppShortcuts.ClosePanelLeaveFullscreenOrClearSearch.6f167aee"),
             ShortcutGroup.General),
-        new(BrowseBack, Key.Back, ModifierKeys.None, "Back", ShortcutGroup.General),
-        new(OpenFile, Key.O, ModifierKeys.Control, "Open file…", ShortcutGroup.General),
-        new(OpenSettings, Key.OemComma, ModifierKeys.Control, "Settings", ShortcutGroup.General),
-        new(SwitchServer, Key.U, ModifierKeys.Control, "Switch server", ShortcutGroup.General),
+        new(BrowseBack, Key.Back, ModifierKeys.None, L.Text("AppShortcuts.Back.54e480b1"), ShortcutGroup.General),
+        new(OpenFile, Key.O, ModifierKeys.Control, L.Text("AppShortcuts.OpenFile.a046add4"), ShortcutGroup.General),
+        new(OpenSettings, Key.OemComma, ModifierKeys.Control, L.Text("AppShortcuts.Settings.d0fd4f98"), ShortcutGroup.General),
+        new(SwitchServer, Key.U, ModifierKeys.Control, L.Text("AppShortcuts.SwitchServer.18623bcb"), ShortcutGroup.General),
         ShowShortcuts,
     ];
 
     /// <summary>Affordances with no chord: nothing to derive, so they are written out.</summary>
-    private static IReadOnlyList<ShortcutRow> Unbound { get; } =
+    private static IReadOnlyList<ShortcutRow> Unbound =>
     [
-        new(ShortcutGroup.Playback, "Play the next episode now (while Up Next shows)", "Enter", false),
-        new(ShortcutGroup.Mouse, "Back / forward", "Mouse 4 / Mouse 5", false),
-        new(ShortcutGroup.Mouse, "Volume (over the player)", "Wheel", false),
-        new(ShortcutGroup.Mouse, "Scroll a row sideways", "Shift + Wheel", false),
+        new(ShortcutGroup.Playback, L.Text("AppShortcuts.PlayTheNextEpisodeNowWhileUp.fd98dec8"), L.Text("AppShortcuts.Enter.fae48132"), false),
+        new(ShortcutGroup.Mouse, L.Text("AppShortcuts.BackForward.f6075622"), L.Text("AppShortcuts.Mouse4Mouse5.53098a35"), false),
+        new(ShortcutGroup.Mouse, L.Text("AppShortcuts.VolumeOverThePlayer.3e1534cd"), L.Text("AppShortcuts.Wheel.a7db831a"), false),
+        new(ShortcutGroup.Mouse, L.Text("AppShortcuts.ScrollARowSideways.065b160a"), L.Text("AppShortcuts.ShiftWheel.afa7860e"), false),
     ];
 
     public static string GroupTitle(ShortcutGroup group) => group switch
     {
-        ShortcutGroup.Playback => "Playback",
-        ShortcutGroup.AudioSubtitles => "Audio & subtitles",
-        ShortcutGroup.General => "General",
-        ShortcutGroup.Mouse => "Mouse",
+        ShortcutGroup.Playback => L.Text("AppShortcuts.Playback.f740617d"),
+        ShortcutGroup.AudioSubtitles => L.Text("AppShortcuts.AudioSubtitles.8c9a85d9"),
+        ShortcutGroup.General => L.Text("AppShortcuts.General.a42bcd89"),
+        ShortcutGroup.Mouse => L.Text("AppShortcuts.Mouse.af8ea09d"),
         _ => group.ToString(),
     };
 

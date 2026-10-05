@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,6 +20,7 @@ public partial class LoadMoreIndicator : UserControl
     public LoadMoreIndicator()
     {
         InitializeComponent();
+        LiveText.Watch(this);
         Visibility = Visibility.Collapsed;
     }
 

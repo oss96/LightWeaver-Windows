@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using Jellyfin.Sdk.Generated.Models;
 
 namespace LightWeaver.Jellyfin;
@@ -27,6 +28,11 @@ public sealed class MediaItem
     /// need refetching. Null unless the query asked for <c>ItemFields.Etag</c>.</summary>
     public string? Etag { get; init; }
     public required string Name { get; init; }
+    /// <summary>Set only on root libraries from UserViews, never on movie/series/folder metadata.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? LibraryNameServer { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string LibraryDisplayName => LibraryNames.Display(this);
     /// <summary>Server-side sort key ("Matrix, The"); null unless the query asked for
     /// <c>ItemFields.SortName</c>, and null on the server for items that never got one — in both
     /// cases <see cref="Name"/> is the sort key.</summary>
@@ -168,7 +174,7 @@ public sealed class MediaItem
     /// <summary>"S2E5" style tag for episodes, empty otherwise.</summary>
     public string EpisodeTag =>
         Type == BaseItemDto_Type.Episode && ParentIndexNumber is { } s && IndexNumber is { } e
-            ? $"S{s}E{e}"
+            ? L.Format("MediaItem.Se.7aa8faab", (s), (e))
             : "";
 
     /// <summary>Overlay OSD title: series name for episodes, item name otherwise.</summary>
@@ -211,7 +217,7 @@ public sealed class MediaItem
                 return "";
             var t = TimeSpan.FromTicks(total - ResumePositionTicks);
             // Uppercase eyebrow to match the S2 overlay (WPF has no letter-spacing).
-            return (t.TotalHours >= 1 ? $"{(int)t.TotalHours}H {t.Minutes}MIN" : $"{t.Minutes}MIN") + " LEFT";
+            return t.TotalHours >= 1 ? L.Format("MediaItem.HMinLeft.d678dc2d", (int)t.TotalHours, t.Minutes) : L.Format("MediaItem.MinLeft.374388d2", t.Minutes);
         }
     }
 
@@ -225,7 +231,7 @@ public sealed class MediaItem
             if (RuntimeTicks is not { } ticks || ticks <= 0)
                 return "";
             var t = TimeSpan.FromTicks(ticks);
-            return t.TotalHours >= 1 ? $"{(int)t.TotalHours}h {t.Minutes}min" : $"{t.Minutes}min";
+            return t.TotalHours >= 1 ? L.Format("MediaItem.HMin.88092aee", ((int)t.TotalHours), (t.Minutes)) : L.Format("MediaItem.Min.2fdd6dc5", (t.Minutes));
         }
     }
 }

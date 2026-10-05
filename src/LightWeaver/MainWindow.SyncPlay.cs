@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using LightWeaver.Diagnostics;
 using LightWeaver.Jellyfin;
 using LightWeaver.Player;
@@ -48,18 +49,19 @@ public partial class MainWindow
             });
         };
         _syncPlay.StateChanged += _ => DispatchSyncPlay(UpdateSyncPlayInfo);
+        _syncPlay.ParticipantsChanged += _ => DispatchSyncPlay(UpdateSyncPlayInfo);
         _syncPlay.Notice += notice => Dispatcher.BeginInvoke(() =>
         {
             if (_windowClosing) return;
             UpdateSyncPlayInfo();
             ShowToast(notice.Kind switch
             {
-                SyncPlayNoticeKind.UserJoined => $"{notice.Text} joined the group",
-                SyncPlayNoticeKind.UserLeft => $"{notice.Text} left the group",
-                SyncPlayNoticeKind.GroupDoesNotExist => "Could not join: the group no longer exists",
-                SyncPlayNoticeKind.LibraryAccessDenied => "Could not join: you cannot see what the group is playing",
-                SyncPlayNoticeKind.RejoinFailed => "Left the group: the connection was lost too long",
-                _ => "SyncPlay refused this session",
+                SyncPlayNoticeKind.UserJoined => L.Format("MainWindowSyncPlay.JoinedTheGroup.85544a3b", (notice.Text)),
+                SyncPlayNoticeKind.UserLeft => L.Format("MainWindowSyncPlay.LeftTheGroup.cbbf2346", (notice.Text)),
+                SyncPlayNoticeKind.GroupDoesNotExist => L.Text("MainWindowSyncPlay.CouldNotJoinTheGroupNoLonger.7ccefaf4"),
+                SyncPlayNoticeKind.LibraryAccessDenied => L.Text("MainWindowSyncPlay.CouldNotJoinYouCannotSeeWhat.1f27c777"),
+                SyncPlayNoticeKind.RejoinFailed => L.Text("MainWindowSyncPlay.LeftTheGroupTheConnectionWasLost.8c9b0086"),
+                _ => L.Text("MainWindowSyncPlay.SyncplayRefusedThisSession.89c06147"),
             });
         });
     }
@@ -209,8 +211,12 @@ public partial class MainWindow
     {
         _playerViewModel.SetSyncPlayQueue((_syncPlayQueue?.Playlist ?? []).Select((entry, index) =>
             new QueueRow(index, entry.Item is { } id && _syncPlayTitles.TryGetValue(id, out var title)
-                ? title : $"Group item {index + 1}", index == _syncPlayQueue?.PlayingItemIndex,
-                entry.PlaylistItem)).ToArray());
+                ? title : L.Format("MainWindowSyncPlay.GroupItem.c4de4a0d", (index + 1)), index == _syncPlayQueue?.PlayingItemIndex,
+                entry.PlaylistItem)
+            {
+                DisplayProvider = () => entry.Item is { } liveId && _syncPlayTitles.TryGetValue(liveId, out var liveTitle)
+                    ? liveTitle : L.Format("MainWindowSyncPlay.GroupItem.c4de4a0d", index + 1)
+            }).ToArray());
     }
 
     private async Task LoadSyncPlayQueueTitlesAsync(SyncPlayQueueUpdate queue)
@@ -264,7 +270,7 @@ public partial class MainWindow
         {
             AppLog.Info("syncplay", $"event=load outcome=failure error={ex.GetType().Name}");
             if (epoch == _syncPlayEpoch && request == _syncPlayLoadRequest)
-                ShowToast("Could not load the group's item.");
+                ShowToast(L.Text("MainWindowSyncPlay.CouldNotLoadTheGroupSItem.44a2ebfb"));
         }
         finally
         {
@@ -311,8 +317,8 @@ public partial class MainWindow
         if (decision.Outcome == GateOutcome.Apply) return false;
         if (decision.Outcome == GateOutcome.Drop)
         {
-            ShowToast(decision.Reason == "no_duration" ? "Wait for the group's item to load."
-                : "Leave the group to use that control.");
+            ShowToast(decision.Reason == "no_duration" ? L.Text("MainWindowSyncPlay.WaitForTheGroupSItemTo.77f45ca0")
+                : L.Text("MainWindowSyncPlay.LeaveTheGroupToUseThatControl.201079cc"));
             return true;
         }
         _ = PostSyncPlayAsync(() => decision.Verb switch
@@ -337,13 +343,13 @@ public partial class MainWindow
         try
         {
             var sent = await post();
-            if (!sent && !_windowClosing) ShowToast("The group did not accept that. Try again.");
+            if (!sent && !_windowClosing) ShowToast(L.Text("MainWindowSyncPlay.TheGroupDidNotAcceptThatTry.046df7a1"));
             return sent;
         }
         catch (Exception ex)
         {
             AppLog.Info("syncplay", $"event=local outcome=failure error={ex.GetType().Name}");
-            if (!_windowClosing) ShowToast("The group could not be reached.");
+            if (!_windowClosing) ShowToast(L.Text("MainWindowSyncPlay.TheGroupCouldNotBeReached.6a08c586"));
             return false;
         }
         finally
@@ -366,7 +372,7 @@ public partial class MainWindow
     {
         if (_app.ActiveSessionKey is not { } key) return false;
         if (await _syncPlay.RefreshAccessAsync(key) == SyncPlayAccessLevel.None)
-        { ShowToast("This account cannot join SyncPlay groups."); return false; }
+        { ShowToast(L.Text("MainWindowSyncPlay.ThisAccountCannotJoinSyncplayGroups.73f1839b")); return false; }
         return await PostSyncPlayAsync(() => _syncPlay.JoinAsync(key, groupId));
     }
 
@@ -382,7 +388,7 @@ public partial class MainWindow
         if (_app.ActiveSessionKey is not { } key || string.IsNullOrWhiteSpace(name)) return false;
         var access = await _syncPlay.RefreshAccessAsync(key);
         if (access is SyncPlayAccessLevel.None or SyncPlayAccessLevel.JoinGroups)
-        { ShowToast("This account cannot create SyncPlay groups."); return false; }
+        { ShowToast(L.Text("MainWindowSyncPlay.ThisAccountCannotCreateSyncplayGroups.34ac0772")); return false; }
         // Only seed items owned by this profile. A raw URL cannot become a server queue item.
         if (_playingItem is { } item && ReferenceEquals(_playbackJf, _app.FindSessionByKey(key)))
         {
@@ -408,7 +414,7 @@ public partial class MainWindow
         if (!_syncPlay.IsInGroup) return false;
         if (_syncPlay.ProfileKey is { } key && ReferenceEquals(owner, _app.FindSessionByKey(key)))
             _ = PostSyncPlayAsync(() => _syncPlay.SetNewQueueAsync(items.Select(i => i.Id).ToArray(), index, ticks));
-        else ShowToast("Leave the group to play from another server or account.");
+        else ShowToast(L.Text("MainWindowSyncPlay.LeaveTheGroupToPlayFromAnother.67c4b48a"));
         return true;
     }
 }

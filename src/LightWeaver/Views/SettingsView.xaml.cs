@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -31,12 +32,28 @@ public partial class SettingsView : UserControl
     private bool _loading = true;
     private bool _syncingPeek;
     private bool _syncingVideoBufferPreset;
+    private string _libraryServer = "";
+    private string _libraryLanguage = "";
+    private IReadOnlyList<Jellyfin.MediaItem> _libraries = [];
+    private readonly List<(Guid Id, TextBox Field)> _libraryNameFields = [];
+    private sealed record ResolutionRow(string Value, string Label);
 
     public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,
         UpdateService updates)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _settings = settings;
+        LibraryNames.Configure(settings);
+        settings.UiLanguage ??= "";
+        var uiLanguages = new[] { new UiLanguage("", L.Text("SettingsView.SystemLanguage.2d8bcd37")) }
+            .Concat(L.Languages).ToList();
+        if (!uiLanguages.Any(language => language.Code.Equals(settings.UiLanguage, StringComparison.OrdinalIgnoreCase)))
+            uiLanguages.Add(new UiLanguage(settings.UiLanguage, L.Format("SettingsView.Saved.22a48118", settings.UiLanguage)));
+        UiLanguageBox.ItemsSource = uiLanguages;
+        UiLanguageBox.SelectedItem = UiLanguageBox.Items.Cast<UiLanguage>()
+            .FirstOrDefault(language => language.Code.Equals(settings.UiLanguage, StringComparison.OrdinalIgnoreCase))
+            ?? UiLanguageBox.Items[0];
         _player = player;
         _playerViewModel = playerViewModel;
         _updates = updates;
@@ -81,17 +98,19 @@ public partial class SettingsView : UserControl
             MaxParallelBox.Items.Add(n);
         MaxParallelBox.SelectedIndex = Math.Clamp(settings.MaxParallelDownloads, 1, 4) - 1;
         foreach (var r in new[] { "Original", "1080p", "720p", "480p" })
-            DefaultResolutionBox.Items.Add(r);
+            DefaultResolutionBox.Items.Add(new ResolutionRow(r,
+                r == "Original" ? L.Text("SettingsView.Original.a8d63619") : r));
+        DefaultResolutionBox.DisplayMemberPath = nameof(ResolutionRow.Label);
         DefaultResolutionBox.SelectedIndex = Math.Max(0, Array.IndexOf(
             ["Original", "1080p", "720p", "480p"], settings.DefaultDownloadResolution));
         ImageCacheSizeSlider.Value = Math.Clamp(settings.ImageCacheMaxMb, 100, 2000);
-        ImageCacheSizeLabel.Text = $"{(int)ImageCacheSizeSlider.Value} MB";
+        LiveText.Bind(ImageCacheSizeLabel, "Text", () => L.Format("SettingsView.Mb.67a3de26", ((int)ImageCacheSizeSlider.Value)));
         FolderCacheSizeSlider.Value = Math.Clamp(settings.FolderCacheMaxItems, 500, 20000);
         FolderCacheSizeLabel.Text = $"{(int)FolderCacheSizeSlider.Value:N0}";
         RefreshCacheReadouts();
-        foreach (var label in new[] { "Next in queue", "Next chapter", "Seek forward" })
+        foreach (var label in new[] { L.Text("SettingsView.NextInQueue.a5abcc0f"), L.Text("SettingsView.NextChapter.7feee55d"), L.Text("SettingsView.SeekForward.86fd3e75") })
             TransportNextBox.Items.Add(label);
-        foreach (var label in new[] { "Previous in queue", "Previous chapter", "Seek back" })
+        foreach (var label in new[] { L.Text("SettingsView.PreviousInQueue.bd53ab82"), L.Text("SettingsView.PreviousChapter.1f1ecf33"), L.Text("SettingsView.SeekBack.58ae379b") })
             TransportPrevBox.Items.Add(label);
         TransportNextBox.SelectedIndex = (int)settings.MediaNextAction;
         TransportPrevBox.SelectedIndex = (int)settings.MediaPrevAction;
@@ -99,14 +118,138 @@ public partial class SettingsView : UserControl
         UpdateTransportSeekVisibility();
         BuildShortcutRows();
         VerboseLoggingBox.IsChecked = settings.VerboseLogging;
-        foreach (var label in new[] { "Manual install", "Auto-download", "Auto-download and install" })
+        foreach (var label in new[] { L.Text("SettingsView.ManualInstall.137212a0"), L.Text("SettingsView.AutoDownload.b44f785a"), L.Text("SettingsView.AutoDownloadAndInstall.0f40ada9") })
             UpdatePolicyBox.Items.Add(label);
         UpdatePolicyBox.SelectedIndex = (int)settings.UpdatePolicy;
         UpdateUpdateUi(_updates.Status);
         LogsPath.Text = Diagnostics.AppLog.Dir;
         RefreshLogsReadout();
         _loading = false;
+        LiveText.Observe(this, OnLanguageChanged);
         Diagnostics.AppLog.Detail("settings", "event=load outcome=success");
+    }
+
+    private void OnUiLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || UiLanguageBox.SelectedItem is not UiLanguage language) return;
+        SaveLibraryNames();
+        _settings.UiLanguage = language.Code;
+        SettingsStore.Save(_settings);
+        L.Initialize(language.Code);
+    }
+
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var loading = _loading;
+        _loading = true;
+        try
+        {
+            var languages = new[] { new UiLanguage("", L.Text("SettingsView.SystemLanguage.2d8bcd37")) }
+                .Concat(L.Languages).ToList();
+            if (!languages.Any(language => language.Code.Equals(_settings.UiLanguage, StringComparison.OrdinalIgnoreCase)))
+                languages.Add(new UiLanguage(_settings.UiLanguage, L.Format("SettingsView.Saved.22a48118", _settings.UiLanguage)));
+            UiLanguageBox.ItemsSource = languages;
+            UiLanguageBox.SelectedItem = languages.First(language => language.Code.Equals(_settings.UiLanguage, StringComparison.OrdinalIgnoreCase));
+            PopulateLanguages(SubLangBox, _settings.PreferredSubtitleLanguage);
+            PopulateLanguages(AudioLangBox, _settings.PreferredAudioLanguage);
+            PopulateAudioDevices(_settings.AudioDevice);
+            ReplaceLabels(DefaultResolutionBox, new[] { "Original", "1080p", "720p", "480p" }
+                .Select(value => new ResolutionRow(value, value == "Original" ? L.Text("SettingsView.Original.a8d63619") : value)));
+            ReplaceLabels(TransportNextBox, new[] { L.Text("SettingsView.NextInQueue.a5abcc0f"), L.Text("SettingsView.NextChapter.7feee55d"), L.Text("SettingsView.SeekForward.86fd3e75") });
+            ReplaceLabels(TransportPrevBox, new[] { L.Text("SettingsView.PreviousInQueue.bd53ab82"), L.Text("SettingsView.PreviousChapter.1f1ecf33"), L.Text("SettingsView.SeekBack.58ae379b") });
+            ReplaceLabels(UpdatePolicyBox, new[] { L.Text("SettingsView.ManualInstall.137212a0"), L.Text("SettingsView.AutoDownload.b44f785a"), L.Text("SettingsView.AutoDownloadAndInstall.0f40ada9") });
+            var map = PlayerActionDispatcher.Resolve(_settings.KeyBindings);
+            foreach (var (action, button) in _shortcutButtons)
+                if (_capturing != action) button.Content = PlayerActionDispatcher.DisplayChord(map[action]);
+            RefreshCacheReadouts();
+            UpdateUpdateUi(_updates.Status);
+            UpdatePassthroughCapability();
+            if (_libraryLanguage != L.Language) BuildLibraryNameRows();
+        }
+        finally { _loading = loading; }
+    }
+
+    public void SetLibraries(string server, IReadOnlyList<Jellyfin.MediaItem> libraries)
+    {
+        // Commit pending names to their previous server/language before a profile switch.
+        if (SaveLibraryNames()) L.Source.Refresh();
+        _libraryServer = server;
+        _libraries = libraries;
+        BuildLibraryNameRows();
+    }
+
+    private void BuildLibraryNameRows()
+    {
+        _libraryLanguage = L.Language;
+        LibraryNamesExpander.Visibility = _libraries.Count > 0 && _libraryServer.Length > 0
+            ? Visibility.Visible : Visibility.Collapsed;
+        LiveText.Bind(LibraryNamesHint, "Text", () => L.Format("SettingsView.LibraryNamesHint",
+            CultureInfo.GetCultureInfo(_libraryLanguage).NativeName));
+        LibraryNameRows.Children.Clear();
+        _libraryNameFields.Clear();
+        foreach (var library in _libraries)
+        {
+            var row = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
+            row.Children.Add(new TextBlock
+            {
+                Text = library.Name, Style = (Style)FindResource("RowTitle"),
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 14, 0),
+            });
+            var field = new TextBox
+            {
+                Text = LibraryNames.Override(_libraryServer, library.Id, _libraryLanguage) ?? "",
+                Style = (Style)FindResource("LwTextField"), MinHeight = 34,
+                MaxLength = 200,
+                FlowDirection = L.IsRightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+            };
+            field.SetValue(System.Windows.Automation.AutomationProperties.AutomationIdProperty,
+                "LibraryName_" + library.Id.ToString("N"));
+            LiveText.Bind(field, System.Windows.Automation.AutomationProperties.NameProperty,
+                () => L.Format("SettingsView.LibraryNameFor", library.Name));
+            LiveText.Bind(field, "ToolTip", () => L.Format("SettingsView.LibraryNameDefault", LibraryNames.Default(library.Name)));
+            field.KeyDown += (_, e) =>
+            {
+                if (e.Key != System.Windows.Input.Key.Enter) return;
+                SaveLibraryNames();
+                L.Source.Refresh();
+                e.Handled = true;
+            };
+            Grid.SetColumn(field, 1);
+            row.Children.Add(field);
+            LibraryNameRows.Children.Add(row);
+            _libraryNameFields.Add((library.Id, field));
+        }
+    }
+
+    private bool SaveLibraryNames()
+    {
+        if (_libraryServer.Length == 0 || _libraryNameFields.Count == 0) return false;
+        var changed = false;
+        foreach (var (id, field) in _libraryNameFields)
+        {
+            var text = string.IsNullOrWhiteSpace(field.Text) ? null : field.Text.Trim();
+            if (LibraryNames.Override(_libraryServer, id, _libraryLanguage) == text) continue;
+            LibraryNames.Set(_libraryServer, id, _libraryLanguage, field.Text);
+            changed = true;
+        }
+        if (changed) SettingsStore.Save(_settings);
+        return changed;
+    }
+
+    private void OnSaveLibraryNames(object sender, RoutedEventArgs e)
+    {
+        SaveLibraryNames();
+        L.Source.Refresh();
+    }
+
+    private static void ReplaceLabels(ComboBox box, IEnumerable<object> labels)
+    {
+        var index = box.SelectedIndex;
+        box.Items.Clear();
+        foreach (var label in labels) box.Items.Add(label);
+        box.SelectedIndex = index;
     }
 
     // ---- Updates ---------------------------------------------------------------------
@@ -125,24 +268,24 @@ public partial class SettingsView : UserControl
     {
         var version = status.Update?.DisplayVersion;
         var lastChecked = status.LastCheckedUtc is { } checkedUtc
-            ? checkedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) : "Never";
-        UpdateVersionText.Text = $"Current version: {GitHubUpdateClient.CurrentVersion.ToString(3)} · Last checked: {lastChecked}";
-        UpdateStatusText.Text = status.Phase switch
+            ? checkedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) : L.Text("SettingsView.Never.b8c49021");
+        LiveText.Bind(UpdateVersionText, "Text", () => L.Format("SettingsView.CurrentVersionLastChecked.deff5f18", (GitHubUpdateClient.CurrentVersion.ToString(3)), (lastChecked)));
+        LiveText.Bind(UpdateStatusText, "Text", () => status.Phase switch
         {
-            UpdatePhase.Idle => "No update check has run yet.",
-            UpdatePhase.Checking => "Checking for updates…",
-            UpdatePhase.UpToDate => "LightWeaver is up to date.",
-            UpdatePhase.Available => status.Detail ?? $"Version {version} is available.",
-            UpdatePhase.Downloading => $"Downloading version {version}…",
+            UpdatePhase.Idle => L.Text("SettingsView.NoUpdateCheckHasRunYet.b888684f"),
+            UpdatePhase.Checking => L.Text("SettingsView.CheckingForUpdates.716abad2"),
+            UpdatePhase.UpToDate => L.Text("SettingsView.LightweaverIsUpToDate.522503ca"),
+            UpdatePhase.Available => status.Detail ?? L.Format("SettingsView.VersionIsAvailable.863cd3d7", (version)),
+            UpdatePhase.Downloading => L.Format("SettingsView.DownloadingVersion.8a4557dc", (version)),
             UpdatePhase.ReadyToInstall when _settings.UpdatePolicy == UpdatePolicy.AutoDownloadAndInstall
-                => $"Version {version} is ready — it will install when LightWeaver closes."
-                    + (status.Detail is { Length: > 0 } ? $" Last check: {status.Detail}" : string.Empty),
-            UpdatePhase.ReadyToInstall => $"Version {version} is verified and ready to install."
-                + (status.Detail is { Length: > 0 } ? $" Last check: {status.Detail}" : string.Empty),
-            UpdatePhase.Installing => $"Starting the installer…",
-            UpdatePhase.Error => status.Detail ?? "Update operation failed.",
+                => L.Format("SettingsView.VersionIsReadyItWillInstallWhen.15e2a08e", (version))
+                    + (status.Detail is { Length: > 0 } ? L.Format("SettingsView.LastCheck.f89df2b0", (status.Detail)) : string.Empty),
+            UpdatePhase.ReadyToInstall => L.Format("SettingsView.VersionIsVerifiedAndReadyToInstall.a3763580", (version))
+                + (status.Detail is { Length: > 0 } ? L.Format("SettingsView.LastCheck.f89df2b0", (status.Detail)) : string.Empty),
+            UpdatePhase.Installing => L.Text("SettingsView.StartingTheInstaller.0f1f95e3"),
+            UpdatePhase.Error => status.Detail ?? L.Text("SettingsView.UpdateOperationFailed.6a3b525a"),
             _ => string.Empty,
-        };
+        });
         UpdateDownloadProgress.Visibility = status.Phase == UpdatePhase.Downloading
             ? Visibility.Visible : Visibility.Collapsed;
         UpdateDownloadProgress.Value = (status.Progress ?? 0) * 100;
@@ -151,14 +294,14 @@ public partial class SettingsView : UserControl
         DownloadUpdateButton.Visibility = hasAsset ? Visibility.Visible : Visibility.Collapsed;
         OpenReleasePageButton.Visibility = !hasAsset && status.Update is not null ? Visibility.Visible : Visibility.Collapsed;
         DownloadUpdateButton.IsEnabled = status.Phase is UpdatePhase.Available or UpdatePhase.Error;
-        DownloadUpdateButton.Content = status.Phase == UpdatePhase.Error ? "Retry"
-            : manual ? "Download and install" : "Download";
+        LiveText.Bind(DownloadUpdateButton, "Content", () => status.Phase == UpdatePhase.Error ? L.Text("SettingsView.Retry.8a625e56")
+            : manual ? L.Text("SettingsView.DownloadAndInstall.35531833") : L.Text("SettingsView.Download.9ccefefe"));
         InstallUpdateButton.IsEnabled = status.Phase == UpdatePhase.ReadyToInstall;
         InstallUpdateButton.Visibility = status.Phase == UpdatePhase.ReadyToInstall
             ? Visibility.Visible : Visibility.Collapsed;
-        InstallUpdateButton.Content = "Install now";
+        LiveText.Bind(InstallUpdateButton, "Content", () => L.Text("SettingsView.InstallNow.e4cf6a26"));
         CheckForUpdatesButton.IsEnabled = status.Phase is not UpdatePhase.Checking and not UpdatePhase.Downloading and not UpdatePhase.Installing;
-        CheckForUpdatesButton.Content = status.Phase == UpdatePhase.Error && !hasAsset ? "Retry" : "Check for updates";
+        LiveText.Bind(CheckForUpdatesButton, "Content", () => status.Phase == UpdatePhase.Error && !hasAsset ? L.Text("SettingsView.Retry.8a625e56") : L.Text("SettingsView.CheckForUpdates.b964dc04"));
     }
 
     private async void OnCheckForUpdates(object sender, RoutedEventArgs e)
@@ -193,17 +336,17 @@ public partial class SettingsView : UserControl
     // Invariant decimals: the UI is English and locale commas break log/test parsing.
     private static string FormatBytes(long bytes) => bytes switch
     {
-        >= 1024L * 1024 * 1024 => (bytes / (1024.0 * 1024 * 1024)).ToString("F1", CultureInfo.InvariantCulture) + " GB",
-        >= 1024L * 1024 => (bytes / (1024.0 * 1024)).ToString("F1", CultureInfo.InvariantCulture) + " MB",
-        >= 1024 => (bytes / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + " KB",
-        _ => $"{bytes} B",
+        >= 1024L * 1024 * 1024 => (bytes / (1024.0 * 1024 * 1024)).ToString("F1", CultureInfo.InvariantCulture) + L.Text("SettingsView.Gb.b4766b60"),
+        >= 1024L * 1024 => (bytes / (1024.0 * 1024)).ToString("F1", CultureInfo.InvariantCulture) + L.Text("SettingsView.Mb.6bb5abe0"),
+        >= 1024 => (bytes / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + L.Text("SettingsView.Kb.ac2a41e1"),
+        _ => L.Format("SettingsView.B.22d53ad5", (bytes)),
     };
 
     private void RefreshCacheReadouts()
     {
-        ImageCacheReadout.Text = FormatBytes(Imaging.ImageCache.CurrentSizeBytes());
-        MetadataCacheReadout.Text = FormatBytes(Imaging.MetadataCache.CurrentSizeBytes());
-        ExternalCacheReadout.Text = FormatBytes(Imaging.ExternalMetadataCache.CurrentSizeBytes());
+        LiveText.Bind(ImageCacheReadout, "Text", () => FormatBytes(Imaging.ImageCache.CurrentSizeBytes()));
+        LiveText.Bind(MetadataCacheReadout, "Text", () => FormatBytes(Imaging.MetadataCache.CurrentSizeBytes()));
+        LiveText.Bind(ExternalCacheReadout, "Text", () => FormatBytes(Imaging.ExternalMetadataCache.CurrentSizeBytes()));
     }
 
     private void OnClearImageCache(object sender, RoutedEventArgs e)
@@ -239,7 +382,7 @@ public partial class SettingsView : UserControl
     // ---- Diagnostics ---------------------------------------------------------------
 
     private void RefreshLogsReadout()
-        => LogsReadout.Text = FormatBytes(Diagnostics.AppLog.CurrentSizeBytes());
+        => LiveText.Bind(LogsReadout, "Text", () => FormatBytes(Diagnostics.AppLog.CurrentSizeBytes()));
 
     /// <summary>Opens the log folder in Explorer, creating it first — the normal state of a
     /// healthy install is that nothing has ever been logged, and a button that reports "path
@@ -279,26 +422,26 @@ public partial class SettingsView : UserControl
         Diagnostics.AppLog.Detail("settings", "event=interaction action=export-logs");
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export LightWeaver logs",
             // Invariant timestamp: this filename ends up quoted in bug reports and must sort.
             FileName = $"lightweaver-logs-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.zip",
             DefaultExt = ".zip",
-            Filter = "Zip archive (*.zip)|*.zip",
+            Filter = L.Text("SettingsView.ZipArchive.15f41101").Replace('|', ' ') + " (*.zip)|*.zip",
             AddExtension = true,
             OverwritePrompt = true,
+            Title = L.Text("SettingsView.ExportLightweaverLogs.f46ec341")
         };
         if (dialog.ShowDialog() != true)
             return;
         try
         {
             var count = Diagnostics.AppLog.ExportTo(dialog.FileName);
-            LogsReadout.Text = count == 0
-                ? "nothing to export — no logs have been written"
-                : $"exported {count} file{(count == 1 ? "" : "s")} to {Path.GetFileName(dialog.FileName)}";
+            LiveText.Bind(LogsReadout, "Text", () => count == 0
+                ? L.Text("SettingsView.NothingToExportNoLogsHaveBeen.5570c384")
+                : count == 1 ? L.Format("SettingsView.Exported1FileTo.a005f55e", Path.GetFileName(dialog.FileName)) : L.Format("SettingsView.ExportedFilesTo.0ab1ae50", count, Path.GetFileName(dialog.FileName)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            LogsReadout.Text = $"export failed: {ex.Message}";
+            LiveText.Bind(LogsReadout, "Text", () => L.Format("SettingsView.ExportFailed.d8568efd", (ex.Message)));
         }
     }
 
@@ -373,12 +516,11 @@ public partial class SettingsView : UserControl
             btn.Click += OnShortcutCaptureClick;
             var dock = new System.Windows.Controls.DockPanel { LastChildFill = true };
             dock.Children.Add(btn);
-            dock.Children.Add(new System.Windows.Controls.TextBlock
+            dock.Children.Add(LiveText.Bind(new System.Windows.Controls.TextBlock
             {
-                Text = PlayerActionDispatcher.DisplayName(action),
                 Style = (Style)FindResource("RowTitle"),
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            }, "Text", () => PlayerActionDispatcher.DisplayName(action)));
             var row = new System.Windows.Controls.Border
             {
                 Style = (Style)FindResource("SettingRow"),
@@ -397,7 +539,7 @@ public partial class SettingsView : UserControl
         Diagnostics.AppLog.Detail("settings", $"event=interaction action=shortcut-capture target={action}");
         CancelShortcutCapture();
         _capturing = action;
-        _shortcutButtons[action].Content = "Press a key…";
+        LiveText.Bind(_shortcutButtons[action], "Content", () => L.Text("SettingsView.PressAKey.dab8168a"));
         PreviewKeyDown += OnShortcutKeyCapture;
     }
 
@@ -471,7 +613,7 @@ public partial class SettingsView : UserControl
             || Languages.Matches(saved, o.Code));
         if (selected is null && saved.Trim() is { Length: > 0 } custom)
         {
-            selected = new Languages.Option(custom, $"{custom} (saved)");
+            selected = new Languages.Option(custom, L.Format("SettingsView.Saved.22a48118", (custom)));
             box.Items.Add(selected);
         }
         box.SelectedItem = selected ?? box.Items[0];
@@ -483,12 +625,12 @@ public partial class SettingsView : UserControl
     {
         var devices = _player()?.GetAudioDevices() ?? [];
         AudioDeviceBox.Items.Clear();
-        AudioDeviceBox.Items.Add(new AudioDeviceRow("auto", "System default"));
+        AudioDeviceBox.Items.Add(new AudioDeviceRow("auto", L.Text("SettingsView.SystemDefault.d56d22d4")));
         foreach (var d in devices.Where(d => d.Name != "auto"))
             AudioDeviceBox.Items.Add(new AudioDeviceRow(d.Name, d.Description));
         if (saved is { Length: > 0 } && saved != "auto"
             && !AudioDeviceBox.Items.Cast<AudioDeviceRow>().Any(r => r.Name == saved))
-            AudioDeviceBox.Items.Add(new AudioDeviceRow(saved, $"{saved} (saved)"));
+            AudioDeviceBox.Items.Add(new AudioDeviceRow(saved, L.Format("SettingsView.Saved.22a48118", (saved))));
         AudioDeviceBox.SelectedItem = AudioDeviceBox.Items.Cast<AudioDeviceRow>()
             .FirstOrDefault(r => r.Name == saved) ?? AudioDeviceBox.Items[0];
         AudioDeviceHint.Visibility = devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -548,8 +690,8 @@ public partial class SettingsView : UserControl
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Choose the download folder",
             Multiselect = false,
+            Title = L.Text("SettingsView.ChooseTheDownloadFolder.37147ee3")
         };
         var current = DownloadDirBox.Text.Trim();
         if (current.Length > 0 && Directory.Exists(current))
@@ -649,7 +791,7 @@ public partial class SettingsView : UserControl
         }
         else
         {
-            VideoBufferCustomError.Text = $"Enter a whole number from 32 to 1024 MiB. Last saved: {_settings.VideoBufferMiB} MiB.";
+            LiveText.Bind(VideoBufferCustomError, "Text", () => L.Format("SettingsView.EnterAWholeNumberFrom32To.b6003a6e", (_settings.VideoBufferMiB)));
             VideoBufferCustomError.Visibility = Visibility.Visible;
         }
         _settings.SubtitleScale = Math.Round(SubScaleSlider.Value, 2);
@@ -710,8 +852,8 @@ public partial class SettingsView : UserControl
         _settings.DownloadDirectory = DownloadDirBox.Text.Trim();
         if (MaxParallelBox.SelectedIndex >= 0)
             _settings.MaxParallelDownloads = MaxParallelBox.SelectedIndex + 1;
-        if (DefaultResolutionBox.SelectedItem is string res)
-            _settings.DefaultDownloadResolution = res;
+        if (DefaultResolutionBox.SelectedItem is ResolutionRow res)
+            _settings.DefaultDownloadResolution = res.Value;
         if (TransportNextBox.SelectedIndex >= 0)
             _settings.MediaNextAction = (TransportAction)TransportNextBox.SelectedIndex;
         if (TransportPrevBox.SelectedIndex >= 0)
@@ -744,7 +886,7 @@ public partial class SettingsView : UserControl
         // is looking at it to decide whether to press Clear.
         RefreshLogsReadout();
         _settings.ImageCacheMaxMb = (int)ImageCacheSizeSlider.Value;
-        ImageCacheSizeLabel.Text = $"{_settings.ImageCacheMaxMb} MB";
+        LiveText.Bind(ImageCacheSizeLabel, "Text", () => L.Format("SettingsView.Mb.67a3de26", (_settings.ImageCacheMaxMb)));
         Imaging.ImageCache.MaxCacheBytes = _settings.ImageCacheMaxMb * 1024L * 1024;   // live-apply (M21)
         _settings.FolderCacheMaxItems = (int)FolderCacheSizeSlider.Value;
         FolderCacheSizeLabel.Text = $"{_settings.FolderCacheMaxItems:N0}";
@@ -756,6 +898,7 @@ public partial class SettingsView : UserControl
         if (previousUpdatePolicy != _settings.UpdatePolicy)
         {
             _updates.OnPolicyChanged();
+            RefreshCacheReadouts();
             UpdateUpdateUi(_updates.Status);
         }
 

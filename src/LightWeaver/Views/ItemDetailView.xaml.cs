@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -74,10 +75,16 @@ public partial class ItemDetailView : UserControl
     public ItemDetailView(AppViewModel app, Settings.AppSettings settings, MediaItem item)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _app = app;
         _settings = settings;
         _item = item;
         Render();
+        LiveText.Observe(this, (_, _) =>
+        {
+            RenderEyebrow();
+            RenderActions();
+        });
         SizeChanged += (_, _) => UpdateTitleScale();
         // IsVisibleChanged, not Loaded: on back-from-playback the same instance is
         // re-shown by a BrowseLayer visibility flip, which never re-raises Loaded.
@@ -534,20 +541,20 @@ public partial class ItemDetailView : UserControl
         AppendEyebrowSegment(_item.SeriesName, "DetailSeriesLink",
             _item.SeriesId is { } ? OpenSeries : null);
         var seasonLabel = _item.SeasonName
-            ?? (_item.ParentIndexNumber is { } s ? $"Season {s}" : null);
+            ?? (_item.ParentIndexNumber is { } s ? L.Format("ItemDetailView.Season.1a99847d", (s)) : null);
         AppendEyebrowSegment(seasonLabel, "DetailSeasonLink",
             (_item.SeasonId ?? _item.ParentId) is { } && _item.SeriesId is { } ? OpenSeason : null);
-        AppendEyebrowSegment(_item.IndexNumber is { } e ? $"E{e}" : null, null, null);
+        AppendEyebrowSegment(_item.IndexNumber is { } e ? L.Format("ItemDetailView.E.020adbce", (e)) : null, null, null);
     }
 
     private static string TypeLabel(BaseItemType type) => type switch
     {
-        BaseItemType.Movie => "MOVIE",
-        BaseItemType.MusicVideo => "MUSIC VIDEO",
-        BaseItemType.Audio => "AUDIO",
-        BaseItemType.MusicAlbum => "ALBUM",
-        BaseItemType.MusicArtist => "ARTIST",
-        BaseItemType.Video => "VIDEO",
+        BaseItemType.Movie => L.Text("ItemDetailView.Movie.06782159"),
+        BaseItemType.MusicVideo => L.Text("ItemDetailView.MusicVideo.48704f26"),
+        BaseItemType.Audio => L.Text("ItemDetailView.Audio.5d16b7dd"),
+        BaseItemType.MusicAlbum => L.Text("ItemDetailView.Album.25a8aef7"),
+        BaseItemType.MusicArtist => L.Text("ItemDetailView.Artist.c01ec4ba"),
+        BaseItemType.Video => L.Text("ItemDetailView.Video.b5fdab38"),
         _ => type.ToString().ToUpperInvariant(),
     };
 
@@ -582,6 +589,13 @@ public partial class ItemDetailView : UserControl
         link.Click += (_, _) => navigate();
         if (automationId is not null)
             AutomationProperties.SetAutomationId(link, automationId);
+        return link;
+    }
+
+    private Hyperlink MakeLink(Func<string> text, Brush foreground, Action navigate, string? automationId = null)
+    {
+        var link = MakeLink(text(), foreground, navigate, automationId);
+        LiveText.Bind((Run)link.Inlines.FirstInline, Run.TextProperty, () => text());
         return link;
     }
 
@@ -689,7 +703,7 @@ public partial class ItemDetailView : UserControl
     }
 
     private static string? Field(List<MediaInfoField> summary, string label)
-        => summary.FirstOrDefault(f => f.Label == label)?.Value;
+        => summary.FirstOrDefault(f => (f.Id ?? f.Label) == label)?.Value;
 
     /// <summary>"1920x1080" → a resolution badge (4K / 1080p / 720p / SD).</summary>
     private static string? ResolutionLabel(string resolution)
@@ -697,7 +711,7 @@ public partial class ItemDetailView : UserControl
         var x = resolution.IndexOf('x');
         if (x <= 0 || !int.TryParse(resolution.AsSpan(0, x), out var w))
             return null;
-        return w >= 3400 ? "4K" : w >= 1900 ? "1080p" : w >= 1200 ? "720p" : "SD";
+        return w >= 3400 ? "4K" : w >= 1900 ? "1080p" : w >= 1200 ? "720p" : L.Text("ItemDetailView.Sd.c03901ee");
     }
 
     private void AddGemPill(string text, bool amber)
@@ -859,21 +873,21 @@ public partial class ItemDetailView : UserControl
         {
             var pos = TimeSpan.FromTicks(_item.ResumePositionTicks);
             var stamp = pos.TotalHours >= 1 ? pos.ToString(@"h\:mm\:ss") : pos.ToString(@"m\:ss");
-            ResumeButton.Content = PlayGlyphLabel($"Resume {stamp}");
+            LiveText.Bind(ResumeButton, "Content", () => PlayGlyphLabel(L.Format("ItemDetailView.Resume.6c296c19", (stamp))));
             ResumeButton.Visibility = Visibility.Visible;
-            PlayButton.Content = "From start";
+            LiveText.Bind(PlayButton, "Content", () => L.Text("ItemDetailView.FromStart.fbbe69c1"));
             PlayButton.Style = (Style)FindResource("LwButtonSecondary");
         }
         else
         {
             ResumeButton.Visibility = Visibility.Collapsed;
-            PlayButton.Content = PlayGlyphLabel("Play");
+            LiveText.Bind(PlayButton, "Content", () => PlayGlyphLabel(L.Text("ItemDetailView.Play.feccb3cc")));
             PlayButton.Style = (Style)FindResource("LwButtonPrimary");
         }
 
         if (_item.TrailerUrl is { Length: > 0 })
         {
-            TrailerButton.Content = GlyphLabel("IconTrailer", "Trailer");
+            LiveText.Bind(TrailerButton, "Content", () => GlyphLabel("IconTrailer", L.Text("ItemDetailView.Trailer.c9af45dc")));
             TrailerButton.Visibility = Visibility.Visible;
         }
         else
@@ -885,8 +899,8 @@ public partial class ItemDetailView : UserControl
         FavoriteButton.Foreground = _item.IsFavorite
             ? (Brush)FindResource("LwGarnetLitBrush")
             : (Brush)FindResource("LwText2Brush");
-        AutomationProperties.SetName(FavoriteButton, _item.IsFavorite ? "Favorite" : "Add to favorites");
-        FavoriteButton.ToolTip = _item.IsFavorite ? "Remove from favorites" : "Add to favorites";
+        LiveText.Bind(FavoriteButton, System.Windows.Automation.AutomationProperties.NameProperty, () => _item.IsFavorite ? L.Text("ItemDetailView.Favorite.c88ee617") : L.Text("ItemDetailView.AddToFavorites.5fdaa540"));
+        LiveText.Bind(FavoriteButton, "ToolTip", () => _item.IsFavorite ? L.Text("ItemDetailView.RemoveFromFavorites.102a41cf") : L.Text("ItemDetailView.AddToFavorites.5fdaa540"));
 
         // M5.1: filled = watched / outline = unwatched (the same glyph-pair rule the
         // favorite heart uses), not a color-only flip.
@@ -894,8 +908,8 @@ public partial class ItemDetailView : UserControl
         WatchedButton.Foreground = _item.Played
             ? (Brush)FindResource("LwEmeraldLitBrush")
             : (Brush)FindResource("LwText2Brush");
-        AutomationProperties.SetName(WatchedButton, _item.Played ? "Watched" : "Mark watched");
-        WatchedButton.ToolTip = _item.Played ? "Mark as unwatched" : "Mark as watched";
+        LiveText.Bind(WatchedButton, System.Windows.Automation.AutomationProperties.NameProperty, () => _item.Played ? L.Text("ItemDetailView.Watched.f0af4d3d") : L.Text("ItemDetailView.MarkWatched.6830793c"));
+        LiveText.Bind(WatchedButton, "ToolTip", () => _item.Played ? L.Text("ItemDetailView.MarkAsUnwatched.62bd3524") : L.Text("ItemDetailView.MarkAsWatched.ac0f315a"));
 
         // The overflow button appears only when the overflow menu would have something in it.
         // Same predicate the menu builds from, deliberately, so the two cannot disagree and
@@ -920,12 +934,12 @@ public partial class ItemDetailView : UserControl
         VersionsButton.Visibility = _versions.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         if (_versions.Count <= 1)
             return;
-        var label = CurrentVersion?.Label ?? "Default";
+        var label = CurrentVersion?.Label ?? L.Text("ItemDetailView.Default.e5bbae81");
         VersionsButton.Foreground = _chosenVersionId is { Length: > 0 }
             ? (Brush)FindResource("LwSapphireLitBrush")
             : (Brush)FindResource("LwText2Brush");
-        AutomationProperties.SetName(VersionsButton, $"Version: {label}");
-        VersionsButton.ToolTip = $"Version: {label}";
+        LiveText.Bind(VersionsButton, System.Windows.Automation.AutomationProperties.NameProperty, () => L.Format("ItemDetailView.Version.922cfa9c", (label)));
+        LiveText.Bind(VersionsButton, "ToolTip", () => L.Format("ItemDetailView.Version.922cfa9c", (label)));
     }
 
     /// <summary>Version menu (part 1: it decides what the NEXT play from this view negotiates;
@@ -1014,12 +1028,12 @@ public partial class ItemDetailView : UserControl
         DownloadButton.Foreground = downloaded
             ? (Brush)FindResource("LwSapphireLitBrush")
             : (Brush)FindResource("LwText2Brush");
-        AutomationProperties.SetName(DownloadButton, _downloadWaiting
-            ? "Loading download options"
-            : downloaded ? "Downloaded" : "Download");
-        DownloadButton.ToolTip = _downloadWaiting
-            ? "Loading download options"
-            : downloaded ? "Downloaded — click to remove" : "Download";
+        LiveText.Bind(DownloadButton, System.Windows.Automation.AutomationProperties.NameProperty, () => _downloadWaiting
+            ? L.Text("ItemDetailView.LoadingDownloadOptions.1836d81b")
+            : downloaded ? L.Text("ItemDetailView.Downloaded.2d672268") : L.Text("ItemDetailView.Download.b111587a"));
+        LiveText.Bind(DownloadButton, "ToolTip", () => _downloadWaiting
+            ? L.Text("ItemDetailView.LoadingDownloadOptions.1836d81b")
+            : downloaded ? L.Text("ItemDetailView.DownloadedClickToRemove.945b5b37") : L.Text("ItemDetailView.Download.b111587a"));
     }
 
     /// <summary>Downloaded already → offer removal; otherwise hand off to MainWindow's
@@ -1082,8 +1096,8 @@ public partial class ItemDetailView : UserControl
             return;
         }
 
-        SeasonHeader.Text = _item.SeasonName
-            ?? (_item.ParentIndexNumber is { } s ? $"Season {s}" : "Episodes");
+        LiveText.Bind(SeasonHeader, "Text", () => _item.SeasonName
+            ?? (_item.ParentIndexNumber is { } s ? L.Format("ItemDetailView.Season.1a99847d", (s)) : L.Text("ItemDetailView.Episodes.5524ea7e")));
         EpisodesList.ItemsSource = episodes;
         // Mark the episode being viewed as the current one (garnet-lit, non-clickable).
         _currentEpisodeRow = episodes.FirstOrDefault(ep => ep.Id == _item.Id);
@@ -1092,7 +1106,7 @@ public partial class ItemDetailView : UserControl
         SeasonViewAll.Inlines.Clear();
         if ((_item.SeasonId ?? _item.ParentId) is { } && _item.SeriesId is { })
         {
-            var link = MakeLink($"View all {episodes.Count} episodes",
+            var link = MakeLink(() => L.Format("ItemDetailView.ViewAllEpisodes.4aea9630", episodes.Count),
                 (Brush)FindResource("LwLightBaseBrush"), OpenSeason);
             link.FontSize = 13;
             SeasonViewAll.Inlines.Add(link);
@@ -1128,7 +1142,7 @@ public partial class ItemDetailView : UserControl
         ItemSelected?.Invoke(new MediaItem
         {
             Id = seriesId,
-            Name = _item.SeriesName ?? "Series",
+            Name = _item.SeriesName ?? L.Text("ItemDetailView.Series.0f7f782c"),
             Type = BaseItemType.Series,
         });
     }
@@ -1144,7 +1158,7 @@ public partial class ItemDetailView : UserControl
         {
             Id = seasonId,
             Name = _item.SeasonName
-                ?? (_item.ParentIndexNumber is { } s ? $"Season {s}" : "Season"),
+                ?? (_item.ParentIndexNumber is { } s ? L.Format("ItemDetailView.Season.1a99847d", (s)) : L.Text("ItemDetailView.Season.0e18411e")),
             Type = BaseItemType.Season,
             SeriesId = seriesId,
             SeriesName = _item.SeriesName,
@@ -1254,18 +1268,19 @@ public partial class ItemDetailView : UserControl
         Diagnostics.AppLog.Detail("detail", $"event=interaction action=open-more item={_item.Id:N} type={_item.Type}");
         var menu = new ContextMenu { Style = (Style)FindResource("LwContextMenu") };
         if (_item.SeriesId is { })
-            menu.Items.Add(MenuItemFor("Go to series", OpenSeries));
+            menu.Items.Add(MenuItemFor(() => L.Text("ItemDetailView.GoToSeries.85c600de"), OpenSeries));
         if ((_item.SeasonId ?? _item.ParentId) is { } && _item.SeriesId is { })
-            menu.Items.Add(MenuItemFor("Go to season", OpenSeason));
+            menu.Items.Add(MenuItemFor(() => L.Text("ItemDetailView.GoToSeason.42e4052e"), OpenSeason));
 
         menu.PlacementTarget = MoreButton;
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         menu.IsOpen = true;
     }
 
-    private MenuItem MenuItemFor(string header, Action action)
+    private MenuItem MenuItemFor(Func<string> header, Action action)
     {
-        var item = new MenuItem { Header = header, Style = (Style)FindResource("LwMenuItem") };
+        var item = new MenuItem { Style = (Style)FindResource("LwMenuItem") };
+        LiveText.Bind(item, "Header", () => header());
         item.Click += (_, _) => action();
         return item;
     }

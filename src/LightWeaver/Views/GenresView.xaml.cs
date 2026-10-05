@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using LightWeaver.Jellyfin;
@@ -20,6 +21,7 @@ public partial class GenresView : UserControl
     public GenresView(AppViewModel app, MediaItem library)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _app = app;
         _library = library;
         Loaded += async (_, _) => { if (GenreGrid.Items.Count == 0) await LoadAsync(); };
@@ -41,7 +43,7 @@ public partial class GenresView : UserControl
             var genres = await _app.Jellyfin.GetGenresAsync(_library.Id);
             GenreGrid.ItemsSource = genres;
             if (genres.Count == 0)
-                EmptyView.Show("No genres here", "This library has no genre tags to browse.");
+                EmptyView.Show(() => L.Text("GenresView.NoGenresHere.badfde2e"), () => L.Text("GenresView.ThisLibraryHasNoGenreTagsTo.264c90f5"));
             else
                 EmptyView.Visibility = Visibility.Collapsed;
             Diagnostics.AppLog.Detail("genres",
@@ -51,7 +53,7 @@ public partial class GenresView : UserControl
         {
             Diagnostics.AppLog.Detail("genres",
                 $"event=load outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={_library.Id:N} type={_library.Type}", ex);
-            StatusText.Text = $"Failed to load: {ex.Message}";
+            LiveText.Bind(StatusText, "Text", () => L.Format("GenresView.FailedToLoad.a24e7310", (ex.Message)));
             StatusText.Visibility = Visibility.Visible;
         }
         finally

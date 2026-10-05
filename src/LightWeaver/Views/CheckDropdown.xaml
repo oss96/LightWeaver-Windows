@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.CheckDropdown"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" Height="38">
@@ -74,7 +75,7 @@
                             BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,4,0,0">
                         <Button x:Name="ClearButton" Style="{StaticResource LwLinkButton}"
                                 FontSize="12.5" HorizontalAlignment="Left" Padding="8,3"
-                                Content="Clear selection" Click="OnClearClick"
+                                Content="{loc:Text CheckDropdown.ClearSelection.3e5fa329}" Click="OnClearClick"
                                 AutomationProperties.AutomationId="CheckDropdownClear" />
                     </Border>
                     <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">

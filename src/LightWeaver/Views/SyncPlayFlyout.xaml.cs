@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +24,7 @@ public partial class SyncPlayFlyout : UserControl, IDisposable
         Func<Task> leave, Func<string, Task<bool>> create)
     {
         InitializeComponent();
+        LiveText.Watch(this);
         _player = player;
         _list = list;
         _join = join;
@@ -33,6 +35,7 @@ public partial class SyncPlayFlyout : UserControl, IDisposable
 
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { e.Handled = true; CloseRequested?.Invoke(); } };
         UpdateState();
+        LiveText.Observe(this, (_, _) => { if (!_closed) UpdateState(); });
     }
 
     public event Action? CloseRequested;
@@ -70,12 +73,12 @@ public partial class SyncPlayFlyout : UserControl, IDisposable
         CancelJoinButton.Visibility = group is null && _player.SyncPlayPending ? Visibility.Visible : Visibility.Collapsed;
         CancelJoinButton.IsEnabled = !_busy;
         GroupNameText.Text = group?.GroupName ?? "";
-        GroupStateText.Text = group?.State ?? "Connected";
+        GroupStateText.Text = PlayerViewModel.SyncPlayStateLabel(group?.State);
         ParticipantsText.Text = group is null ? "" : string.Join(Environment.NewLine, group.Participants);
         if (_player.SyncPlayPending)
-            StatusText.Text = "Waiting for the server…";
+            LiveText.Bind(StatusText, "Text", () => L.Text("SyncPlayFlyout.WaitingForTheServer.7c137dd1"));
         else if (!_busy && StatusText.Text.Length == 0)
-            StatusText.Text = group is null ? "Choose a group or create one." : "You are in this group.";
+            LiveText.Bind(StatusText, "Text", () => group is null ? L.Text("SyncPlayFlyout.ChooseAGroupOrCreateOne.fa38305d") : L.Text("SyncPlayFlyout.YouAreInThisGroup.8bb22d79"));
         var ready = !_busy && !_player.SyncPlayPending;
         RefreshButton.IsEnabled = ready;
         JoinButton.IsEnabled = ready && GroupsList.SelectedItem is GroupRow;
@@ -92,36 +95,36 @@ public partial class SyncPlayFlyout : UserControl, IDisposable
     {
         if (_busy || _closed || _player.SyncPlay is not null) return;
         _busy = true;
-        StatusText.Text = "Looking for groups…";
+        LiveText.Bind(StatusText, "Text", () => L.Text("SyncPlayFlyout.LookingForGroups.684ed5ed"));
         UpdateState();
         try
         {
             var groups = await _list();
             if (_closed) return;
             GroupsList.ItemsSource = groups.Select(g => new GroupRow(g)).ToArray();
-            StatusText.Text = groups.Count == 0 ? "No groups are available. Create one to watch together." : "Choose a group to join.";
+            LiveText.Bind(StatusText, "Text", () => groups.Count == 0 ? L.Text("SyncPlayFlyout.NoGroupsAreAvailableCreateOneTo.c65147ff") : L.Text("SyncPlayFlyout.ChooseAGroupToJoin.29471076"));
         }
         catch (Exception)
         {
             if (_closed) return;
             GroupsList.ItemsSource = null;
-            StatusText.Text = "Could not load groups. Check the connection and try Refresh.";
+            LiveText.Bind(StatusText, "Text", () => L.Text("SyncPlayFlyout.CouldNotLoadGroupsCheckTheConnection.c7a23786"));
         }
         finally { _busy = false; if (!_closed) UpdateState(); }
     }
 
-    private async Task RunAsync(Func<Task<bool>> operation, string failed)
+    private async Task RunAsync(Func<Task<bool>> operation, Func<string> failed)
     {
         if (_busy || _closed) return;
         _busy = true;
-        StatusText.Text = "Contacting the server…";
+        LiveText.Bind(StatusText, "Text", () => L.Text("SyncPlayFlyout.ContactingTheServer.4f962b7c"));
         UpdateState();
         try
         {
             var accepted = await operation();
-            if (!_closed) StatusText.Text = accepted ? "" : failed;
+            if (!_closed) LiveText.Bind(StatusText, "Text", () => accepted ? "" : failed());
         }
-        catch (Exception) { if (!_closed) StatusText.Text = failed; }
+        catch (Exception) { if (!_closed) LiveText.Bind(StatusText, "Text", () => failed()); }
         finally { _busy = false; if (!_closed) UpdateState(); }
     }
 
@@ -129,22 +132,22 @@ public partial class SyncPlayFlyout : UserControl, IDisposable
     private async void OnJoin(object sender, RoutedEventArgs e)
     {
         if (GroupsList.SelectedItem is GroupRow row)
-            await RunAsync(() => _join(row.Group.GroupId), "Could not join the group. Refresh and try again.");
+            await RunAsync(() => _join(row.Group.GroupId), () => L.Text("SyncPlayFlyout.CouldNotJoinTheGroupRefreshAnd.edfc697d"));
     }
     private async void OnLeave(object sender, RoutedEventArgs e)
-        => await RunAsync(async () => { await _leave(); return true; }, "Could not leave the group. Try again.");
+        => await RunAsync(async () => { await _leave(); return true; }, () => L.Text("SyncPlayFlyout.CouldNotLeaveTheGroupTryAgain.ea2628e2"));
     private async void OnCreate(object sender, RoutedEventArgs e)
     {
         var name = GroupNameBox.Text.Trim();
-        if (name.Length == 0) { StatusText.Text = "Enter a name for the group."; GroupNameBox.Focus(); return; }
-        await RunAsync(() => _create(name), "Could not create the group. Check your server permissions and try again.");
+        if (name.Length == 0) { LiveText.Bind(StatusText, "Text", () => L.Text("SyncPlayFlyout.EnterANameForTheGroup.9d97c2b0")); GroupNameBox.Focus(); return; }
+        await RunAsync(() => _create(name), () => L.Text("SyncPlayFlyout.CouldNotCreateTheGroupCheckYour.8c060dc3"));
     }
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateState();
     private void OnClose(object sender, RoutedEventArgs e) => CloseRequested?.Invoke();
 
     private sealed record GroupRow(SyncPlayGroupSummary Group)
     {
-        public string GroupName => string.IsNullOrWhiteSpace(Group.GroupName) ? "Unnamed group" : Group.GroupName;
-        public string ParticipantLabel => $"{Group.Participants.Count} participant{(Group.Participants.Count == 1 ? "" : "s")}";
+        public string GroupName => string.IsNullOrWhiteSpace(Group.GroupName) ? L.Text("SyncPlayFlyout.UnnamedGroup.f3cd2d6e") : Group.GroupName;
+        public string ParticipantLabel => Group.Participants.Count == 1 ? L.Text("SyncPlayFlyout.1Participant.9336161c") : L.Format("SyncPlayFlyout.Participants.a12917fe", Group.Participants.Count);
     }
 }

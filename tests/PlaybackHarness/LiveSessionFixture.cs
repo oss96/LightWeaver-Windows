@@ -40,6 +40,8 @@ internal static class LiveSessionFixture
             CheckStreamResolution(Check);
             CheckPlayTargeting(Check);
             CheckQueueInsertion(Check);
+            await CheckAuthenticationRotationAsync(Check).ConfigureAwait(false);
+            await CheckFailedReconnectAsync(Check).ConfigureAwait(false);
             await CheckFolderInvalidationAsync(Check).ConfigureAwait(false);
             await CheckFolderIndexSurvivalAsync(Check).ConfigureAwait(false);
             await CheckTransportAsync(Check).ConfigureAwait(false);
@@ -735,6 +737,82 @@ internal static class LiveSessionFixture
             "BrowseFolderCache has no private static IndexKey; the profile index was renamed, so "
             + "this fixture is testing nothing.");
 
+    private static void CheckAuthenticationHeader(string? header, string? token, string request,
+        Action<bool, string> check)
+    {
+        check(header?.StartsWith("MediaBrowser ", StringComparison.Ordinal) == true
+            && FakeJellyfinServer.HeaderField(header, "Client") == "LightWeaver",
+            $"{request} carries the LightWeaver client name");
+        check(FakeJellyfinServer.HeaderField(header, "Version")
+                == typeof(JellyfinService).Assembly.GetName().Version?.ToString(3),
+            $"{request} carries the current three-part client version");
+        check(FakeJellyfinServer.HeaderField(header, "DeviceId") == CredentialStore.GetOrCreateDeviceId(),
+            $"{request} carries the persistent device id");
+        check(FakeJellyfinServer.HeaderField(header, "Device") == Environment.MachineName
+            && !string.IsNullOrWhiteSpace(FakeJellyfinServer.HeaderField(header, "Device")),
+            $"{request} carries the machine name");
+        check(TokenOf(header) == token, $"{request} carries the current token");
+    }
+
+    private static async Task CheckAuthenticationRotationAsync(Action<bool, string> check)
+    {
+        using var server = new FakeJellyfinServer { IssueDeviceTokens = true };
+        using var service = new JellyfinService();
+        string? previousToken = null;
+        for (var round = 0; round < 2; round++)
+        {
+            var login = await service.LoginAsync(server.Origin, "TEST", "synthetic-password").ConfigureAwait(false);
+            check(login.Success && login.Credentials is not null, $"rotation login {round + 1} succeeds");
+            var signIn = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            check(signIn.Path.EndsWith("/Users/AuthenticateByName", StringComparison.OrdinalIgnoreCase),
+                $"rotation login {round + 1} uses AuthenticateByName");
+            CheckAuthenticationHeader(signIn.Header("Authorization"), null, $"rotation login {round + 1}", check);
+            check(signIn.Header("Authorization")?.Contains("Token=", StringComparison.OrdinalIgnoreCase) == false,
+                $"rotation login {round + 1} omits the Token field");
+            var publicInfo = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            check(publicInfo.Path.EndsWith("/System/Info/Public", StringComparison.OrdinalIgnoreCase),
+                $"rotation login {round + 1} reads the server name");
+            var token = login.Credentials!.AccessToken;
+            check(token != previousToken, $"rotation login {round + 1} receives a fresh token");
+            var valid = await service.ValidateAsync().ConfigureAwait(false);
+            var me = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            CheckAuthenticationHeader(me.Header("Authorization"), token, $"rotation SDK request {round + 1}", check);
+            check(valid, $"rotation SDK request {round + 1} accepts the fresh token");
+            previousToken = token;
+            service.Logout();
+            check(!service.IsConnected && TokenOf(service.AuthorizationHeader) is null,
+                $"rotation logout {round + 1} clears authentication");
+        }
+    }
+
+    private static async Task CheckFailedReconnectAsync(Action<bool, string> check)
+    {
+        foreach (var incomplete in new[] { false, true })
+        {
+            using var server = new FakeJellyfinServer();
+            using var service = new JellyfinService();
+            var answer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            server.ResponseOverride = async _ =>
+            {
+                await answer.Task.ConfigureAwait(false);
+                return incomplete
+                    ? "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
+                    : "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            };
+            var reconnect = service.ReconnectAsync(new SavedCredentials(server.Origin, "TEST",
+                "synthetic-pending-token", server.UserId));
+            var me = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+            check(!service.IsConnected && service.AccessToken is null,
+                "a pending saved-session validation does not claim a connected session");
+            CheckAuthenticationHeader(me.Header("Authorization"), "synthetic-pending-token", "pending validation", check);
+            answer.SetResult();
+            check(!await reconnect.ConfigureAwait(false),
+                incomplete ? "an incomplete saved-session answer rejects reconnect" : "a revoked saved token rejects reconnect");
+            check(!service.IsConnected && TokenOf(service.AuthorizationHeader) is null,
+                incomplete ? "an incomplete reconnect clears the pending token" : "a rejected reconnect clears the pending token");
+        }
+    }
+
     private static async Task CheckTransportAsync(Action<bool, string> check)
     {
         using var server = new FakeJellyfinServer();
@@ -745,6 +823,7 @@ internal static class LiveSessionFixture
         var me = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         check(me.Path.EndsWith("/Users/Me", StringComparison.OrdinalIgnoreCase),
             "the fixture session is validated against Users/Me");
+        CheckAuthenticationHeader(me.Header("Authorization"), "synthetic-fixture-token", "saved-session SDK request", check);
 
         check(await service.ReportCapabilitiesAsync().ConfigureAwait(false), "capabilities post succeeds");
         var capabilities = await server.NextRequestAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
@@ -789,8 +868,7 @@ internal static class LiveSessionFixture
 
         var upgrade = await server.NextUpgradeAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         check(upgrade.Path.EndsWith("/socket", StringComparison.Ordinal), "the upgrade targets /socket");
-        check(upgrade.Header("Authorization")?.StartsWith("MediaBrowser Token=\"", StringComparison.Ordinal) == true,
-            "the upgrade authenticates with the MediaBrowser Authorization header");
+        CheckAuthenticationHeader(upgrade.Header("Authorization"), "synthetic-fixture-token", "socket upgrade", check);
         check(upgrade.Query.Length == 0
             && !upgrade.Target.Contains("ApiKey", StringComparison.OrdinalIgnoreCase)
             && !upgrade.Target.Contains("api_key", StringComparison.OrdinalIgnoreCase),
@@ -951,7 +1029,21 @@ internal static class LiveSessionFixture
     private static List<string> Strings(JsonElement root, string name)
         => root.GetProperty(name).EnumerateArray().Select(value => value.GetString() ?? "").ToList();
 
-    internal sealed record HttpCapture(string Method, string Path, string Body);
+    /// <summary>One HTTP request. Query and headers are kept so a fixture with several clients on
+    /// one server can say WHICH session sent a request: client metadata identifies the installation,
+    /// while the current token identifies its authenticated session.</summary>
+    internal sealed record HttpCapture(string Method, string Path, string Body, string Query = "",
+        IReadOnlyList<string>? Headers = null)
+    {
+        public string? Header(string name) => Headers?
+            .FirstOrDefault(header => header.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase))
+            ?[(name.Length + 1)..].Trim();
+
+        public string? Token => TokenOf(Header("Authorization"));
+    }
+
+    /// <summary>One media answer from <see cref="FakeJellyfinServer.MediaFile"/>.</summary>
+    internal sealed record MediaServe(string? Token, string Method, string Path, int Status, long Start, long End);
 
     internal sealed record UpgradeCapture(string Target, string Path, string Query, IReadOnlyList<string> Headers)
     {
@@ -960,10 +1052,49 @@ internal static class LiveSessionFixture
             ?[(name.Length + 1)..].Trim();
     }
 
-    internal sealed class ServerConnection(WebSocket socket, TcpClient client)
+    /// <summary>The <c>Token="..."</c> field of a MediaBrowser Authorization header, or null.</summary>
+    internal static string? TokenOf(string? authorization)
     {
-        public Task SendAsync(string json) => socket
-            .SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true, CancellationToken.None);
+        if (authorization is null)
+            return null;
+        const string marker = "Token=\"";
+        var start = authorization.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+        start += marker.Length;
+        var end = authorization.IndexOf('"', start);
+        return end > start ? authorization[start..end] : null;
+    }
+
+    /// <summary>A server-side socket. Sends are serialized: a WebSocket allows one send at a time,
+    /// and a fixture broadcasting to several clients from request handlers would otherwise race
+    /// two frames onto one socket. The semaphore releases its waiters in arrival order, so frames
+    /// queued back to back leave in the order they were queued.</summary>
+    internal sealed class ServerConnection(WebSocket socket, TcpClient client, UpgradeCapture? upgrade = null)
+    {
+        private readonly SemaphoreSlim _send = new(1, 1);
+
+        /// <summary>The upgrade that opened this socket, which is how a multi-client fixture knows
+        /// whose socket it is.</summary>
+        public UpgradeCapture? Upgrade => upgrade;
+
+        public string? Token => TokenOf(upgrade?.Header("Authorization"));
+
+        public bool IsOpen => socket.State == WebSocketState.Open;
+
+        public async Task SendAsync(string json)
+        {
+            await _send.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await socket.SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            finally
+            {
+                _send.Release();
+            }
+        }
 
         public async Task<string?> ReceiveAsync(TimeSpan timeout)
         {
@@ -1055,6 +1186,67 @@ internal static class LiveSessionFixture
         public bool RejectUpgrades { get; set; }
         public int UpgradeCount => Volatile.Read(ref _upgradeCount);
 
+        /// <summary>Opt-in: answer <c>POST /Users/AuthenticateByName</c> with a token of the
+        /// server's own minting, one per device, and refuse every other request and every upgrade
+        /// whose token it did not issue. Same user for every device, as two installs signed in to
+        /// one account are. A device that signs in again gets a fresh token and loses the old one,
+        /// so a token always names exactly one device: <c>SessionSocket</c> and the SDK
+        /// authenticate with that token, and two clients sharing one would be one session to the
+        /// server however many processes held it.</summary>
+        public bool IssueDeviceTokens { get; set; }
+
+        /// <summary>Opt-in: serve this file for <c>GET</c>/<c>HEAD /Videos/{id}/stream</c>, with
+        /// <c>Range</c>, <c>206</c> and <c>416</c>, in the <see cref="HttpMediaFixture"/> shape, so
+        /// production playback can negotiate and stream from this server over real HTTP.</summary>
+        public string? MediaFile { get; set; }
+
+        /// <summary>Opt-in, ahead of <see cref="MediaFile"/>: the file for one stream path, or null
+        /// for none. A library of several items needs one file each, or every item looks the same.</summary>
+        public Func<string, string?>? MediaFileFor { get; set; }
+
+        private readonly Dictionary<string, string> _tokenDevices = [];
+        private readonly List<ServerConnection> _allConnections = [];
+        private readonly List<MediaServe> _mediaServes = [];
+        private int _issued;
+
+        /// <summary>Which device a token was issued to, or null for a token this server never
+        /// issued or has since replaced.</summary>
+        public string? DeviceForToken(string? token)
+        {
+            if (token is null)
+                return null;
+            lock (_tokenDevices)
+                return _tokenDevices.TryGetValue(token, out var device) ? device : null;
+        }
+
+        /// <summary>The live token of a device, or null if it never signed in.</summary>
+        public string? TokenForDevice(string device)
+        {
+            lock (_tokenDevices)
+                return _tokenDevices.FirstOrDefault(pair => string.Equals(pair.Value, device,
+                    StringComparison.OrdinalIgnoreCase)).Key;
+        }
+
+        /// <summary>Every upgraded socket so far, open or not, oldest first.</summary>
+        public IReadOnlyList<ServerConnection> Connections
+        {
+            get
+            {
+                lock (_allConnections)
+                    return [.. _allConnections];
+            }
+        }
+
+        /// <summary>Every media answer so far: who asked, and what they were given.</summary>
+        public IReadOnlyList<MediaServe> MediaServes
+        {
+            get
+            {
+                lock (_mediaServes)
+                    return [.. _mediaServes];
+            }
+        }
+
         /// <summary>Every request so far, oldest first.</summary>
         public IReadOnlyList<HttpCapture> Requests
         {
@@ -1125,20 +1317,25 @@ internal static class LiveSessionFixture
                         && header.Contains("websocket", StringComparison.OrdinalIgnoreCase)))
                 {
                     Interlocked.Increment(ref _upgradeCount);
-                    _upgrades.Writer.TryWrite(new UpgradeCapture(target, path, query, headers));
-                    if (RejectUpgrades)
+                    var upgrade = new UpgradeCapture(target, path, query, headers);
+                    _upgrades.Writer.TryWrite(upgrade);
+                    if (RejectUpgrades
+                        || (IssueDeviceTokens && DeviceForToken(TokenOf(upgrade.Header("Authorization"))) is null))
                     {
                         await WriteAsync(stream, "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                             cancellation).ConfigureAwait(false);
                         return;
                     }
-                    var key = new UpgradeCapture(target, path, query, headers).Header("Sec-WebSocket-Key") ?? "";
+                    var key = upgrade.Header("Sec-WebSocket-Key") ?? "";
                     var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + UpgradeGuid)));
                     await WriteAsync(stream, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
                         + $"Connection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n", cancellation).ConfigureAwait(false);
                     var negotiated = WebSocket.CreateFromStream(stream, isServer: true, subProtocol: null,
                         keepAliveInterval: Timeout.InfiniteTimeSpan);
-                    _connections.Writer.TryWrite(new ServerConnection(negotiated, client));
+                    var connection = new ServerConnection(negotiated, client, upgrade);
+                    lock (_allConnections)
+                        _allConnections.Add(connection);
+                    _connections.Writer.TryWrite(connection);
                     keepOpen = true;
                     return;
                 }
@@ -1153,10 +1350,19 @@ internal static class LiveSessionFixture
                     await stream.ReadExactlyAsync(payload, cancellation).ConfigureAwait(false);
                     body = Encoding.UTF8.GetString(payload);
                 }
-                var capture = new HttpCapture(method, path, body);
+                var capture = new HttpCapture(method, path, body, query, headers);
                 lock (_received)
                     _received.Add(capture);
                 _requests.Writer.TryWrite(capture);
+                if (IssueDeviceTokens && await RespondToIdentityAsync(stream, capture, cancellation).ConfigureAwait(false))
+                    return;
+                if ((MediaFileFor?.Invoke(path) ?? MediaFile) is { } media && method is "GET" or "HEAD"
+                    && path.StartsWith("/Videos/", StringComparison.OrdinalIgnoreCase)
+                    && path.EndsWith("/stream", StringComparison.OrdinalIgnoreCase))
+                {
+                    await ServeMediaAsync(stream, capture, media, cancellation).ConfigureAwait(false);
+                    return;
+                }
                 // Before the answer is composed, so the instants in it are the ones a client would
                 // have got from a server that was genuinely this slow.
                 if (ClockDelay > TimeSpan.Zero && path.EndsWith("/GetUtcTime", StringComparison.OrdinalIgnoreCase))
@@ -1249,6 +1455,141 @@ internal static class LiveSessionFixture
 
         private static Task WriteAsync(NetworkStream stream, string text, CancellationToken cancellation)
             => stream.WriteAsync(Encoding.ASCII.GetBytes(text), cancellation).AsTask();
+
+        /// <summary>The <see cref="IssueDeviceTokens"/> half of a request: the sign-in that mints a
+        /// token, the one unauthenticated route the sign-in also calls, and a 401 for any token
+        /// this server did not issue. True when it answered the request itself.</summary>
+        private async Task<bool> RespondToIdentityAsync(NetworkStream stream, HttpCapture capture,
+            CancellationToken cancellation)
+        {
+            if (capture.Path.EndsWith("/Users/AuthenticateByName", StringComparison.OrdinalIgnoreCase))
+            {
+                // Before a token exists the SDK names its device in the header; that is the only
+                // place the device id travels, so it is what the token is bound to.
+                var device = HeaderField(capture.Header("Authorization"), "DeviceId");
+                if (device is not { Length: > 0 })
+                {
+                    await WriteAsync(stream, "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                        cancellation).ConfigureAwait(false);
+                    return true;
+                }
+                string token;
+                lock (_tokenDevices)
+                {
+                    foreach (var stale in _tokenDevices.Where(pair => string.Equals(pair.Value, device,
+                                 StringComparison.OrdinalIgnoreCase)).Select(pair => pair.Key).ToList())
+                        _tokenDevices.Remove(stale);
+                    token = $"synthetic-device-token-{++_issued}-{Guid.NewGuid():N}";
+                    _tokenDevices[token] = device;
+                }
+                var json = JsonSerializer.Serialize(new
+                {
+                    User = new { Id = UserId, Name = "TEST", Policy = new { SyncPlayAccess = "CreateAndJoinGroups" } },
+                    AccessToken = token,
+                    ServerId = "synthetic-server",
+                    SessionInfo = new { Id = Guid.NewGuid().ToString("N"), DeviceId = device, UserId, UserName = "TEST" },
+                });
+                await WriteAsync(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                    + $"Content-Length: {Encoding.UTF8.GetByteCount(json)}\r\nConnection: close\r\n\r\n{json}",
+                    cancellation).ConfigureAwait(false);
+                return true;
+            }
+            if (capture.Path.EndsWith("/System/Info/Public", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = """{"ServerName":"Synthetic two-client server","Version":"12.0.0","Id":"synthetic-server"}""";
+                await WriteAsync(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                    + $"Content-Length: {Encoding.UTF8.GetByteCount(json)}\r\nConnection: close\r\n\r\n{json}",
+                    cancellation).ConfigureAwait(false);
+                return true;
+            }
+            if (DeviceForToken(capture.Token) is not null)
+                return false;
+            await WriteAsync(stream, "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                cancellation).ConfigureAwait(false);
+            return true;
+        }
+
+        /// <summary>A quoted field of a MediaBrowser Authorization header, e.g. <c>DeviceId</c>.</summary>
+        internal static string? HeaderField(string? authorization, string field)
+        {
+            if (authorization is null)
+                return null;
+            var marker = field + "=\"";
+            var at = authorization.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            // A field name that is the tail of another one ("Id=" inside "DeviceId=") is not it.
+            while (at > 0 && char.IsLetter(authorization[at - 1]))
+                at = authorization.IndexOf(marker, at + 1, StringComparison.OrdinalIgnoreCase);
+            if (at < 0)
+                return null;
+            var start = at + marker.Length;
+            var end = authorization.IndexOf('"', start);
+            return end > start ? Uri.UnescapeDataString(authorization[start..end]) : null;
+        }
+
+        /// <summary>Binary media with byte ranges, the <see cref="HttpMediaFixture"/> answer: 200
+        /// without a <c>Range</c>, 206 with one, 416 past the end, headers only for <c>HEAD</c>.
+        /// One request per connection, as everything else on this server.</summary>
+        private async Task ServeMediaAsync(NetworkStream stream, HttpCapture capture, string file,
+            CancellationToken cancellation)
+        {
+            await using var media = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var length = media.Length;
+            long start = 0, end = length - 1;
+            var range = capture.Header("Range");
+            var partial = range?.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase) == true;
+            var valid = true;
+            if (partial)
+            {
+                var spec = range![6..].Split(',')[0].Split('-');
+                if (spec.Length != 2)
+                    valid = false;
+                else if (spec[0].Length == 0)
+                {
+                    // Suffix form: the last N bytes.
+                    valid = long.TryParse(spec[1], out var suffix) && suffix > 0;
+                    start = Math.Max(0, length - suffix);
+                }
+                else
+                {
+                    valid = long.TryParse(spec[0], out start);
+                    if (valid && spec[1].Length > 0)
+                        valid = long.TryParse(spec[1], out var last) && (end = Math.Min(end, last)) >= 0;
+                }
+            }
+            if (!valid || start < 0 || start >= length || end < start)
+            {
+                Record(416, start, end);
+                await WriteAsync(stream, $"HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */{length}\r\n"
+                    + "Content-Length: 0\r\nConnection: close\r\n\r\n", cancellation).ConfigureAwait(false);
+                return;
+            }
+            var status = partial ? 206 : 200;
+            Record(status, start, end);
+            await WriteAsync(stream, $"HTTP/1.1 {(partial ? "206 Partial Content" : "200 OK")}\r\n"
+                + $"Content-Type: video/x-matroska\r\nContent-Length: {end - start + 1}\r\nAccept-Ranges: bytes\r\n"
+                + (partial ? $"Content-Range: bytes {start}-{end}/{length}\r\n" : "")
+                + "Connection: close\r\n\r\n", cancellation).ConfigureAwait(false);
+            if (capture.Method == "HEAD")
+                return;
+            media.Position = start;
+            var buffer = new byte[64 * 1024];
+            var remaining = end - start + 1;
+            while (remaining > 0)
+            {
+                var read = await media.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), cancellation)
+                    .ConfigureAwait(false);
+                if (read == 0)
+                    break;
+                await stream.WriteAsync(buffer.AsMemory(0, read), cancellation).ConfigureAwait(false);
+                remaining -= read;
+            }
+
+            void Record(int code, long from, long to)
+            {
+                lock (_mediaServes)
+                    _mediaServes.Add(new MediaServe(capture.Token, capture.Method, capture.Path, code, from, to));
+            }
+        }
 
         /// <summary>Reads the request head a byte at a time, deliberately. A buffered reader would
         /// swallow whatever followed the blank line, and on the upgrade path that buffer is handed

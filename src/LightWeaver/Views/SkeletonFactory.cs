@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -38,17 +39,16 @@ public static class SkeletonFactory
         var rail = new StackPanel { Margin = new Thickness(0, withTitle ? 26 : 0, 0, 0) };
         // Real (transparent) text: an EMPTY TextBlock is pruned from the UIA control
         // view and the marker id becomes unfindable (seen live).
-        var title = new TextBlock
+        var title = LiveText.Bind(new TextBlock
         {
-            Text = "Loading",
             Foreground = System.Windows.Media.Brushes.Transparent,
             Width = withTitle ? 170 : 0,
             Height = withTitle ? 20 : 0,
             Background = withTitle ? (System.Windows.Media.Brush)resources.FindResource("LwStorm2Brush") : null,
             Opacity = 0.7,
             HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(0, 0, 0, withTitle ? 14 : 0),
-        };
+            Margin = new Thickness(0, 0, 0, withTitle ? 14 : 0)
+        }, "Text", () => L.Text("SkeletonFactory.Loading.ce31f455"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(title, automationId);
         rail.Children.Add(title);
         var row = new StackPanel { Orientation = Orientation.Horizontal };
@@ -68,7 +68,7 @@ public static class SkeletonFactory
         var style = (Style)resources.FindResource("LwSkeletonBlock");
         var radius = (CornerRadius)resources.FindResource("LwR2");
         var host = new StackPanel { Margin = new Thickness(18, 10, 18, 10) };   // matches GenreGrid.Padding
-        var marker = new TextBlock { Text = "Loading", Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 };
+        var marker = LiveText.Bind(new TextBlock { Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 }, "Text", () => L.Text("SkeletonFactory.Loading.ce31f455"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(marker, automationId);
         host.Children.Add(marker);
         var wrap = new WrapPanel();
@@ -96,7 +96,7 @@ public static class SkeletonFactory
         // LwR3, matching DetailEpisodeRow's own corner - NOT the LwR2 the card skeletons use.
         var radius = (CornerRadius)resources.FindResource("LwR3");
         var host = new StackPanel();
-        var marker = new TextBlock { Text = "Loading", Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 };
+        var marker = LiveText.Bind(new TextBlock { Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 }, "Text", () => L.Text("SkeletonFactory.Loading.ce31f455"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(marker, automationId);
         host.Children.Add(marker);
         for (var i = 0; i < rows; i++)
@@ -119,7 +119,7 @@ public static class SkeletonFactory
     public static StackPanel Grid(FrameworkElement resources, int cards, string automationId)
     {
         var host = new StackPanel();
-        var marker = new TextBlock { Text = "Loading", Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 };
+        var marker = LiveText.Bind(new TextBlock { Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 }, "Text", () => L.Text("SkeletonFactory.Loading.ce31f455"));
         System.Windows.Automation.AutomationProperties.SetAutomationId(marker, automationId);
         host.Children.Add(marker);
         var wrap = new WrapPanel();

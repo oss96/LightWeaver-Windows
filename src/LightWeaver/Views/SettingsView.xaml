@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -81,46 +82,73 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="40,8,40,32">
         <StackPanel>
-            <TextBlock Text="Settings" Style="{StaticResource SectionTitle}" />
-            <TextBlock Text="Changes save immediately. Language and auto-skip apply from the next playback."
+            <TextBlock Text="{loc:Text SettingsView.Settings.ab089ec2}" Style="{StaticResource SectionTitle}" />
+            <TextBlock Text="{loc:Text SettingsView.ChangesSaveImmediatelyLanguageAndAutoSkip.2b940636}"
                        Style="{StaticResource RowSub}" Margin="2,4,0,0" />
 
+            <TextBlock Text="{loc:Text SettingsView.InterfaceLanguage.1aef0b8c}" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                    <DockPanel LastChildFill="True">
+                        <ComboBox x:Name="UiLanguageBox" Style="{StaticResource RowCombo}" Width="210"
+                                  DisplayMemberPath="Name" SelectionChanged="OnUiLanguageChanged"
+                                  AutomationProperties.AutomationId="UiLanguageBox"
+                                  AutomationProperties.Name="{loc:Text SettingsView.InterfaceLanguage.1aef0b8c}" />
+                        <TextBlock Text="{loc:Text SettingsView.InterfaceLanguage.1aef0b8c}"
+                                   Style="{StaticResource RowTitle}" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+            </Border>
+
+            <Expander x:Name="LibraryNamesExpander" Margin="2,14,2,0" Visibility="Collapsed"
+                      Header="{loc:Text SettingsView.LibraryNames}" AutomationProperties.AutomationId="LibraryNamesExpander">
+                <Border Style="{StaticResource SettingCard}" Margin="0,8,0,0" Padding="18,12">
+                    <StackPanel>
+                        <TextBlock x:Name="LibraryNamesHint" Style="{StaticResource RowSub}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                        <StackPanel x:Name="LibraryNameRows" />
+                        <Button Content="{loc:Text SettingsView.SaveLibraryNames}" Click="OnSaveLibraryNames"
+                                Style="{StaticResource LwButtonSecondary}" HorizontalAlignment="Right" Margin="0,8,0,0"
+                                AutomationProperties.AutomationId="SaveLibraryNames" />
+                    </StackPanel>
+                </Border>
+            </Expander>
+
             <!-- ===== Updates ===== -->
-            <TextBlock Text="UPDATES" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Updates.81f10b50}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel LastChildFill="True">
                             <ComboBox x:Name="UpdatePolicyBox" Style="{StaticResource RowCombo}" Width="210"
                                       SelectionChanged="OnChanged" AutomationProperties.AutomationId="UpdatePolicyBox"
-                                      AutomationProperties.Name="Update handling policy" />
+                                      AutomationProperties.Name="{loc:Text SettingsView.UpdateHandlingPolicy.e73a1a78}" />
                             <StackPanel>
-                                <TextBlock Text="Update handling" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Manual is the default; every option still checks automatically" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.UpdateHandling.5d6b08c4}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.ManualIsTheDefaultEveryOptionStill.ae57a554}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
                         <StackPanel>
-                            <TextBlock Text="Update status" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.UpdateStatus.3ed2ab35}" Style="{StaticResource RowTitle}" />
                             <TextBlock x:Name="UpdateVersionText" Style="{StaticResource RowSubMono}" AutomationProperties.AutomationId="UpdateVersionText" />
-                            <TextBlock x:Name="UpdateStatusText" Text="No update check has run yet." Style="{StaticResource RowSub}" AutomationProperties.AutomationId="UpdateStatusText" />
-                            <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100" Height="5" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.AutomationId="UpdateDownloadProgress" AutomationProperties.Name="Update download progress" />
+                            <TextBlock x:Name="UpdateStatusText" Text="{loc:Text SettingsView.NoUpdateCheckHasRunYet.b888684f}" Style="{StaticResource RowSub}" AutomationProperties.AutomationId="UpdateStatusText" />
+                            <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100" Height="5" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.AutomationId="UpdateDownloadProgress" AutomationProperties.Name="{loc:Text SettingsView.UpdateDownloadProgress.eb0734cd}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
                         <StackPanel Orientation="Horizontal" Margin="2,6,2,6">
-                            <Button x:Name="CheckForUpdatesButton" Content="Check for updates" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Click="OnCheckForUpdates" AutomationProperties.AutomationId="CheckForUpdatesButton" AutomationProperties.Name="Check for updates" />
-                            <Button x:Name="DownloadUpdateButton" Content="Download" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnDownloadUpdate" IsEnabled="False" AutomationProperties.AutomationId="DownloadUpdateButton" AutomationProperties.Name="Download update" />
-                            <Button x:Name="OpenReleasePageButton" Content="Open release page" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnOpenReleasePage" Visibility="Collapsed" AutomationProperties.AutomationId="OpenReleasePageButton" AutomationProperties.Name="Open update release page" />
-                            <Button x:Name="InstallUpdateButton" Content="Install now" Style="{StaticResource LwButtonPrimary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnInstallUpdate" Visibility="Collapsed" AutomationProperties.AutomationId="InstallUpdateButton" AutomationProperties.Name="Install update now" />
+                            <Button x:Name="CheckForUpdatesButton" Content="{loc:Text SettingsView.CheckForUpdates.b964dc04}" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Click="OnCheckForUpdates" AutomationProperties.AutomationId="CheckForUpdatesButton" AutomationProperties.Name="{loc:Text SettingsView.CheckForUpdates.b964dc04}" />
+                            <Button x:Name="DownloadUpdateButton" Content="{loc:Text SettingsView.Download.9ccefefe}" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnDownloadUpdate" IsEnabled="False" AutomationProperties.AutomationId="DownloadUpdateButton" AutomationProperties.Name="{loc:Text SettingsView.DownloadUpdate.02c1beaa}" />
+                            <Button x:Name="OpenReleasePageButton" Content="{loc:Text SettingsView.OpenReleasePage.e7bd56f3}" Style="{StaticResource LwButtonSecondary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnOpenReleasePage" Visibility="Collapsed" AutomationProperties.AutomationId="OpenReleasePageButton" AutomationProperties.Name="{loc:Text SettingsView.OpenUpdateReleasePage.7bf96c83}" />
+                            <Button x:Name="InstallUpdateButton" Content="{loc:Text SettingsView.InstallNow.e4cf6a26}" Style="{StaticResource LwButtonPrimary}" Height="32" Padding="14,0" Margin="8,0,0,0" Click="OnInstallUpdate" Visibility="Collapsed" AutomationProperties.AutomationId="InstallUpdateButton" AutomationProperties.Name="{loc:Text SettingsView.InstallUpdateNow.48605ebe}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>
 
             <!-- ===== Playback ===== -->
-            <TextBlock Text="PLAYBACK" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Playback.ad41a31d}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -129,8 +157,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="HwdecBox" />
                             <StackPanel>
-                                <TextBlock Text="Hardware decoding" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="d3d11va" Style="{StaticResource RowSubMono}" />
+                                <TextBlock Text="{loc:Text SettingsView.HardwareDecoding.f60b25fe}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.D3D11Va.cb90e75f}" Style="{StaticResource RowSubMono}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -140,8 +168,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="RtxVsrBox" />
                             <StackPanel>
-                                <TextBlock Text="RTX Video Super Resolution" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Enabled by default on RTX GPUs" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.RtxVideoSuperResolution.dd557561}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.EnabledByDefaultOnRtxGpus.95db4426}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -151,8 +179,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="RtxHdrBox" />
                             <StackPanel>
-                                <TextBlock Text="RTX Video HDR" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Tone-maps SDR to HDR by default" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.RtxVideoHdr.7c967b29}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.ToneMapsSdrToHdrByDefault.4cf5d554}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -162,8 +190,8 @@
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="MaxLumaBox" />
                             <StackPanel>
-                                <TextBlock Text="RTX HDR peak brightness" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="nits · match the NVIDIA App value for your display"
+                                <TextBlock Text="{loc:Text SettingsView.RtxHdrPeakBrightness.27a9c730}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.NitsMatchTheNvidiaAppValueFor.25d06913}"
                                            Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
@@ -174,41 +202,41 @@
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="MaxBitrateBox" />
                             <StackPanel>
-                                <TextBlock Text="Max streaming bitrate" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Mbps · 0 = unlimited · above the cap transcodes on the server"
+                                <TextBlock Text="{loc:Text SettingsView.MaxStreamingBitrate.01c1507d}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.Mbps0UnlimitedAboveTheCapTranscodes.3dc9b605}"
                                            Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
                         <StackPanel>
-                            <TextBlock Text="Video buffer" Style="{StaticResource RowTitle}" />
-                            <TextBlock x:Name="VideoBufferHint" Text="Stores upcoming video to smooth brief network dips. Recommended works for most streams."
+                            <TextBlock Text="{loc:Text SettingsView.VideoBuffer.1d50fba1}" Style="{StaticResource RowTitle}" />
+                            <TextBlock x:Name="VideoBufferHint" Text="{loc:Text SettingsView.StoresUpcomingVideoToSmoothBriefNetwork.a64e6d82}"
                                        AutomationProperties.AutomationId="VideoBufferHint"
                                        Style="{StaticResource RowSub}" TextWrapping="Wrap" />
-                            <TextBlock Text="Less memory suits constrained devices. More read-ahead can help intermittent dips but uses more RAM."
+                            <TextBlock Text="{loc:Text SettingsView.LessMemorySuitsConstrainedDevicesMoreRead.1a49d512}"
                                        Style="{StaticResource RowSub}" TextWrapping="Wrap" />
-                            <TextBlock Text="More read-ahead cannot fix a consistently slow connection."
+                            <TextBlock Text="{loc:Text SettingsView.MoreReadAheadCannotFixAConsistently.de87ee99}"
                                        Style="{StaticResource RowSub}" TextWrapping="Wrap" />
                             <ComboBox x:Name="VideoBufferPresetBox" Style="{StaticResource RowCombo}" Width="180"
                                       HorizontalAlignment="Left" Margin="0,8,0,0"
                                       SelectionChanged="OnVideoBufferPresetChanged"
                                       AutomationProperties.AutomationId="VideoBufferPresetBox">
-                                <ComboBoxItem Tag="128">Recommended</ComboBoxItem>
-                                <ComboBoxItem Tag="32">Less memory</ComboBoxItem>
-                                <ComboBoxItem Tag="512">More read-ahead</ComboBoxItem>
-                                <ComboBoxItem Tag="custom">Custom</ComboBoxItem>
+                                <ComboBoxItem Tag="128" Content="{loc:Text SettingsView.Recommended.d70aa591}" />
+                                <ComboBoxItem Tag="32" Content="{loc:Text SettingsView.LessMemory.eaa82daf}" />
+                                <ComboBoxItem Tag="512" Content="{loc:Text SettingsView.MoreReadAhead.ef150aea}" />
+                                <ComboBoxItem Tag="custom" Content="{loc:Text SettingsView.Custom.cf0bc965}" />
                             </ComboBox>
                         </StackPanel>
                     </Border>
-                    <Expander x:Name="VideoBufferAdvancedExpander" Header="Advanced video buffer"
+                    <Expander x:Name="VideoBufferAdvancedExpander" Header="{loc:Text SettingsView.AdvancedVideoBuffer.1be72077}"
                               Margin="28,0,28,12" IsExpanded="False"
                               AutomationProperties.AutomationId="VideoBufferAdvancedExpander">
                         <StackPanel Margin="0,8,0,0">
                             <DockPanel LastChildFill="True">
                                 <TextBox x:Name="VideoBufferBox" Style="{StaticResource RowField}" Width="80"
                                          TextChanged="OnChanged" AutomationProperties.AutomationId="VideoBufferBox" />
-                                <TextBlock Text="Custom size (32–1024 MiB)" Style="{StaticResource RowTitle}"
+                                <TextBlock Text="{loc:Text SettingsView.CustomSize321024Mib.f3bf7d38}" Style="{StaticResource RowTitle}"
                                            VerticalAlignment="Center" />
                             </DockPanel>
                             <TextBlock x:Name="VideoBufferCustomError" Margin="0,6,0,0"
@@ -221,7 +249,7 @@
             </Border>
 
             <!-- ===== Subtitles ===== -->
-            <TextBlock Text="SUBTITLES" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Subtitles.f567c565}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -234,7 +262,7 @@
                                     TickFrequency="0.1" IsSnapToTickEnabled="True"
                                     VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
                                     AutomationProperties.AutomationId="SubScaleSlider" />
-                            <TextBlock Text="Size" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.Size.a2135b08}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -242,7 +270,7 @@
                             <ComboBox x:Name="SubLangBox" Style="{StaticResource RowCombo}" Width="180"
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="SubLangBox" />
-                            <TextBlock Text="Preferred language" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.PreferredLanguage.419c9982}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -251,8 +279,8 @@
                                       SelectionChanged="OnChanged" KeyUp="OnChanged"
                                       AutomationProperties.AutomationId="SubFontBox" />
                             <StackPanel>
-                                <TextBlock Text="Font" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Empty = player default" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.Font.aa9f1bdc}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.EmptyPlayerDefault.c97e3622}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -261,7 +289,7 @@
                             <TextBox x:Name="SubFontSizeBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubFontSizeBox" />
-                            <TextBlock Text="Font size (text subs, default 38)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.FontSizeTextSubsDefault38.b1aa3d5d}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -269,7 +297,7 @@
                             <TextBox x:Name="SubColorBox" Style="{StaticResource RowField}" Width="110"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubColorBox" />
-                            <TextBlock Text="Text color (#RRGGBB, empty = white)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.TextColorRrggbbEmptyWhite.f11dd71b}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -277,7 +305,7 @@
                             <TextBox x:Name="SubBorderColorBox" Style="{StaticResource RowField}" Width="110"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubBorderColorBox" />
-                            <TextBlock Text="Border color (#RRGGBB, empty = black)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.BorderColorRrggbbEmptyBlack.29a20602}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -285,7 +313,7 @@
                             <TextBox x:Name="SubBorderSizeBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubBorderSizeBox" />
-                            <TextBlock Text="Border size (default 3)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.BorderSizeDefault3.e1ae5a2b}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -293,7 +321,7 @@
                             <TextBox x:Name="SubShadowBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubShadowBox" />
-                            <TextBlock Text="Shadow offset (0 = none)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.ShadowOffset0None.70004051}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
@@ -301,14 +329,14 @@
                             <TextBox x:Name="SubPositionBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SubPositionBox" />
-                            <TextBlock Text="Vertical position (100 = bottom, smaller = higher)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.VerticalPosition100BottomSmallerHigher.19fd94b4}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                 </StackPanel>
             </Border>
 
             <!-- ===== Audio ===== -->
-            <TextBlock Text="AUDIO" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Audio.56bc57d0}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -316,7 +344,7 @@
                             <ComboBox x:Name="AudioLangBox" Style="{StaticResource RowCombo}" Width="180"
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="AudioLangBox" />
-                            <TextBlock Text="Preferred language" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.PreferredLanguage.419c9982}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -325,8 +353,8 @@
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="AudioDeviceBox" />
                             <StackPanel>
-                                <TextBlock Text="Output device" Style="{StaticResource RowTitle}" />
-                                <TextBlock x:Name="AudioDeviceHint" Text="Devices are listed once playback has started."
+                                <TextBlock Text="{loc:Text SettingsView.OutputDevice.aa9731ec}" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="AudioDeviceHint" Text="{loc:Text SettingsView.DevicesAreListedOncePlaybackHasStarted.bfd88419}"
                                            Style="{StaticResource RowSub}" Visibility="Collapsed" />
                             </StackPanel>
                         </DockPanel>
@@ -337,8 +365,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="PassthroughBox" />
                             <StackPanel>
-                                <TextBlock Text="Passthrough" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Bitstream AC3/EAC3/DTS/TrueHD to the device" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.Passthrough.be72a073}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.BitstreamAc3Eac3DtsTruehdToThe.34cd4fcb}" Style="{StaticResource RowSub}" />
                                 <!-- What the SELECTED output will actually accept, asked of WASAPI
                                      directly (AudioPassthroughProbe). Collapsed when nothing can
                                      honestly be said. Bitstreaming is all-or-nothing per device,
@@ -356,8 +384,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="NormalizationBox" />
                             <StackPanel>
-                                <TextBlock Text="Volume normalization" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="dynaudnorm · mutually exclusive with passthrough" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.VolumeNormalization.20ee6742}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.DynaudnormMutuallyExclusiveWithPassthrough.7d926f57}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -365,7 +393,7 @@
             </Border>
 
             <!-- ===== External metadata ===== -->
-            <TextBlock Text="EXTERNAL METADATA" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.ExternalMetadata.7fe53556}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
@@ -384,13 +412,13 @@
                                 <Button x:Name="OmdbKeyPeek" Style="{StaticResource LwIconButton}"
                                         Width="34" Height="34" FontFamily="{StaticResource LwFontIcon}"
                                         FontSize="18" Margin="6,0,0,0" Click="OnToggleOmdbPeek"
-                                        Content="{StaticResource IconVisible}" ToolTip="Show / hide the key"
-                                        AutomationProperties.Name="Show or hide the key"
+                                        Content="{StaticResource IconVisible}" ToolTip="{loc:Text SettingsView.ShowHideTheKey.f560351d}"
+                                        AutomationProperties.Name="{loc:Text SettingsView.ShowOrHideTheKey.1f056043}"
                                         AutomationProperties.AutomationId="OmdbKeyPeek" />
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="OMDB API key" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="IMDb / Rotten Tomatoes / Metacritic scores on the detail view · omdbapi.com"
+                                <TextBlock Text="{loc:Text SettingsView.OmdbApiKey.dfbf0fe4}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.ImdbRottenTomatoesMetacriticScoresOnThe.a3fb9ec9}"
                                            Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
@@ -399,7 +427,7 @@
             </Border>
 
             <!-- ===== Behavior ===== -->
-            <TextBlock Text="BEHAVIOR" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Behavior.b02d814e}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -407,7 +435,7 @@
                             <CheckBox x:Name="AutoSkipIntroBox" Style="{StaticResource RowToggle}"
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="AutoSkipIntroBox" />
-                            <TextBlock Text="Automatically skip intros and recaps" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.AutomaticallySkipIntrosAndRecaps.fa3203e8}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -415,7 +443,7 @@
                             <CheckBox x:Name="AutoSkipCreditsBox" Style="{StaticResource RowToggle}"
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="AutoSkipCreditsBox" />
-                            <TextBlock Text="Automatically skip credits" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.AutomaticallySkipCredits.3fb0334d}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -424,8 +452,8 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="AutoPlayNextBox" />
                             <StackPanel>
-                                <TextBlock Text="Auto-play the next episode" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Off still shows the Up Next card — it just waits for you to press Play"
+                                <TextBlock Text="{loc:Text SettingsView.AutoPlayTheNextEpisode.f84f1bc6}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.OffStillShowsTheUpNextCard.36f22457}"
                                            Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
@@ -435,7 +463,7 @@
                             <TextBox x:Name="AutoPlayCountdownBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="AutoPlayCountdownBox" />
-                            <TextBlock Text="Auto-play countdown (seconds)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.AutoPlayCountdownSeconds.b2484c53}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -443,7 +471,7 @@
                             <TextBox x:Name="SkipForwardBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SkipForwardBox" />
-                            <TextBlock Text="Jump forward (seconds, Right arrow)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.JumpForwardSecondsRightArrow.83f8d3fc}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
@@ -451,7 +479,7 @@
                             <TextBox x:Name="SkipBackwardBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="SkipBackwardBox" />
-                            <TextBlock Text="Jump back (seconds, Left arrow)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.JumpBackSecondsLeftArrow.781e92ab}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
@@ -459,14 +487,14 @@
                             <TextBox x:Name="LargeSkipBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="LargeSkipBox" />
-                            <TextBlock Text="Large jump (seconds, Ctrl+Left/Right arrows)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.LargeJumpSecondsCtrlLeftRightArrows.07952a26}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
                 </StackPanel>
             </Border>
 
             <!-- ===== Downloads (Phase 7 M20) ===== -->
-            <TextBlock Text="DOWNLOADS" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Downloads.c87e5c91}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <!-- Phase 9 M5: the path is picked, not typed. The box stays as the path
@@ -488,12 +516,12 @@
                                  real minimum, so nothing is ever pushed out of the card. -->
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button x:Name="DownloadBrowseButton" Style="{StaticResource LwButtonSecondary}"
-                                        Height="34" Padding="14,0" Content="Browse..."
-                                        Click="OnBrowseDownloadDir" ToolTip="Choose the download folder"
+                                        Height="34" Padding="14,0" Content="{loc:Text SettingsView.Browse.a8cde17e}"
+                                        Click="OnBrowseDownloadDir" ToolTip="{loc:Text SettingsView.ChooseTheDownloadFolder.37147ee3}"
                                         AutomationProperties.AutomationId="DownloadBrowseButton" />
                                 <Button x:Name="DownloadClearButton" Style="{StaticResource LwButtonGhost}"
-                                        Height="34" Padding="12,0" Margin="6,0,0,0" Content="Clear"
-                                        Click="OnClearDownloadDir" ToolTip="Use the app-data downloads folder"
+                                        Height="34" Padding="12,0" Margin="6,0,0,0" Content="{loc:Text SettingsView.Clear.ffbee473}"
+                                        Click="OnClearDownloadDir" ToolTip="{loc:Text SettingsView.UseTheAppDataDownloadsFolder.39141335}"
                                         AutomationProperties.AutomationId="DownloadClearButton" />
                             </StackPanel>
                             <TextBox x:Name="DownloadDirBox" Style="{StaticResource RowField}"
@@ -503,9 +531,9 @@
                                      ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
                                      AutomationProperties.AutomationId="DownloadDirBox" />
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Download folder" Style="{StaticResource RowTitle}"
+                                <TextBlock Text="{loc:Text SettingsView.DownloadFolder.963446ec}" Style="{StaticResource RowTitle}"
                                            TextWrapping="Wrap" />
-                                <TextBlock Text="Empty = LightWeaver's app-data downloads folder"
+                                <TextBlock Text="{loc:Text SettingsView.EmptyLightweaverSAppDataDownloadsFolder.f1cdbe70}"
                                            Style="{StaticResource RowSub}" TextWrapping="Wrap" />
                             </StackPanel>
                         </DockPanel>
@@ -516,8 +544,8 @@
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="MaxParallelBox" />
                             <StackPanel>
-                                <TextBlock Text="Simultaneous downloads" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Additional items wait as Queued" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.SimultaneousDownloads.a87d5eb2}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.AdditionalItemsWaitAsQueued.08b8c60a}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -527,8 +555,8 @@
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="DefaultResolutionBox" />
                             <StackPanel>
-                                <TextBlock Text="Preferred download quality" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Preselected in the picker; sources below the tier offer Original only" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.PreferredDownloadQuality.60aebff1}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.PreselectedInThePickerSourcesBelowThe.6ed0420e}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -536,7 +564,7 @@
             </Border>
 
             <!-- ===== Storage (Phase 7 M21): cache readouts + clears + image cap ===== -->
-            <TextBlock Text="STORAGE" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Storage.e0e3e2f4}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -551,8 +579,8 @@
                                     VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
                                     AutomationProperties.AutomationId="ImageCacheSizeSlider" />
                             <StackPanel>
-                                <TextBlock Text="Image cache limit" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="LRU eviction trims the poster/thumbnail cache to this" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.ImageCacheLimit.2a714794}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.LruEvictionTrimsThePosterThumbnailCache.0b148c6f}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -568,52 +596,52 @@
                                     VerticalAlignment="Center" Margin="16,0,10,0" ValueChanged="OnChanged"
                                     AutomationProperties.AutomationId="FolderCacheSizeSlider" />
                             <StackPanel>
-                                <TextBlock Text="Folder cache limit" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Maximum items cached per library folder" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.FolderCacheLimit.43376c44}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.MaximumItemsCachedPerLibraryFolder.5e86a3a4}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel LastChildFill="True">
-                            <Button x:Name="ImageCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                            <Button x:Name="ImageCacheClearButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.Clear.ffbee473}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Click="OnClearImageCache" VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="ImageCacheClearButton" />
                             <StackPanel>
-                                <TextBlock Text="Images (posters, thumbnails, trickplay)" Style="{StaticResource RowTitle}" />
-                                <TextBlock x:Name="ImageCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                <TextBlock Text="{loc:Text SettingsView.ImagesPostersThumbnailsTrickplay.1628db4f}" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="ImageCacheReadout" Text="{loc:Text SettingsView.0B.b17da85c}" Style="{StaticResource RowSubMono}"
                                            AutomationProperties.AutomationId="ImageCacheReadout" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel LastChildFill="True">
-                            <Button x:Name="MetadataCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                            <Button x:Name="MetadataCacheClearButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.Clear.ffbee473}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Click="OnClearMetadataCache" VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="MetadataCacheClearButton" />
                             <StackPanel>
-                                <TextBlock Text="Media info" Style="{StaticResource RowTitle}" />
-                                <TextBlock x:Name="MetadataCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                <TextBlock Text="{loc:Text SettingsView.MediaInfo.e0c50633}" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="MetadataCacheReadout" Text="{loc:Text SettingsView.0B.b17da85c}" Style="{StaticResource RowSubMono}"
                                            AutomationProperties.AutomationId="MetadataCacheReadout" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}">
                         <DockPanel LastChildFill="True">
-                            <Button x:Name="ExternalCacheClearButton" DockPanel.Dock="Right" Content="Clear"
+                            <Button x:Name="ExternalCacheClearButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.Clear.ffbee473}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Click="OnClearExternalCache" VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="ExternalCacheClearButton" />
                             <StackPanel>
-                                <TextBlock Text="External metadata (OMDB)" Style="{StaticResource RowTitle}" />
-                                <TextBlock x:Name="ExternalCacheReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                <TextBlock Text="{loc:Text SettingsView.ExternalMetadataOmdb.40273ee5}" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="ExternalCacheReadout" Text="{loc:Text SettingsView.0B.b17da85c}" Style="{StaticResource RowSubMono}"
                                            AutomationProperties.AutomationId="ExternalCacheReadout" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
-                        <Button x:Name="ClearAllCacheButton" Content="Clear all caches"
+                        <Button x:Name="ClearAllCacheButton" Content="{loc:Text SettingsView.ClearAllCaches.91d9ede6}"
                                 Style="{StaticResource LwButtonDestructive}" Height="32" Padding="14,0"
                                 HorizontalAlignment="Left" Margin="2,6,0,6" Click="OnClearAllCaches"
                                 AutomationProperties.AutomationId="ClearAllCacheButton" />
@@ -622,7 +650,7 @@
             </Border>
 
             <!-- ===== Shortcuts (Phase 7 M16) — rows generated in code from PlayerAction ===== -->
-            <TextBlock Text="SHORTCUTS" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Shortcuts.6b2fd38c}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <!-- Transport mapping (M17): what Media Next/Previous (and the
@@ -633,8 +661,8 @@
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="TransportNextBox" />
                             <StackPanel>
-                                <TextBlock Text="Media Next does" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="media key + the player's next button" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.MediaNextDoes.9d8a65fd}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.MediaKeyThePlayerSNextButton.18c82417}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -644,8 +672,8 @@
                                       SelectionChanged="OnChanged"
                                       AutomationProperties.AutomationId="TransportPrevBox" />
                             <StackPanel>
-                                <TextBlock Text="Media Previous does" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="media key + the player's previous button" Style="{StaticResource RowSub}" />
+                                <TextBlock Text="{loc:Text SettingsView.MediaPreviousDoes.d884b4d8}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.MediaKeyThePlayerSPreviousButton.d18927d8}" Style="{StaticResource RowSub}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -654,14 +682,14 @@
                             <TextBox x:Name="TransportSeekBox" Style="{StaticResource RowField}" Width="80"
                                      TextChanged="OnChanged"
                                      AutomationProperties.AutomationId="TransportSeekBox" />
-                            <TextBlock Text="Transport seek amount (seconds)" Style="{StaticResource RowTitle}" />
+                            <TextBlock Text="{loc:Text SettingsView.TransportSeekAmountSeconds.a8749b3e}" Style="{StaticResource RowTitle}" />
                         </DockPanel>
                     </Border>
-                    <TextBlock Text="Keyboard shortcuts · click a binding, then press the new key (Esc cancels). Assigning a key in use unbinds it from the other action."
+                    <TextBlock Text="{loc:Text SettingsView.KeyboardShortcutsClickABindingThenPress.b61da8ba}"
                                Style="{StaticResource RowSub}" Margin="2,8,2,4" TextWrapping="Wrap" />
                     <StackPanel x:Name="ShortcutsHost" />
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
-                        <Button x:Name="ShortcutsResetButton" Content="Reset to defaults"
+                        <Button x:Name="ShortcutsResetButton" Content="{loc:Text SettingsView.ResetToDefaults.2f8aa8cd}"
                                 Style="{StaticResource LwButtonSecondary}" HorizontalAlignment="Left"
                                 Margin="2,6,0,6" Click="OnShortcutsReset"
                                 AutomationProperties.AutomationId="ShortcutsResetButton" />
@@ -673,7 +701,7 @@
                  Crash and playback-failure files are written whatever this says - they are the
                  evidence that cannot be collected after the fact. The toggle only decides
                  whether the running commentary is kept too. -->
-            <TextBlock Text="DIAGNOSTICS" Style="{StaticResource GroupLabel}" />
+            <TextBlock Text="{loc:Text SettingsView.Diagnostics.afaa146b}" Style="{StaticResource GroupLabel}" />
             <Border Style="{StaticResource SettingCard}">
                 <StackPanel>
                     <Border Style="{StaticResource SettingRow}">
@@ -682,33 +710,33 @@
                                       Checked="OnChanged" Unchecked="OnChanged"
                                       AutomationProperties.AutomationId="VerboseLoggingBox" />
                             <StackPanel>
-                                <TextBlock Text="Verbose logging" Style="{StaticResource RowTitle}" />
-                                <TextBlock Text="Keeps full mpv output and playback/session events on disk · off, only crashes and playback failures are written"
+                                <TextBlock Text="{loc:Text SettingsView.VerboseLogging.9b2f78c1}" Style="{StaticResource RowTitle}" />
+                                <TextBlock Text="{loc:Text SettingsView.KeepsFullMpvOutputAndPlaybackSession.e49557fc}"
                                            Style="{StaticResource RowSub}" TextWrapping="Wrap" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
                     <Border Style="{StaticResource SettingRow}" BorderThickness="0">
                         <DockPanel LastChildFill="True">
-                            <Button x:Name="LogsClearButton" DockPanel.Dock="Right" Content="Clear"
+                            <Button x:Name="LogsClearButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.Clear.ffbee473}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Click="OnClearLogs" VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="LogsClearButton" />
-                            <Button x:Name="LogsOpenButton" DockPanel.Dock="Right" Content="Open folder"
+                            <Button x:Name="LogsOpenButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.OpenFolder.fd396b9a}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Margin="0,0,8,0" Click="OnOpenLogsFolder" VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="LogsOpenButton" />
                             <!-- "Open folder" tells you where the logs are; this is for handing
                                  them to someone else. One zip, so there is nothing to explain
                                  about which of four files matters. -->
-                            <Button x:Name="LogsExportButton" DockPanel.Dock="Right" Content="Export…"
+                            <Button x:Name="LogsExportButton" DockPanel.Dock="Right" Content="{loc:Text SettingsView.Export.419f870c}"
                                     Style="{StaticResource LwButtonSecondary}" Height="30" Padding="12,0"
                                     Margin="0,0,8,0" Click="OnExportLogs" VerticalAlignment="Center"
-                                    ToolTip="Save all log files as one zip"
+                                    ToolTip="{loc:Text SettingsView.SaveAllLogFilesAsOneZip.fb9cc13f}"
                                     AutomationProperties.AutomationId="LogsExportButton" />
                             <StackPanel>
-                                <TextBlock Text="Log files" Style="{StaticResource RowTitle}" />
-                                <TextBlock x:Name="LogsReadout" Text="0 B" Style="{StaticResource RowSubMono}"
+                                <TextBlock Text="{loc:Text SettingsView.LogFiles.68bcb2b9}" Style="{StaticResource RowTitle}" />
+                                <TextBlock x:Name="LogsReadout" Text="{loc:Text SettingsView.0B.b17da85c}" Style="{StaticResource RowSubMono}"
                                            AutomationProperties.AutomationId="LogsReadout" />
                                 <TextBlock x:Name="LogsPath" Style="{StaticResource RowSub}" TextWrapping="Wrap"
                                            AutomationProperties.AutomationId="LogsPath" />

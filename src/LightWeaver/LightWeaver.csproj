@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
@@ -16,6 +16,12 @@
     <!-- mpv_wait_event returns mpv_event*; events are read via pointer casts -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LightWeaver.Localization\LightWeaver.Localization.csproj" />
+    <EmbeddedResource Include="..\..\localization\catalog.json" LogicalName="LightWeaver.Localization.catalog.json" />
+    <EmbeddedResource Include="..\..\localization\locales\*.json" LogicalName="LightWeaver.Localization.locales.%(Filename).json" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- The offscreen harness asserts against real constants and pure helpers (PartialFileServer's

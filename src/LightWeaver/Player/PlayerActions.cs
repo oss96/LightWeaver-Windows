@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows.Input;
 using LightWeaver.ViewModels;
 
@@ -103,30 +104,30 @@ public static class PlayerActionDispatcher
 
     public static string DisplayName(PlayerAction action) => action switch
     {
-        PlayerAction.TogglePause => "Play / pause",
-        PlayerAction.SeekForward => "Seek forward",
-        PlayerAction.SeekBack => "Seek back",
-        PlayerAction.SeekForwardLarge => "Seek forward (large)",
-        PlayerAction.SeekBackLarge => "Seek back (large)",
-        PlayerAction.FrameStepForward => "Next frame",
-        PlayerAction.FrameStepBack => "Previous frame",
-        PlayerAction.VolumeUp => "Volume up",
-        PlayerAction.VolumeDown => "Volume down",
-        PlayerAction.ToggleMute => "Mute",
-        PlayerAction.CycleAudio => "Cycle audio track",
-        PlayerAction.CycleSubtitle => "Cycle subtitle track",
-        PlayerAction.CycleVideo => "Cycle video track",
-        PlayerAction.QueueNext => "Next in queue",
-        PlayerAction.QueuePrev => "Previous in queue",
-        PlayerAction.NextChapter => "Next chapter",
-        PlayerAction.PrevChapter => "Previous chapter",
-        PlayerAction.SkipSegment => "Skip intro/credits",
-        PlayerAction.SpeedUp => "Speed up",
-        PlayerAction.SpeedDown => "Speed down",
+        PlayerAction.TogglePause => L.Text("PlayerActions.PlayPause.07245d65"),
+        PlayerAction.SeekForward => L.Text("PlayerActions.SeekForward.804babac"),
+        PlayerAction.SeekBack => L.Text("PlayerActions.SeekBack.ab02e67d"),
+        PlayerAction.SeekForwardLarge => L.Text("PlayerActions.SeekForwardLarge.a826683b"),
+        PlayerAction.SeekBackLarge => L.Text("PlayerActions.SeekBackLarge.c9d9175f"),
+        PlayerAction.FrameStepForward => L.Text("PlayerActions.NextFrame.6bec0a7b"),
+        PlayerAction.FrameStepBack => L.Text("PlayerActions.PreviousFrame.c980e379"),
+        PlayerAction.VolumeUp => L.Text("PlayerActions.VolumeUp.d9bb5687"),
+        PlayerAction.VolumeDown => L.Text("PlayerActions.VolumeDown.d7df69cb"),
+        PlayerAction.ToggleMute => L.Text("PlayerActions.Mute.4b40494c"),
+        PlayerAction.CycleAudio => L.Text("PlayerActions.CycleAudioTrack.79382828"),
+        PlayerAction.CycleSubtitle => L.Text("PlayerActions.CycleSubtitleTrack.19c7538b"),
+        PlayerAction.CycleVideo => L.Text("PlayerActions.CycleVideoTrack.c207af5f"),
+        PlayerAction.QueueNext => L.Text("PlayerActions.NextInQueue.7a013309"),
+        PlayerAction.QueuePrev => L.Text("PlayerActions.PreviousInQueue.994ad41d"),
+        PlayerAction.NextChapter => L.Text("PlayerActions.NextChapter.a0b24056"),
+        PlayerAction.PrevChapter => L.Text("PlayerActions.PreviousChapter.3e967ea5"),
+        PlayerAction.SkipSegment => L.Text("PlayerActions.SkipIntroCredits.6edab871"),
+        PlayerAction.SpeedUp => L.Text("PlayerActions.SpeedUp.eb352570"),
+        PlayerAction.SpeedDown => L.Text("PlayerActions.SpeedDown.dc493c6c"),
         // Word for word the chrome entry's Function, so the panel prints one row and not two
         // near-identical ones when both registrations are listed after a rebind.
-        PlayerAction.ToggleFullscreen => "Toggle fullscreen",
-        PlayerAction.OpenStream => "Stream from URL (while browsing)",
+        PlayerAction.ToggleFullscreen => L.Text("PlayerActions.ToggleFullscreen.ac72de7e"),
+        PlayerAction.OpenStream => L.Text("PlayerActions.StreamFromUrlWhileBrowsing.933b9de0"),
         _ => action.ToString(),
     };
 
@@ -134,7 +135,7 @@ public static class PlayerActionDispatcher
     /// chain of substring replaces because the chrome shortcuts (P10 M9) brought <c>Back</c> into
     /// the table: replacing that as a substring would have turned <c>OemBackslash</c> into
     /// "OemBackspaceslash".</summary>
-    private static readonly Dictionary<string, string> ChordSpellings = new(StringComparer.OrdinalIgnoreCase)
+    private static Dictionary<string, string> ChordSpellings => new(StringComparer.OrdinalIgnoreCase)
     {
         ["OemOpenBrackets"] = "[",
         ["OemCloseBrackets"] = "]",
@@ -143,8 +144,25 @@ public static class PlayerActionDispatcher
         ["OemComma"] = ",",
         ["OemPeriod"] = ".",
         ["OemQuestion"] = "?",
-        ["Escape"] = "Esc",
-        ["Back"] = "Backspace",
+        ["Escape"] = L.Text("PlayerActions.Esc.abeb1d0a"),
+        ["Back"] = L.Text("PlayerActions.Backspace.46280906"),
+        ["Ctrl"] = L.Text("PlayerActions.Ctrl.4294439e"),
+        ["Shift"] = L.Text("PlayerActions.Shift.0f1fc6ac"),
+        ["Alt"] = L.Text("PlayerActions.Alt.9be36c95"),
+        ["Right"] = L.Text("PlayerActions.Right.e9a2228f"),
+        ["Left"] = L.Text("PlayerActions.Left.0795e838"),
+        ["Up"] = L.Text("PlayerActions.Up.f09e69a7"),
+        ["Down"] = L.Text("PlayerActions.Down.073d0e08"),
+        ["Space"] = L.Text("PlayerActions.Space.42b61e2c"),
+        ["Enter"] = L.Text("PlayerActions.Enter.e761ccbf"),
+        ["Tab"] = L.Text("PlayerActions.Tab.aea77d7d"),
+        ["Delete"] = L.Text("PlayerActions.Delete.d6cb7244"),
+        ["Home"] = L.Text("PlayerActions.Home.47fcf378"),
+        ["End"] = L.Text("PlayerActions.End.31f0df28"),
+        ["PageUp"] = L.Text("PlayerActions.Pageup.8883ccb6"),
+        ["PageDown"] = L.Text("PlayerActions.Pagedown.36cb25c7"),
+        ["Insert"] = L.Text("PlayerActions.Insert.129db0a7"),
+        ["Backspace"] = L.Text("PlayerActions.Backspace.46280906"),
         // Alias spellings, for chords saved before ChordOf canonicalized them.
         ["Oem4"] = "[",
         ["Oem6"] = "]",
@@ -154,7 +172,7 @@ public static class PlayerActionDispatcher
     public static string DisplayChord(string? chord)
     {
         if (string.IsNullOrWhiteSpace(chord))
-            return "(unbound)";
+            return L.Text("PlayerActions.Unbound.7f895535");
         var parts = chord.Split('+', StringSplitOptions.RemoveEmptyEntries);
         return string.Join("+", parts.Select(p =>
             ChordSpellings.TryGetValue(p.Trim(), out var spelled) ? spelled : p.Trim()));

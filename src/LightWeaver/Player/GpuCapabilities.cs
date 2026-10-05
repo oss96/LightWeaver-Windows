@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Runtime.InteropServices;
 
 namespace LightWeaver.Player;
@@ -11,20 +12,19 @@ internal static class GpuCapabilities
 {
     /// <summary>Null when an RTX GPU is present (or detection failed), otherwise a
     /// short human-readable reason for the RTX toggles' tooltips.</summary>
-    public static string? RtxUnavailableReason { get; } = Detect();
+    public static string? RtxUnavailableReason => RtxUnavailableToken switch
+    {
+        "no_rtx_video_support" => L.Text("GpuCapabilities.ThisNvidiaGpuHasNoRtxVideo.eebdfe23"),
+        "no_nvidia_rtx_gpu" => L.Text("GpuCapabilities.NoNvidiaRtxGpuDetected.cfd9cb0a"),
+        _ => null,
+    };
 
     /// <summary>The same static cause as a bounded lower_snake token, for the structural logs:
     /// <c>none</c>, <c>no_rtx_video_support</c> or <c>no_nvidia_rtx_gpu</c>. The reason above is a
     /// sentence written for a tooltip — pasting it into a <c>key=value</c> record would make the
     /// record unparseable, and the set of causes is fixed, so the token is the thing to log.
-    /// Initialized after <see cref="RtxUnavailableReason"/>: static field initializers run in
-    /// declaration order.</summary>
-    public static string RtxUnavailableToken { get; } = RtxUnavailableReason switch
-    {
-        null => "none",
-        "this NVIDIA GPU has no RTX video support" => "no_rtx_video_support",
-        _ => "no_nvidia_rtx_gpu",
-    };
+    /// Detection returns the invariant cause, independent of translated display text.</summary>
+    public static string RtxUnavailableToken { get; } = Detect();
 
     /// <summary>The desktop display adapters, comma-joined, for the crash/playback log header —
     /// a green-frame or hwdec failure is a GPU fact first, so the file has to name the hardware.
@@ -46,7 +46,7 @@ internal static class GpuCapabilities
         }
     }
 
-    private static string? Detect()
+    private static string Detect()
     {
         try
         {
@@ -56,16 +56,16 @@ internal static class GpuCapabilities
                 ? [fake]
                 : EnumerateDesktopAdapters();
             if (names.Count == 0)
-                return null;
+                return "none";
             if (names.Any(n => Contains(n, "NVIDIA") && Contains(n, "RTX")))
-                return null;
+                return "none";
             return names.Any(n => Contains(n, "NVIDIA"))
-                ? "this NVIDIA GPU has no RTX video support"
-                : "no NVIDIA RTX GPU detected";
+                ? "no_rtx_video_support"
+                : "no_nvidia_rtx_gpu";
         }
         catch
         {
-            return null;
+            return "none";
         }
     }
 

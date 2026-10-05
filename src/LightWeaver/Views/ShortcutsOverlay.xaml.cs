@@ -1,3 +1,4 @@
+using LightWeaver.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -21,9 +22,13 @@ public sealed record ShortcutGroupView(string Title, IReadOnlyList<ShortcutRow> 
 /// </summary>
 public partial class ShortcutsOverlay : UserControl
 {
+    private AppSettings? _settings;
+
     public ShortcutsOverlay()
     {
         InitializeComponent();
+        LiveText.Watch(this);
+        LiveText.Observe(this, OnLanguageChanged);
         // Re-run the fold guard whenever the viewport changes under an open panel: the window can
         // be resized, maximized or restored while it is up, and the fold moves with it.
         //
@@ -42,6 +47,7 @@ public partial class ShortcutsOverlay : UserControl
 
     public void Show(AppSettings settings)
     {
+        _settings = settings;
         var groups = AppShortcuts.BuildRows(settings)
             .Select(g => new ShortcutGroupView(AppShortcuts.GroupTitle(g.Key), [.. g]))
             .ToList();
@@ -83,6 +89,23 @@ public partial class ShortcutsOverlay : UserControl
 
         Focus();
         DismissButton.Focus();
+    }
+
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_settings is null || !IsOpen) return;
+        var offset = Scroller.VerticalOffset;
+        var groups = AppShortcuts.BuildRows(_settings)
+            .Select(g => new ShortcutGroupView(AppShortcuts.GroupTitle(g.Key), [.. g])).ToList();
+        LeftColumn.ItemsSource = Pick(groups, ShortcutGroup.Playback, ShortcutGroup.Mouse);
+        RightColumn.ItemsSource = Pick(groups, ShortcutGroup.AudioSubtitles, ShortcutGroup.General);
+        _foldPushes.Clear();
+        _foldGuardScheduled = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            RunScheduledFoldGuard();
+            Scroller.ScrollToVerticalOffset(offset);
+        }), DispatcherPriority.Loaded);
     }
 
     /// <summary>Gap left under the fold so a pushed heading is unmistakably below it rather than

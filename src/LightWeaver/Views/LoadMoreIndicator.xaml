@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.LoadMoreIndicator"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:local="clr-namespace:LightWeaver.Views"
              IsHitTestVisible="False">
     <!-- The "more is coming" pill (2026-08-02). Shown while an infinite-scroll grid appends
@@ -18,7 +19,7 @@
             <local:ActivityDots VerticalAlignment="Center" />
             <!-- Visible text has its own UIA peer, so the id rides the caption directly -
                  no transparent marker needed here (unlike the Border/Panel cases). -->
-            <TextBlock x:Name="Caption" Text="Loading more…"
+            <TextBlock x:Name="Caption" Text="{loc:Text LoadMoreIndicator.LoadingMore.985f8514}"
                        FontFamily="{StaticResource LwFontUi}" FontSize="13"
                        Foreground="{StaticResource LwText2Brush}"
                        VerticalAlignment="Center" Margin="10,0,0,0"
