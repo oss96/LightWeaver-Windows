@@ -3,6 +3,8 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
+using System.Windows.Threading;
 using LightWeaver.Player;
 using LightWeaver.Settings;
 using LightWeaver.Updates;
@@ -37,6 +39,15 @@ public partial class SettingsView : UserControl
     private IReadOnlyList<Jellyfin.MediaItem> _libraries = [];
     private readonly List<(Guid Id, TextBox Field)> _libraryNameFields = [];
     private sealed record ResolutionRow(string Value, string Label);
+    private sealed record BitrateRow(int? Value, string Label);
+    private sealed record FontRow(string Value, string Label);
+    private sealed record ColorRow(string? Value, string Label);
+    private sealed record NumberRow(double? Value, string Label);
+    private readonly DispatcherTimer _availabilityTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private DisplayBrightness.DisplayInfo? _displayInfo;
+    private bool _checkingDisplay;
+    private PassthroughProbe? _passthroughProbe;
+    private int _passthroughRequest;
 
     public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,
         UpdateService updates)
@@ -63,22 +74,38 @@ public partial class SettingsView : UserControl
         RtxVsrBox.IsChecked = settings.RtxVsrDefault;
         RtxHdrBox.IsChecked = settings.RtxHdrDefault;
         MaxLumaBox.Text = settings.RtxHdrMaxLumaNits.ToString();
-        MaxBitrateBox.Text = settings.MaxStreamingBitrateMbps.ToString();
+        PopulateBitrateChoices();
+        MaxBitrateCustomBox.Text = settings.MaxStreamingBitrateMbps.ToString(CultureInfo.InvariantCulture);
+        MaxBitrateBox.SelectedItem = MaxBitrateBox.Items.Cast<BitrateRow>()
+            .FirstOrDefault(row => row.Value == settings.MaxStreamingBitrateMbps)
+            ?? MaxBitrateBox.Items[MaxBitrateBox.Items.Count - 1];
+        UpdateCustomBitrateVisibility();
         VideoBufferBox.Text = settings.VideoBufferMiB.ToString(CultureInfo.InvariantCulture);
         SelectVideoBufferPreset(settings.VideoBufferMiB, updateExpansion: true);
         SubScaleSlider.Value = settings.SubtitleScale;
         SubScaleLabel.Text = $"{settings.SubtitleScale * 100:F0}%";
         PopulateLanguages(SubLangBox, settings.PreferredSubtitleLanguage);
+        SubFontBox.Items.Add(new FontRow("", L.Text("SettingsView.DefaultSubtitleFont")));
         foreach (var f in System.Windows.Media.Fonts.SystemFontFamilies
                      .Select(f => f.Source).OrderBy(s => s))
-            SubFontBox.Items.Add(f);
-        SubFontBox.Text = settings.SubtitleFontFamily;
+            SubFontBox.Items.Add(new FontRow(f, f));
+        if (!SubFontBox.Items.Cast<FontRow>().Any(row => row.Value == settings.SubtitleFontFamily))
+            SubFontBox.Items.Add(new FontRow(settings.SubtitleFontFamily, settings.SubtitleFontFamily));
+        SubFontBox.SelectedItem = SubFontBox.Items.Cast<FontRow>()
+            .First(row => row.Value == settings.SubtitleFontFamily);
         SubFontSizeBox.Text = settings.SubtitleFontSize.ToString();
-        SubColorBox.Text = settings.SubtitleTextColor;
-        SubBorderColorBox.Text = settings.SubtitleBorderColor;
+        SubColorBox.Text = EffectiveColor(settings.SubtitleTextColor, "#FFFFFF");
+        SubBorderColorBox.Text = EffectiveColor(settings.SubtitleBorderColor, "#000000");
         SubBorderSizeBox.Text = settings.SubtitleBorderSize.ToString(CultureInfo.InvariantCulture);
         SubShadowBox.Text = settings.SubtitleShadowOffset.ToString(CultureInfo.InvariantCulture);
-        SubPositionBox.Text = settings.SubtitleBasePosition.ToString();
+        SubPositionBox.Text = settings.SubtitleBasePosition.ToString(CultureInfo.InvariantCulture);
+        PopulateSubtitlePresets();
+        SelectColor(SubColorPreset, SubColorBox.Text);
+        SelectColor(SubBorderColorPreset, SubBorderColorBox.Text);
+        SelectNumber(SubBorderSizePreset, settings.SubtitleBorderSize);
+        SelectNumber(SubShadowPreset, settings.SubtitleShadowOffset);
+        SelectNumber(SubPositionPreset, settings.SubtitleBasePosition);
+        UpdateSubtitleFields();
         PopulateLanguages(AudioLangBox, settings.PreferredAudioLanguage);
         PopulateAudioDevices(settings.AudioDevice);
         PassthroughBox.IsChecked = settings.AudioPassthrough;
@@ -92,8 +119,11 @@ public partial class SettingsView : UserControl
         LargeSkipBox.Text = settings.LargeSkipSeconds.ToString();
         AutoPlayNextBox.IsChecked = settings.AutoPlayNextEpisode;
         AutoPlayCountdownBox.Text = settings.AutoPlayCountdownSeconds.ToString();
+        UpNextLeadChoice.Show(settings.UpNextLeadSeconds, settings.UpNextLeadSeconds);
+        UpNextLeadChoice.LeadChosen += _ => OnChanged(UpNextLeadChoice, new RoutedEventArgs());
         OmdbKeyBox.Password = settings.OmdbApiKey;
-        DownloadDirBox.Text = settings.DownloadDirectory;
+        DownloadDirBox.Text = settings.DownloadDirectory is { Length: > 0 } directory
+            ? directory : Downloads.DownloadStore.DefaultDirectory;
         foreach (var n in new[] { "1", "2", "3", "4" })
             MaxParallelBox.Items.Add(n);
         MaxParallelBox.SelectedIndex = Math.Clamp(settings.MaxParallelDownloads, 1, 4) - 1;
@@ -118,6 +148,7 @@ public partial class SettingsView : UserControl
         UpdateTransportSeekVisibility();
         BuildShortcutRows();
         VerboseLoggingBox.IsChecked = settings.VerboseLogging;
+        UpdateVerboseLoggingHint();
         foreach (var label in new[] { L.Text("SettingsView.ManualInstall.137212a0"), L.Text("SettingsView.AutoDownload.b44f785a"), L.Text("SettingsView.AutoDownloadAndInstall.0f40ada9") })
             UpdatePolicyBox.Items.Add(label);
         UpdatePolicyBox.SelectedIndex = (int)settings.UpdatePolicy;
@@ -126,6 +157,10 @@ public partial class SettingsView : UserControl
         RefreshLogsReadout();
         _loading = false;
         LiveText.Observe(this, OnLanguageChanged);
+        _availabilityTimer.Tick += (_, _) => RefreshDisplayAvailability();
+        Loaded += (_, _) => { RefreshDisplayAvailability(); _availabilityTimer.Start(); };
+        Unloaded += (_, _) => _availabilityTimer.Stop();
+        UpdateAvailability();
         Diagnostics.AppLog.Detail("settings", "event=load outcome=success");
     }
 
@@ -155,6 +190,16 @@ public partial class SettingsView : UserControl
             PopulateAudioDevices(_settings.AudioDevice);
             ReplaceLabels(DefaultResolutionBox, new[] { "Original", "1080p", "720p", "480p" }
                 .Select(value => new ResolutionRow(value, value == "Original" ? L.Text("SettingsView.Original.a8d63619") : value)));
+            var bitrateIndex = MaxBitrateBox.SelectedIndex;
+            PopulateBitrateChoices();
+            MaxBitrateBox.SelectedIndex = bitrateIndex;
+            var fonts = SubFontBox.Items.Cast<FontRow>()
+                .Select(row => row.Value.Length == 0 ? row with { Label = L.Text("SettingsView.DefaultSubtitleFont") } : row).ToArray();
+            ReplaceLabels(SubFontBox, fonts);
+            var subtitleIndexes = SubtitlePresetBoxes().Select(box => box.SelectedIndex).ToArray();
+            PopulateSubtitlePresets();
+            foreach (var (box, index) in SubtitlePresetBoxes().Zip(subtitleIndexes)) box.SelectedIndex = index;
+            UpdateSubtitleFields();
             ReplaceLabels(TransportNextBox, new[] { L.Text("SettingsView.NextInQueue.a5abcc0f"), L.Text("SettingsView.NextChapter.7feee55d"), L.Text("SettingsView.SeekForward.86fd3e75") });
             ReplaceLabels(TransportPrevBox, new[] { L.Text("SettingsView.PreviousInQueue.bd53ab82"), L.Text("SettingsView.PreviousChapter.1f1ecf33"), L.Text("SettingsView.SeekBack.58ae379b") });
             ReplaceLabels(UpdatePolicyBox, new[] { L.Text("SettingsView.ManualInstall.137212a0"), L.Text("SettingsView.AutoDownload.b44f785a"), L.Text("SettingsView.AutoDownloadAndInstall.0f40ada9") });
@@ -164,6 +209,7 @@ public partial class SettingsView : UserControl
             RefreshCacheReadouts();
             UpdateUpdateUi(_updates.Status);
             UpdatePassthroughCapability();
+            UpdateAvailability();
             if (_libraryLanguage != L.Language) BuildLibraryNameRows();
         }
         finally { _loading = loading; }
@@ -644,8 +690,15 @@ public partial class SettingsView : UserControl
     /// <summary>Passthrough bypasses audio filters — the two options exclude each other.</summary>
     private void UpdateAudioExclusivity()
     {
+        var unsupported = _passthroughProbe?.Verdict is PassthroughVerdict.NoneSupported or PassthroughVerdict.NoExclusiveMode;
         NormalizationBox.IsEnabled = PassthroughBox.IsChecked != true;
-        PassthroughBox.IsEnabled = NormalizationBox.IsChecked != true;
+        // A saved, enabled preference can still be switched off on an unsupported endpoint.
+        PassthroughBox.IsEnabled = NormalizationBox.IsChecked != true && (!unsupported || PassthroughBox.IsChecked == true);
+        NormalizationBox.ToolTip = PassthroughBox.IsChecked == true
+            ? L.Text("SettingsView.DynaudnormMutuallyExclusiveWithPassthrough.7d926f57") : null;
+        PassthroughBox.ToolTip = NormalizationBox.IsChecked == true
+            ? L.Text("SettingsView.DynaudnormMutuallyExclusiveWithPassthrough.7d926f57")
+            : unsupported ? Player.AudioPassthroughProbe.Describe(_passthroughProbe!) : null;
     }
 
     /// <summary>Asks the SELECTED output which bitstream formats it will actually take, and says
@@ -660,12 +713,17 @@ public partial class SettingsView : UserControl
     private async void UpdatePassthroughCapability()
     {
         var device = (AudioDeviceBox.SelectedItem as AudioDeviceRow)?.Name;
+        var request = ++_passthroughRequest;
+        _passthroughProbe = null;
+        UpdateAudioExclusivity();
         var probe = await Task.Run(() => Player.AudioPassthroughProbe.Probe(device));
         var line = Player.AudioPassthroughProbe.Describe(probe);
         // The selection may have moved on while the probe ran; the answer would then be about
         // the wrong device, and a stale capability claim is worse than none.
-        if ((AudioDeviceBox.SelectedItem as AudioDeviceRow)?.Name != device)
+        if (request != _passthroughRequest || (AudioDeviceBox.SelectedItem as AudioDeviceRow)?.Name != device)
             return;
+        _passthroughProbe = probe;
+        UpdateAudioExclusivity();
         PassthroughCapabilityText.Text = line ?? string.Empty;
         PassthroughCapabilityText.Visibility = line is null ? Visibility.Collapsed : Visibility.Visible;
         // Amber when the answer is negative — the app's warning colour. A device that accepts
@@ -702,9 +760,197 @@ public partial class SettingsView : UserControl
             DownloadDirBox.Text = dialog.FolderName;
     }
 
-    /// <summary>Back to the app-data default — an empty value is what `DownloadStore` reads as
-    /// "use the default folder", so this is a clear rather than a path.</summary>
-    private void OnClearDownloadDir(object sender, RoutedEventArgs e) => DownloadDirBox.Text = "";
+    /// <summary>Shows the app-data default; OnChanged keeps its saved value implicit.</summary>
+    private void OnClearDownloadDir(object sender, RoutedEventArgs e)
+        => DownloadDirBox.Text = Downloads.DownloadStore.DefaultDirectory;
+
+    private ComboBox[] SubtitlePresetBoxes() => [SubColorPreset, SubBorderColorPreset, SubBorderSizePreset, SubShadowPreset, SubPositionPreset];
+
+    private static bool IsColor(string color) => System.Text.RegularExpressions.Regex.IsMatch(color, "^#[0-9a-fA-F]{6}$");
+    private static string EffectiveColor(string color, string fallback) => IsColor(color) ? color.ToUpperInvariant() : fallback;
+    private static void SelectColor(ComboBox box, string color) => box.SelectedItem = box.Items.Cast<ColorRow>()
+        .FirstOrDefault(row => row.Value == color) ?? box.Items[box.Items.Count - 1];
+    private static void SelectNumber(ComboBox box, double value) => box.SelectedItem = box.Items.Cast<NumberRow>()
+        .FirstOrDefault(row => row.Value == value) ?? box.Items[box.Items.Count - 1];
+
+    private void PopulateSubtitlePresets()
+    {
+        foreach (var box in new[] { SubColorPreset, SubBorderColorPreset })
+        {
+            box.Items.Clear();
+            box.Items.Add(new ColorRow("#FFFFFF", L.Text("SettingsView.ColorWhite")));
+            box.Items.Add(new ColorRow("#000000", L.Text("SettingsView.ColorBlack")));
+            box.Items.Add(new ColorRow("#FFFF00", L.Text("SettingsView.ColorYellow")));
+            box.Items.Add(new ColorRow("#00FFFF", L.Text("SettingsView.ColorCyan")));
+            box.Items.Add(new ColorRow("#00FF00", L.Text("SettingsView.ColorGreen")));
+            box.Items.Add(new ColorRow("#FF0000", L.Text("SettingsView.ColorRed")));
+            box.Items.Add(new ColorRow(null, L.Text("SettingsView.Custom.cf0bc965")));
+        }
+        SubBorderSizePreset.Items.Clear();
+        SubBorderSizePreset.Items.Add(new NumberRow(0, L.Text("SettingsView.NoEffect")));
+        SubBorderSizePreset.Items.Add(new NumberRow(1, L.Text("SettingsView.BorderThin")));
+        SubBorderSizePreset.Items.Add(new NumberRow(3, L.Text("SettingsView.BorderMedium")));
+        SubBorderSizePreset.Items.Add(new NumberRow(5, L.Text("SettingsView.BorderThick")));
+        SubShadowPreset.Items.Clear();
+        SubShadowPreset.Items.Add(new NumberRow(0, L.Text("SettingsView.NoEffect")));
+        SubShadowPreset.Items.Add(new NumberRow(1, L.Text("SettingsView.ShadowSubtle")));
+        SubShadowPreset.Items.Add(new NumberRow(2, L.Text("SettingsView.ShadowSoft")));
+        SubShadowPreset.Items.Add(new NumberRow(4, L.Text("SettingsView.ShadowStrong")));
+        SubPositionPreset.Items.Clear();
+        SubPositionPreset.Items.Add(new NumberRow(100, L.Text("SettingsView.PositionBottom")));
+        SubPositionPreset.Items.Add(new NumberRow(90, L.Text("SettingsView.PositionRaised")));
+        SubPositionPreset.Items.Add(new NumberRow(50, L.Text("SettingsView.PositionMiddle")));
+        SubPositionPreset.Items.Add(new NumberRow(0, L.Text("SettingsView.PositionTop")));
+        foreach (var box in new[] { SubBorderSizePreset, SubShadowPreset, SubPositionPreset })
+            box.Items.Add(new NumberRow(null, L.Text("SettingsView.Custom.cf0bc965")));
+    }
+
+    private void OnSubtitlePresetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        _loading = true;
+        try
+        {
+            foreach (var (box, field) in new[] { (SubColorPreset, SubColorBox), (SubBorderColorPreset, SubBorderColorBox) })
+                if (ReferenceEquals(sender, box) && box.SelectedItem is ColorRow { Value: { } color }) field.Text = color;
+            foreach (var (box, field) in new[] { (SubBorderSizePreset, SubBorderSizeBox), (SubShadowPreset, SubShadowBox), (SubPositionPreset, SubPositionBox) })
+                if (ReferenceEquals(sender, box) && box.SelectedItem is NumberRow { Value: { } value }) field.Text = value.ToString(CultureInfo.InvariantCulture);
+        }
+        finally { _loading = false; }
+        OnChanged(sender, e);
+    }
+
+    private void UpdateSubtitleFields()
+    {
+        foreach (var (box, field) in new[] { (SubColorPreset, SubColorBox), (SubBorderColorPreset, SubBorderColorBox) })
+            field.Visibility = box.SelectedItem is ColorRow { Value: null } ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var (box, field) in new[] { (SubBorderSizePreset, SubBorderSizeBox), (SubShadowPreset, SubShadowBox), (SubPositionPreset, SubPositionBox) })
+            field.Visibility = box.SelectedItem is NumberRow { Value: null } ? Visibility.Visible : Visibility.Collapsed;
+        UpdateColor(SubColorPreset, SubColorBox, SubColorPreview, SubColorError, "#FFFFFF", _settings.SubtitleTextColor);
+        UpdateColor(SubBorderColorPreset, SubBorderColorBox, SubBorderColorPreview, SubBorderColorError, "#000000", _settings.SubtitleBorderColor);
+        ReadNumber(SubBorderSizePreset, SubBorderSizeBox, SubBorderSizeError, 0, 20, false, L.Text("SettingsView.CustomBorderSizeError"));
+        ReadNumber(SubShadowPreset, SubShadowBox, SubShadowError, -20, 20, false, L.Text("SettingsView.CustomShadowError"));
+        ReadNumber(SubPositionPreset, SubPositionBox, SubPositionError, 0, 150, true, L.Text("SettingsView.CustomPositionError"));
+    }
+
+    private static string? UpdateColor(ComboBox box, TextBox field, Border preview, TextBlock error, string fallback, string saved)
+    {
+        var color = (box.SelectedItem as ColorRow)?.Value ?? field.Text.Trim();
+        var valid = IsColor(color);
+        error.Text = L.Text("SettingsView.CustomColorError");
+        error.Visibility = valid ? Visibility.Collapsed : Visibility.Visible;
+        preview.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            valid ? color : EffectiveColor(saved, fallback)));
+        preview.ToolTip = valid ? color.ToUpperInvariant() : EffectiveColor(saved, fallback);
+        return valid ? (color.Equals(fallback, StringComparison.OrdinalIgnoreCase) ? "" : color.ToUpperInvariant()) : null;
+    }
+
+    private void SaveSubtitleChoices()
+    {
+        UpdateSubtitleFields();
+        var text = UpdateColor(SubColorPreset, SubColorBox, SubColorPreview, SubColorError, "#FFFFFF", _settings.SubtitleTextColor);
+        if (text is not null) _settings.SubtitleTextColor = text;
+        var border = UpdateColor(SubBorderColorPreset, SubBorderColorBox, SubBorderColorPreview, SubBorderColorError, "#000000", _settings.SubtitleBorderColor);
+        if (border is not null) _settings.SubtitleBorderColor = border;
+        if (ReadNumber(SubBorderSizePreset, SubBorderSizeBox, SubBorderSizeError, 0, 20, false, L.Text("SettingsView.CustomBorderSizeError")) is { } borderSize)
+            _settings.SubtitleBorderSize = borderSize;
+        if (ReadNumber(SubShadowPreset, SubShadowBox, SubShadowError, -20, 20, false, L.Text("SettingsView.CustomShadowError")) is { } shadow)
+            _settings.SubtitleShadowOffset = shadow;
+        if (ReadNumber(SubPositionPreset, SubPositionBox, SubPositionError, 0, 150, true, L.Text("SettingsView.CustomPositionError")) is { } position)
+            _settings.SubtitleBasePosition = (int)position;
+    }
+
+    private static double? ReadNumber(ComboBox box, TextBox field, TextBlock error, double minimum, double maximum, bool whole, string message)
+    {
+        var value = (box.SelectedItem as NumberRow)?.Value;
+        if (value is null && double.TryParse(field.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var custom)) value = custom;
+        var valid = value is { } number && double.IsFinite(number) && number >= minimum && number <= maximum && (!whole || number == Math.Truncate(number));
+        error.Text = message;
+        error.Visibility = valid ? Visibility.Collapsed : Visibility.Visible;
+        return valid ? value : null;
+    }
+
+    private void PopulateBitrateChoices()
+    {
+        MaxBitrateBox.Items.Clear();
+        foreach (var value in new[] { 0, 1, 4, 10, 20, 40, 80, 120 })
+            MaxBitrateBox.Items.Add(new BitrateRow(value, value == 0
+                ? L.Text("SettingsView.Unlimited") : L.Format("SettingsView.BitrateMbps", value)));
+        MaxBitrateBox.Items.Add(new BitrateRow(null, L.Text("SettingsView.Custom.cf0bc965")));
+    }
+
+    private void UpdateCustomBitrateVisibility()
+        => MaxBitrateCustomBox.Visibility = MaxBitrateBox.SelectedItem is BitrateRow { Value: null }
+            ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnBitratePresetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        UpdateCustomBitrateVisibility();
+        if (MaxBitrateBox.SelectedItem is BitrateRow { Value: null })
+        {
+            _loading = true;
+            try { MaxBitrateCustomBox.Text = Math.Max(1, _settings.MaxStreamingBitrateMbps).ToString(CultureInfo.InvariantCulture); }
+            finally { _loading = false; }
+        }
+        OnChanged(sender, e);
+    }
+
+    private void UpdateVerboseLoggingHint()
+        => LiveText.Bind(VerboseLoggingHint, "Text", () => _settings.VerboseLogging
+            ? L.Text("SettingsView.VerboseLoggingEnabled") : L.Text("SettingsView.VerboseLoggingDisabled"));
+
+    private void OnUseDisplayBrightness(object sender, RoutedEventArgs e)
+    {
+        var window = Window.GetWindow(this);
+        var nits = window is null ? null : DisplayBrightness.PeakNitsForWindow(new WindowInteropHelper(window).Handle);
+        DisplayBrightnessStatus.Visibility = Visibility.Visible;
+        if (nits is { } value)
+        {
+            MaxLumaBox.Text = value.ToString(CultureInfo.InvariantCulture);
+            LiveText.Bind(DisplayBrightnessStatus, "Text", () => L.Format("SettingsView.DisplayBrightnessReported", value));
+        }
+        else
+            LiveText.Bind(DisplayBrightnessStatus, "Text", () => L.Text("SettingsView.DisplayBrightnessUnavailable"));
+    }
+
+    private async void RefreshDisplayAvailability()
+    {
+        if (_checkingDisplay || !IsVisible || Window.GetWindow(this) is not { } window) return;
+        _checkingDisplay = true;
+        try
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            var info = await Task.Run(() => DisplayBrightness.ReadForWindow(handle));
+            if (!IsVisible || Window.GetWindow(this) != window) return;
+            if (_displayInfo?.Monitor != info?.Monitor || _displayInfo?.HdrEnabled != info?.HdrEnabled)
+                DisplayBrightnessStatus.Visibility = Visibility.Collapsed;
+            _displayInfo = info;
+            UpdateAvailability();
+        }
+        finally { _checkingDisplay = false; }
+    }
+
+    private void UpdateAvailability()
+    {
+        var gpuReason = GpuCapabilities.RtxUnavailableReason;
+        var hdrReason = gpuReason ?? (_displayInfo is { HdrEnabled: false }
+            ? L.Text("SettingsView.HdrDisplayRequired") : null);
+        SetRowAvailability(RtxVsrRow, gpuReason);
+        SetRowAvailability(RtxHdrRow, hdrReason);
+        SetRowAvailability(RtxBrightnessRow, hdrReason);
+        UseDisplayBrightnessButton.IsEnabled = _displayInfo?.PeakNits is not null;
+        UseDisplayBrightnessButton.ToolTip = hdrReason ?? (_displayInfo?.PeakNits is null
+            ? L.Text("SettingsView.DisplayBrightnessUnavailable") : null);
+        SetRowAvailability(AutoPlayCountdownRow, AutoPlayNextBox.IsChecked == true
+            ? null : L.Text("SettingsView.AutoPlayCountdownUnavailable"));
+    }
+
+    private static void SetRowAvailability(Border row, string? reason)
+    {
+        row.IsEnabled = reason is null;
+        row.ToolTip = reason;
+    }
 
     /// <summary>Structural settings diagnostics. The whitelist intentionally excludes every
     /// free-form or identifying value: languages, font names, colours, paths, API keys and raw
@@ -733,6 +979,7 @@ public partial class SettingsView : UserControl
         ["largeSkip"] = _settings.LargeSkipSeconds.ToString(CultureInfo.InvariantCulture),
         ["autoPlayNext"] = Bool(_settings.AutoPlayNextEpisode),
         ["autoPlayCountdown"] = _settings.AutoPlayCountdownSeconds.ToString(CultureInfo.InvariantCulture),
+        ["upNextLead"] = _settings.UpNextLeadSeconds.ToString(CultureInfo.InvariantCulture),
         ["maxParallelDownloads"] = _settings.MaxParallelDownloads.ToString(CultureInfo.InvariantCulture),
         ["defaultDownloadResolution"] = SafeDownloadResolution(_settings.DefaultDownloadResolution),
         ["mediaNextAction"] = _settings.MediaNextAction.ToString(),
@@ -771,6 +1018,21 @@ public partial class SettingsView : UserControl
         if (_loading || _syncingPeek)
             return;
 
+        if (ReferenceEquals(sender, MaxLumaBox))
+            DisplayBrightnessStatus.Visibility = Visibility.Collapsed;
+        var validCountdown = int.TryParse(AutoPlayCountdownBox.Text, NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out var countdown)
+            && countdown >= UpNextPreferences.MinimumCountdownSeconds
+            && countdown <= UpNextPreferences.MaximumCountdownSeconds;
+        AutoPlayCountdownError.Visibility = validCountdown ? Visibility.Collapsed : Visibility.Visible;
+        if (!validCountdown)
+        {
+            LiveText.Bind(AutoPlayCountdownError, "Text", () => L.Format("SettingsView.AutoPlayCountdownInvalid",
+                UpNextPreferences.MinimumCountdownSeconds, UpNextPreferences.MaximumCountdownSeconds,
+                _settings.AutoPlayCountdownSeconds));
+            if (ReferenceEquals(sender, AutoPlayCountdownBox)) return;
+        }
+
         var safeBefore = SafeSettingsSnapshot();
         _settings.HardwareDecoding = HwdecBox.IsChecked == true;
         _settings.RtxVsrDefault = RtxVsrBox.IsChecked == true;
@@ -778,9 +1040,13 @@ public partial class SettingsView : UserControl
         if (int.TryParse(MaxLumaBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var nits)
             && nits is > 0 and <= 10_000)
             _settings.RtxHdrMaxLumaNits = nits;
-        if (int.TryParse(MaxBitrateBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mbps)
-            && mbps is >= 0 and <= 10_000)
-            _settings.MaxStreamingBitrateMbps = mbps;
+        var bitrate = (MaxBitrateBox.SelectedItem as BitrateRow)?.Value;
+        var validCustomBitrate = int.TryParse(MaxBitrateCustomBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mbps)
+            && mbps is > 0 and <= 10_000;
+        if (bitrate is { } preset) _settings.MaxStreamingBitrateMbps = preset;
+        else if (validCustomBitrate) _settings.MaxStreamingBitrateMbps = mbps;
+        MaxBitrateCustomError.Visibility = bitrate is null && !validCustomBitrate
+            ? Visibility.Visible : Visibility.Collapsed;
         if (int.TryParse(VideoBufferBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var buffer)
             && buffer is >= 32 and <= 1024)
         {
@@ -797,25 +1063,12 @@ public partial class SettingsView : UserControl
         _settings.SubtitleScale = Math.Round(SubScaleSlider.Value, 2);
         if (SubLangBox.SelectedItem is Languages.Option subLang)
             _settings.PreferredSubtitleLanguage = subLang.Code;
-        _settings.SubtitleFontFamily = SubFontBox.Text.Trim();
+        if (SubFontBox.SelectedItem is FontRow font)
+            _settings.SubtitleFontFamily = font.Value;
         if (int.TryParse(SubFontSizeBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fontSize)
             && fontSize is > 0 and <= 300)
             _settings.SubtitleFontSize = fontSize;
-        var subColor = SubColorBox.Text.Trim();
-        if (subColor.Length == 0 || System.Text.RegularExpressions.Regex.IsMatch(subColor, "^#[0-9a-fA-F]{6}$"))
-            _settings.SubtitleTextColor = subColor;
-        var borderColor = SubBorderColorBox.Text.Trim();
-        if (borderColor.Length == 0 || System.Text.RegularExpressions.Regex.IsMatch(borderColor, "^#[0-9a-fA-F]{6}$"))
-            _settings.SubtitleBorderColor = borderColor;
-        if (double.TryParse(SubBorderSizeBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var borderSize)
-            && borderSize is >= 0 and <= 20)
-            _settings.SubtitleBorderSize = borderSize;
-        if (double.TryParse(SubShadowBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var shadow)
-            && shadow is >= -20 and <= 20)
-            _settings.SubtitleShadowOffset = shadow;
-        if (int.TryParse(SubPositionBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var subPos)
-            && subPos is >= 0 and <= 150)
-            _settings.SubtitleBasePosition = subPos;
+        SaveSubtitleChoices();
         if (AudioLangBox.SelectedItem is Languages.Option audioLang)
             _settings.PreferredAudioLanguage = audioLang.Code;
         if (AudioDeviceBox.SelectedItem is AudioDeviceRow deviceRow)
@@ -843,13 +1096,18 @@ public partial class SettingsView : UserControl
             && large is > 0 and <= 600)
             _settings.LargeSkipSeconds = large;
         _settings.AutoPlayNextEpisode = AutoPlayNextBox.IsChecked == true;
-        if (int.TryParse(AutoPlayCountdownBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cd)
-            && cd is >= 3 and <= 120)
-            _settings.AutoPlayCountdownSeconds = cd;
+        UpdateAvailability();
+        if (validCountdown)
+            _settings.AutoPlayCountdownSeconds = countdown;
+        // An invalid custom draft keeps the saved value; the picker shows its own error.
+        if (UpNextLeadChoice.TryGetLead(out var lead) && lead is { } leadSeconds)
+            _settings.UpNextLeadSeconds = leadSeconds;
         _settings.OmdbApiKey = CurrentOmdbKey();
-        // Downloads (M20): directory validity is checked at enqueue time (the engine
-        // creates it); an empty box means the app-data default.
-        _settings.DownloadDirectory = DownloadDirBox.Text.Trim();
+        // Display the effective directory without pinning the app-data default to this
+        // build's path. Empty remains the saved sentinel for the default.
+        var downloadDirectory = DownloadDirBox.Text.Trim();
+        _settings.DownloadDirectory = downloadDirectory.Equals(Downloads.DownloadStore.DefaultDirectory, StringComparison.OrdinalIgnoreCase)
+            ? "" : downloadDirectory;
         if (MaxParallelBox.SelectedIndex >= 0)
             _settings.MaxParallelDownloads = MaxParallelBox.SelectedIndex + 1;
         if (DefaultResolutionBox.SelectedItem is ResolutionRow res)
@@ -868,6 +1126,7 @@ public partial class SettingsView : UserControl
         // taking informational entries immediately, which is what makes the toggle testable
         // without a restart.
         _settings.VerboseLogging = VerboseLoggingBox.IsChecked == true;
+        UpdateVerboseLoggingHint();
         var previousUpdatePolicy = _settings.UpdatePolicy;
         if (UpdatePolicyBox.SelectedIndex >= 0)
             _settings.UpdatePolicy = (UpdatePolicy)UpdatePolicyBox.SelectedIndex;

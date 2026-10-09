@@ -11,6 +11,16 @@ namespace LightWeaver.Theme;
 /// </summary>
 public static class NavRail
 {
+    public static readonly DependencyProperty BadgeCountProperty =
+        DependencyProperty.RegisterAttached("BadgeCount", typeof(int), typeof(NavRail),
+            new FrameworkPropertyMetadata(0));
+
+    public static void SetBadgeCount(DependencyObject element, int value)
+        => element.SetValue(BadgeCountProperty, value);
+
+    public static int GetBadgeCount(DependencyObject element)
+        => (int)element.GetValue(BadgeCountProperty);
+
     public static readonly DependencyProperty IsCollapsedProperty =
         DependencyProperty.RegisterAttached(
             "IsCollapsed",

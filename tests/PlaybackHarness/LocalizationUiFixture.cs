@@ -23,6 +23,10 @@ internal static class LocalizationUiFixture
     public const string RestartMode = "--localization-ui-restart";
     public const string GermanMode = "--localization-ui-german";
     public const string EnglishMode = "--localization-ui-english";
+    public const string UpNextMode = "--localization-ui-up-next";
+    public const string UpNextGermanMode = "--localization-ui-up-next-german";
+    public const string UpNextEpisodeMode = "--localization-ui-up-next-episode";
+    public const string UpNextEpisodeGermanMode = "--localization-ui-up-next-episode-german";
     private static int _assertions;
     private static int _failures;
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "lightweaver-tests");
@@ -34,7 +38,9 @@ internal static class LocalizationUiFixture
         if (!File.Exists(@"C:\ci\verify-runs\CURRENT"))
             throw new InvalidOperationException("Run localization UI through the lw-localization guest MCP route.");
         var restarting = args[0] == RestartMode;
-        var german = args[0] == GermanMode;
+        var upNextEpisode = args[0] is UpNextEpisodeMode or UpNextEpisodeGermanMode;
+        var upNext = upNextEpisode || args[0] is UpNextMode or UpNextGermanMode;
+        var german = args[0] is GermanMode or UpNextGermanMode or UpNextEpisodeGermanMode;
         var child = args[0] != Mode;
         if (child && (args.Length != 2 || !Path.IsPathFullyQualified(args[1])))
             throw new ArgumentException("Child process requires the isolated fixture directory.");
@@ -60,6 +66,11 @@ internal static class LocalizationUiFixture
                 RunChild(EnglishMode, root, "fresh English process UI checks pass");
                 RunChild(GermanMode, root, "fresh German process UI checks pass");
                 RunChild(RestartMode, root, "fresh process language persistence and translated login pass");
+                // Own processes and time budgets, after the restart check reads the saved language.
+                RunChild(UpNextMode, root, "fresh English process Up Next lead checks pass");
+                RunChild(UpNextGermanMode, root, "fresh German process Up Next lead checks pass");
+                RunChild(UpNextEpisodeMode, root, "fresh English process episode-page Up Next checks pass");
+                RunChild(UpNextEpisodeGermanMode, root, "fresh German process episode-page Up Next checks pass");
             }
             else
             {
@@ -104,6 +115,8 @@ internal static class LocalizationUiFixture
                     Check(HasText(main, Translation("LoginView", "USERNAME")), "fresh process renders translated login XAML");
                     Capture(main, "de-restart-login");
                 }
+                else if (upNext)
+                    UpNextUiFixture.Verify(main, language, upNextEpisode, Check, Capture, Pump);
                 else
                     VerifyLanguage(main, language);
             }
@@ -286,6 +299,8 @@ internal static class LocalizationUiFixture
             language + " settings code-behind formatted cache label uses catalog");
         CaptureSizes(main, language + "-settings");
         var settingsScroll = Descendants(view).OfType<ScrollViewer>().Single(scroll => scroll.Content is StackPanel);
+        VerifySettingsControls(main, view, settings, language, settingsScroll);
+        VerifySubtitleChoices(main, view, settings, language, settingsScroll);
         CaptureFocusedSizes(main, settingsScroll, language + "-language-selection", box);
         // Switch the same loaded controls repeatedly; no navigation or playback is restarted.
         var edited = Element<TextBox>(view, "VideoBufferBox");
@@ -607,6 +622,9 @@ internal static class LocalizationUiFixture
         {
             process.Kill(entireProcessTree: true);
             process.WaitForExit();
+            // The child's last PASS line is the only clue to whether it hung or ran out of time.
+            Console.Write(stdout.GetAwaiter().GetResult());
+            Console.Write(stderr.GetAwaiter().GetResult());
             throw new TimeoutException("Isolated language restart did not finish.");
         }
         Console.Write(stdout.GetAwaiter().GetResult());
@@ -636,6 +654,273 @@ internal static class LocalizationUiFixture
     private static bool HasText(DependencyObject root, string text)
         => Descendants(root).OfType<TextBlock>().Any(c => c.Text == text)
             || Descendants(root).OfType<ContentControl>().Any(c => c.Content is string value && value == text);
+    private static void VerifySettingsControls(MainWindow main, SettingsView view, AppSettings settings,
+        string language, ScrollViewer scroll)
+    {
+        var quality = Element<ComboBox>(view, "DefaultResolutionBox");
+        foreach (var (index, value) in new[] { (0, "Original"), (1, "1080p"), (2, "720p"), (3, "480p") })
+        {
+            quality.SelectedIndex = index;
+            Pump();
+            var content = (ContentPresenter)quality.Template.FindName("ContentSite", quality);
+            var label = value == "Original" ? L.Text("SettingsView.Original.a8d63619") : value;
+            Check(HasText(content, label) && settings.DefaultDownloadResolution == value,
+                language + " selected download quality renders " + value + " and saves its invariant value");
+        }
+        quality.SelectedIndex = 0;
+        var vsr = Element<CheckBox>(view, "RtxVsrBox");
+        var hdr = Element<CheckBox>(view, "RtxHdrBox");
+        var savedVsr = settings.RtxVsrDefault;
+        var savedHdr = settings.RtxHdrDefault;
+        if (LightWeaver.Player.GpuCapabilities.RtxUnavailableReason is { } gpuReason)
+        {
+            Check(!vsr.IsEnabled && !hdr.IsEnabled && !Element<TextBox>(view, "MaxLumaBox").IsEnabled,
+                language + " RTX switches and brightness are disabled without a supported GPU");
+            Check(Equals(Element<Border>(view, "RtxVsrRow").ToolTip, gpuReason)
+                && ToolTipService.GetShowOnDisabled(Element<Border>(view, "RtxVsrRow")),
+                language + " disabled RTX row exposes its translated reason on hover");
+        }
+        Check(settings.RtxVsrDefault == savedVsr && settings.RtxHdrDefault == savedHdr,
+            language + " capability checks preserve saved RTX preferences");
+        CaptureFocusedSizes(main, scroll, language + "-settings-rtx-availability", vsr, hdr, Element<TextBox>(view, "MaxLumaBox"));
+
+        var autoplay = Element<CheckBox>(view, "AutoPlayNextBox");
+        var savedAutoplay = settings.AutoPlayNextEpisode;
+        var savedCountdown = settings.AutoPlayCountdownSeconds;
+        autoplay.IsChecked = false;
+        Check(!Element<TextBox>(view, "AutoPlayCountdownBox").IsEnabled && settings.AutoPlayCountdownSeconds == savedCountdown,
+            language + " disabling auto-play disables countdown editing without changing its saved value");
+        autoplay.IsChecked = true;
+        Check(Element<TextBox>(view, "AutoPlayCountdownBox").IsEnabled,
+            language + " enabling auto-play restores countdown editing");
+        autoplay.IsChecked = savedAutoplay;
+
+        var passthrough = Element<CheckBox>(view, "PassthroughBox");
+        var normalization = Element<CheckBox>(view, "NormalizationBox");
+        var savedPassthrough = settings.AudioPassthrough;
+        var savedNormalization = settings.VolumeNormalization;
+        passthrough.IsChecked = false;
+        normalization.IsChecked = true;
+        Check(!passthrough.IsEnabled && passthrough.ToolTip is string,
+            language + " normalization disables passthrough with an explanation");
+        normalization.IsChecked = false;
+        passthrough.IsChecked = true;
+        Check(!normalization.IsEnabled && normalization.ToolTip is string,
+            language + " passthrough disables normalization with an explanation");
+        passthrough.IsChecked = false;
+        var probeField = typeof(SettingsView).GetField("_passthroughProbe", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var previousProbe = probeField.GetValue(view);
+        var updateAudio = typeof(SettingsView).GetMethod("UpdateAudioExclusivity", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        foreach (var (verdict, available) in new[]
+        {
+            (LightWeaver.Player.PassthroughVerdict.NoneSupported, false),
+            (LightWeaver.Player.PassthroughVerdict.NoExclusiveMode, false),
+            (LightWeaver.Player.PassthroughVerdict.SomeSupported, true),
+            (LightWeaver.Player.PassthroughVerdict.Unknown, true),
+        })
+        {
+            probeField.SetValue(view, new LightWeaver.Player.PassthroughProbe(verdict, "Synthetic endpoint", []));
+            updateAudio.Invoke(view, null);
+            Check(passthrough.IsEnabled == available && settings.AudioPassthrough == false,
+                language + " selected-device passthrough availability follows " + verdict + " without changing its preference");
+        }
+        probeField.SetValue(view, previousProbe);
+        passthrough.IsChecked = savedPassthrough;
+        normalization.IsChecked = savedNormalization;
+        updateAudio.Invoke(view, null);
+
+        CaptureFocusedSizes(main, scroll, language + "-settings-downloads", Element<TextBox>(view, "DownloadDirBox"), quality);
+
+        var bitrate = Element<ComboBox>(view, "MaxBitrateBox");
+        var custom = Element<TextBox>(view, "MaxBitrateCustomBox");
+        foreach (var (index, value) in new[] { (0, 0), (1, 1), (2, 4), (3, 10), (4, 20), (5, 40), (6, 80), (7, 120) })
+        {
+            bitrate.SelectedIndex = index;
+            Pump();
+            var content = (ContentPresenter)bitrate.Template.FindName("ContentSite", bitrate);
+            Check(HasText(content, value == 0 ? L.Text("SettingsView.Unlimited") : L.Format("SettingsView.BitrateMbps", value))
+                && settings.MaxStreamingBitrateMbps == value && custom.Visibility == Visibility.Collapsed,
+                language + " bitrate preset renders its units or Unlimited and saves " + value);
+        }
+        bitrate.SelectedIndex = bitrate.Items.Count - 1;
+        custom.Text = "37";
+        Pump();
+        Check(custom.Visibility == Visibility.Visible && SettingsStore.Load().MaxStreamingBitrateMbps == 37,
+            language + " custom bitrate accepts and persists a non-preset value");
+        CaptureFocusedSizes(main, scroll, language + "-settings-bitrate-custom", bitrate, custom);
+        foreach (var invalid in new[] { "0", "10001", "1.5", "invalid" })
+        {
+            custom.Text = invalid;
+            Pump();
+            Check(settings.MaxStreamingBitrateMbps == 37 && SettingsStore.Load().MaxStreamingBitrateMbps == 37
+                && Element<TextBlock>(view, "MaxBitrateCustomError").Visibility == Visibility.Visible,
+                language + " invalid custom bitrate retains the saved cap: " + invalid);
+        }
+        var languages = Element<ComboBox>(view, "UiLanguageBox");
+        languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == (language == "en" ? "ar" : "en"));
+        Pump();
+        Check(custom.Text == "invalid" && custom.Visibility == Visibility.Visible && settings.MaxStreamingBitrateMbps == 37,
+            language + " language switching preserves the custom bitrate draft and saved value");
+        languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == language);
+        bitrate.SelectedIndex = 0;
+        Pump();
+        Check(settings.MaxStreamingBitrateMbps == 0 && Element<TextBlock>(view, "MaxBitrateCustomError").Visibility == Visibility.Collapsed,
+            language + " Unlimited clears the custom validation error");
+
+        var font = Element<ComboBox>(view, "SubFontBox");
+        font.SelectedIndex = 0;
+        Pump();
+        Check(HasText((ContentPresenter)font.Template.FindName("ContentSite", font), L.Text("SettingsView.DefaultSubtitleFont"))
+            && settings.SubtitleFontFamily == "", language + " font picker labels and preserves the player default");
+        font.SelectedIndex = 1;
+        Pump();
+        Check(settings.SubtitleFontFamily.Length > 0 && SettingsStore.Load().SubtitleFontFamily == settings.SubtitleFontFamily,
+            language + " choosing a font persists its family name");
+        font.SelectedIndex = 0;
+        Pump();
+        Check(SettingsStore.Load().SubtitleFontFamily == "", language + " returning to the default font saves the empty sentinel");
+        CaptureFocusedSizes(main, scroll, language + "-settings-font-default", font);
+
+        var directory = Element<TextBox>(view, "DownloadDirBox");
+        Check(directory.Text == LightWeaver.Downloads.DownloadStore.DefaultDirectory && settings.DownloadDirectory == "",
+            language + " download folder displays its effective path and preserves the default sentinel");
+        directory.Text = Path.Combine(AppPaths.Root, "custom-downloads");
+        Check(settings.DownloadDirectory == directory.Text, language + " a custom download folder stays explicit");
+        Element<Button>(view, "DownloadClearButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Pump();
+        Check(directory.Text == LightWeaver.Downloads.DownloadStore.DefaultDirectory && SettingsStore.Load().DownloadDirectory == "",
+            language + " resetting the download folder shows the default path and saves its sentinel");
+
+        var verbose = Element<CheckBox>(view, "VerboseLoggingBox");
+        foreach (var enabled in new[] { true, false })
+        {
+            verbose.IsChecked = enabled;
+            Pump();
+            Check(Element<TextBlock>(view, "VerboseLoggingHint").Text == (enabled
+                    ? L.Text("SettingsView.VerboseLoggingEnabled") : L.Text("SettingsView.VerboseLoggingDisabled")),
+                language + " logging helper describes only the current state: " + enabled);
+            Check(settings.DownloadDirectory == "", language + " an unrelated change preserves the default download sentinel");
+            CaptureFocusedSizes(main, scroll, language + "-settings-logging-" + (enabled ? "on" : "off"),
+                verbose, Element<TextBlock>(view, "VerboseLoggingHint"));
+        }
+
+        Check(LightWeaver.Player.DisplayBrightness.ValidPeakNits(12, 603.6f) == 604
+            && LightWeaver.Player.DisplayBrightness.ValidPeakNits(0, 80) is null
+            && LightWeaver.Player.DisplayBrightness.ValidPeakNits(12, float.NaN) is null
+            && LightWeaver.Player.DisplayBrightness.ValidPeakNits(12, 0) is null
+            && LightWeaver.Player.DisplayBrightness.ValidPeakNits(12, 10001) is null,
+            language + " display brightness accepts an HDR peak and rejects SDR fallback or invalid metadata");
+        var luma = Element<TextBox>(view, "MaxLumaBox");
+        var saved = settings.RtxHdrMaxLumaNits;
+        Element<Button>(view, "UseDisplayBrightnessButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Pump();
+        var status = Element<TextBlock>(view, "DisplayBrightnessStatus");
+        Check(status.Visibility == Visibility.Visible && (status.Text == L.Text("SettingsView.DisplayBrightnessUnavailable")
+                ? settings.RtxHdrMaxLumaNits == saved
+                : status.Text == L.Format("SettingsView.DisplayBrightnessReported", settings.RtxHdrMaxLumaNits)),
+            language + " native display probe reports a value or preserves manual brightness when unavailable");
+        CaptureFocusedSizes(main, scroll, language + "-settings-display-brightness", luma, Element<Button>(view, "UseDisplayBrightnessButton"));
+        luma.Text = (saved == 1000 ? 1001 : 1000).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Check(status.Visibility == Visibility.Collapsed, language + " a manual brightness edit clears the old detection status");
+        luma.Text = saved.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static void VerifySubtitleChoices(MainWindow main, SettingsView view, AppSettings settings, string language, ScrollViewer scroll)
+    {
+        var text = Element<ComboBox>(view, "SubColorPreset");
+        var border = Element<ComboBox>(view, "SubBorderColorPreset");
+        var textField = Element<TextBox>(view, "SubColorBox");
+        var borderField = Element<TextBox>(view, "SubBorderColorBox");
+        Check(text.SelectedIndex == 0 && border.SelectedIndex == 1
+            && textField.Text == "#FFFFFF" && borderField.Text == "#000000",
+            language + " color controls select effective white and black defaults");
+        CaptureFocusedSizes(main, scroll, language + "-settings-colors-presets", text, border,
+            Element<Border>(view, "SubColorPreview"), Element<Border>(view, "SubBorderColorPreview"));
+        foreach (var (index, hex) in new[] { (2, "#FFFF00"), (3, "#00FFFF"), (4, "#00FF00"), (5, "#FF0000") })
+        {
+            text.SelectedIndex = index;
+            border.SelectedIndex = index;
+            Pump();
+            Check(settings.SubtitleTextColor == hex && settings.SubtitleBorderColor == hex
+                && textField.Visibility == Visibility.Collapsed && borderField.Visibility == Visibility.Collapsed,
+                language + " named color choices save " + hex + " without custom fields");
+        }
+        text.SelectedIndex = text.Items.Count - 1;
+        border.SelectedIndex = border.Items.Count - 1;
+        textField.Text = "#123abc";
+        borderField.Text = "#654321";
+        Pump();
+        Check(SettingsStore.Load().SubtitleTextColor == "#123ABC" && settings.SubtitleBorderColor == "#654321",
+            language + " custom subtitle colors persist normalized hex values");
+        Check(((SolidColorBrush)Element<Border>(view, "SubColorPreview").Background).Color == Color.FromRgb(0x12, 0x3a, 0xbc)
+            && ((SolidColorBrush)Element<Border>(view, "SubBorderColorPreview").Background).Color == Color.FromRgb(0x65, 0x43, 0x21),
+            language + " custom color swatches display the actual selected colors");
+        CaptureFocusedSizes(main, scroll, language + "-settings-colors-custom", text, border, textField, borderField);
+        textField.Text = "bad color";
+        Pump();
+        Check(settings.SubtitleTextColor == "#123ABC" && Element<TextBlock>(view, "SubColorError").Visibility == Visibility.Visible
+            && ((SolidColorBrush)Element<Border>(view, "SubColorPreview").Background).Color == Color.FromRgb(0x12, 0x3a, 0xbc),
+            language + " invalid custom color retains the saved color and its swatch");
+        var languages = Element<ComboBox>(view, "UiLanguageBox");
+        languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == "ar");
+        Pump();
+        Check(textField.Text == "bad color" && text.SelectedIndex == text.Items.Count - 1 && settings.SubtitleTextColor == "#123ABC",
+            language + " Arabic switching preserves an invalid custom color draft");
+        textField.Text = "#123abc";
+        CaptureFocusedSizes(main, scroll, language + "-settings-colors-custom-ar", text, border, textField, borderField);
+        languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == language);
+        text.SelectedIndex = 0;
+        border.SelectedIndex = 1;
+        Pump();
+        Check(settings.SubtitleTextColor == "" && settings.SubtitleBorderColor == "",
+            language + " returning to white and black preserves the player default sentinels");
+        foreach (var (prefix, presets, custom, invalid, read) in new (string, double[], string, string[], Func<double>)[]
+        {
+            ("SubBorderSize", [0, 1, 3, 5], "2.75", ["21", "NaN", "invalid"], () => settings.SubtitleBorderSize),
+            ("SubShadow", [0, 1, 2, 4], "-2.5", ["-21", "Infinity", "invalid"], () => settings.SubtitleShadowOffset),
+            ("SubPosition", [100, 90, 50, 0], "135", ["151", "20.5", "invalid"], () => settings.SubtitleBasePosition),
+        })
+        {
+            var box = Element<ComboBox>(view, prefix + "Preset");
+            var field = Element<TextBox>(view, prefix + "Box");
+            foreach (var (value, index) in presets.Select((value, index) => (value, index)))
+            {
+                box.SelectedIndex = index;
+                Pump();
+                Check(read() == value && field.Visibility == Visibility.Collapsed,
+                    language + " " + prefix + " preset saves " + value);
+            }
+            box.SelectedIndex = box.Items.Count - 1;
+            field.Text = custom;
+            Pump();
+            var saved = double.Parse(custom, System.Globalization.CultureInfo.InvariantCulture);
+            Check(read() == saved && field.Visibility == Visibility.Visible,
+                language + " " + prefix + " accepts a custom value including non-preset positions and signed fractional offsets");
+            foreach (var draft in invalid)
+            {
+                field.Text = draft;
+                Pump();
+                Check(read() == saved && Element<TextBlock>(view, prefix + "Error").Visibility == Visibility.Visible,
+                    language + " " + prefix + " rejects invalid draft " + draft + " without changing its saved value");
+            }
+            languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == "ar");
+            Pump();
+            Check(field.Text == "invalid" && read() == saved && field.Visibility == Visibility.Visible,
+                language + " " + prefix + " custom draft survives Arabic switching");
+            languages.SelectedItem = languages.Items.Cast<UiLanguage>().Single(item => item.Code == language);
+            field.Text = custom;
+        }
+        CaptureFocusedSizes(main, scroll, language + "-settings-subtitle-numbers-custom",
+            Element<ComboBox>(view, "SubBorderSizePreset"), Element<TextBox>(view, "SubBorderSizeBox"),
+            Element<ComboBox>(view, "SubShadowPreset"), Element<TextBox>(view, "SubShadowBox"),
+            Element<ComboBox>(view, "SubPositionPreset"), Element<TextBox>(view, "SubPositionBox"));
+        Check(SettingsStore.Load().SubtitleBorderSize == 2.75 && SettingsStore.Load().SubtitleShadowOffset == -2.5
+            && SettingsStore.Load().SubtitleBasePosition == 135, language + " custom subtitle numeric values survive settings reload");
+        Element<ComboBox>(view, "SubBorderSizePreset").SelectedIndex = 2;
+        Element<ComboBox>(view, "SubShadowPreset").SelectedIndex = 0;
+        Element<ComboBox>(view, "SubPositionPreset").SelectedIndex = 0;
+    }
+
     private static void CaptureSizes(MainWindow main, string name)
     {
         main.Width = 1280;
@@ -654,7 +939,11 @@ internal static class LocalizationUiFixture
             main.Width = width;
             main.Height = height;
             Pump();
-            foreach (var control in controls) control.BringIntoView();
+            var content = (FrameworkElement)scroll.Content;
+            var bounds = Rect.Empty;
+            foreach (var control in controls)
+                bounds.Union(control.TransformToAncestor(content).TransformBounds(new Rect(control.RenderSize)));
+            content.BringIntoView(bounds);
             Pump();
             foreach (var control in controls)
                 Check(IsInsideViewport(control, scroll), name + " " + size + " keeps " + control.Name + " inside the viewport");

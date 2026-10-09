@@ -3,12 +3,39 @@ const pageSize = 35;
 const state = { workspace: null, languages: [], drafts: new Map(), rows: [], page: 0, changed: null, changedBaseline: '', busy: false };
 const fields = ['q', 'source', 'lang', 'status', 'changed', 'keys'];
 let debounce;
+let interfaceLanguage = new URLSearchParams(location.search).get('ui');
+try { interfaceLanguage ||= localStorage.getItem('translation-editor-language'); } catch { /* Storage may be disabled. */ }
+interfaceLanguage ||= navigator.language?.split('-')[0];
+if (!['en', 'de', 'ar'].includes(interfaceLanguage)) interfaceLanguage = 'en';
+const initialText = {
+  Save: 'Save changes', Reload: 'Reload', Reloading: 'Reloading…',
+  AddColumn: 'Add column', Clean: 'No unsaved changes',
+  Unreadable: 'The editor returned an unreadable response ({0}). Your unsaved edits are kept.',
+  RequestFailed: 'Request failed ({0}). Your unsaved edits are kept.'
+};
+function t(key, ...args) {
+  const entry = state.workspace?.catalog.strings[key];
+  const pack = state.workspace?.locales.find(item => item.code === interfaceLanguage);
+  const translated = pack && !pack.stale.includes(key) ? pack.strings[key] : null;
+  const text = translated || entry?.text || initialText[key.replace('TranslationEditor.', '')] || '';
+  return args.length ? text.replace(/\{(\d+)\}/g, (match, index) => args[index] ?? match) : text;
+}
+function applyInterface() {
+  document.documentElement.lang = interfaceLanguage;
+  document.documentElement.dir = interfaceLanguage === 'ar' ? 'rtl' : 'ltr';
+  $('ui-language').value = interfaceLanguage;
+  for (const node of document.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
+  for (const attribute of ['placeholder', 'aria-label'])
+    for (const node of document.querySelectorAll(`[data-i18n-${attribute}]`)) node.setAttribute(attribute, t(node.getAttribute(`data-i18n-${attribute}`)));
+}
+function number(value) { return value.toLocaleString(interfaceLanguage); }
+
 
 async function api(path, method = 'GET', data) {
   const response = await fetch(path, { method, headers: method === 'GET' ? {} : { 'Content-Type': 'application/json', 'X-Translation-Editor': '1' }, body: data === undefined ? undefined : JSON.stringify(data) });
   let result;
-  try { result = await response.json(); } catch { throw new Error(`The editor returned an unreadable response (${response.status}). Your unsaved edits are kept.`); }
-  if (!response.ok) throw new Error(result.error || `Request failed (${response.status}). Your unsaved edits are kept.`);
+  try { result = await response.json(); } catch { throw new Error(t('TranslationEditor.Unreadable', response.status)); }
+  if (!response.ok) throw new Error(t('TranslationEditor.RequestFailed', response.status) + (result.error ? ` ${result.error}` : ''));
   return result;
 }
 function message(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); $('message').hidden = !text; }
@@ -17,16 +44,17 @@ function dirtyCount() { return [...state.drafts.values()].reduce((sum, entries) 
 function updateActions() {
   const count = dirtyCount();
   $('save').disabled = state.busy || !count;
-  $('save').textContent = state.busy === 'save' ? 'Saving…' : 'Save changes';
+  $('save').textContent = state.busy === 'save' ? t('TranslationEditor.Saving') : t('TranslationEditor.Save');
   $('reload').disabled = state.busy;
-  $('reload').textContent = state.busy === 'load' ? 'Reloading…' : 'Reload';
+  $('reload').textContent = state.busy === 'load' ? t('TranslationEditor.Reloading') : t('TranslationEditor.Reload');
   $('open-language').disabled = state.busy || !state.workspace;
+  $('ui-language').disabled = !!state.busy;
   $('table-body').inert = !!state.busy;
   $('filters').inert = !!state.busy;
   document.querySelector('.table-footer').inert = !!state.busy;
   $('language-form').inert = state.busy === 'create';
-  $('add-language').textContent = state.busy === 'create' ? 'Adding…' : 'Add column';
-  $('dirty-count').textContent = count ? `${count} unsaved ${count === 1 ? 'translation' : 'translations'}` : 'No unsaved changes';
+  $('add-language').textContent = state.busy === 'create' ? t('TranslationEditor.Adding') : t('TranslationEditor.AddColumn');
+  $('dirty-count').textContent = count ? t('TranslationEditor.UnsavedCount', number(count)) : t('TranslationEditor.Clean');
   $('dirty-count').classList.toggle('dirty', count > 0);
 }
 function cellText(code, key) { return state.drafts.get(code)?.get(key)?.text ?? locale(code).strings[key] ?? ''; }
@@ -54,9 +82,9 @@ function fillSelect(id, entries, emptyLabel) {
   if ([...$(id).options].some(option => option.value === selected)) $(id).value = selected;
 }
 function updateOptions() {
-  fillSelect('lang', state.workspace.locales.map(item => [item.code, `${item.name} · ${item.code}`]), 'All languages');
+  fillSelect('lang', state.workspace.locales.map(item => [item.code, `${item.name} · ${item.code}`]), t('TranslationEditor.AllLanguages'));
   const sources = [...new Set(Object.values(state.workspace.catalog.strings).flatMap(entry => entry.sources))].sort();
-  fillSelect('source', sources.map(source => [source, source.replace('src/LightWeaver/', '')]), 'All source files');
+  fillSelect('source', sources.map(source => [source, source.replace('src/LightWeaver/', '')]), t('TranslationEditor.AllSources'));
 }
 function readUrl() {
   const params = new URLSearchParams(location.search);
@@ -65,6 +93,7 @@ function readUrl() {
 }
 function writeUrl() {
   const params = new URLSearchParams();
+  if (interfaceLanguage !== 'en') params.set('ui', interfaceLanguage);
   for (const field of fields) if ($(field).value.trim()) params.set(field, $(field).value.trim());
   history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
 }
@@ -101,60 +130,61 @@ function element(tag, className, text) { const node = document.createElement(tag
 function render() {
   const selectedLocales = visibleLocales();
   const header = element('tr');
-  header.append(element('th', '', 'English source'));
+  header.append(element('th', '', t('TranslationEditor.EnglishSource')));
   for (const item of selectedLocales) { const th = element('th', 'translation', item.name); th.append(element('span', 'language-code', item.code)); header.append(th); }
-  if (!selectedLocales.length) header.append(element('th', 'translation', 'Your translations'));
+  if (!selectedLocales.length) header.append(element('th', 'translation', t('TranslationEditor.YourTranslations')));
   $('table-head').replaceChildren(header);
   const pages = Math.max(1, Math.ceil(state.rows.length / pageSize));
   state.page = Math.min(state.page, pages - 1);
   const body = document.createDocumentFragment();
   for (const [key, entry] of state.rows.slice(state.page * pageSize, (state.page + 1) * pageSize)) {
     const row = element('tr');
-    const source = element('td');
+    const source = element('td', 'english-source');
+    source.dir = 'ltr';
     source.append(element('div', 'source-text', entry.text), element('p', 'string-key', key));
     const details = element('details', 'source-details');
-    details.append(element('summary', '', `${entry.sources.length} source ${entry.sources.length === 1 ? 'location' : 'locations'}`), element('p', '', entry.context));
+    details.append(element('summary', '', t('TranslationEditor.Locations', number(entry.sources.length))), element('p', '', entry.context));
     for (const file of entry.sources) details.append(element('p', '', file));
     source.append(details); row.append(source);
     for (const item of selectedLocales) {
       const cell = element('td', 'translation-cell');
       const input = element('textarea');
       input.value = cellText(item.code, key); input.maxLength = 16000; input.spellcheck = true;
-      input.lang = item.code; input.dir = 'auto'; input.setAttribute('aria-label', `${item.name} translation for ${entry.text}`);
-      input.placeholder = 'Enter a translation…';
+      input.lang = item.code; input.dir = /^(ar|fa|he|ur)(-|$)/i.test(item.code) ? 'rtl' : 'ltr'; input.setAttribute('aria-label', t('TranslationEditor.TranslationLabel', item.name, entry.text));
+      input.placeholder = t('TranslationEditor.EnterTranslation');
       const info = element('div', 'cell-info');
       const badge = element('span', 'badge');
       const refreshStatus = () => {
         const draft = state.drafts.get(item.code)?.has(key);
         const status = cellStatus(item, key);
         badge.className = `badge ${draft ? 'draft' : status}`;
-        badge.textContent = draft ? 'Unsaved' : { missing: 'Missing translation', stale: 'Needs review', translated: 'Translated' }[status];
+        badge.textContent = draft ? t('TranslationEditor.Unsaved') : { missing: t('TranslationEditor.MissingTranslation'), stale: t('TranslationEditor.Stale'), translated: t('TranslationEditor.Translated') }[status];
         input.classList.toggle('dirty', !!draft); input.classList.toggle('stale', !draft && status === 'stale');
       };
       input.addEventListener('input', () => { setDraft(item.code, key, input.value); refreshStatus(); });
       info.append(badge);
       if (item.stale.includes(key)) {
-        const review = element('button', 'review', 'Mark reviewed'); review.type = 'button';
-        review.title = 'Confirm this translation matches the current English text';
+        const review = element('button', 'review', t('TranslationEditor.MarkReviewed')); review.type = 'button';
+        review.title = t('TranslationEditor.ReviewTitle');
         review.addEventListener('click', () => { setDraft(item.code, key, input.value, true); refreshStatus(); }); info.append(review);
       }
       refreshStatus(); cell.append(input, info); row.append(cell);
     }
-    if (!selectedLocales.length) { const cell = element('td', 'no-language'); cell.append(element('p', '', 'Add a language to start translating. Each language appears as a column here.')); row.append(cell); }
+    if (!selectedLocales.length) { const cell = element('td', 'no-language'); cell.append(element('p', '', t('TranslationEditor.NoLanguages'))); row.append(cell); }
     body.append(row);
   }
   $('table-body').replaceChildren(body);
   const total = Object.keys(state.workspace.catalog.strings).length;
-  $('result-count').textContent = `${state.rows.length.toLocaleString()} of ${total.toLocaleString()} strings`;
-  $('filter-note').textContent = state.changed ? `Created or modified since ${state.changedBaseline}` : '';
+  $('result-count').textContent = t('TranslationEditor.ResultCount', number(state.rows.length), number(total));
+  $('filter-note').textContent = state.changed ? t('TranslationEditor.ChangedNote', state.changedBaseline) : '';
   $('empty').hidden = state.rows.length > 0;
-  $('page-info').textContent = state.rows.length ? `${state.page * pageSize + 1}–${Math.min((state.page + 1) * pageSize, state.rows.length)} · Page ${state.page + 1} of ${pages}` : '0 strings';
+  $('page-info').textContent = state.rows.length ? t('TranslationEditor.PageInfo', number(state.page * pageSize + 1), number(Math.min((state.page + 1) * pageSize, state.rows.length)), number(state.page + 1), number(pages)) : t('TranslationEditor.ZeroStrings');
   $('previous').disabled = state.page === 0; $('next').disabled = state.page >= pages - 1;
   updateActions();
 }
 async function load(initial = false) {
   if (state.busy) return;
-  if (!initial && dirtyCount() && !confirm(`Reload will discard ${dirtyCount()} unsaved translations. Reload anyway?`)) return;
+  if (!initial && dirtyCount() && !confirm(t('TranslationEditor.ReloadConfirm', number(dirtyCount())))) return;
   const previous = { workspace: state.workspace, drafts: state.drafts, rows: state.rows, page: state.page, changed: state.changed, changedBaseline: state.changedBaseline };
   const previousFilters = fields.map(field => $(field).value);
   const restore = () => {
@@ -168,11 +198,11 @@ async function load(initial = false) {
   state.busy = 'load'; clearTimeout(debounce); updateActions();
   try {
     const workspace = await api('/api/workspace');
-    state.workspace = workspace; state.drafts = new Map(); state.changedBaseline = ''; updateOptions();
+    state.workspace = workspace; applyInterface(); state.drafts = new Map(); state.changedBaseline = ''; updateOptions();
     if (initial) readUrl();
     const filtered = await applyFilters();
     if (!filtered) { restore(); return; }
-    if (!initial && filtered) message('Loaded the latest catalog and translations.');
+    if (!initial && filtered) message(t('TranslationEditor.Loaded'));
   } catch (error) { restore(); message(error.message, true); }
   finally { state.busy = false; updateActions(); }
 }
@@ -193,7 +223,8 @@ async function save() {
     }
     // Translation edits may change the active changed/status filters.
     state.changedBaseline = '';
-    if (await applyFilters(false)) message(`Saved ${count} ${count === 1 ? 'translation' : 'translations'}.`);
+    applyInterface(); updateOptions();
+    if (await applyFilters(false)) message(t('TranslationEditor.Saved', number(count)));
   } catch (error) { message(error.message, true); render(); }
   finally { state.busy = false; updateActions(); }
 }
@@ -202,12 +233,19 @@ function languageOptions() {
   const existing = new Set(state.workspace.locales.map(item => item.code.toLowerCase()));
   const choices = state.languages.filter(item => !existing.has(item.code.toLowerCase()) && `${item.name} ${item.englishName} ${item.code}`.toLocaleLowerCase().includes(query));
   fillSelect('language-choice', choices.map(item => [item.code, `${item.code} · ${item.englishName} · ${item.name}`]));
+  if (choices.length && $('language-choice').selectedIndex < 0) $('language-choice').selectedIndex = 0;
   languageSelection();
   $('add-language').disabled = !choices.length;
 }
 function languageSelection() {
-  $('language-selection').textContent = $('language-choice').selectedOptions[0]?.textContent || 'No matching languages.';
+  $('language-selection').textContent = $('language-choice').selectedOptions[0]?.textContent || t('TranslationEditor.NoMatchingLanguages');
 }
+$('ui-language').addEventListener('change', () => {
+  interfaceLanguage = $('ui-language').value;
+  try { localStorage.setItem('translation-editor-language', interfaceLanguage); } catch { /* Keep this session's choice. */ }
+  applyInterface();
+  if (state.workspace) { updateOptions(); render(); writeUrl(); }
+});
 $('open-language').addEventListener('click', async () => {
   if (state.busy) return;
   try {
@@ -227,7 +265,7 @@ $('language-form').addEventListener('submit', async event => {
   try {
     const item = await api('/api/languages', 'POST', { language: $('language-choice').value });
     if (!state.workspace.locales.some(existing => existing.code === item.code)) state.workspace.locales.push(item);
-    updateOptions(); $('lang').value = ''; $('language-dialog').close(); await applyFilters(); message(`Added ${item.name}.`);
+    updateOptions(); $('lang').value = ''; $('language-dialog').close(); await applyFilters(); message(t('TranslationEditor.Added', item.name));
   } catch (error) { $('language-error').textContent = error.message; $('language-error').hidden = false; }
   finally { state.busy = false; $('add-language').disabled = false; updateActions(); }
 });

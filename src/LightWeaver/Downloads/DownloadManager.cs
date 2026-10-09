@@ -29,6 +29,14 @@ public sealed class DownloadManager : IDisposable
         Timeout = Timeout.InfiniteTimeSpan,   // big files; cancellation governs lifetime
     };
 
+    private static readonly HttpClient SubtitleHttp = new(new SocketsHttpHandler
+    {
+        AutomaticDecompression = DecompressionMethods.All,
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectTimeout = TimeSpan.FromSeconds(10),
+    }) { Timeout = Timeout.InfiniteTimeSpan };
+
     /// <summary>How long a single read may make no progress before the transfer is failed (B18).
     /// Generous on purpose — a slow server or a stalled transcode is not a dead connection — but
     /// finite, which the infinite client timeout above left it not being.</summary>
@@ -47,11 +55,14 @@ public sealed class DownloadManager : IDisposable
     private readonly Func<int> _maxParallel;
     private readonly Func<DownloadItem, string?> _urlBuilder;
     private readonly Func<DownloadItem, string?> _authHeader;
+    private readonly Func<DownloadItem, DownloadSubtitleFile, string?>? _subtitleUrlBuilder;
     private readonly object _pumpLock = new();
     /// <summary>Created with the first partial-stream playback and disposed with the manager; an
     /// install that never streams a running download never opens a socket.</summary>
     private PartialFileServer? _partialServer;
     private bool _disposed;
+    private long _deletionGeneration;
+    public long DeletionGeneration => Interlocked.Read(ref _deletionGeneration);
 
     /// <summary>Any state or progress change; marshal to the dispatcher before touching UI.</summary>
     public event Action? DownloadsChanged;
@@ -70,11 +81,13 @@ public sealed class DownloadManager : IDisposable
     /// warm session since the multi-account rework); null = that server has no live
     /// session right now, and the download pauses cleanly.</summary>
     public DownloadManager(Func<int> maxParallel, Func<DownloadItem, string?> urlBuilder,
-        Func<DownloadItem, string?> authHeader)
+        Func<DownloadItem, string?> authHeader,
+        Func<DownloadItem, DownloadSubtitleFile, string?>? subtitleUrlBuilder = null)
     {
         _maxParallel = maxParallel;
         _urlBuilder = urlBuilder;
         _authHeader = authHeader;
+        _subtitleUrlBuilder = subtitleUrlBuilder;
         foreach (var item in _store.LoadAll())
             _live[item.ItemId] = item;
         Instance = this;
@@ -85,12 +98,15 @@ public sealed class DownloadManager : IDisposable
 
     public bool IsTracked(Guid itemId) => _live.ContainsKey(itemId);
 
+    public int ActiveDownloadCount => _live.Values.Count(i => i.Status == DownloadStatus.Downloading);
+
     /// <summary>The completed download for an item, with the Velly self-heal: a
     /// completed entry whose file vanished is dropped so playback falls back to the
     /// server instead of erroring on a missing path.</summary>
     public DownloadItem? GetCompletedDownload(Guid itemId)
     {
-        if (!_live.TryGetValue(itemId, out var item) || item.Status != DownloadStatus.Completed)
+        if (!_live.TryGetValue(itemId, out var item)
+            || item.Status != DownloadStatus.Completed && !item.VideoCompleted)
             return null;
         if (!File.Exists(item.FilePath))
         {
@@ -99,10 +115,33 @@ public sealed class DownloadManager : IDisposable
             RaiseChanged();
             return null;
         }
+        var fileLength = new FileInfo(item.FilePath).Length;
+        if (item.TotalBytes > 0 && fileLength != item.TotalBytes)
+        {
+            Persist(item with
+            {
+                Status = DownloadStatus.Failed,
+                VideoCompleted = false,
+                BytesDownloaded = fileLength,
+                ErrorMessage = L.Text("Downloads.IncompleteVideo"),
+            });
+            return null;
+        }
+        if (item.Status == DownloadStatus.Completed && item.SubtitleFiles.Any(s => !File.Exists(s.FilePath)))
+        {
+            item = item with
+            {
+                Status = DownloadStatus.Failed,
+                VideoCompleted = true,
+                ErrorMessage = L.Text("Downloads.MissingSubtitle"),
+            };
+            Persist(item);
+        }
         return item;
     }
 
-    public bool IsDownloaded(Guid itemId) => GetCompletedDownload(itemId) is not null;
+    public bool IsDownloaded(Guid itemId) => GetCompletedDownload(itemId) is { Status: DownloadStatus.Completed } item
+        && item.SubtitleFiles.All(s => File.Exists(s.FilePath));
 
     /// <summary>A loopback URL serving the partial file of a download that is RUNNING right now,
     /// or null when the item has nothing worth playing yet. One rung below
@@ -213,15 +252,18 @@ public sealed class DownloadManager : IDisposable
 
     public void Pause(Guid itemId)
     {
-        if (_active.TryRemove(itemId, out var cts))
-            cts.Cancel();
-        if (_live.TryGetValue(itemId, out var item)
-            && item.Status is DownloadStatus.Queued or DownloadStatus.Downloading)
+        lock (_pumpLock)
         {
-            Log($"pause {itemId:N}");
-            var paused = item with { Status = DownloadStatus.Paused };
-            Detail("pause", paused);
-            Persist(paused);
+            if (_active.TryGetValue(itemId, out var cts))
+                cts.Cancel();
+            if (_live.TryGetValue(itemId, out var item)
+                && item.Status is DownloadStatus.Queued or DownloadStatus.Downloading)
+            {
+                Log($"pause {itemId:N}");
+                var paused = item with { Status = DownloadStatus.Paused };
+                Detail("pause", paused);
+                Persist(paused);
+            }
         }
         Pump();
     }
@@ -261,6 +303,7 @@ public sealed class DownloadManager : IDisposable
                 Log($"remove {itemId:N}");
                 Detail("remove", item);
                 TryDeleteFile(item.FilePath);
+                DeleteSubtitles(item);
                 _store.Remove(itemId);
             }
         }
@@ -293,6 +336,7 @@ public sealed class DownloadManager : IDisposable
 
     public void DeleteAll()
     {
+        Interlocked.Increment(ref _deletionGeneration);
         foreach (var id in _live.Keys)
             _partialServer?.Withdraw(id);   // same reason as Remove: the files are about to go
         // The whole teardown holds the pump lock: without it, a just-cancelled task's
@@ -305,7 +349,10 @@ public sealed class DownloadManager : IDisposable
                 cts.Cancel();
             _active.Clear();
             foreach (var item in _live.Values)
+            {
                 TryDeleteFile(item.FilePath);
+                DeleteSubtitles(item);
+            }
             _live.Clear();
             _store.Save([]);
         }
@@ -343,13 +390,14 @@ public sealed class DownloadManager : IDisposable
                     return;
                 var cts = new CancellationTokenSource();
                 _active[next.ItemId] = cts;
-                _ = Task.Run(() => RunDownloadAsync(next.ItemId, cts.Token));
+                _ = Task.Run(() => RunDownloadAsync(next.ItemId, cts));
             }
         }
     }
 
-    private async Task RunDownloadAsync(Guid itemId, CancellationToken ct)
+    private async Task RunDownloadAsync(Guid itemId, CancellationTokenSource owner)
     {
+        var ct = owner.Token;
         var started = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -375,6 +423,12 @@ public sealed class DownloadManager : IDisposable
 
             Directory.CreateDirectory(Path.GetDirectoryName(item.FilePath)!);
             var startByte = File.Exists(item.FilePath) ? new FileInfo(item.FilePath).Length : 0L;
+
+            if (item.VideoCompleted && startByte > 0 && startByte == item.TotalBytes)
+            {
+                await CompletePackageAsync(itemId, startByte, started, ct).ConfigureAwait(false);
+                return;
+            }
 
             Log($"start {itemId:N} from byte {startByte}");
             Detail("start", running, FormattableString.Invariant($"resume_from={startByte}"));
@@ -402,7 +456,7 @@ public sealed class DownloadManager : IDisposable
                 {
                     Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
                         $"event=range_refused outcome=complete item={itemId:N} bytes_on_disk={startByte} bytes_total={serverTotal}"));
-                    MarkCompleted(itemId, startByte, started);
+                    await CompletePackageAsync(itemId, startByte, started, ct).ConfigureAwait(false);
                     return;
                 }
                 Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
@@ -442,11 +496,11 @@ public sealed class DownloadManager : IDisposable
                 var buffer = new byte[81920];
                 var totalRead = partial ? startByte : 0L;
                 var lastNotify = totalRead;
-                // NOTHING inside the loop below logs. The 512 KB progress notification is the
-                // narrowest granularity anything here runs at, and a record per notification is
-                // ~2000 lines for a 1 GB file - it would blow the rolling file's one retained
-                // generation on a single download. Byte progress is UI state, not diagnostics; the
-                // lifecycle records around the loop are what a failure needs.
+                var sampleClock = System.Diagnostics.Stopwatch.StartNew();
+                var lastSampleTime = TimeSpan.Zero;
+                UpdateProgressInMemory(itemId, totalRead, totalBytes, 0, ct);
+                // Progress is sampled by time so slow and unknown-size transfers stay visible.
+                // No progress tick is written to the index or diagnostic logs.
                 while (true)
                 {
                     // Per-read stall timeout (B18). The client's overall Timeout is deliberately
@@ -476,10 +530,15 @@ public sealed class DownloadManager : IDisposable
                     ct.ThrowIfCancellationRequested();
                     await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     totalRead += read;
-                    if (totalRead - lastNotify >= 512 * 1024)
+                    var now = sampleClock.Elapsed;
+                    if (now - lastSampleTime >= TimeSpan.FromMilliseconds(250))
                     {
-                        UpdateProgressInMemory(itemId, totalRead, totalBytes);
+                        // Flush the small FileStream buffer before advertising bytes to a player.
+                        await output.FlushAsync(ct).ConfigureAwait(false);
+                        var speed = (totalRead - lastNotify) / (now - lastSampleTime).TotalSeconds;
+                        UpdateProgressInMemory(itemId, totalRead, totalBytes, speed, ct);
                         lastNotify = totalRead;
+                        lastSampleTime = now;
                     }
                     if (ThrottleKbps > 0)
                         await Task.Delay(Math.Max(1, read / ThrottleKbps), ct).ConfigureAwait(false);
@@ -495,7 +554,8 @@ public sealed class DownloadManager : IDisposable
                 if (totalBytes > 0 && totalRead < totalBytes)
                     throw new IOException(L.Format("DownloadManager.TruncatedTransferGotOfBytes.dd0dadac", (totalRead), (totalBytes)));
 
-                MarkCompleted(itemId, totalRead, started);
+                await output.FlushAsync(ct).ConfigureAwait(false);
+                await CompletePackageAsync(itemId, totalRead, started, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -507,30 +567,35 @@ public sealed class DownloadManager : IDisposable
         }
         catch (Exception ex)
         {
-            Log($"failed {itemId:N}: {ex.Message}");
-            // The env-var log above is test instrumentation and off in a shipped build; the
-            // failure still reaches the user only as a red row with a one-line message.
-            //
-            // The EXCEPTION OBJECT is deliberately not passed to AppLog (M3). An IO failure on this
-            // path names the file it could not write, and a download's filename is built from the
-            // media title - so the message and its stack are exactly the leak the structural
-            // contract exists to prevent. Redaction masks the user directory, not the title. The
-            // type, the byte count and the state are what a failed transfer is diagnosed from.
-            if (_live.TryGetValue(itemId, out var item))
+            lock (_pumpLock)
             {
-                Diagnostics.AppLog.Error("downloads", FormattableString.Invariant(
-                    $"event=failed item={itemId:N} bytes_done={item.BytesDownloaded} bytes_total={item.TotalBytes} elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}"));
-                Persist(item with { Status = DownloadStatus.Failed, ErrorMessage = ex.Message });
-            }
-            else
-            {
-                Diagnostics.AppLog.Error("downloads", FormattableString.Invariant(
-                    $"event=failed item={itemId:N} outcome=untracked elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}"));
+                if (ct.IsCancellationRequested) return;
+                Log($"failed {itemId:N}: {ex.Message}");
+                // The env-var log above is test instrumentation and off in a shipped build; the
+                // failure still reaches the user only as a red row with a one-line message.
+                //
+                // The EXCEPTION OBJECT is deliberately not passed to AppLog (M3). An IO failure on this
+                // path names the file it could not write, and a download's filename is built from the
+                // media title - so the message and its stack are exactly the leak the structural
+                // contract exists to prevent. Redaction masks the user directory, not the title. The
+                // type, the byte count and the state are what a failed transfer is diagnosed from.
+                if (_live.TryGetValue(itemId, out var item))
+                {
+                    Diagnostics.AppLog.Error("downloads", FormattableString.Invariant(
+                        $"event=failed item={itemId:N} bytes_done={item.BytesDownloaded} bytes_total={item.TotalBytes} elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}"));
+                    Persist(item with { Status = DownloadStatus.Failed, ErrorMessage = ex.Message });
+                }
+                else
+                {
+                    Diagnostics.AppLog.Error("downloads", FormattableString.Invariant(
+                        $"event=failed item={itemId:N} outcome=untracked elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}"));
+                }
             }
         }
         finally
         {
-            _active.TryRemove(itemId, out _);
+            ((ICollection<KeyValuePair<Guid, CancellationTokenSource>>)_active)
+                .Remove(new KeyValuePair<Guid, CancellationTokenSource>(itemId, owner));
             Pump();
         }
     }
@@ -565,22 +630,128 @@ public sealed class DownloadManager : IDisposable
                 Progress = 1,
                 BytesDownloaded = bytes,
                 TotalBytes = bytes,
+                BytesPerSecond = 0,
             };
             Persist(completed);
             Completed?.Invoke(completed);
         }
     }
 
-    private void UpdateProgressInMemory(Guid itemId, long bytesDownloaded, long totalBytes)
+    private async Task CompletePackageAsync(Guid itemId, long bytes,
+        System.Diagnostics.Stopwatch started, CancellationToken ct)
     {
-        if (!_live.TryGetValue(itemId, out var item))
+        ct.ThrowIfCancellationRequested();
+        if (!_live.TryGetValue(itemId, out var item) || item.Status != DownloadStatus.Downloading)
             return;
-        _live[itemId] = item with
+        item = item with
         {
-            Progress = totalBytes > 0 ? (double)bytesDownloaded / totalBytes : 0,
+            VideoCompleted = true,
+            BytesDownloaded = bytes,
+            TotalBytes = bytes,
+            Progress = 1,
+            BytesPerSecond = 0,
+        };
+        lock (_pumpLock)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!_live.TryGetValue(itemId, out var current) || current.Status != DownloadStatus.Downloading)
+                return;
+            Persist(item);
+        }
+        foreach (var subtitle in item.SubtitleFiles)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!IsOwnedSubtitle(item, subtitle.FilePath))
+                throw new InvalidOperationException(L.Text("Downloads.UnownedSubtitle"));
+            if (File.Exists(subtitle.FilePath) && new FileInfo(subtitle.FilePath).Length > 0)
+                continue;
+            var url = _subtitleUrlBuilder?.Invoke(item, subtitle);
+            var auth = _authHeader(item);
+            if (url is null || auth is null)
+                throw new InvalidOperationException(L.Text("Downloads.SubtitleSessionRequired"));
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var subtitleUri)
+                || !Uri.TryCreate(item.ServerUrl, UriKind.Absolute, out var serverUri)
+                || subtitleUri.Scheme != serverUri.Scheme
+                || subtitleUri.Host != serverUri.Host || subtitleUri.Port != serverUri.Port
+                || subtitleUri.UserInfo.Length > 0)
+                throw new InvalidOperationException(L.Text("Downloads.SubtitleServerRequired"));
+            var partPath = subtitle.FilePath + ".part";
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(ReadStallTimeout);
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, subtitleUri);
+                request.Headers.TryAddWithoutValidation("Authorization", auth);
+                using var response = await SubtitleHttp.SendAsync(request,
+                    HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                if (response.StatusCode != HttpStatusCode.OK)
+                    throw new HttpRequestException(L.Format("Downloads.SubtitleHttpFailed", (int)response.StatusCode));
+                await using (var output = new FileStream(partPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (var input = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false))
+                {
+                    await input.CopyToAsync(output, timeout.Token).ConfigureAwait(false);
+                    await output.FlushAsync(timeout.Token).ConfigureAwait(false);
+                    if (output.Length == 0 || response.Content.Headers.ContentLength is { } length
+                        && output.Length != length)
+                        throw new IOException(L.Text("Downloads.IncompleteSubtitle"));
+                }
+                lock (_pumpLock)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!_live.TryGetValue(itemId, out var current)
+                        || current.Status != DownloadStatus.Downloading)
+                        throw new OperationCanceledException();
+                    File.Move(partPath, subtitle.FilePath, overwrite: true);
+                }
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                throw new IOException(L.Text("Downloads.SubtitleTimedOut"));
+            }
+        }
+        lock (_pumpLock)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (_live.TryGetValue(itemId, out var live) && live.Status == DownloadStatus.Downloading)
+                MarkCompleted(itemId, bytes, started);
+        }
+    }
+
+    private static bool IsOwnedSubtitle(DownloadItem item, string path)
+    {
+        var videoPath = Path.GetFullPath(item.FilePath);
+        var subtitlePath = Path.GetFullPath(path);
+        return string.Equals(Path.GetDirectoryName(videoPath), Path.GetDirectoryName(subtitlePath),
+                StringComparison.OrdinalIgnoreCase)
+            && Path.GetFileName(subtitlePath).StartsWith(Path.GetFileNameWithoutExtension(videoPath) + ".sub-",
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void DeleteSubtitles(DownloadItem item)
+    {
+        foreach (var subtitle in item.SubtitleFiles)
+        {
+            if (!IsOwnedSubtitle(item, subtitle.FilePath))
+                continue;
+            TryDeleteFile(subtitle.FilePath);
+            TryDeleteFile(subtitle.FilePath + ".part");
+        }
+    }
+
+    private void UpdateProgressInMemory(Guid itemId, long bytesDownloaded, long totalBytes,
+        double bytesPerSecond, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested || !_live.TryGetValue(itemId, out var item)
+            || item.Status != DownloadStatus.Downloading)
+            return;
+        _live.TryUpdate(itemId, item with
+        {
+            Progress = totalBytes > 0 ? Math.Clamp((double)bytesDownloaded / totalBytes, 0, 1) : 0,
             BytesDownloaded = bytesDownloaded,
             TotalBytes = totalBytes,
-        };
+            BytesPerSecond = bytesPerSecond,
+            ProgressTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+        }, item);
         RaiseChanged();
     }
 

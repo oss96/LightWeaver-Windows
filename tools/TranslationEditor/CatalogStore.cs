@@ -183,7 +183,7 @@ public sealed class CatalogStore(string repository)
 
     private async Task<(int ExitCode, string Output)> Git(params string[] arguments)
     {
-        var info = new ProcessStartInfo("git") { WorkingDirectory = repository, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        var info = new ProcessStartInfo("git") { WorkingDirectory = repository, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8, UseShellExecute = false, CreateNoWindow = true };
         foreach (var arg in arguments) info.ArgumentList.Add(arg);
         using var process = Process.Start(info)!;
         var output = process.StandardOutput.ReadToEndAsync();

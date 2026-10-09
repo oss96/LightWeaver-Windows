@@ -101,6 +101,7 @@ public partial class MainWindow : Window
         StickySubtitleApplyStatus Status, int? TrackId);
 
     private StickySubtitle? _stickySub;
+    private long _stickySubtitleTimestampMs;
 
     /// <summary>All subtitle load state is owned by one generation. A newer load replaces the
     /// object, so a delayed FILE_LOADED or track-list callback cannot mutate the incoming file.</summary>
@@ -121,6 +122,9 @@ public partial class MainWindow : Window
         public Task DiscardTask { get; set; } = Task.CompletedTask;
         public bool? ExplicitSubtitleOff { get; set; }
         public QualityTrackSnapshot? RestoreTracks { get; set; }
+        public bool DownloadAudioApplied { get; set; }
+        public bool DownloadSubtitleApplied { get; set; }
+        public HashSet<string> DownloadSubtitlePaths { get; } = new(StringComparer.OrdinalIgnoreCase);
 #if DEBUG
         public bool TestLateSubtitleScheduled { get; set; }
 #endif
@@ -155,6 +159,8 @@ public partial class MainWindow : Window
     }
 
     private ExternalSubtitleState? _externalSubs;
+    private Downloads.DownloadItem? _playingDownload;
+    private bool _downloadBatchPreparing;
 
     /// <summary>Per-profile shell caches (warm multi-account sessions, Phase 7): the
     /// browse history with its live view instances, the Home view, the search view,
@@ -202,6 +208,8 @@ public partial class MainWindow : Window
     private readonly Downloads.DownloadManager _downloads;
     private DownloadsView? _downloadsView;
     private bool _downloadsResumed;
+    private readonly System.Windows.Threading.DispatcherTimer _downloadActivityTimer;
+    private int _downloadPlayRequestSequence;
     private bool _playingLocal;
     // The item whose still-running download is being served over loopback right now. Doubles as
     // the one-shot marker for the fallback in PlaybackFailed: it is cleared before the retry, so
@@ -283,13 +291,23 @@ public partial class MainWindow : Window
         _downloads = new Downloads.DownloadManager(
             () => Math.Max(1, _settings.MaxParallelDownloads),
             d => _app.FindSessionByServer(d.ServerUrl)
-                ?.GetDownloadUrl(d.ItemId, d.MediaSourceId, d.MaxWidth, d.VideoBitRate, d.Container),
-            d => _app.FindSessionByServer(d.ServerUrl)?.AuthorizationHeader);
+                ?.GetDownloadUrl(d.ItemId, d.MediaSourceId, d.MaxWidth, d.VideoBitRate, d.Container, d.AudioStreamIndex),
+            d => _app.FindSessionByServer(d.ServerUrl)?.AuthorizationHeader,
+            (d, sub) => _app.FindSessionByServer(d.ServerUrl)
+                ?.GetDownloadSubtitleUrl(d.ItemId, d.MediaSourceId, sub.StreamIndex, sub.Codec));
         _downloads.Completed += d => Dispatcher.BeginInvoke(() =>
         {
             ShowToast(L.Format("MainWindow.DownloadComplete.a3df8de3", (d.Title)));
             _ = BroadcastDownloadBadgeAsync(d.ItemId);
+            TryAddDownloadSubtitles();
         });
+        _downloadActivityTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300),
+        };
+        _downloadActivityTimer.Tick += (_, _) => UpdateDownloadActivity();
+        _downloadActivityTimer.Start();
+        UpdateDownloadActivity();
         _playerViewModel.Configure(_settings);
         _playerViewModel.AttachQueue(_app.Queue);
         // Up Next advancement rides the queue when the item is its next entry.
@@ -306,6 +324,7 @@ public partial class MainWindow : Window
         _playerViewModel.AudioChosen += () =>
         {
             _trackSelectionSequence++;
+            if (_subtitleState is { } state) state.DownloadAudioApplied = true;
             if (_subtitleState?.RestoreTracks is { } restore)
                 _subtitleState.RestoreTracks = restore with { Audio = null };
         };
@@ -383,6 +402,7 @@ public partial class MainWindow : Window
     {
         UpdateBrowseHeader();
         UpdateSyncPlayControls();
+        UpdateDownloadActivity(refreshText: true);
         if (_playingItem is { } item)
             _playerViewModel.SetNowPlaying(item.PlaybackTitle, item.PlaybackSubtitle, item.PlaybackRelease);
     }
@@ -1002,52 +1022,82 @@ public partial class MainWindow : Window
         ShowCurrentFrame();
     }
 
-    /// <summary>Play from the Downloads screen. The fresh item fetch keeps resume/queue
-    /// semantics; an unreachable server falls back to raw local playback.</summary>
-    private async void OnDownloadPlayRequested(Downloads.DownloadItem download)
+    private void UpdateDownloadActivity(bool refreshText = false)
+    {
+        var count = _downloads.ActiveDownloadCount;
+        if (Theme.NavRail.GetBadgeCount(NavDownloads) == count && !refreshText)
+            return;
+        Theme.NavRail.SetBadgeCount(NavDownloads, count);
+        var label = count > 0 ? L.Format("Downloads.ActiveDownloads", count) : L.Text("MainWindow.Downloads.4bb41a3c");
+        NavDownloads.ToolTip = label;
+        System.Windows.Automation.AutomationProperties.SetName(NavDownloads, label);
+    }
+
+    /// <summary>Bound fresh resume lookup, then start the existing local/partial playback path.
+    /// Episode continuation runs after startup rather than holding up the selected video.</summary>
+    private async Task OnDownloadPlayRequested(Downloads.DownloadItem download)
+    {
+        var request = ++_downloadPlayRequestSequence;
+        var playbackSequence = _playbackSequence;
+        var session = _app.FindSessionByServer(download.ServerUrl);
+        var item = await Downloads.DownloadPlayback.ResolveMetadataAsync(download,
+            session is { IsConnected: true } ? ct => session.GetItemAsync(download.ItemId, ct) : null);
+        if (request != _downloadPlayRequestSequence || playbackSequence != _playbackSequence
+            || _downloadsView?.IsVisible != true)
+            return;
+        var current = _downloads.Snapshot().FirstOrDefault(i => i.ItemId == download.ItemId);
+        if (current is null || !new DownloadRow(current).CanPlay)
+        {
+            ShowToast(L.Text("MainWindow.NotEnoughOfThisDownloadHasArrived.6f4c9c8c"));
+            return;
+        }
+        if ((current.Status == Downloads.DownloadStatus.Completed || current.VideoCompleted)
+            && _downloads.GetCompletedDownload(current.ItemId) is null)
+        {
+            ShowToast(L.Text("Downloads.MissingVideo"));
+            return;
+        }
+        // Partial playback starts at the beginning, as the row's tooltip promises.
+        PlayItem(item, current.Status == Downloads.DownloadStatus.Completed || current.VideoCompleted ? item.ResumePositionTicks : 0,
+            session: session);
+        if (item is { Type: global::Jellyfin.Sdk.Generated.Models.BaseItemDto_Type.Episode, SeriesId: not null }
+            && session is { IsConnected: true } && !_syncPlay.IsInGroup)
+            _ = LoadDownloadEpisodeQueueAsync(item, session, _playbackSequence);
+    }
+
+    private async Task LoadDownloadEpisodeQueueAsync(Jellyfin.MediaItem item,
+        Jellyfin.JellyfinService session, int sequence)
     {
         try
         {
-            if (await _app.Jellyfin.GetItemAsync(download.ItemId) is { } item)
-            {
-                OnDetailPlayRequested(item, item.ResumePositionTicks);
+            var episodes = await session.GetSeriesEpisodesAsync(item.SeriesId!.Value);
+            if (sequence != _playbackSequence || _app.State != AppState.Playing || _playingItem?.Id != item.Id)
                 return;
-            }
+            var index = episodes.FindIndex(e => e.Id == item.Id);
+            if (index < 0) return;
+            var slice = episodes.Skip(index).Where(e => e.IsPlayable).ToList();
+            if (slice.Count < 2) return;
+            _app.Queue.Set(slice, 0);
+            ArmUpNext(slice[1], item, session);
         }
-        catch
+        catch (Exception ex)
         {
-            // fall through to the offline path
+            // Episode continuation is best-effort and never delays the selected download.
+            Diagnostics.AppLog.Detail("downloads", $"event=episode_queue outcome=failure item={item.Id:N} error={ex.GetType().Name}");
         }
-        // Offline. A completed download is the file itself; a running one has to go through the
-        // loopback server, because handing mpv the growing path directly would end playback at
-        // the byte the file happened to be at. There is no server to fall back to on this path,
-        // so a refusal is reported rather than silently doing nothing.
-        if (download.Status == Downloads.DownloadStatus.Completed)
-        {
-            PlayUrl(download.FilePath, null);
-            return;
-        }
-        // The name comes off the download row, not off the URL. GetDisplayName's last-path-segment
-        // rule is for files and readable URLs; a partial-stream URL is neither, and letting it name
-        // the playback put the loopback server's capability token on the OSD and into the
-        // system-wide SMTC panel, which every process on the machine can read.
-        if (_downloads.TryGetPartialStreamUrl(download.ItemId) is { } partialUrl)
-            PlayUrl(partialUrl, null, download.ItemId, download.Title, download.Subtitle);
-        else
-            ShowToast(L.Text("MainWindow.NotEnoughOfThisDownloadHasArrived.6f4c9c8c"));
     }
 
     // ---- Download flows (M20) ---------------------------------------------------------
 
     /// <summary>Resolution picker: original + lower transcode tiers with size estimates.
     /// The Settings default preselects its row; null = cancelled.</summary>
-    private async Task<Jellyfin.DownloadOption?> PickDownloadOptionAsync(Guid sampleItemId, string title)
+    private async Task<Downloads.DownloadSelection?> PickDownloadOptionAsync(Guid sampleItemId, string title)
     {
         var options = await _app.Jellyfin.GetDownloadOptionsAsync(sampleItemId);
         return await PickDownloadOptionAsync(options, title);
     }
 
-    private async Task<Jellyfin.DownloadOption?> PickDownloadOptionAsync(
+    private async Task<Downloads.DownloadSelection?> PickDownloadOptionAsync(
         IReadOnlyList<Jellyfin.DownloadOption> options, string title)
     {
         if (options.Count == 0)
@@ -1057,9 +1107,8 @@ public partial class MainWindow : Window
         }
         var pre = options.ToList().FindIndex(o =>
             o.Resolution.Equals(_settings.DefaultDownloadResolution, StringComparison.OrdinalIgnoreCase));
-        var pick = await Modal.ChooseAsync(L.Text("MainWindow.Download.6b5dfaec"), title,
-            options.Select(o => o.Label).ToList(), L.Text("MainWindow.Download.6b5dfaec"), Math.Max(0, pre));
-        return pick is { } i ? options[i] : null;
+        return await new DownloadOptionsPicker(options, _settings.PreferredAudioLanguage,
+            _settings.PreferredSubtitleLanguage).ChooseAsync(Modal, title, Math.Max(0, pre));
     }
 
     private async Task OnDownloadRequested(ItemDetailView source, Jellyfin.MediaItem item,
@@ -1080,11 +1129,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        var session = _app.Jellyfin;
         var opt = await PickDownloadOptionAsync(options, item.Name);
         if (opt is null)
             return;
-        EnqueueDownload(item, opt, includeSourceId: true);
-        ShowToast(L.Format("MainWindow.Downloading.3777412c", (item.Name)));
+        if (!ReferenceEquals(_nav.Current?.View, source) || !ReferenceEquals(_app.Jellyfin, session))
+            return;
+        EnqueueDownload(item, opt, session);
+        ShowToast(L.Format("MainWindow.Downloading.3777412c", item.Name));
     }
 
     private async void OnDownloadRemoveRequested(Jellyfin.MediaItem item)
@@ -1101,6 +1153,8 @@ public partial class MainWindow : Window
     /// quality pick (sampled from the first episode) applies to the whole batch.</summary>
     private async void OnDownloadAllRequested(Jellyfin.MediaItem container)
     {
+        if (_downloadBatchPreparing) return;
+        _downloadBatchPreparing = true;
         try
         {
             var jf = _app.Jellyfin;
@@ -1122,24 +1176,52 @@ public partial class MainWindow : Window
                 ShowToast(L.Text("MainWindow.NothingNewToDownload.ca8b424e"));
                 return;
             }
-            var opt = await PickDownloadOptionAsync(episodes[0].Id,
+            var sampleOptions = await jf.GetDownloadOptionsAsync(episodes[0].Id);
+            var opt = await PickDownloadOptionAsync(sampleOptions,
                 episodes.Count == 1 ? L.Format("MainWindow.1Episode.151f7c91", container.Name) : L.Format("MainWindow.Episodes.6dc37413", container.Name, episodes.Count));
             if (opt is null)
                 return;
-            // Batch items omit the sampled MediaSourceId — it belongs to the first
-            // episode only; the server serves each item's default source without it.
-            foreach (var ep in episodes)
-                EnqueueDownload(ep, opt, includeSourceId: false);
-            ShowToast(episodes.Count == 1 ? L.Text("MainWindow.Queued1Download.ed12bfce") : L.Format("MainWindow.QueuedDownloads.c3e812a0", episodes.Count));
+            var deletionGeneration = _downloads.DeletionGeneration;
+            ShowToast(L.Format("Downloads.PreparingLanguages", episodes.Count));
+            using var metadataGate = new SemaphoreSlim(4);
+            var prepared = await Task.WhenAll(episodes.Select(async ep =>
+            {
+                if (ep.Id == episodes[0].Id) return sampleOptions;
+                await metadataGate.WaitAsync();
+                try { return await jf.GetDownloadOptionsAsync(ep.Id); }
+                finally { metadataGate.Release(); }
+            }));
+            if (_downloads.DeletionGeneration != deletionGeneration)
+            {
+                ShowToast(L.Text("Downloads.PreparationCancelled"));
+                return;
+            }
+            var queued = 0;
+            var skipped = 0;
+            for (var index = 0; index < episodes.Count; index++)
+            {
+                var ep = episodes[index];
+                var resolved = Downloads.DownloadLanguages.ResolveForEpisode(opt, prepared[index]);
+                if (resolved is null) { skipped++; continue; }
+                try { EnqueueDownload(ep, resolved, jf); queued++; }
+                catch (InvalidOperationException) { skipped++; }
+            }
+            ShowToast((queued == 1 ? L.Text("MainWindow.Queued1Download.ed12bfce") : L.Format("MainWindow.QueuedDownloads.c3e812a0", queued))
+                + (skipped > 0 ? L.Format("Downloads.SkippedDownloads", skipped) : ""));
         }
         catch (Exception ex)
         {
             ShowToast(L.Format("MainWindow.CouldNotQueueDownloads.dade3799", (ex.Message)));
         }
+        finally { _downloadBatchPreparing = false; }
     }
 
-    private void EnqueueDownload(Jellyfin.MediaItem item, Jellyfin.DownloadOption opt, bool includeSourceId)
+    private void EnqueueDownload(Jellyfin.MediaItem item, Downloads.DownloadSelection selection,
+        Jellyfin.JellyfinService session)
     {
+        var opt = Downloads.DownloadLanguages.EffectiveQuality(selection);
+        if (opt != selection.Quality)
+            throw new InvalidOperationException(L.Text("Downloads.OriginalRequiredTracks"));
         var dir = _settings.DownloadDirectory is { Length: > 0 } custom
             ? custom
             : Downloads.DownloadStore.DefaultDirectory;
@@ -1151,22 +1233,25 @@ public partial class MainWindow : Window
         var safe = string.Concat(item.Name.Select(ch => invalid.Contains(ch) ? '_' : ch));
         if (safe.Length > 100)
             safe = safe[..100];
-        _downloads.Enqueue(new Downloads.DownloadItem
+        _downloads.Enqueue(Downloads.DownloadLanguages.ApplyToItem(selection, new Downloads.DownloadItem
         {
             ItemId = item.Id,
-            ServerUrl = _app.Jellyfin.ServerUrl ?? "",
+            ServerUrl = session.ServerUrl ?? "",
             Title = item.Name,
             Subtitle = item.CardSubtitle,
             PosterUrl = item.PosterUrl ?? item.ThumbUrl,
             FilePath = System.IO.Path.Combine(dir, FormattableString.Invariant($"{item.Id:N}_{safe}.{ext}")),
             Resolution = opt.Resolution,
-            MediaSourceId = includeSourceId ? opt.MediaSourceId : null,
+            MediaSourceId = opt.MediaSourceId,
             Container = ext,
             MaxWidth = opt.MaxWidth,
             VideoBitRate = opt.VideoBitRate,
-            TotalBytes = opt.EstimatedSizeBytes ?? -1,
+            TotalBytes = opt.IsOriginal ? opt.EstimatedSizeBytes ?? -1 : -1,
+            EstimatedTotalBytes = opt.IsOriginal ? -1 : opt.EstimatedSizeBytes ?? -1,
+            RuntimeTicks = item.RuntimeTicks,
+            PlaybackMetadata = item,
             AddedTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-        });
+        }));
     }
 
     /// <summary>Badge freshness (M20): completion/removal rebroadcasts the item through
@@ -1453,7 +1538,7 @@ public partial class MainWindow : Window
 
     private LibraryView CreateLibraryView(Jellyfin.MediaItem item, string? genre = null)
     {
-        var library = new LibraryView(_app, item, genre);
+        var library = new LibraryView(_app, item, genre, _settings);
         library.ItemSelected += OnBrowseItemSelected;
         library.PlayAllRequested += OnPlayAllRequested;
         library.GenresRequested += OnGenresRequested;
@@ -1509,6 +1594,7 @@ public partial class MainWindow : Window
         if (_syncPlayLoading) _syncPlayPlaybackSequence = playbackSequence;
         _pendingResumeTicks = resumeTicks;
         _externalSubs = null;
+        _playingDownload = null;
         _subtitleState = null;
         _playbackDecision = null;
         _transcodeRetryDone = false;
@@ -1535,8 +1621,7 @@ public partial class MainWindow : Window
         // the AutoPlayNextEpisode setting — that setting only decides whether it ADVANCES on
         // its own (decided 2026-07-30); a queue still overrides nothing here.
         if (_app.Queue.PeekNext() is { } queuedNext)
-            _playerViewModel.SetUpNext(queuedNext, _settings.AutoPlayCountdownSeconds,
-                _settings.AutoPlayNextEpisode);
+            ArmUpNext(queuedNext, item, _playbackJf);
         _ = LoadPlaybackMetadataAsync(item, playbackSequence);
         // Local-first (M20): a completed download plays from disk — no negotiation, no
         // auth header, no server session/progress reports. mpv still owns its render
@@ -1551,6 +1636,7 @@ public partial class MainWindow : Window
         if (_downloads.GetCompletedDownload(item.Id) is { } local)
         {
             _playingLocal = true;
+            _playingDownload = local;
             _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
                 available: false, visible: false);
             _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.LocalFile.cdf72b6f"));
@@ -1573,6 +1659,7 @@ public partial class MainWindow : Window
             is { } partialUrl)
         {
             _playingLocal = true;
+            _playingDownload = _downloads.Snapshot().FirstOrDefault(d => d.ItemId == item.Id);
             _partialStreamItem = item.Id;
             _partialStreamSequence = playbackSequence;
             _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
@@ -1689,14 +1776,17 @@ public partial class MainWindow : Window
 
     /// <summary>Negotiates the play method with the server, then starts playback.
     /// Falls back to plain direct play (pre-negotiation behavior) when the POST fails.</summary>
-    private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item, int playbackSequence)
+    private async Task StartNegotiatedPlaybackAsync(Jellyfin.MediaItem item, int playbackSequence,
+        QualityTrackSnapshot? restoreTracks = null)
     {
         // Switch to the video layer immediately — negotiation is one fast POST, but
         // the UI must not sit on the detail view waiting for the network.
         var jf = _playbackJf ?? _app.Jellyfin;
         _app.EnterPlayback();
         var decision = await jf.NegotiatePlaybackAsync(item.Id, EffectiveMaxBitrateBps,
-            forceTranscode: _overrideForceTranscode, mediaSourceId: _chosenMediaSourceId);
+            forceTranscode: _overrideForceTranscode, mediaSourceId: _chosenMediaSourceId,
+            audioStreamIndex: restoreTracks?.SourceAudio?.Index,
+            subtitleStreamIndex: restoreTracks?.SubtitleOff == true ? -1 : restoreTracks?.SourceSubtitle?.Index);
         // The generation counter, not just the item id: stopping and replaying the SAME item
         // while this POST is in flight leaves the id unchanged, so an id-only check let the
         // stale decision swap itself in and load a second time — two Start()s, and the first
@@ -1726,7 +1816,7 @@ public partial class MainWindow : Window
         if (decision is not { IsTranscode: true }
             && Environment.GetEnvironmentVariable("LIGHTWEAVER_BREAK_DIRECT_PLAY") == "1")
             url = url.Replace("/stream?", "/stream-broken?");
-        PlayCore(url, jf.AuthorizationHeader);
+        PlayCore(url, jf.AuthorizationHeader, restoreTracks: restoreTracks);
     }
 
     /// <summary>A direct play that failed gets one retry through the server transcoder
@@ -1750,7 +1840,9 @@ public partial class MainWindow : Window
         // not silently land on the default version when the user picked another one.
         var decision = await jf.NegotiatePlaybackAsync(item.Id, EffectiveMaxBitrateBps,
             forceTranscode: true,
-            mediaSourceId: _playbackDecision?.MediaSourceId ?? _chosenMediaSourceId);
+            mediaSourceId: _playbackDecision?.MediaSourceId ?? _chosenMediaSourceId,
+            audioStreamIndex: _qualityTrackSelection?.SourceAudio?.Index,
+            subtitleStreamIndex: _qualityTrackSelection?.SubtitleOff == true ? -1 : _qualityTrackSelection?.SourceSubtitle?.Index);
         if (_playingItem?.Id != item.Id || _playbackSequence != playbackSequence
             || _app.State != AppState.Playing)
         {
@@ -2106,7 +2198,7 @@ public partial class MainWindow : Window
                ?? (candidates.Count == 1 ? candidates[0] : null);
     }
 
-    private static bool RestoreQualityTracks(MpvPlayer player, SubtitleGenerationState state)
+    private static bool RestoreQualityTracks(MpvPlayer player, SubtitleGenerationState state, bool localTranscode)
     {
         if (state.RestoreTracks is not { } restore)
             return true;
@@ -2116,6 +2208,7 @@ public partial class MainWindow : Window
         if (restore.Audio is not null)
         {
             var audio = state.ReportDecision is not { IsTranscode: true }
+                    && !localTranscode
                     && restore.SourceAudio is { TypeOrdinal: >= 0 } sourceAudio
                 ? audioTracks.FirstOrDefault(t => t.Id == sourceAudio.TypeOrdinal + 1)
                 : null;
@@ -2151,7 +2244,11 @@ public partial class MainWindow : Window
         }
         else if (restore.Subtitle is not null)
         {
-            var subtitle = state.ReportDecision is not { IsTranscode: true }
+            var subtitle = restore.Subtitle.ExternalFilename is { } externalPath
+                ? subtitleTracks.FirstOrDefault(t => string.Equals(t.ExternalFilename, externalPath, StringComparison.OrdinalIgnoreCase))
+                : null;
+            subtitle ??= state.ReportDecision is not { IsTranscode: true }
+                    && !localTranscode
                     && restore.SourceSubtitle is { TypeOrdinal: >= 0 } sourceSubtitle
                 ? subtitleTracks.FirstOrDefault(t => t.Id == sourceSubtitle.TypeOrdinal + 1)
                 : null;
@@ -2173,7 +2270,8 @@ public partial class MainWindow : Window
     }
 
     private static MpvTrack? MatchReloadedTrack(MpvTrack selected, List<MpvTrack> choices)
-        => choices.FirstOrDefault(t =>
+        => (selected.ExternalFilename is { } path ? choices.FirstOrDefault(t => string.Equals(t.ExternalFilename, path, StringComparison.OrdinalIgnoreCase)) : null)
+           ?? choices.FirstOrDefault(t =>
                string.Equals(t.Lang, selected.Lang, StringComparison.OrdinalIgnoreCase)
                && string.Equals(t.Title, selected.Title, StringComparison.OrdinalIgnoreCase)
                && t.Forced == selected.Forced)
@@ -2292,13 +2390,14 @@ public partial class MainWindow : Window
                 // the user used to get NOTHING, and now gets a manual card. The setting is
                 // passed through as autoAdvance instead of gating the arming.
                 if (next is not null && !_app.Queue.IsActive)
-                    _playerViewModel.SetUpNext(next, _settings.AutoPlayCountdownSeconds,
-                        _settings.AutoPlayNextEpisode);
+                    ArmUpNext(next, fresh, jf);
             });
 
         await Step("external subtitles", async () =>
         {
-            var subs = await jf.GetExternalSubtitlesAsync(item.Id);
+            if (_playingLocal && _playingDownload?.DownloadLanguagesSelected == true)
+                return;
+            var subs = await jf.GetExternalSubtitlesAsync(item.Id, _playingLocal ? _playingDownload?.MediaSourceId : CurrentMediaSourceId);
             if (StillCurrent() && subs.Count > 0)
             {
                 _externalSubs = new ExternalSubtitleState(playbackSequence, subs);
@@ -2364,6 +2463,19 @@ public partial class MainWindow : Window
         external.AppliedGeneration = state.Generation;
         foreach (var sub in external.Subtitles)
             player.AddExternalSubtitle(sub.Url, sub.Title, sub.Language);
+    }
+
+    private void TryAddDownloadSubtitles()
+    {
+        if (!_playingLocal || _playingDownload is not { DownloadLanguagesSelected: true } download
+            || _player is not { } player || _subtitleState is not { FileLoaded: true } state
+            || state.Generation != player.LoadGeneration || state.PlaybackSequence != _playbackSequence)
+            return;
+        foreach (var sub in download.SubtitleFiles)
+        {
+            if (System.IO.File.Exists(sub.FilePath) && state.DownloadSubtitlePaths.Add(sub.FilePath))
+                player.AddExternalSubtitle(sub.FilePath, sub.Title, sub.Language);
+        }
     }
 
     private void OnVideoHwndReady(nint hwnd)
@@ -2548,6 +2660,7 @@ public partial class MainWindow : Window
                     state.FileLoaded = true;
                     state.DeferPendingCycles = true;
                     TryAddExternalSubtitles();
+                    TryAddDownloadSubtitles();
                     ApplyLanguagePreferences(generation);
                     // Preference restoration changes sid synchronously but its observed track-list
                     // can lag. Snapshot once more before applying queued S presses so their base
@@ -2727,7 +2840,7 @@ public partial class MainWindow : Window
         if (state.RestoreTracks is not null)
         {
             state.LanguagePreferencesApplied = true;
-            if (RestoreQualityTracks(player, state))
+            if (RestoreQualityTracks(player, state, _playingLocal && _playingDownload?.IsTranscoded == true))
             {
                 state.RestoreTracks = null;
                 state.StickyApplied = true;
@@ -2743,6 +2856,7 @@ public partial class MainWindow : Window
 
         if (state.PendingIntent is { } intent)
         {
+            state.DownloadSubtitleApplied = true;
             if (ApplyExactSubtitleIntent(player, intent))
             {
                 state.PendingIntent = null;
@@ -2751,6 +2865,37 @@ public partial class MainWindow : Window
             ApplyAudioPreference(player, state);
             TryApplyPendingSubtitleCycles(state);
             return;
+        }
+
+        if (_playingLocal && _playingDownload is { DownloadLanguagesSelected: true } download)
+        {
+            TryAddDownloadSubtitles();
+            if (!state.DownloadAudioApplied && download.PreferredAudioOrdinal is { } audioOrdinal)
+            {
+                var audio = player.Tracks.Where(t => t.Type == "audio").ElementAtOrDefault(audioOrdinal);
+                if (audio is not null) { player.SelectAudioTrack(audio.Id); state.DownloadAudioApplied = true; }
+            }
+            if (Downloads.DownloadPlayback.UseSavedSubtitlePreference(download,
+                    _stickySub is null ? 0 : _stickySubtitleTimestampMs))
+            {
+                if (!state.DownloadSubtitleApplied)
+                {
+                    var preferred = Downloads.DownloadPlayback.PreferredSubtitleTrack(download, player.Tracks);
+                    if (preferred is not null)
+                    {
+                        player.SelectSubtitleTrack(preferred.Id);
+                        state.DownloadSubtitleApplied = true;
+                    }
+                    else if (download.PreferredSubtitleFileIndex is null && download.PreferredSubtitleOrdinal == -1)
+                    {
+                        player.SelectSubtitleTrack(null);
+                        state.DownloadSubtitleApplied = true;
+                    }
+                }
+                if (download.PreferredAudioOrdinal is null) ApplyAudioPreference(player, state);
+                TryApplyPendingSubtitleCycles(state);
+                return;
+            }
         }
 
         // Retry the cross-file choice until late embedded/external tracks make it resolvable.
@@ -2809,7 +2954,8 @@ public partial class MainWindow : Window
         }
         state.LanguagePreferencesApplied = true;
 
-        if (_settings.PreferredAudioLanguage is { Length: > 0 } audioLang)
+        if (!(_playingLocal && _playingDownload?.PreferredAudioOrdinal is not null)
+            && _settings.PreferredAudioLanguage is { Length: > 0 } audioLang)
         {
             var match = player.Tracks.FirstOrDefault(t => t.Type == "audio"
                 && Languages.Matches(t.Lang, audioLang));
@@ -2855,6 +3001,20 @@ public partial class MainWindow : Window
 
     private void ApplyAudioPreference(MpvPlayer player, SubtitleGenerationState state)
     {
+        if (_playingLocal && _playingDownload?.PreferredAudioOrdinal is >= 0)
+        {
+            if (!state.DownloadAudioApplied)
+            {
+                var track = player.Tracks.Where(t => t.Type == "audio")
+                    .ElementAtOrDefault(_playingDownload.PreferredAudioOrdinal.Value);
+                if (track is not null)
+                {
+                    player.SelectAudioTrack(track.Id);
+                    state.DownloadAudioApplied = true;
+                }
+            }
+            return;
+        }
         if (state.LanguagePreferencesApplied || player.Tracks.Count == 0)
             return;
         state.LanguagePreferencesApplied = true;
@@ -2874,6 +3034,7 @@ public partial class MainWindow : Window
             return;
 
         _stickySub = new StickySubtitle(request.Off, request.Lang, request.Title, request.Forced);
+        _stickySubtitleTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         state.ExplicitSubtitleOff = request.Off;
         _trackSelectionSequence++;
         if (state.RestoreTracks is { } restore)
@@ -3174,6 +3335,39 @@ public partial class MainWindow : Window
         // below, never inside this call.
         _playerViewModel.SetUpNext(null);
         RearmUpNextAfterFallback(_playbackSequence);
+        QualityTrackSnapshot? downloadTracks = null;
+        if (_playingDownload is { DownloadLanguagesSelected: true } download)
+        {
+            var loaded = _subtitleState is { FileLoaded: true } state && _player is { } activePlayer
+                && state.Generation == activePlayer.LoadGeneration;
+            var tracks = loaded ? _player!.Tracks : [];
+            var off = _subtitleState?.ExplicitSubtitleOff
+                ?? (_stickySub is { Off: true } && _stickySubtitleTimestampMs > download.PlaybackPreferenceTimestampMs
+                    ? true : (bool?)null);
+            var selected = Downloads.DownloadPlayback.FallbackTracks(download, tracks, loaded, off);
+            var audio = selected.Audio;
+            if (!loaded && !download.IsTranscoded && download.PreferredAudioOrdinal is null
+                && _settings.PreferredAudioLanguage is { Length: > 0 } audioLanguage)
+            {
+                var source = download.AudioTracks.FirstOrDefault(t => Languages.Matches(t.Language, audioLanguage));
+                if (source is not null) audio = new(source.Index, source.TypeOrdinal, source.Display,
+                    source.Language, source.Title, source.IsDefault, source.IsExternal);
+            }
+            var subtitle = selected.Subtitle;
+            if (!loaded && !selected.SubtitleOff && subtitle is null
+                && _settings.PreferredSubtitleLanguage is { Length: > 0 } language)
+            {
+                var source = download.SubtitleTracks.FirstOrDefault(t => Languages.Matches(t.Language, language));
+                if (source is not null) subtitle = new(source.Index, source.TypeOrdinal, source.Display,
+                    source.Language, source.Title, source.IsDefault, source.IsExternal);
+            }
+            static MpvTrack? StandIn(Jellyfin.MediaStreamChoice? source, string type) => source is null ? null
+                : new(0, type, source.Title, source.Language, true, source.IsDefault, false);
+            downloadTracks = new(tracks.FirstOrDefault(t => t is { Type: "audio", Selected: true }) ?? StandIn(audio, "audio"),
+                tracks.FirstOrDefault(t => t is { Type: "sub", Selected: true }) ?? StandIn(subtitle, "sub"),
+                selected.SubtitleOff, audio, subtitle);
+            _qualityTrackSelection = downloadTracks;
+        }
         // A download that FINISHED while its own partial stream was playing: the complete file is
         // on the disk, so retreating to the server would pull bytes over the LAN that are already
         // here. Reachable through PartialFileServer.WithdrawDelivered — a reader handed the whole
@@ -3186,10 +3380,14 @@ public partial class MainWindow : Window
             // re-run there because it first ran under _playingLocal, and this playback is still
             // local. Nothing it decided has changed.
             _playerViewModel.SetLivePlayMethod(() => L.Text("MainWindow.LocalFile.cdf72b6f"));
-            PlayCore(local.FilePath, null);
+            _playingDownload = local;
+            PlayCore(local.FilePath, null, restoreTracks: downloadTracks);
             return true;
         }
+        if (_playingDownload is { DownloadLanguagesSelected: true } sourceDownload)
+            _chosenMediaSourceId = sourceDownload.MediaSourceId;
         _playingLocal = false;
+        _playingDownload = null;
         _playerViewModel.SetQualityState(null, false, _settings.MaxStreamingBitrateMbps,
             available: false);
         _playerViewModel.SetPlayMethod(null);
@@ -3200,8 +3398,19 @@ public partial class MainWindow : Window
         // ends up on is missing both for the rest of its life. The steps are idempotent and their
         // fetches are cached.
         _ = LoadPlaybackMetadataAsync(partialItem, _playbackSequence);
-        _ = StartNegotiatedPlaybackAsync(partialItem, _playbackSequence);
+        _ = StartNegotiatedPlaybackAsync(partialItem, _playbackSequence, downloadTracks);
         return true;
+    }
+
+    private void ArmUpNext(Jellyfin.MediaItem next, Jellyfin.MediaItem? current, Jellyfin.JellyfinService session)
+    {
+        // The countdown and auto-advance are global. The card's lead time resolves against the
+        // episode being left and its pinned playback session, not the next queue entry or the
+        // currently selected browse profile.
+        var seriesId = current?.Type == global::Jellyfin.Sdk.Generated.Models.BaseItemDto_Type.Episode
+            ? current.SeriesId : null;
+        var lead = Settings.UpNextPreferences.ResolveLeadSeconds(_settings, session.ServerUrl, session.UserId, seriesId);
+        _playerViewModel.SetUpNext(next, _settings.AutoPlayCountdownSeconds, _settings.AutoPlayNextEpisode, lead);
     }
 
     /// <summary>Puts the queue's Up Next card back after a partial-stream fallback took it down,
@@ -3226,8 +3435,7 @@ public partial class MainWindow : Window
             if (_app.State != AppState.Playing || _playbackSequence != playbackSequence)
                 return;
             if (_app.Queue.PeekNext() is { } queuedNext)
-                _playerViewModel.SetUpNext(queuedNext, _settings.AutoPlayCountdownSeconds,
-                    _settings.AutoPlayNextEpisode);
+                ArmUpNext(queuedNext, _playingItem, _playbackJf ?? _app.Jellyfin);
         });
     }
 
@@ -3296,6 +3504,8 @@ public partial class MainWindow : Window
             ReportDecision = _playbackDecision,
             ReportOwner = _playbackJf,
             RestoreTracks = restoreTracks,
+            DownloadAudioApplied = restoreTracks?.Audio is not null || restoreTracks?.SourceAudio is not null,
+            DownloadSubtitleApplied = restoreTracks is not null,
             ExplicitSubtitleOff = restoreTracks?.SubtitleOff,
         };
 
@@ -4184,6 +4394,7 @@ public partial class MainWindow : Window
         _live.Dispose();
         // Closes the loopback listener if a partial-download playback left one open. The downloads
         // themselves are unaffected — this owns nothing but the socket.
+        _downloadActivityTimer.Stop();
         _downloads.Dispose();
         Jellyfin.BrowsePrefetcher.CancelAll();
         _player?.Dispose();

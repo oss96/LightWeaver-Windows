@@ -17,7 +17,7 @@ public sealed record MpvAudioDevice(string Name, string Description);
 
 /// <summary>One entry of mpv's track-list (video/audio/sub tracks of the current file).</summary>
 public sealed record MpvTrack(int Id, string Type, string? Title, string? Lang, bool Selected, bool Default, bool Forced,
-    string? Codec = null, int Width = 0, int Height = 0)
+    string? Codec = null, int Width = 0, int Height = 0, string? ExternalFilename = null)
 {
     public string Display
     {
@@ -142,6 +142,9 @@ public sealed class MpvPlayer : IDisposable
     private IReadOnlyList<MpvTrack>? _testCapturedTracks;
 #endif
     public event Action? EndReached;
+    /// <summary>eof-reached went false again after <see cref="EndReached"/>: a seek left the end
+    /// of the file. <see cref="LoadFile"/> resets the latch without raising it.</summary>
+    public event Action? EndCleared;
     public event Action<string>? LogMessage;
 
     /// <summary>Raises <see cref="LogMessage"/> and breadcrumbs the same text for the diagnostics
@@ -1590,7 +1593,8 @@ public sealed class MpvPlayer : IDisposable
                     Forced: el.TryGetProperty("forced", out var fo) && fo.GetBoolean(),
                     Codec: el.TryGetProperty("codec", out var co) ? co.GetString() : null,
                     Width: el.TryGetProperty("demux-w", out var dw) ? dw.GetInt32() : 0,
-                    Height: el.TryGetProperty("demux-h", out var dh) ? dh.GetInt32() : 0));
+                    Height: el.TryGetProperty("demux-h", out var dh) ? dh.GetInt32() : 0,
+                    ExternalFilename: el.TryGetProperty("external-filename", out var ef) ? ef.GetString() : null));
             }
             return list;
         }
@@ -2290,9 +2294,10 @@ public sealed class MpvPlayer : IDisposable
                         _eofRaised = true;
                         EndReached?.Invoke();
                     }
-                    else if (!eof)
+                    else if (!eof && _eofRaised)
                     {
                         _eofRaised = false;
+                        EndCleared?.Invoke();
                     }
                 });
                 break;

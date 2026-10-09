@@ -25,9 +25,11 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <!-- Queue entry points: visible for seasons/series/playlists only -->
-            <StackPanel x:Name="QueueActions" Grid.Row="0" Grid.Column="0" Orientation="Horizontal"
-                        Visibility="Collapsed" VerticalAlignment="Center">
+            <!-- Queue entry points: visible for seasons/series/playlists only. A WrapPanel so the
+                 Up Next pill drops to its own line rather than clipping when a translated row
+                 does not fit at the 700 px minimum (UpdateQueueActionsWrap). -->
+            <WrapPanel x:Name="QueueActions" Grid.Row="0" Grid.Column="0" Orientation="Horizontal"
+                       Visibility="Collapsed" VerticalAlignment="Center">
                 <Button x:Name="PlayAllButton" Style="{StaticResource LwButtonPrimary}"
                         Height="34" Padding="16,0"
                         Click="OnPlayAll" AutomationProperties.AutomationId="PlayAllButton">
@@ -48,7 +50,25 @@
                         <TextBlock Text="{loc:Text LibraryView.Download.2d9a3527}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
+                <!-- When the Up Next card appears for this whole show (series and season pages).
+                     The label shows what is in effect; the flyout below changes it. Opens on
+                     Click, not on press, so the popup can take capture and close on an outside
+                     click. Shown only when the page resolves a show key (LibraryView.xaml.cs). -->
+                <Button x:Name="UpNextButton" Style="{StaticResource LwButtonSecondary}"
+                        Height="34" Padding="16,0" Margin="10,0,0,0" Visibility="Collapsed"
+                        Click="OnUpNextClick" ToolTip="{loc:Text LibraryView.UpNextTooltip}"
+                        AutomationProperties.AutomationId="UpNextLeadButton">
+                    <!-- Same glyph as the episode page's Up Next button, laid out like Download all. -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{StaticResource IconUpNextLead}"
+                                   FontFamily="{StaticResource LwFontIcon}" FontSize="16"
+                                   VerticalAlignment="Center" Margin="0,0,7,0"
+                                   AutomationProperties.AutomationId="UpNextLeadButtonIcon" />
+                        <TextBlock x:Name="UpNextButtonText" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="UpNextLeadButtonText" />
+                    </StackPanel>
+                </Button>
+            </WrapPanel>
             <!-- Item count (paged grids) -->
             <!-- The id exists so a suite can read the total. It is the only surface that
                  distinguishes an exact-prefix letter filter from the server's letter-JUMP: the
@@ -159,5 +179,8 @@
                  it can never sit under the A-Z rail, bottom-centred over the last card row. -->
             <views:LoadMoreIndicator x:Name="MoreLoading" Grid.Column="0" />
         </Grid>
+        <!-- The Up Next flyout, shared with the episode page (UpNextShowFlyout). Takes no room;
+             anchored to UpNextButton in code. -->
+        <views:UpNextShowFlyout x:Name="ShowLeadFlyout" />
     </Grid>
 </UserControl>

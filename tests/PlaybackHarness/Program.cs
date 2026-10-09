@@ -16,7 +16,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        if (args.Length > 0 && args[0] is LocalizationUiFixture.Mode or LocalizationUiFixture.RestartMode or LocalizationUiFixture.GermanMode or LocalizationUiFixture.EnglishMode)
+        if (args.Length > 0 && args[0] is LocalizationUiFixture.Mode or LocalizationUiFixture.RestartMode or LocalizationUiFixture.GermanMode or LocalizationUiFixture.EnglishMode
+            or LocalizationUiFixture.UpNextMode or LocalizationUiFixture.UpNextGermanMode
+            or LocalizationUiFixture.UpNextEpisodeMode or LocalizationUiFixture.UpNextEpisodeGermanMode)
             return LocalizationUiFixture.Run(args);
         if (args.Length == 4 && args[0] == "--serve")
             return HttpMediaFixture.Run(args[1], args[2], args[3]).GetAwaiter().GetResult();
@@ -31,6 +33,13 @@ internal static class Program
             return SyncPlayTwoClientFixture.Run();
         Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT",
             Path.Combine(Path.GetTempPath(), "lw-playback-harness-" + Guid.NewGuid().ToString("N")));
+        if (args.Contains("--download-contract")) return DownloadUxFixture.RunContracts();
+        if (args.Contains("--download-languages")) return DownloadLanguagesFixture.RunAsync().GetAwaiter().GetResult();
+        if (args.Contains("--download-language-ui")) return DownloadLanguagesFixture.RunUi();
+        if (args.Contains("--download-ui")) return DownloadUxFixture.RunUi();
+        if (args.Contains("--person-search-ui")) return PersonSearchFixture.RunUi();
+        if (args.Contains(UpNextContractFixture.Mode))
+            return UpNextContractFixture.Run();
         if (args.Contains("--http-headers"))
         {
             HttpHeaderFixture.Run(Test);
@@ -41,6 +50,13 @@ internal static class Program
             return QualityContractFixture.RunAsync().GetAwaiter().GetResult();
         if (args.Contains("--live-session"))
             return LiveSessionFixture.RunAsync().GetAwaiter().GetResult();
+        // Live and windowless: needs the signed-in 'test' debug profile and its server, nothing else.
+        if (args.Contains(Jellyfin12ProbeFixture.Mode))
+            return Jellyfin12ProbeFixture.Run();
+        if (args.Contains(Jellyfin12UiFixture.Mode))
+            return Jellyfin12UiFixture.Run();
+        if (args.Contains(Jellyfin12PlaybackFixture.Mode))
+            return Jellyfin12PlaybackFixture.Run();
         // Its own mode like the two above, and for the opposite reason: it needs nothing at all —
         // no window, no mpv, no server — so it has no business paying for the default run's mpv
         // instance, and a wait-at-the-write-head assertion measured in seconds has no business

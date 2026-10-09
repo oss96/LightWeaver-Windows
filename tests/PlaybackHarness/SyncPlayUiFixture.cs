@@ -245,6 +245,7 @@ internal static class SyncPlayUiFixture
             overlay.SetBoundsFromOwner(main.Left, main.Top, 700, 480);
             overlay.Show();
             Pump();
+            CheckQualityFlyout(overlay, vm, entry);
             Check(Element<ToggleButton>(overlay, "SyncPlayButton").IsVisible, "playback exposes group pill");
             Check(!Element<FrameworkElement>(overlay, "QualityTierControl").IsEnabled, "group disables quality changes");
             Check(!Element<FrameworkElement>(overlay, "VersionSection").IsEnabled, "group disables version changes");
@@ -324,6 +325,14 @@ internal static class SyncPlayUiFixture
             Capture(overlay, "restored-volume");
             SetGroup(vm, null);
             Check(Element<FrameworkElement>(overlay, "QualityTierControl").IsEnabled, "leaving restores quality control");
+            vm.SetQualityState(null, false, 20);
+            Click(overlay, "QualityButton");
+            Element<LwSegmentedControl>(overlay, "QualityTierControl").SelectedIndex = 3;
+            Check(vm.QualityTierIndex == 3, "dedicated quality picker updates the existing quality binding");
+            Element<CheckBox>(overlay, "QualityForceTranscodeControl").IsChecked = true;
+            Check(vm.QualityForceTranscode, "dedicated transcode toggle updates the existing quality binding");
+            SendKey(Element<LwSegmentedControl>(overlay, "QualityTierControl"), Key.Escape);
+            Check(!Element<Popup>(overlay, "QualityPopup").IsOpen, "Escape from the focused quality picker dismisses its flyout");
             overlay.Hide();
         }
         catch (Exception ex)
@@ -334,6 +343,91 @@ internal static class SyncPlayUiFixture
         finally { dialog?.Dispose(); main?.Close(); app.Shutdown(); }
         Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_assertions} sync play UI assertions, {_failures} failures)");
         return _failures == 0 ? 0 : 1;
+    }
+
+    private static void CheckQualityFlyout(OverlayWindow overlay, PlayerViewModel vm, Guid nextEntry)
+    {
+        var button = Element<Button>(overlay, "QualityButton");
+        var popup = Element<Popup>(overlay, "QualityPopup");
+        var tier = Element<LwSegmentedControl>(overlay, "QualityTierControl");
+        var bridged = 0;
+        overlay.KeyPressed += CountBridged;
+        void CountBridged(KeyEventArgs _) => bridged++;
+        try
+        {
+            // Track choices put the track pills in the row too: the DockPanel squeezes the
+            // last-declared right-docked children first, and those are the track pills.
+            SetTrackChoices(vm, true);
+            SetQueue(vm, []);
+            var movie = Squeezed(overlay);
+            Check(movie.Length == 0, "a movie row with quality and tracks fits at 700x480" + Describe(movie));
+            Check(Element<Button>(overlay, "TracksButton").IsVisible || Element<Button>(overlay, "AudioTracksButton").IsVisible,
+                "track choices stay reachable beside the quality button");
+            SetQueue(vm, [new(0, "Current episode", true, Guid.NewGuid()), new(1, "Next episode", false, nextEntry)]);
+            vm.SetQualityState(null, false, 20, visible: false);
+            var withoutQuality = Squeezed(overlay);
+            vm.SetQualityState(null, false, 20);
+            var withQuality = Squeezed(overlay);
+            Check(!withQuality.Contains("QualityButton") && withQuality.All(withoutQuality.Contains),
+                "quality squeezes nothing out of a queue row at 700x480" + Describe(withQuality)
+                + (withoutQuality.Length == 0 ? "" : $" (already squeezed without quality: {string.Join(", ", withoutQuality)})"));
+            Check(button.IsVisible && button.ActualWidth > 50, "narrow player exposes a readable dedicated quality button");
+            Click(overlay, "InfoButton");
+            var info = Element<Popup>(overlay, "InfoPopup");
+            Check(info.IsOpen && !popup.IsOpen && FindById(info.Child, "QualityDefault") is null,
+                "Info opens diagnostics without quality controls");
+            Capture(info.Child, "info-diagnostics");
+            Click(overlay, "QualityButton");
+            Check(popup.IsOpen && !info.IsOpen && popup.PlacementTarget == button,
+                "Quality opens its own anchored flyout and dismisses Info");
+            var panel = (FrameworkElement)popup.Child;
+            var panelLeft = panel.PointToScreen(new Point()).X;
+            var panelRight = panel.PointToScreen(new Point(panel.ActualWidth, 0)).X;
+            Check(panelLeft >= overlay.PointToScreen(new Point()).X - 2
+                && panelRight <= overlay.PointToScreen(new Point(overlay.ActualWidth, 0)).X + 2,
+                "narrow quality flyout stays inside the playback window");
+            Check(!tier.IsEnabled && !Element<CheckBox>(overlay, "QualityForceTranscodeControl").IsEnabled,
+                "dedicated quality flyout retains SyncPlay restrictions");
+            Check(((IEnumerable<Popup>)typeof(OverlayWindow).GetProperty("Flyouts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(overlay)!).Contains(popup), "quality participates in central flyout lifecycle");
+            typeof(OverlayWindow).GetMethod("HideControls", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(overlay, null);
+            Check(Field<FrameworkElement>(overlay, "ControlsPanel").Opacity > 0, "open quality flyout keeps player controls awake");
+            SendKey(overlay, Key.Space);
+            Check(bridged == 0, "open quality flyout suppresses playback shortcut forwarding");
+            Capture(popup.Child, "quality-group");
+            CaptureScreen(overlay, popup, "quality-narrow");
+            SendKey(overlay, Key.Escape);
+            Check(!popup.IsOpen && button.IsKeyboardFocused, "Escape closes quality and restores button focus");
+            SendKey(button, Key.Enter);
+            Check(popup.IsOpen && bridged == 0, "focused quality button opens with Enter without a playback shortcut");
+            ClickNative(overlay, button);
+            Check(!popup.IsOpen, "native quality button click closes its flyout without reopening");
+            ClickNative(overlay, button);
+            Check(popup.IsOpen, "native quality button press opens its flyout");
+            ClickControlsBackground(overlay);
+            Check(!popup.IsOpen, "native outside click dismisses the quality flyout");
+            vm.SetQualityState(null, false, 20, available: false);
+            Click(overlay, "QualityButton");
+            Check(button.IsVisible && !tier.IsEnabled, "quality remains visible with disabled choices while unavailable");
+            vm.SetQualityState(null, false, 20, visible: false);
+            Pump();
+            Check(!popup.IsOpen && !button.IsVisible, "local or URL quality state hides its button and closes the flyout");
+            vm.SetQualityState(null, false, 20);
+            Click(overlay, "QualityButton");
+            overlay.SetMiniMode(true);
+            Pump();
+            Check(!popup.IsOpen && !button.IsVisible, "mini mode closes quality and hides its button");
+            overlay.SetMiniMode(false);
+            Pump();
+            Check(button.IsVisible, "leaving mini mode restores the quality visibility binding");
+            Click(overlay, "QualityButton");
+            overlay.Hide();
+            Check(!popup.IsOpen, "hiding the playback overlay closes quality");
+            overlay.Show();
+            Pump();
+            SetTrackChoices(vm, false);
+        }
+        finally { overlay.KeyPressed -= CountBridged; }
     }
 
     private static T Field<T>(object owner, string name) where T : class
@@ -382,6 +476,23 @@ internal static class SyncPlayUiFixture
     }
     private static void ClickOutside(Window host, FrameworkElement anchor)
         => ClickPoint(host, anchor.PointToScreen(new Point(-50, 20)));
+    // A squeezed DockPanel child keeps its ActualWidth and is clipped to a narrower layout
+    // slot, so the slot is what tells.
+    private static string[] Squeezed(OverlayWindow overlay)
+    {
+        Pump();
+        return Field<DockPanel>(overlay, "ControlsRow").Children.OfType<FrameworkElement>()
+            .Where(c => c.IsVisible && LayoutInformation.GetLayoutSlot(c).Width + 0.5 < c.ActualWidth + c.Margin.Left + c.Margin.Right)
+            .Select(c => c.Name).ToArray();
+    }
+    private static string Describe(string[] squeezed)
+        => squeezed.Length == 0 ? "" : $" (squeezed: {string.Join(", ", squeezed)})";
+    // The scrim's bottom-left padding: opaque, owned by the overlay, and no control's hit area.
+    private static void ClickControlsBackground(OverlayWindow overlay)
+    {
+        var panel = Field<FrameworkElement>(overlay, "ControlsPanel");
+        ClickPoint(overlay, panel.PointToScreen(new Point(6, panel.ActualHeight - 8)));
+    }
     private static void ClickNative(Window host, FrameworkElement anchor)
     {
         AssertOwned(host, anchor);
@@ -445,6 +556,23 @@ internal static class SyncPlayUiFixture
         => typeof(PlayerViewModel).GetMethod("SetSyncPlay", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(vm, [info]);
     private static void SetQueue(PlayerViewModel vm, IReadOnlyList<QueueRow> rows)
         => typeof(PlayerViewModel).GetMethod("SetSyncPlayQueue", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(vm, [rows]);
+    private static void SetTrackChoices(PlayerViewModel vm, bool on)
+    {
+        vm.AudioTracks.Clear();
+        vm.SubtitleTracks.Clear();
+        if (on)
+        {
+            vm.AudioTracks.Add(new(1, "English", true));
+            vm.AudioTracks.Add(new(2, "German", false));
+            vm.SubtitleTracks.Add(new(-1, "Off", true));
+            vm.SubtitleTracks.Add(new(1, "English", false));
+        }
+        var raise = typeof(ObservableObject).GetMethod("OnPropertyChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        foreach (var name in new[] { nameof(PlayerViewModel.HasAudioChoices), nameof(PlayerViewModel.HasSubtitleChoices),
+                     nameof(PlayerViewModel.HasTrackChoices) })
+            raise.Invoke(vm, [name]);
+        Pump();
+    }
     private static void SetPending(PlayerViewModel vm, bool value)
         => typeof(PlayerViewModel).GetProperty(nameof(PlayerViewModel.SyncPlayPending))!.SetValue(vm, value);
     private static void Require(bool condition, string description)

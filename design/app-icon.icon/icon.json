@@ -1,0 +1,126 @@
+{
+  "fill": {
+    "solid": "srgb:0.14510,0.10588,0.24314,1.00000"
+  },
+  "fill-specializations": [
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.08235,0.06275,0.12549,1.00000"
+      }
+    },
+    {
+      "appearance": "tinted",
+      "value": "automatic"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Shallan Seal",
+      "layers": [
+        {
+          "image-name": "01-Outer-Ring.svg",
+          "name": "01-Outer-Ring",
+          "blend-mode": "normal",
+          "fill": {
+            "solid": "srgb:0.90588,0.74902,0.45098,1.00000"
+          },
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.95294,0.83922,0.61176,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass": true,
+          "hidden": false
+        },
+        {
+          "image-name": "02-Inner-Ring.svg",
+          "name": "02-Inner-Ring",
+          "blend-mode": "normal",
+          "fill": {
+            "solid": "srgb:0.90588,0.74902,0.45098,1.00000"
+          },
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.95294,0.83922,0.61176,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass": true,
+          "hidden": false
+        },
+        {
+          "image-name": "03-Emblem.svg",
+          "name": "03-Emblem",
+          "blend-mode": "normal",
+          "fill": {
+            "solid": "srgb:0.90588,0.74902,0.45098,1.00000"
+          },
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.95294,0.83922,0.61176,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass": true,
+          "hidden": false
+        },
+        {
+          "image-name": "04-Details.svg",
+          "name": "04-Details",
+          "blend-mode": "normal",
+          "fill": {
+            "solid": "srgb:0.90588,0.74902,0.45098,1.00000"
+          },
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.95294,0.83922,0.61176,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass": false,
+          "hidden": false
+        }
+      ],
+      "lighting": "combined",
+      "specular": false,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.18
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.0
+      },
+      "blur-material": null
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

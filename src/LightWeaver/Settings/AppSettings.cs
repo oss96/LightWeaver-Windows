@@ -50,7 +50,7 @@ public sealed class AppSettings
     }
     public bool RtxVsrDefault { get; set; }
     public bool RtxHdrDefault { get; set; }
-    /// <summary>Max luminance mpv tags RTX Video HDR output with (match the NVIDIA app value).</summary>
+    /// <summary>Max luminance mpv tags RTX Video HDR output with, in nits.</summary>
     public int RtxHdrMaxLumaNits { get; set; } = 1000;
 
     // Subtitles
@@ -98,7 +98,31 @@ public sealed class AppSettings
     /// <summary>The Ctrl+Left / Ctrl+Right large seek, one value for both directions.</summary>
     public int LargeSkipSeconds { get; set; } = 30;
     public bool AutoPlayNextEpisode { get; set; } = true;
-    public int AutoPlayCountdownSeconds { get; set; } = 10;
+    private int _autoPlayCountdownSeconds = 10;
+    public int AutoPlayCountdownSeconds
+    {
+        get => _autoPlayCountdownSeconds;
+        set => _autoPlayCountdownSeconds = Math.Clamp(value,
+            UpNextPreferences.MinimumCountdownSeconds, UpNextPreferences.MaximumCountdownSeconds);
+    }
+    private int _upNextLeadSeconds = UpNextPreferences.DefaultLeadSeconds;
+    /// <summary>Seconds before the end the Up Next card appears when an episode has no credits
+    /// marker. A credits marker always wins.</summary>
+    public int UpNextLeadSeconds
+    {
+        get => _upNextLeadSeconds;
+        set => _upNextLeadSeconds = UpNextPreferences.ClampLead(value);
+    }
+    private Dictionary<string, int> _showUpNextLeadSeconds = new();
+    /// <summary>Per-show <see cref="UpNextLeadSeconds"/>, keyed by
+    /// <see cref="UpNextPreferences.TryGetShowKey"/> (server, Jellyfin user, series). A missing
+    /// entry inherits the global value.</summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(ShowLeadSecondsConverter))]
+    public Dictionary<string, int> ShowUpNextLeadSeconds
+    {
+        get => _showUpNextLeadSeconds;
+        set => _showUpNextLeadSeconds = value ?? new();
+    }
 
     // Shortcuts (Phase 7 M16): PlayerAction name -> "[Ctrl+][Alt+][Shift+]KeyName"
     // chord ("" = unbound). Missing actions fall back to PlayerActionDispatcher.Defaults

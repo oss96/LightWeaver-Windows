@@ -3,10 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
-$libmpv = Join-Path $root 'native\win-x64\libmpv-2.dll'
-if (-not (Test-Path $libmpv)) {
-    Write-Error "native\win-x64\libmpv-2.dll is missing - drop an mpv >= 0.40 libmpv build there first."
-}
+& (Join-Path $root 'tools\Verify-LibMpv.ps1')
 
 $csproj = Join-Path $root 'src\LightWeaver\LightWeaver.csproj'
 $version = (Select-String -Path $csproj -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
@@ -22,6 +19,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error 'dotnet publish failed' }
 if (-not (Test-Path (Join-Path $publishDir 'libmpv-2.dll'))) {
     Write-Error 'libmpv-2.dll did not land in the publish output'
 }
+& (Join-Path $root 'tools\Verify-LibMpv.ps1') -LibraryPath (Join-Path $publishDir 'libmpv-2.dll')
 
 # Sign BEFORE the zip and before installer.ps1 compiles this directory, so the portable zip and the
 # installed copy carry the same signature. Signing after either one would leave an unsigned exe

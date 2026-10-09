@@ -853,6 +853,17 @@ public partial class AdvancedSearchView : UserControl
     private void OnPersonLostFocus(object sender, KeyboardFocusChangedEventArgs e)
         => ClosePersonSuggestions();
 
+    private void OnPersonSuggestionClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source
+            || ItemsControl.ContainerFromElement(PersonSuggestList, source) is not ListBoxItem { Content: PersonEntry picked })
+            return;
+        // Non-focusable rows do not run WPF's mouse selection. Activate explicitly,
+        // including a row already highlighted by an arrow key, before focus can move.
+        e.Handled = true;
+        _ = CommitPersonAsync(picked);
+    }
+
     /// <summary>Selecting a suggestion commits it. Arrow-key highlighting also raises
     /// SelectionChanged, so that path sets <c>_personKeyNavigating</c> to opt out and commits on
     /// Enter instead.
@@ -881,6 +892,7 @@ public partial class AdvancedSearchView : UserControl
         _personTimer?.Stop();
         ClearPersonBox();
         ClosePersonSuggestions();
+        PersonBox.Focus();            // retain typing focus after the transient picker closes
         UpdateSeedChip();             // the applied person shows as the same garnet chip
         await ResetAndReloadAsync();
     }

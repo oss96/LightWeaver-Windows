@@ -19,6 +19,7 @@ public partial class ModalHost : UserControl
     {
         InitializeComponent();
         LiveText.Watch(this);
+        SizeChanged += (_, _) => Card.MaxHeight = Math.Max(180, ActualHeight - 32);
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && CancelButton.Visibility == Visibility.Visible)
@@ -42,23 +43,30 @@ public partial class ModalHost : UserControl
     /// <summary>Single-select option list (M20 resolution picker): returns the chosen
     /// index, or null when cancelled/dismissed.</summary>
     public async Task<int?> ChooseAsync(string title, string body, IReadOnlyList<string> options,
-        string? confirmLabel = null, int preselect = 0)
+        string? confirmLabel = null, int preselect = 0, UIElement? extraContent = null,
+        Action<ListBox>? configure = null)
     {
         ChoiceList.ItemsSource = options;
         ChoiceList.SelectedIndex = Math.Clamp(preselect, 0, options.Count - 1);
         ChoiceList.Visibility = Visibility.Visible;
+        ExtraContent.Content = extraContent;
         try
         {
-            var confirmed = await ShowAsync(title, body, confirmLabel ?? L.Text("ModalHost.Select.a37ea5c5"),
+            var pending = ShowAsync(title, body, confirmLabel ?? L.Text("ModalHost.Select.a37ea5c5"),
                 destructive: false, showCancel: true);
+            configure?.Invoke(ChoiceList);
+            var confirmed = await pending;
             return confirmed && ChoiceList.SelectedIndex >= 0 ? ChoiceList.SelectedIndex : null;
         }
         finally
         {
             ChoiceList.Visibility = Visibility.Collapsed;
             ChoiceList.ItemsSource = null;
+            ExtraContent.Content = null;
         }
     }
+
+    public void SetConfirmationEnabled(bool enabled) => ConfirmButton.IsEnabled = enabled;
 
     private Task<bool> ShowAsync(string title, string body, string confirmLabel,
         bool destructive, bool showCancel)
@@ -69,6 +77,7 @@ public partial class ModalHost : UserControl
         TitleText.Text = title;
         BodyText.Text = body;
         ConfirmButton.Content = confirmLabel;
+        ConfirmButton.IsEnabled = true;
         ConfirmButton.Style = (Style)FindResource(destructive ? "LwButtonDestructive" : "LwButtonPrimary");
         CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
         Visibility = Visibility.Visible;
@@ -89,7 +98,10 @@ public partial class ModalHost : UserControl
         return _pending.Task;
     }
 
-    private void OnConfirm(object sender, RoutedEventArgs e) => Close(true);
+    private void OnConfirm(object sender, RoutedEventArgs e)
+    {
+        if (ConfirmButton.IsEnabled) Close(true);
+    }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close(false);
 

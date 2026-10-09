@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using Jellyfin.Sdk.Generated.Models;
 using LightWeaver.Jellyfin;
 using LightWeaver.ViewModels;
+using LightWeaver.Settings;
 
 namespace LightWeaver.Views;
 
@@ -37,6 +38,9 @@ public partial class LibraryView : UserControl
 
     private readonly AppViewModel _app;
     private readonly MediaItem _source;
+    /// <summary>Whether this page offers the show's Up Next lead: a series or season the session
+    /// can form a show key for.</summary>
+    private readonly bool _hasShowLead;
     private readonly ObservableCollection<MediaItem> _items = [];
 
     private int _totalCount;
@@ -71,7 +75,7 @@ public partial class LibraryView : UserControl
     /// <summary>Open the genre tile grid for this library.</summary>
     public event Action<MediaItem>? GenresRequested;
 
-    public LibraryView(AppViewModel app, MediaItem source, string? genre = null)
+    public LibraryView(AppViewModel app, MediaItem source, string? genre = null, AppSettings? settings = null)
     {
         InitializeComponent();
         LiveText.Watch(this);
@@ -83,6 +87,28 @@ public partial class LibraryView : UserControl
         _app = app;
         _source = source;
         _forcedGenre = genre;
+        var seriesId = source.Type switch
+        {
+            BaseItemDto_Type.Series => (Guid?)source.Id,
+            BaseItemDto_Type.Season => source.SeriesId,
+            _ => null,
+        };
+        if (settings is not null
+            && ShowLeadFlyout.Attach(settings, app.Jellyfin.ServerUrl, app.Jellyfin.UserId, seriesId, UpNextButton))
+        {
+            _hasShowLead = true;
+            UpNextButton.Visibility = Visibility.Visible;
+            LiveText.Bind(UpNextButtonText, "Text", UpNextPillText);
+            // The content is an icon plus text, so UI Automation no longer derives a name from it.
+            LiveText.Bind(UpNextButton, System.Windows.Automation.AutomationProperties.NameProperty, UpNextPillText);
+            ShowLeadFlyout.LeadChanged += RefreshUpNext;
+            // Series, season and episode pages share the value; whichever was changed last, the
+            // others show it when they come back into view.
+            IsVisibleChanged += (_, _) => { if (IsVisible) RefreshUpNext(); };
+            // Labels change width with the value and the language; re-check the wrap after each.
+            foreach (var child in QueueActions.Children.OfType<FrameworkElement>())
+                child.SizeChanged += (_, _) => UpdateQueueActionsWrap();
+        }
         QueueActions.Visibility = source.Type is BaseItemDto_Type.Season
             or BaseItemDto_Type.Series or BaseItemDto_Type.Playlist
             or BaseItemDto_Type.MusicAlbum or BaseItemDto_Type.MusicArtist
@@ -142,6 +168,7 @@ public partial class LibraryView : UserControl
 
     private void OnViewSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        UpdateQueueActionsWrap();
         UpdateHeaderLayout();
         UpdateRailVisibility();
     }
@@ -180,7 +207,7 @@ public partial class LibraryView : UserControl
         var avail = HeaderBar.ActualWidth;
         if (avail <= 0)
             return;
-        double left = QueueActions.Visibility == Visibility.Visible ? QueueActions.DesiredSize.Width
+        double left = QueueActions.Visibility == Visibility.Visible ? QueueActionsLineWidth()
             : CountText.Visibility == Visibility.Visible ? CountText.DesiredSize.Width
             : 0;
         // Intrinsic single-line width of the controls, independent of the current wrap state
@@ -195,6 +222,29 @@ public partial class LibraryView : UserControl
         Grid.SetColumnSpan(SortPanel, wrap ? 2 : 1);
         SortPanel.HorizontalAlignment = wrap ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         SortPanel.Margin = wrap ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+    }
+
+    /// <summary>Single-line width of the queue actions, from each child's own DesiredSize (which
+    /// includes its margin), so it does not depend on whether the WrapPanel has wrapped.</summary>
+    private double QueueActionsLineWidth()
+    {
+        double width = 0;
+        foreach (var child in QueueActions.Children)
+            if (child is FrameworkElement fe && fe.Visibility != Visibility.Collapsed)
+                width += fe.DesiredSize.Width;
+        return width;
+    }
+
+    /// <summary>When the Up Next pill does not fit after Download all (a long translation at the
+    /// 700 px minimum), the WrapPanel moves it to a second line; there it starts flush left with a
+    /// gap above instead of the inline gap. Both margins add the same 10 px of width, so the
+    /// panel's own wrap and this test agree and neither can flip the other.</summary>
+    private void UpdateQueueActionsWrap()
+    {
+        if (UpNextButton.Visibility != Visibility.Visible || HeaderBar.ActualWidth <= 0)
+            return;
+        var wrapped = QueueActionsLineWidth() > HeaderBar.ActualWidth;
+        UpNextButton.Margin = wrapped ? new Thickness(0, 10, 10, 0) : new Thickness(10, 0, 0, 0);
     }
 
     private bool _railWide = true;
@@ -369,7 +419,6 @@ public partial class LibraryView : UserControl
             if (_items[i].Id == fresh.Id)
             {
                 _items[i] = fresh;
-                break;
             }
         if (_localMode)
         {
@@ -618,18 +667,18 @@ public partial class LibraryView : UserControl
         Diagnostics.AppLog.Detail("library",
             $"event=load outcome=start mode=initial generation={generation} item={_source.Id:N} type={_source.Type}");
 
-        _paged = _source.Type is not (BaseItemDto_Type.Series or BaseItemDto_Type.Season);
+        _paged = _source.Type is not (BaseItemDto_Type.Series or BaseItemDto_Type.Season or BaseItemDto_Type.Playlist);
 
         if (!_paged)
         {
-            await LoadSeriesOrSeasonAsync(generation, profileKey, started);
+            await LoadOrderedContainerAsync(generation, profileKey, started);
             return;
         }
 
         await LoadFolderAsync(generation, profileKey, started);
     }
 
-    private async Task LoadSeriesOrSeasonAsync(int generation, string profileKey, System.Diagnostics.Stopwatch started)
+    private async Task LoadOrderedContainerAsync(int generation, string profileKey, System.Diagnostics.Stopwatch started)
     {
         var cacheKey = BrowseCacheKey(profileKey);
         var cached = await Imaging.MetadataCache.ReadAsync<Imaging.BrowseCacheEntry<MediaItem>>(cacheKey);
@@ -672,7 +721,13 @@ public partial class LibraryView : UserControl
 #endif
             var jf = _app.Jellyfin;
             List<MediaItem> items;
-            if (_source.Type == BaseItemDto_Type.Series)
+            if (_source.Type == BaseItemDto_Type.Playlist)
+            {
+                // Generic folder queries and their id-keyed cache collapse repeated entries
+                // and sort by name. A playlist is an ordered list of occurrences instead.
+                items = await jf.GetPlaylistItemsAsync(_source.Id);
+            }
+            else if (_source.Type == BaseItemDto_Type.Series)
             {
                 var seasons = await jf.GetSeasonsAsync(_source.Id);
                 items = seasons.Count == 1
@@ -1118,6 +1173,35 @@ public partial class LibraryView : UserControl
         DownloadAllRequested?.Invoke(_source);
     }
 
+    private void OnUpNextClick(object sender, RoutedEventArgs e)
+    {
+        if (!_hasShowLead) return;
+        if (ShowLeadFlyout.IsOpen)
+        {
+            ShowLeadFlyout.Close();
+            return;
+        }
+        Diagnostics.AppLog.Detail("library", $"event=interaction action=up-next-flyout item={_source.Id:N} type={_source.Type}");
+        RefreshUpNext();
+        ShowLeadFlyout.Open();
+    }
+
+    private void RefreshUpNext()
+    {
+        UpNextButtonText.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+        UpNextButton.GetBindingExpression(System.Windows.Automation.AutomationProperties.NameProperty)?.UpdateTarget();
+        ShowLeadFlyout.Refresh();
+    }
+
+    private object UpNextPillText()
+    {
+        if (!_hasShowLead) return "";
+        var value = ShowLeadFlyout.ShowLead is { } seconds
+            ? L.Format("UpNextLeadPicker.SecondsShort", seconds)
+            : L.Text("UpNextLeadPicker.Global");
+        return L.Format("LibraryView.UpNextPill", value);
+    }
+
     private void OnSelection(object sender, SelectionChangedEventArgs e)
     {
         if (ItemsGrid.SelectedItem is MediaItem item)
@@ -1140,6 +1224,7 @@ public partial class LibraryView : UserControl
         var queryIdentity = _source.Type switch
         {
             BaseItemDto_Type.Series => $"seasons:{_source.Id:N}",
+            BaseItemDto_Type.Playlist => $"playlist-entries:{_source.Id:N}:v1",
             BaseItemDto_Type.Season when _source.SeriesId is { } seriesId => $"episodes:{seriesId:N}:{_source.Id:N}",
             _ => $"library:{_source.Id:N}:{SelectedSort}:{SelectedOrder}:{SelectedFilter}:{SelectedGenre}:{_letter}",
         };

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using LightWeaver.Jellyfin;
 using LightWeaver.Player;
+using LightWeaver.ViewModels;
 
 // Exercises the production SDK serializer over HTTP. No WPF window, mpv, or saved
 // credentials are opened. The token and all server responses are synthetic.
@@ -134,12 +135,55 @@ internal static class QualityContractFixture
             {
                 Check(Field(body.RootElement, "MaxStreamingBitrate").GetInt32() == 1_000_000_000, "unlimited sends explicit 1 Gbps");
                 Check(Field(body.RootElement, "EnableDirectPlay").GetBoolean() && Field(body.RootElement, "EnableDirectStream").GetBoolean(), "automatic mode permits direct playback and streaming");
+                var subtitles = Field(Field(body.RootElement, "DeviceProfile"), "SubtitleProfiles").EnumerateArray().ToList();
+                bool HasSubtitle(string format, string method) => subtitles.Any(s =>
+                    Field(s, "Format").GetString() == format && Field(s, "Method").GetString() == method);
+                Check(HasSubtitle("subrip", "External") && HasSubtitle("subrip", "Embed"),
+                    "production profile declares external and embedded subrip");
+                Check(HasSubtitle("pgssub", "Embed") && HasSubtitle("dvdsub", "Embed")
+                    && !HasSubtitle("pgssub", "External"),
+                    "production profile uses embedded graphical subtitles, not external HLS sidecars");
             }
             await Reply(request, Decision(true, "session-direct"));
             var directDecision = await pending;
             Check(directDecision is { IsTranscode: false }
                 && directDecision.Url.Contains("mediaSourceId=source-a", StringComparison.Ordinal),
                 "direct response pins the negotiated media source in its URL");
+
+            // A multi-source answer must honor the explicit version even when a
+            // server/proxy returns its default first. Unspecified playback keeps first.
+            pending = service.NegotiatePlaybackAsync(item, 0, mediaSourceId: "source-b");
+            request = await Next();
+            await Reply(request, JsonSerializer.Serialize(new
+            {
+                PlaySessionId = "session-version",
+                MediaSources = new[] { new { Id = "source-a", SupportsDirectPlay = true },
+                    new { Id = "source-b", SupportsDirectPlay = true } }
+            }));
+            var selectedVersion = await pending;
+            Check(selectedVersion?.MediaSourceId == "source-b"
+                && selectedVersion.Url.Contains("mediaSourceId=source-b", StringComparison.Ordinal),
+                "explicit version wins over a different first source in a multi-source answer");
+
+            pending = service.NegotiatePlaybackAsync(item, 0);
+            request = await Next();
+            await Reply(request, JsonSerializer.Serialize(new
+            {
+                PlaySessionId = "session-default",
+                MediaSources = new[] { new { Id = "source-a", SupportsDirectPlay = true },
+                    new { Id = "source-b", SupportsDirectPlay = true } }
+            }));
+            Check((await pending)?.MediaSourceId == "source-a", "unspecified version retains the server's first source");
+
+            pending = service.NegotiatePlaybackAsync(item, 0, mediaSourceId: "missing-source");
+            request = await Next();
+            await Reply(request, Decision(true, "session-missing-source"));
+            request = await Next();
+            Check(request.Request.HttpMethod == "DELETE"
+                && request.Request.QueryString["playSessionId"] == "session-missing-source",
+                "missing selected source tears down its unused negotiated session");
+            await Reply(request, "", 204);
+            Check(await pending is null, "missing selected version never falls back to a different source");
 
             pending = service.NegotiatePlaybackAsync(item, 1_000_000, true);
             request = await Next();
@@ -161,6 +205,37 @@ internal static class QualityContractFixture
             var teardownThrew = false;
             try { await discard; } catch { teardownThrew = true; }
             Check(!teardownThrew, "a rejected teardown never throws into the playback path");
+
+            var playlistId = Guid.NewGuid();
+            var a = Guid.NewGuid();
+            var b = Guid.NewGuid();
+            Guid[] playlistIds = [b, a, b, a, b];
+            var playlist = service.GetPlaylistItemsAsync(playlistId, 2);
+            for (var start = 0; start < playlistIds.Length; start += 2)
+            {
+                request = await Next();
+                Check(request.Request.Url!.AbsolutePath.Contains("/Playlists/", StringComparison.OrdinalIgnoreCase)
+                    && request.Request.QueryString["StartIndex"] == start.ToString()
+                    && request.Request.QueryString["Limit"] == "2",
+                    "ordered playlist request uses the occurrence offset " + start);
+                await Reply(request, JsonSerializer.Serialize(new
+                {
+                    Items = playlistIds.Skip(start).Take(2).Select(id => new { Id = id, Name = id == a ? "A" : "B", Type = "Movie" }),
+                    TotalRecordCount = playlistIds.Length
+                }));
+            }
+            var entries = await playlist;
+            Check(entries.Select(i => i.Id).SequenceEqual(playlistIds), "playlist fetch retains repeats across every page boundary");
+            var queue = new PlayQueue();
+            queue.Set(entries);
+            queue.JumpTo(2);
+            Check(queue.Count == 5 && queue.CurrentIndex == 2 && queue.Current?.Id == b,
+                "now playing identifies the second repeated item by queue position");
+            Check(queue.MoveNext()?.Id == a && queue.CurrentIndex == 3,
+                "next advances from the repeated occurrence instead of the first equal id");
+            queue.RemoveAt(0);
+            Check(queue.CurrentIndex == 2 && queue.Current?.Id == a && queue.Count == 4,
+                "removing an earlier occurrence preserves the playing queue position");
 
             var reporter = new PlaybackReporter(() => service.Client, () => (12.5, true));
             reporter.Start(item, 125_000_000, "paused-session", "source-a", true, isPaused: true);

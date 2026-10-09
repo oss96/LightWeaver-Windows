@@ -677,6 +677,435 @@
         "src/LightWeaver/Downloads/DownloadManager.cs"
       ]
     },
+    "Downloads.ActiveDownloads": {
+      "text": "Downloads · {0} active",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.AllAudioLanguages": {
+      "text": "All audio languages",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.AllLanguages": {
+      "text": "All languages",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.AllSubtitles": {
+      "text": "All subtitles",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.Audio": {
+      "text": "Audio",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.AudioLanguage": {
+      "text": "Download audio language",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.DefaultTrack": {
+      "text": " · default",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.Download": {
+      "text": "Download",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.DownloadedDuration": {
+      "text": "Approx. {0} downloaded · ",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.Downloading": {
+      "text": "Downloading · {0} · {1}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.DurationHours": {
+      "text": "{0} h {1} min",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.DurationMinutes": {
+      "text": "{0} min {1} s",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.DurationSeconds": {
+      "text": "{0} s",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.ExternalAudioUnavailable": {
+      "text": "External audio tracks cannot be included in this download. Select an embedded audio track.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.FinishingSubtitles": {
+      "text": "Finishing subtitles · {0}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.IncompleteSubtitle": {
+      "text": "Subtitle download was incomplete.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.IncompleteVideo": {
+      "text": "The downloaded video is incomplete. Resume to restore it.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.LanguageSummary": {
+      "text": "Audio: {0} · Subtitles: {1}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.LegacyLanguages": {
+      "text": "Language selection was not recorded for this older download",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.MissingSubtitle": {
+      "text": "A downloaded subtitle file is missing. Resume to restore it.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.MissingSubtitleSource": {
+      "text": "Subtitle source information is missing.",
+      "context": "Download failure when subtitle media source metadata is unavailable",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "Downloads.MissingVideo": {
+      "text": "The downloaded file is missing. Download it again to play offline.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.NoAudioTracks": {
+      "text": "No audio tracks",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs",
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.NoSubtitleTracks": {
+      "text": "No subtitle tracks",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.None": {
+      "text": "None",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs",
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.OriginalRequiredLanguages": {
+      "text": "Original quality is required to keep these languages.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.OriginalRequiredTracks": {
+      "text": "The selected tracks require Original quality. Choose compatible tracks or explicitly select Original.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.OriginalTrackPreferences": {
+      "text": " · Original keeps all embedded tracks; selections set playback preferences",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.PartialPlayTooltip": {
+      "text": "Play from the start. Seeking beyond downloaded content may buffer.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.Paused": {
+      "text": "Paused · {0} · {1}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.PlayDownloaded": {
+      "text": "Play downloaded video",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.PlayWhileDownloading": {
+      "text": "{0}Play while downloading · may buffer if you catch up",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.PreparationCancelled": {
+      "text": "Download preparation cancelled by Delete all.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.PreparingLanguages": {
+      "text": "Preparing language choices for {0} downloads…",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.PreparingPlayback": {
+      "text": "Preparing playback · {0} / {1} startup buffer",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.QualitySize": {
+      "text": "{0} · {1}",
+      "context": "Download quality and estimated size",
+      "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs"
+      ]
+    },
+    "Downloads.Queued": {
+      "text": "Queued · {0}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.ReadyDuration": {
+      "text": "Ready offline · full {0} available",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.ReadyOffline": {
+      "text": "Ready offline · full video available",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.ResumeToPlay": {
+      "text": "Resume the download to play while downloading",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.RetryToPlay": {
+      "text": "Retry the download to make playback available",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.SavingSubtitles": {
+      "text": "Saving selected subtitles…",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.SkippedDownloads": {
+      "text": " Skipped {0}: the selected quality, language or subtitle format is unavailable.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs"
+      ]
+    },
+    "Downloads.Speed": {
+      "text": "{0}/s",
+      "context": "Per-download transfer speed",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.StartingPlayback": {
+      "text": "Starting playback…",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.SubtitleFormatUnavailable": {
+      "text": "Subtitle format '{0}' cannot be saved separately. Use embedded subtitles in Original quality.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.SubtitleHttpFailed": {
+      "text": "Subtitle download failed: HTTP {0}",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.SubtitleLanguage": {
+      "text": "Download subtitle language",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.SubtitleServerRequired": {
+      "text": "Subtitle download must use the signed-in server.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.SubtitleSessionRequired": {
+      "text": "A signed-in session is required to finish subtitles.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.SubtitleTimedOut": {
+      "text": "Subtitle download timed out after 90 seconds.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.Subtitles": {
+      "text": "Subtitles",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadOptionsPicker.cs"
+      ]
+    },
+    "Downloads.Summary": {
+      "text": "{0} downloading · {1} queued · {2} ready offline",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.TimeLeft": {
+      "text": " · {0}{1} left",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.TotalSpeed": {
+      "text": "{0}/s total",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.UnknownFormat": {
+      "text": "unknown",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadLanguages.cs"
+      ]
+    },
+    "Downloads.UnknownTotal": {
+      "text": "{0} · total size unknown",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.UnownedSubtitle": {
+      "text": "Subtitle file does not belong to this download.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Downloads/DownloadManager.cs"
+      ]
+    },
+    "Downloads.VideoReadySubtitlesPending": {
+      "text": "Video ready to play · selected subtitles are still pending. Resume or retry to finish them.",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.WaitingData": {
+      "text": "Waiting for data…",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
+    "Downloads.WaitingSlot": {
+      "text": "Waiting for a download slot",
+      "context": "Download selection, activity and playback readiness",
+      "sources": [
+        "src/LightWeaver/Views/DownloadsView.xaml.cs"
+      ]
+    },
     "DownloadsView.CancelDownload.6e134573": {
       "text": "Cancel download",
       "context": "XAML ToolTip",
@@ -726,20 +1155,6 @@
         "src/LightWeaver/Views/DownloadsView.xaml"
       ]
     },
-    "DownloadsView.Downloading.387c6dd5": {
-      "text": "Downloading · {0:0}% · {1} / {2}",
-      "context": "Download progress status",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml.cs"
-      ]
-    },
-    "DownloadsView.Downloading.c4b8cf6f": {
-      "text": "Downloading · {0}",
-      "context": "Download status with unknown total size",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml.cs"
-      ]
-    },
     "DownloadsView.EveryDownloadIncludingFinishedFilesWillBeRemovedFromThisDevice.de0a58a6": {
       "text": "Every download — including finished files — will be removed from this device.",
       "context": "Delete all downloads confirmation body",
@@ -765,6 +1180,7 @@
       "text": "Original",
       "context": "Original download resolution label",
       "sources": [
+        "src/LightWeaver/Jellyfin/JellyfinService.cs",
         "src/LightWeaver/Views/DownloadsView.xaml.cs"
       ]
     },
@@ -780,34 +1196,6 @@
       "context": "XAML Content",
       "sources": [
         "src/LightWeaver/Views/DownloadsView.xaml"
-      ]
-    },
-    "DownloadsView.Paused.a569a3df": {
-      "text": "Paused · {0}",
-      "context": "Download status with unknown total size",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml.cs"
-      ]
-    },
-    "DownloadsView.Paused.fe6c3cdf": {
-      "text": "Paused · {0:0}% · {1} / {2}",
-      "context": "Download progress status",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml.cs"
-      ]
-    },
-    "DownloadsView.Play.d9e1bf7a": {
-      "text": "Play",
-      "context": "XAML ToolTip",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml"
-      ]
-    },
-    "DownloadsView.Queued.ea0112da": {
-      "text": "Queued · {0}",
-      "context": "Download queued status",
-      "sources": [
-        "src/LightWeaver/Views/DownloadsView.xaml.cs"
       ]
     },
     "DownloadsView.Resume.147bfad5": {
@@ -1273,6 +1661,20 @@
     "ItemDetailView.Trailer.c9af45dc": {
       "text": "Trailer",
       "context": "private void RenderActions()",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.UpNextTooltip": {
+      "text": "Up Next for this show: {0}",
+      "context": "Tooltip and accessible name of the episode page's Up Next timer button; {0} is the show's own lead time such as 60 s",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs"
+      ]
+    },
+    "ItemDetailView.UpNextTooltipGlobal": {
+      "text": "Up Next for this show: Global ({0})",
+      "context": "Tooltip and accessible name of the episode page's Up Next timer button when the show follows Settings; {0} is the global lead time such as 30 s",
       "sources": [
         "src/LightWeaver/Views/ItemDetailView.xaml.cs"
       ]
@@ -1949,6 +2351,20 @@
         "src/LightWeaver/Views/LibraryView.xaml.cs"
       ]
     },
+    "LibraryView.UpNextPill": {
+      "text": "Up Next · {0}",
+      "context": "Series and season page button; {0} is Global or a lead time such as 60 s",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs"
+      ]
+    },
+    "LibraryView.UpNextTooltip": {
+      "text": "When the Up Next card appears for this show",
+      "context": "Tooltip of the Up Next button on series and season pages",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml"
+      ]
+    },
     "LibraryView.Watched.3eedb227": {
       "text": "Watched",
       "context": "private static readonly (string Label, ItemFilter? Filter)[] FilterChoices =",
@@ -2221,13 +2637,6 @@
     "MainWindow.DirectPlay.c48265cc": {
       "text": "{0} · Direct play",
       "context": "private async Task<bool> ApplyStreamChangeAsync(QualityRequest request, string? newMediaSourceId,",
-      "sources": [
-        "src/LightWeaver/MainWindow.xaml.cs"
-      ]
-    },
-    "MainWindow.Download.6b5dfaec": {
-      "text": "Download",
-      "context": "private async Task<Jellyfin.DownloadOption?> PickDownloadOptionAsync(",
       "sources": [
         "src/LightWeaver/MainWindow.xaml.cs"
       ]
@@ -3330,6 +3739,13 @@
         "src/LightWeaver/Views/OverlayWindow.xaml"
       ]
     },
+    "OverlayWindow.PlaybackQuality.a736be69": {
+      "text": "Playback quality",
+      "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
     "OverlayWindow.PlaybackQueue.8eab0a24": {
       "text": "Playback queue",
       "context": "XAML ToolTip",
@@ -3348,6 +3764,13 @@
     "OverlayWindow.PreviousChapter.0e775e85": {
       "text": "Previous chapter ([)",
       "context": "XAML ToolTip",
+      "sources": [
+        "src/LightWeaver/Views/OverlayWindow.xaml"
+      ]
+    },
+    "OverlayWindow.Quality.9751e9f5": {
+      "text": "Quality",
+      "context": "XAML Content",
       "sources": [
         "src/LightWeaver/Views/OverlayWindow.xaml"
       ]
@@ -4249,13 +4672,6 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
-    "SettingsView.AdditionalItemsWaitAsQueued.08b8c60a": {
-      "text": "Additional items wait as Queued",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
     "SettingsView.AdvancedVideoBuffer.1be72077": {
       "text": "Advanced video buffer",
       "context": "XAML Header",
@@ -4284,11 +4700,25 @@
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
+    "SettingsView.AutoPlayCountdownInvalid": {
+      "text": "Enter a whole number from {0} to {1}. The saved countdown is {2} seconds.",
+      "context": "Global countdown validation with accepted range and retained value",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
     "SettingsView.AutoPlayCountdownSeconds.b2484c53": {
       "text": "Auto-play countdown (seconds)",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.AutoPlayCountdownUnavailable": {
+      "text": "Enable auto-play to change its countdown.",
+      "context": "Reason a Settings row is disabled; shown on hover",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.AutoPlayTheNextEpisode.f84f1bc6": {
@@ -4326,37 +4756,58 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.BitrateMbps": {
+      "text": "{0} Mbps",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
     "SettingsView.BitstreamAc3Eac3DtsTruehdToThe.34cd4fcb": {
-      "text": "Bitstream AC3/EAC3/DTS/TrueHD to the device",
-      "context": "XAML Text",
+      "text": "Use with a TV, soundbar, or AV receiver that decodes surround sound.",
+      "context": "Settings control label or explanation",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
     "SettingsView.BorderColorRrggbbEmptyBlack.29a20602": {
-      "text": "Border color (#RRGGBB, empty = black)",
+      "text": "Border color",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.BorderMedium": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Medium (3)"
+    },
     "SettingsView.BorderSizeDefault3.e1ae5a2b": {
-      "text": "Border size (default 3)",
+      "text": "Border size",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
+    },
+    "SettingsView.BorderThick": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Thick (5)"
+    },
+    "SettingsView.BorderThin": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Thin (1)"
     },
     "SettingsView.Browse.a8cde17e": {
       "text": "Browse...",
       "context": "XAML Content",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.ChangesSaveImmediatelyLanguageAndAutoSkip.2b940636": {
-      "text": "Changes save immediately. Audio/subtitle preferences and auto-skip apply from the next playback.",
-      "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
@@ -4398,6 +4849,48 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.ColorBlack": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Black"
+    },
+    "SettingsView.ColorCyan": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Cyan"
+    },
+    "SettingsView.ColorGreen": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Green"
+    },
+    "SettingsView.ColorRed": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Red"
+    },
+    "SettingsView.ColorWhite": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "White"
+    },
+    "SettingsView.ColorYellow": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Yellow"
+    },
     "SettingsView.CurrentVersionLastChecked.deff5f18": {
       "text": "Current version: {0} · Last checked: {1}",
       "context": "private void UpdateUpdateUi(UpdateStatus status)",
@@ -4409,8 +4902,51 @@
       "text": "Custom",
       "context": "XAML ComboBoxItem",
       "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.CustomBitrate": {
+      "text": "Custom bitrate (Mbps)",
+      "context": "Settings control label or explanation",
+      "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
+    },
+    "SettingsView.CustomBitrateError": {
+      "text": "Enter a whole number from 1 to 10000 Mbps.",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.CustomBorderSizeError": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Enter a number from 0 to 20."
+    },
+    "SettingsView.CustomColorError": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Enter a color in #RRGGBB format."
+    },
+    "SettingsView.CustomPositionError": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Enter a whole number from 0 to 150."
+    },
+    "SettingsView.CustomShadowError": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Enter a number from -20 to 20."
     },
     "SettingsView.CustomSize321024Mib.f3bf7d38": {
       "text": "Custom size (32–1024 MiB)",
@@ -4419,11 +4955,11 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
-    "SettingsView.D3D11Va.cb90e75f": {
-      "text": "d3d11va",
-      "context": "XAML Text",
+    "SettingsView.DefaultSubtitleFont": {
+      "text": "Sans-serif (default)",
+      "context": "Settings control label or explanation",
       "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.DevicesAreListedOncePlaybackHasStarted.bfd88419": {
@@ -4438,6 +4974,20 @@
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.DisplayBrightnessReported": {
+      "text": "Windows reports {0} nits for this display.",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.DisplayBrightnessUnavailable": {
+      "text": "Windows did not report HDR peak brightness for this display.",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.Download.9ccefefe": {
@@ -4484,31 +5034,11 @@
       ]
     },
     "SettingsView.DynaudnormMutuallyExclusiveWithPassthrough.7d926f57": {
-      "text": "dynaudnorm · mutually exclusive with passthrough",
-      "context": "XAML Text",
+      "text": "Mutually exclusive with passthrough",
+      "context": "Settings control label or explanation",
       "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.EmptyLightweaverSAppDataDownloadsFolder.f1cdbe70": {
-      "text": "Empty = LightWeaver's app-data downloads folder",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.EmptyPlayerDefault.c97e3622": {
-      "text": "Empty = player default",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.EnabledByDefaultOnRtxGpus.95db4426": {
-      "text": "Enabled by default on RTX GPUs",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
+        "src/LightWeaver/Views/SettingsView.xaml",
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.EnterAWholeNumberFrom32To.b6003a6e": {
@@ -4602,6 +5132,13 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.HdrDisplayRequired": {
+      "text": "Turn on HDR in Windows for this display to use RTX Video HDR.",
+      "context": "Reason a Settings row is disabled; shown on hover",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
     "SettingsView.ImageCacheLimit.2a714794": {
       "text": "Image cache limit",
       "context": "XAML Text",
@@ -4664,20 +5201,6 @@
       "context": "private static string FormatBytes(long bytes) ",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml.cs"
-      ]
-    },
-    "SettingsView.KeepsFullMpvOutputAndPlaybackSession.e49557fc": {
-      "text": "Keeps full mpv output and playback/session events on disk · off, only crashes and playback failures are written",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.KeyboardShortcutsClickABindingThenPress.b61da8ba": {
-      "text": "Keyboard shortcuts · click a binding, then press the new key (Esc cancels). Assigning a key in use unbinds it from the other action.",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
     "SettingsView.LargeJumpSecondsCtrlLeftRightArrows.07952a26": {
@@ -4750,13 +5273,6 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
-    "SettingsView.LruEvictionTrimsThePosterThumbnailCache.0b148c6f": {
-      "text": "LRU eviction trims the poster/thumbnail cache to this",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
     "SettingsView.ManualInstall.137212a0": {
       "text": "Manual install",
       "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
@@ -4778,13 +5294,6 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
-    "SettingsView.MaximumItemsCachedPerLibraryFolder.5e86a3a4": {
-      "text": "Maximum items cached per library folder",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
     "SettingsView.Mb.67a3de26": {
       "text": "{0} MB",
       "context": "public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,",
@@ -4799,29 +5308,8 @@
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
-    "SettingsView.Mbps0UnlimitedAboveTheCapTranscodes.3dc9b605": {
-      "text": "Mbps · 0 = unlimited · above the cap transcodes on the server",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
     "SettingsView.MediaInfo.e0c50633": {
       "text": "Media info",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.MediaKeyThePlayerSNextButton.18c82417": {
-      "text": "media key + the player's next button",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.MediaKeyThePlayerSPreviousButton.d18927d8": {
-      "text": "media key + the player's previous button",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
@@ -4876,12 +5364,12 @@
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
-    "SettingsView.NitsMatchTheNvidiaAppValueFor.25d06913": {
-      "text": "nits · match the NVIDIA App value for your display",
-      "context": "XAML Text",
+    "SettingsView.NoEffect": {
+      "context": "Subtitle settings preset or validation",
       "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "None"
     },
     "SettingsView.NoUpdateCheckHasRunYet.b888684f": {
       "text": "No update check has run yet.",
@@ -4896,13 +5384,6 @@
       "context": "private void OnExportLogs(object sender, RoutedEventArgs e)",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml.cs"
-      ]
-    },
-    "SettingsView.OffStillShowsTheUpNextCard.36f22457": {
-      "text": "Off still shows the Up Next card — it just waits for you to press Play",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
     "SettingsView.OmdbApiKey.dfbf0fe4": {
@@ -4961,6 +5442,34 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.PositionBottom": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Bottom (100)"
+    },
+    "SettingsView.PositionMiddle": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Middle (50)"
+    },
+    "SettingsView.PositionRaised": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Raised (90)"
+    },
+    "SettingsView.PositionTop": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Top (0)"
+    },
     "SettingsView.PreferredDownloadQuality.60aebff1": {
       "text": "Preferred download quality",
       "context": "XAML Text",
@@ -4970,13 +5479,6 @@
     },
     "SettingsView.PreferredLanguage.419c9982": {
       "text": "Preferred language",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.PreselectedInThePickerSourcesBelowThe.6ed0420e": {
-      "text": "Preselected in the picker; sources below the tier offer Original only",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
@@ -5025,8 +5527,8 @@
       ]
     },
     "SettingsView.RtxHdrPeakBrightness.27a9c730": {
-      "text": "RTX HDR peak brightness",
-      "context": "XAML Text",
+      "text": "RTX HDR peak brightness (nits)",
+      "context": "Settings control label or explanation",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
@@ -5088,11 +5590,32 @@
       ]
     },
     "SettingsView.ShadowOffset0None.70004051": {
-      "text": "Shadow offset (0 = none)",
+      "text": "Shadow offset",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
+    },
+    "SettingsView.ShadowSoft": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Soft (2)"
+    },
+    "SettingsView.ShadowStrong": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Strong (4)"
+    },
+    "SettingsView.ShadowSubtle": {
+      "context": "Subtitle settings preset or validation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ],
+      "text": "Subtle (1)"
     },
     "SettingsView.Shortcuts.6b2fd38c": {
       "text": "SHORTCUTS",
@@ -5143,13 +5666,6 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
-    "SettingsView.StoresUpcomingVideoToSmoothBriefNetwork.a64e6d82": {
-      "text": "Stores upcoming video to smooth brief network dips. Recommended works for most streams.",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
     "SettingsView.Subtitles.f567c565": {
       "text": "SUBTITLES",
       "context": "XAML Text",
@@ -5172,14 +5688,7 @@
       ]
     },
     "SettingsView.TextColorRrggbbEmptyWhite.f11dd71b": {
-      "text": "Text color (#RRGGBB, empty = white)",
-      "context": "XAML Text",
-      "sources": [
-        "src/LightWeaver/Views/SettingsView.xaml"
-      ]
-    },
-    "SettingsView.ToneMapsSdrToHdrByDefault.4cf5d554": {
-      "text": "Tone-maps SDR to HDR by default",
+      "text": "Text color",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
@@ -5188,6 +5697,27 @@
     "SettingsView.TransportSeekAmountSeconds.a8749b3e": {
       "text": "Transport seek amount (seconds)",
       "context": "XAML Text",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.Unlimited": {
+      "text": "Unlimited",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.UpNextLeadHint": {
+      "text": "Used when an episode has no credits marker.",
+      "context": "Settings row subtext: the lead time is the fallback for a missing credits marker",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.UpNextLeadTitle": {
+      "text": "Show Up Next before the end",
+      "context": "Settings row: global lead time of the Up Next card",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
@@ -5234,6 +5764,13 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.UseDisplayBrightness": {
+      "text": "Use display value",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
     "SettingsView.UseTheAppDataDownloadsFolder.39141335": {
       "text": "Use the app-data downloads folder",
       "context": "XAML ToolTip",
@@ -5246,6 +5783,20 @@
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.VerboseLoggingDisabled": {
+      "text": "Records only crashes and playback failures.",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.VerboseLoggingEnabled": {
+      "text": "Records full mpv output and playback/session events.",
+      "context": "Settings control label or explanation",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.VersionIsAvailable.863cd3d7": {
@@ -5270,7 +5821,7 @@
       ]
     },
     "SettingsView.VerticalPosition100BottomSmallerHigher.19fd94b4": {
-      "text": "Vertical position (100 = bottom, smaller = higher)",
+      "text": "Vertical position",
       "context": "XAML Text",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
@@ -5554,6 +6105,577 @@
       "context": "private void UpdateState()",
       "sources": [
         "src/LightWeaver/Views/SyncPlayFlyout.xaml.cs"
+      ]
+    },
+    "TranslationEditor.AddColumn": {
+      "text": "Add column",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.AddHeading": {
+      "text": "Add a language",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.AddLanguage": {
+      "text": "+ Add language",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Added": {
+      "text": "Added {0}.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Adding": {
+      "text": "Adding…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.AllLanguages": {
+      "text": "All languages",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.AllSources": {
+      "text": "All source files",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.AnyStatus": {
+      "text": "Any status",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Apply": {
+      "text": "Apply filters",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Cancel": {
+      "text": "Cancel",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Catalog": {
+      "text": "STRING CATALOG",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Changed": {
+      "text": "Created or modified since",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.ChangedNote": {
+      "text": "Created or modified since {0}",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.ChangedPlaceholder": {
+      "text": "working-tree or Git commit hash",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Clean": {
+      "text": "No unsaved changes",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Clear": {
+      "text": "Clear filters",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.CloseDialog": {
+      "text": "Close add language dialog",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.DialogHelp": {
+      "text": "Each language gets its own editable column.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.EmptyHeading": {
+      "text": "No strings match these filters.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.EmptyHelp": {
+      "text": "Try another search or clear the filters.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.EnglishSource": {
+      "text": "English source",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.EnterTranslation": {
+      "text": "Enter a translation…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.FindLanguage": {
+      "text": "Find a language",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.FindPlaceholder": {
+      "text": "German, français, العربية…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Heading": {
+      "text": "Translate LightWeaver.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Help": {
+      "text": "English is the source. Keep placeholders such as {0} intact. “Needs review” means the English changed or the saved translation has invalid placeholders. Saving a reviewed translation records the current English version.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.InterfaceLanguage": {
+      "text": "Interface language",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Keys": {
+      "text": "Specific string keys",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.KeysPlaceholder": {
+      "text": "Separate keys with commas",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Language": {
+      "text": "Language",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Loaded": {
+      "text": "Loaded the latest catalog and translations.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Loading": {
+      "text": "Loading strings…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.LocalWorkspace": {
+      "text": "Local workspace",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Locations": {
+      "text": "{0} source locations",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.MarkReviewed": {
+      "text": "Mark reviewed",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Missing": {
+      "text": "Missing",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.MissingTranslation": {
+      "text": "Missing translation",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.MoreFilters": {
+      "text": "More filters",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Next": {
+      "text": "Next",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.NoLanguages": {
+      "text": "Add a language to start translating. Each language appears as a column here.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.NoMatchingLanguages": {
+      "text": "No matching languages.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.PageInfo": {
+      "text": "{0}–{1} · Page {2} of {3}",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Previous": {
+      "text": "Previous",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Reload": {
+      "text": "Reload",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.ReloadConfirm": {
+      "text": "Reload will discard {0} unsaved translations. Reload anyway?",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Reloading": {
+      "text": "Reloading…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.RequestFailed": {
+      "text": "Request failed ({0}). Your unsaved edits are kept.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.ResultCount": {
+      "text": "{0} of {1} strings",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.ReviewTitle": {
+      "text": "Confirm this translation matches the current English text",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Save": {
+      "text": "Save changes",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Saved": {
+      "text": "Saved {0} translations.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Saving": {
+      "text": "Saving…",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Search": {
+      "text": "Search strings",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.SearchPlaceholder": {
+      "text": "Search English, translations, or keys",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.SourceFile": {
+      "text": "Source file",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Stale": {
+      "text": "Needs review",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Status": {
+      "text": "Translation status",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Subtitle": {
+      "text": "Add a language and translate the words people see in the app.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Table": {
+      "text": "Scrollable translation table",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Title": {
+      "text": "LightWeaver · Translations",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Translated": {
+      "text": "Translated",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js",
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.TranslationLabel": {
+      "text": "{0} translation for {1}",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Translations": {
+      "text": "/ Translations",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.Unreadable": {
+      "text": "The editor returned an unreadable response ({0}). Your unsaved edits are kept.",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Unsaved": {
+      "text": "Unsaved",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.UnsavedCount": {
+      "text": "{0} unsaved translations",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.Workspace": {
+      "text": "Translation workspace",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/index.html"
+      ]
+    },
+    "TranslationEditor.YourTranslations": {
+      "text": "Your translations",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "TranslationEditor.ZeroStrings": {
+      "text": "0 strings",
+      "context": "Translation editor interface",
+      "sources": [
+        "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "UpNextLeadPicker.Custom": {
+      "text": "Custom",
+      "context": "Segment that reveals a field for any lead time",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml.cs"
+      ]
+    },
+    "UpNextLeadPicker.CustomField": {
+      "text": "Seconds before the end",
+      "context": "Accessible name of the custom lead time field",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml"
+      ]
+    },
+    "UpNextLeadPicker.Global": {
+      "text": "Global",
+      "context": "Segment and pill value: this show follows the Settings value",
+      "sources": [
+        "src/LightWeaver/Views/LibraryView.xaml.cs",
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml.cs"
+      ]
+    },
+    "UpNextLeadPicker.InvalidCustom": {
+      "text": "Enter a whole number from {0} to {1}. Your saved setting is unchanged.",
+      "context": "Invalid custom lead time with inclusive bounds",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml.cs"
+      ]
+    },
+    "UpNextLeadPicker.Name": {
+      "text": "Show Up Next before the end",
+      "context": "Accessible name of the Up Next lead time segments",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml"
+      ]
+    },
+    "UpNextLeadPicker.SaveFailed": {
+      "text": "Could not save this setting. Your saved setting is unchanged. Try again.",
+      "context": "Show lead time save failed and the in-memory value was rolled back",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml.cs"
+      ]
+    },
+    "UpNextLeadPicker.Seconds": {
+      "text": "seconds",
+      "context": "Unit after the custom lead time field",
+      "sources": [
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml"
+      ]
+    },
+    "UpNextLeadPicker.SecondsShort": {
+      "text": "{0} s",
+      "context": "Lead time segment, pill and tooltip value in seconds, abbreviated",
+      "sources": [
+        "src/LightWeaver/Views/ItemDetailView.xaml.cs",
+        "src/LightWeaver/Views/LibraryView.xaml.cs",
+        "src/LightWeaver/Views/UpNextLeadPicker.xaml.cs"
+      ]
+    },
+    "UpNextShowFlyout.StatusGlobal": {
+      "text": "Appears at the credits marker. Episodes without one: {0} s before the end (global setting).",
+      "context": "Show inherits the global lead time; {0} global lead seconds",
+      "sources": [
+        "src/LightWeaver/Views/UpNextShowFlyout.xaml.cs"
+      ]
+    },
+    "UpNextShowFlyout.StatusShow": {
+      "text": "Appears at the credits marker. Episodes without one: {0} s before the end. Global is {1} s.",
+      "context": "Show override in effect; {0} show lead seconds, {1} global lead seconds",
+      "sources": [
+        "src/LightWeaver/Views/UpNextShowFlyout.xaml.cs"
+      ]
+    },
+    "UpNextShowFlyout.Title": {
+      "text": "UP NEXT CARD · THIS SHOW",
+      "context": "Eyebrow of the show's Up Next flyout, uppercase",
+      "sources": [
+        "src/LightWeaver/Views/UpNextShowFlyout.xaml"
       ]
     },
     "UpdateService.DownloadPaused.6a65f1f5": {

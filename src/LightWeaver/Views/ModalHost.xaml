@@ -13,16 +13,27 @@
             <Border.RenderTransform>
                 <TranslateTransform x:Name="CardRise" />
             </Border.RenderTransform>
-            <StackPanel>
+            <DockPanel>
                 <TextBlock x:Name="TitleText" FontFamily="{StaticResource LwFontDisplay}" FontSize="22"
+                           DockPanel.Dock="Top"
                            Foreground="{StaticResource LwText1Brush}" TextWrapping="Wrap"
                            AutomationProperties.AutomationId="ModalTitle" />
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                    <Button x:Name="CancelButton" Content="{loc:Text ModalHost.Cancel.1acd3773}" Style="{StaticResource LwButtonGhost}"
+                            Click="OnCancel" AutomationProperties.AutomationId="ModalCancelButton" />
+                    <Button x:Name="ConfirmButton" Style="{StaticResource LwButtonPrimary}"
+                            Margin="10,0,0,0" MinWidth="96" Click="OnConfirm"
+                            AutomationProperties.AutomationId="ModalConfirmButton" />
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,18,0">
                 <TextBlock x:Name="BodyText" FontFamily="{StaticResource LwFontUi}" FontSize="14"
                            Foreground="{StaticResource LwText2Brush}" TextWrapping="Wrap"
                            Margin="0,10,0,0" AutomationProperties.AutomationId="ModalBody" />
                 <!-- Choice mode (M20 resolution picker): a single-select option list.
                      Rows reuse the track-popup selection language (garnet-lit border). -->
                 <ListBox x:Name="ChoiceList" Visibility="Collapsed" Margin="0,14,0,0"
+                         Padding="0,0,18,0"
                          MaxHeight="260" Background="Transparent" BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          AutomationProperties.AutomationId="ModalChoiceList">
@@ -37,7 +48,7 @@
                                                 BorderThickness="1.5" BorderBrush="Transparent">
                                             <TextBlock x:Name="RowText" Text="{TemplateBinding Content}"
                                                        FontFamily="{StaticResource LwFontUi}" FontSize="14"
-                                                       Foreground="{StaticResource LwText2Brush}" />
+                                                       Foreground="{StaticResource LwText2Brush}" TextWrapping="Wrap" />
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
@@ -59,14 +70,10 @@
                         </Style>
                     </ListBox.ItemContainerStyle>
                 </ListBox>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
-                    <Button x:Name="CancelButton" Content="{loc:Text ModalHost.Cancel.1acd3773}" Style="{StaticResource LwButtonGhost}"
-                            Click="OnCancel" AutomationProperties.AutomationId="ModalCancelButton" />
-                    <Button x:Name="ConfirmButton" Style="{StaticResource LwButtonPrimary}"
-                            Margin="10,0,0,0" MinWidth="96" Click="OnConfirm"
-                            AutomationProperties.AutomationId="ModalConfirmButton" />
+                <ContentControl x:Name="ExtraContent" />
                 </StackPanel>
-            </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>

@@ -229,23 +229,8 @@ public sealed class PlayerViewModel : ObservableObject
             OnPropertyChanged(nameof(TransportVisible));
             RaisePlaybackStatus();
         };
-        player.EndReached += () =>
-        {
-            _isPaused = true;
-            OnPropertyChanged(nameof(IsPaused));
-            // File ended with the card still pending (short credits, user seeked past
-            // the countdown, …) — advance immediately instead of stranding on EOF.
-            // _durationSeconds == 0 means we're mid-transition (<see cref="ResetFileGeometry"/>
-            // ran at load, the new file's duration hasn't arrived): a stale eof-reached
-            // post from the OUTGOING file must not advance past the incoming one.
-            // _upNextAutoAdvance gates it too: in manual mode EOF must leave the card up and
-            // wait, or "off" would still advance — just at the end instead of on a countdown.
-            if (_upNextItem is not null && !_upNextDismissed && _durationSeconds > 0 && _upNextAutoAdvance)
-            {
-                UpNextDetail("fired", "eof");
-                PlayUpNextNow();
-            }
-        };
+        player.EndReached += HandleUpNextEndReached;
+        player.EndCleared += HandleUpNextEndCleared;
         player.TracksChanged += RebuildTrackOptions;
         player.SpeedChanged += OnSpeedChanged;
         RebuildSpeedOptions();
@@ -690,6 +675,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// coalesced position from the old file arms the card over the new one.</summary>
     public void ResetFileGeometry()
     {
+        _upNextAtEnd = false;
         _positionSeconds = 0;
         _durationSeconds = 0;
         OnPropertyChanged(nameof(PositionSeconds));
@@ -972,9 +958,11 @@ public sealed class PlayerViewModel : ObservableObject
     private bool _upNextCardVisible;
     private bool _upNextCountdownActive;
     private bool _upNextAutoAdvance = true;
+    private bool _upNextAtEnd;
     private int _upNextRemaining;
     private System.Windows.Threading.DispatcherTimer? _upNextTimer;
     private int _upNextCountdownSeconds = 10;
+    private int _upNextLeadSeconds = UpNextPreferences.DefaultLeadSeconds;
 
     /// <summary>The user chose (or the countdown decided) to play this item now.</summary>
     public event Action<MediaItem>? UpNextPlayRequested;
@@ -1001,11 +989,17 @@ public sealed class PlayerViewModel : ObservableObject
 
     /// <summary>Arms (or clears, with null) the Up Next card for the current playback.
     /// <paramref name="autoAdvance"/> false arms it as a manual offer: the card appears at the
-    /// trigger point but no countdown runs and EOF does not advance.</summary>
-    public void SetUpNext(MediaItem? item, int countdownSeconds = 10, bool autoAdvance = true)
+    /// trigger point but no countdown runs and EOF does not advance.
+    /// <paramref name="leadSeconds"/> is how long before the end the card appears when the
+    /// episode has no credits marker; a credits marker always wins.</summary>
+    public void SetUpNext(MediaItem? item, int countdownSeconds = 10, bool autoAdvance = true,
+        int leadSeconds = UpNextPreferences.DefaultLeadSeconds)
     {
         _upNextItem = _syncPlay is null ? item : null;
-        _upNextCountdownSeconds = Math.Max(3, countdownSeconds);
+        _upNextCountdownSeconds = Math.Clamp(countdownSeconds,
+            UpNextPreferences.MinimumCountdownSeconds, UpNextPreferences.MaximumCountdownSeconds);
+        _upNextLeadSeconds = UpNextPreferences.ClampLead(leadSeconds);
+        _upNextAtEnd = false;
         _upNextAutoAdvance = autoAdvance;
         _upNextDismissed = false;
         _upNextRemaining = 0;
@@ -1041,10 +1035,12 @@ public sealed class PlayerViewModel : ObservableObject
     {
         if (_syncPlay is not null || _upNextItem is null || _upNextDismissed || _durationSeconds <= 0)
             return;
-        // Credits start when known, else the last 30 seconds.
+        // Credits start when known, else the configured lead time before the end.
         var creditsStart = _skipSegments.FirstOrDefault(s => s.Kind == SkipSegmentKind.Credits)?.StartSeconds;
-        var trigger = Math.Max(5, creditsStart ?? _durationSeconds - 30);
-        if (pos < trigger)
+        var trigger = Math.Min(_durationSeconds, Math.Max(5, creditsStart ?? _durationSeconds - _upNextLeadSeconds));
+        // At EOF only a seek clears _upNextAtEnd. Until then a last-frame position just under a
+        // trigger at the very end (a file under 5 s, credits ending on the last frame) is no seek.
+        if (pos < trigger && !_upNextAtEnd)
         {
             // Seeked back out of the credits with the card up: disarm, rather than
             // abandoning the position the user just chose. Crossing the trigger again
@@ -1080,24 +1076,46 @@ public sealed class PlayerViewModel : ObservableObject
     private System.Windows.Threading.DispatcherTimer CreateUpNextTimer()
     {
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        timer.Tick += (_, _) =>
-        {
-            // The countdown is wall-clock, so it would otherwise run down while the user
-            // has paused (or the stream stalled) and start the next episode unattended.
-            if (_isPaused || _isBuffering)
-                return;
-            _upNextRemaining--;
-            if (_upNextRemaining <= 0)
-            {
-                UpNextDetail("fired", "countdown");
-                PlayUpNextNow();
-            }
-            else
-            {
-                OnPropertyChanged(nameof(UpNextCountdownText));
-            }
-        };
+        timer.Tick += (_, _) => TickUpNextCountdown();
         return timer;
+    }
+
+    private void HandleUpNextEndReached()
+    {
+        _isPaused = true;
+        OnPropertyChanged(nameof(IsPaused));
+        // Duration zero marks a file transition. Ignore an outgoing file's stale EOF.
+        if (_upNextItem is null || _upNextDismissed || _durationSeconds <= 0)
+            return;
+        _upNextAtEnd = true;
+        // keep-open pauses mpv on its last frame. Honor the remaining countdown rather
+        // than shortening a long preference at EOF. A seek directly to EOF gets a full timer.
+        UpdateUpNext(_durationSeconds);
+    }
+
+    // Follows mpv's eof-reached rather than the position: time-pos at EOF is the last frame's
+    // timestamp, just short of the duration, so a late position post must not stall the timer.
+    // The seek's position post can land before this, so judge the latest position again. If this
+    // lands first the value is the last frame's; the seek's own post must still reach UpdateUpNext.
+    private void HandleUpNextEndCleared()
+    {
+        _upNextAtEnd = false;
+        UpdateUpNext(_positionSeconds);
+    }
+
+    private void TickUpNextCountdown()
+    {
+        if (!_upNextCountdownActive || _durationSeconds <= 0
+            || (!_upNextAtEnd && (_isPaused || _isBuffering)))
+            return;
+        _upNextRemaining--;
+        if (_upNextRemaining <= 0)
+        {
+            UpNextDetail("fired", "countdown");
+            PlayUpNextNow();
+        }
+        else
+            OnPropertyChanged(nameof(UpNextCountdownText));
     }
 
     /// <summary>Verbose-only record for the Up Next card's own state machine — armed, disarmed,

@@ -85,6 +85,7 @@ public partial class ItemDetailView : UserControl
             RenderEyebrow();
             RenderActions();
         });
+        ShowLeadFlyout.LeadChanged += RenderUpNextAction;
         SizeChanged += (_, _) => UpdateTitleScale();
         // IsVisibleChanged, not Loaded: on back-from-playback the same instance is
         // re-shown by a BrowseLayer visibility flip, which never re-raises Loaded.
@@ -92,6 +93,8 @@ public partial class ItemDetailView : UserControl
         {
             if ((bool)e.NewValue)
             {
+                // The show's lead may have changed on its series or season page meanwhile.
+                RenderUpNextAction();
                 StartDownloadOptionsPreload();
                 await RefreshAsync();
             }
@@ -918,6 +921,41 @@ public partial class ItemDetailView : UserControl
 
         RenderVersionsAction();
         RefreshDownloadAction();
+        RenderUpNextAction();
+    }
+
+    /// <summary>The show's Up Next lead: episodes that know their series, keyed by the browse
+    /// session exactly as the series and season pages key it, so all of them read and write one
+    /// value. The tooltip names what is in effect and is re-read on show and after a change.</summary>
+    private void RenderUpNextAction()
+    {
+        var available = _item.Type == BaseItemType.Episode
+            && ShowLeadFlyout.Attach(_settings, _app.Jellyfin.ServerUrl, _app.Jellyfin.UserId, _item.SeriesId, UpNextButton);
+        UpNextButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        if (!available)
+        {
+            ShowLeadFlyout.Close();
+            return;
+        }
+        LiveText.Bind(UpNextButton, System.Windows.Automation.AutomationProperties.NameProperty, UpNextLeadText);
+        LiveText.Bind(UpNextButton, "ToolTip", UpNextLeadText);
+    }
+
+    private object UpNextLeadText()
+        => ShowLeadFlyout.ShowLead is { } seconds
+            ? L.Format("ItemDetailView.UpNextTooltip", L.Format("UpNextLeadPicker.SecondsShort", seconds))
+            : L.Format("ItemDetailView.UpNextTooltipGlobal", L.Format("UpNextLeadPicker.SecondsShort", ShowLeadFlyout.GlobalLead));
+
+    private void OnUpNext(object sender, RoutedEventArgs e)
+    {
+        if (ShowLeadFlyout.IsOpen)
+        {
+            ShowLeadFlyout.Close();
+            return;
+        }
+        Diagnostics.AppLog.Detail("detail", $"event=interaction action=up-next-flyout item={_item.Id:N} type={_item.Type}");
+        RenderUpNextAction();
+        ShowLeadFlyout.Open();
     }
 
     /// <summary>The version the picker marks as current: the user's pick, else the source the

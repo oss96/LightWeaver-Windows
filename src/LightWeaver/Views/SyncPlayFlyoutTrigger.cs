@@ -4,9 +4,9 @@ using System.Windows.Input;
 
 namespace LightWeaver.Views;
 
-// Popup dismisses an outside press before ToggleButton sees it. Keep that press's
+// Popup dismisses an outside press before its button sees it. Keep that press's
 // original state so clicking its own trigger closes rather than immediately reopens.
-internal sealed class SyncPlayFlyoutTrigger(Popup popup, ToggleButton trigger) : IDisposable
+internal sealed class SyncPlayFlyoutTrigger(Popup popup, ButtonBase trigger) : IDisposable
 {
     private bool _dismissCurrentPress;
 

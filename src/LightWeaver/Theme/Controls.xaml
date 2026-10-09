@@ -387,7 +387,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="views:LwSegmentedControl">
-                    <Border Background="{StaticResource LwStorm2Brush}"
+                    <Border x:Name="Container" Background="{StaticResource LwStorm2Brush}"
                             BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
                             CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
                             Padding="3">
@@ -405,6 +405,15 @@
                             <ItemsPresenter />
                         </Grid>
                     </Border>
+                    <!-- Disabled reads as disabled, like every other Lw control: the player's
+                         quality picker is locked during SyncPlay and must not look clickable. -->
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Container" Property="BorderBrush" Value="{StaticResource LwDisabledBorderBrush}" />
+                            <Setter TargetName="Thumb" Property="Background" Value="{StaticResource LwStorm3Brush}" />
+                            <Setter TargetName="Thumb" Property="Effect" Value="{x:Null}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -437,6 +446,11 @@
                             </MultiTrigger.Conditions>
                             <Setter Property="Foreground" Value="{StaticResource LwText1Brush}" />
                         </MultiTrigger>
+                        <!-- Last, so it outranks the selected and hover foregrounds above. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource LwText4Brush}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
                     </Style.Triggers>
                 </Style>
             </Setter.Value>
@@ -745,9 +759,20 @@
                                TextTrimming="CharacterEllipsis"
                                Foreground="{StaticResource LwText2Brush}" />
                 </StackPanel>
+                <Border x:Name="CountBadge" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,12,0" MinWidth="20" Height="20" CornerRadius="10" Padding="5,0"
+                        Background="{StaticResource LwLightCoreBrush}" IsHitTestVisible="False">
+                    <TextBlock Text="{Binding (theme:NavRail.BadgeCount), RelativeSource={RelativeSource TemplatedParent}}"
+                               VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="SemiBold"
+                               Foreground="{StaticResource LwStorm0Brush}"
+                               AutomationProperties.AutomationId="NavRailActivityCount" />
+                </Border>
             </Grid>
         </Border>
         <ControlTemplate.Triggers>
+            <Trigger Property="theme:NavRail.BadgeCount" Value="0">
+                <Setter TargetName="CountBadge" Property="Visibility" Value="Collapsed" />
+            </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter TargetName="Chrome" Property="Background" Value="{StaticResource LwGhostHoverFillBrush}" />
                 <Setter TargetName="Glyph" Property="Foreground" Value="{StaticResource LwText1Brush}" />
@@ -765,6 +790,8 @@
                 <Setter TargetName="Chrome" Property="Effect" Value="{StaticResource LwGlowFocus}" />
             </Trigger>
             <Trigger Property="theme:NavRail.IsCollapsed" Value="True">
+                <Setter TargetName="CountBadge" Property="VerticalAlignment" Value="Top" />
+                <Setter TargetName="CountBadge" Property="Margin" Value="0" />
                 <Setter TargetName="ItemContent" Property="HorizontalAlignment" Value="Center" />
                 <Setter TargetName="ItemContent" Property="Margin" Value="0" />
                 <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
@@ -1139,6 +1166,7 @@
                         <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
                                           Margin="12,0,32,0" VerticalAlignment="Center"
                                           HorizontalAlignment="Left" />

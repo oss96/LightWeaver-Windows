@@ -52,6 +52,7 @@
     <sys:String x:Key="IconWatchedBorder">&#xE92D;</sys:String>   <!-- check_circle_outline (= unwatched) -->
     <sys:String x:Key="IconTrailer">&#xF06A;</sys:String>         <!-- smart_display -->
     <sys:String x:Key="IconVersions">&#xE53B;</sys:String>        <!-- layers (alternate versions) -->
+    <sys:String x:Key="IconUpNextLead">&#xE066;</sys:String>      <!-- queue_play_next (when Up Next appears for the show) -->
 
     <!-- Downloads (M20) -->
     <sys:String x:Key="IconDownload">&#xF090;</sys:String>        <!-- download -->

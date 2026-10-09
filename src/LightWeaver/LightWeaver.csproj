@@ -8,13 +8,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
     <PlatformTarget>x64</PlatformTarget>
     <!-- mpv_wait_event returns mpv_event*; events are read via pointer casts -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Exe, taskbar and title-bar icon; windows without an explicit Icon fall back to it -->
+    <ApplicationIcon>Assets\LightWeaver.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -49,6 +51,14 @@
     <PackageReference Include="Jellyfin.Sdk" Version="2025.10.21" />
     <!-- Pin above the vulnerable 1.20.1 transitive (NU1903); stay on 1.x for SDK compat -->
     <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
+    <!-- Override the SDK's older transitive runtime as one compatible Kiota 1.x set.
+         Explicit references let Renovate track these versions independently of Jellyfin.Sdk. -->
+    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="1.22.2" />
+    <PackageReference Include="Std.UriTemplate" Version="2.0.12" />
   </ItemGroup>
 
 </Project>

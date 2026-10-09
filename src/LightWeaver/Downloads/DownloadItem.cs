@@ -38,6 +38,26 @@ public sealed record DownloadItem
     public long BytesDownloaded { get; init; }
     /// <summary>-1 = unknown (e.g. a transcoded stream before headers arrive).</summary>
     public long TotalBytes { get; init; } = -1;
+    /// <summary>Transcode estimate, kept separate from the HTTP response's exact size.</summary>
+    public long EstimatedTotalBytes { get; init; } = -1;
+    public long? RuntimeTicks { get; init; }
+    /// <summary>Metadata captured at enqueue, so local playback does not depend on a server fetch.</summary>
+    public Jellyfin.MediaItem? PlaybackMetadata { get; init; }
+    public bool DownloadLanguagesSelected { get; init; }
+    public long PlaybackPreferenceTimestampMs { get; init; }
+    public int? AudioStreamIndex { get; init; }
+    public int? PreferredAudioOrdinal { get; init; }
+    public int? PreferredSubtitleOrdinal { get; init; }
+    public int? PreferredSubtitleFileIndex { get; init; }
+    public string? LanguageSummary { get; init; }
+    public IReadOnlyList<DownloadSubtitleFile> SubtitleFiles { get; init; } = [];
+    public IReadOnlyList<DownloadTrack> AudioTracks { get; init; } = [];
+    public IReadOnlyList<DownloadTrack> SubtitleTracks { get; init; } = [];
+    public bool VideoCompleted { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public double BytesPerSecond { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long ProgressTimestamp { get; init; }
     public long AddedTimestampMs { get; init; }
     public string? ErrorMessage { get; init; }
 

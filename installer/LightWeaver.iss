@@ -34,6 +34,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=..\src\LightWeaver\Assets\LightWeaver.ico
 ; Update flow: prompt Windows Restart Manager to close a running LightWeaver.
 CloseApplications=yes
 RestartApplications=no

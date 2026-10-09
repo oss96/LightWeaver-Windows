@@ -2,5 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["Microsoft.Kiota.*"],
+      "groupName": "Kiota 1.x runtime",
+      "allowedVersions": "<2.0.0"
+    },
+    {
+      "matchDepTypes": ["dotnet-sdk"],
+      "allowedVersions": "<11.0.0"
+    }
   ]
 }

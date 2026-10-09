@@ -15,18 +15,29 @@ public sealed class DownloadRow : ObservableObject
     private string _statusText = "";
     private double _progressPercent;
     private DownloadStatus _status;
+    private string _speedText = "";
+    private string _playbackText = "";
+    private string _playToolTip = "";
+    private bool _isIndeterminate;
+    private bool _canPlay;
+    private bool _isStarting;
 
-    public DownloadRow(DownloadItem item) => Item = item;
+    public DownloadRow(DownloadItem item) { Item = item; Update(item); }
 
     public DownloadItem Item { get; private set; }
 
     public string Title => Item.Title;
     public string Subtitle => Item.Subtitle ?? "";
     public bool HasSubtitle => Subtitle.Length > 0;
+    public string LanguageSummary => DownloadLanguages.FormatSummary(Item);
     public string? PosterUrl => Item.PosterUrl;
 
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
     public double ProgressPercent { get => _progressPercent; private set => SetProperty(ref _progressPercent, value); }
+    public string SpeedText { get => _speedText; private set => SetProperty(ref _speedText, value); }
+    public string PlaybackText { get => IsStarting ? L.Text("Downloads.StartingPlayback") : _playbackText; private set => SetProperty(ref _playbackText, value); }
+    public string PlayToolTip { get => _playToolTip; private set => SetProperty(ref _playToolTip, value); }
+    public bool IsIndeterminate { get => _isIndeterminate; private set => SetProperty(ref _isIndeterminate, value); }
 
     public DownloadStatus Status
     {
@@ -46,10 +57,17 @@ public sealed class DownloadRow : ObservableObject
     }
 
     public bool IsProgressVisible => Status is DownloadStatus.Downloading or DownloadStatus.Paused;
-    /// <summary>A running download plays too, from the bytes already on disk (MainWindow resolves
-    /// it to the loopback partial stream). Paused and Failed stay unplayable: their file is not
-    /// growing, so it would stop at whatever byte it reached.</summary>
-    public bool CanPlay => Status is DownloadStatus.Completed or DownloadStatus.Downloading;
+    public bool CanPlay { get => _canPlay && !IsStarting; private set => SetProperty(ref _canPlay, value); }
+    public bool IsStarting
+    {
+        get => _isStarting;
+        set
+        {
+            if (!SetProperty(ref _isStarting, value)) return;
+            OnPropertyChanged(nameof(CanPlay));
+            OnPropertyChanged(nameof(PlaybackText));
+        }
+    }
     public bool CanPause => Status is DownloadStatus.Downloading or DownloadStatus.Queued;
     public bool CanResume => Status is DownloadStatus.Paused or DownloadStatus.Failed;
     public bool CanCancel => Status != DownloadStatus.Completed;
@@ -61,21 +79,69 @@ public sealed class DownloadRow : ObservableObject
     public void Update(DownloadItem item)
     {
         Item = item;
-        ProgressPercent = item.Progress * 100;
+        OnPropertyChanged(nameof(LanguageSummary));
+        var total = item.TotalBytes > 0 ? item.TotalBytes : item.EstimatedTotalBytes;
+        var estimated = item.TotalBytes <= 0 && total > 0;
+        var fraction = total > 0 ? (double)item.BytesDownloaded / total : 0;
+        ProgressPercent = item.Status == DownloadStatus.Completed ? 100 : Math.Clamp(fraction * 100, 0, 99);
         Status = item.Status;
+        IsIndeterminate = Status == DownloadStatus.Downloading && (total <= 0 || item.VideoCompleted);
+        CanPlay = Status == DownloadStatus.Completed || item.VideoCompleted
+            || Status == DownloadStatus.Downloading && item.BytesDownloaded >= DownloadManager.MinPartialStreamBytes;
+        var sizeText = total > 0
+            ? FormattableString.Invariant($"{(estimated ? "~" : "")}{ProgressPercent:0}% · {DownloadManager.FormatBytes(item.BytesDownloaded)} / {(estimated ? "~" : "")}{DownloadManager.FormatBytes(total)}")
+            : L.Format("Downloads.UnknownTotal", DownloadManager.FormatBytes(item.BytesDownloaded));
         StatusText = item.Status switch
         {
-            DownloadStatus.Queued => L.Format("DownloadsView.Queued.ea0112da", DisplayResolution(item.Resolution)),
-            DownloadStatus.Downloading when item.TotalBytes > 0 => L.Format("DownloadsView.Downloading.387c6dd5", item.Progress * 100, DownloadManager.FormatBytes(item.BytesDownloaded), DownloadManager.FormatBytes(item.TotalBytes)),
-            DownloadStatus.Downloading =>
-                L.Format("DownloadsView.Downloading.c4b8cf6f", DownloadManager.FormatBytes(item.BytesDownloaded)),
-            DownloadStatus.Paused when item.TotalBytes > 0 => L.Format("DownloadsView.Paused.fe6c3cdf", item.Progress * 100, DownloadManager.FormatBytes(item.BytesDownloaded), DownloadManager.FormatBytes(item.TotalBytes)),
-            DownloadStatus.Paused => L.Format("DownloadsView.Paused.a569a3df", DownloadManager.FormatBytes(item.BytesDownloaded)),
+            DownloadStatus.Downloading when item.VideoCompleted => L.Format("Downloads.FinishingSubtitles", DisplayResolution(item.Resolution)),
+            DownloadStatus.Queued => L.Format("Downloads.Queued", DisplayResolution(item.Resolution)),
+            DownloadStatus.Downloading => L.Format("Downloads.Downloading", DisplayResolution(item.Resolution), sizeText),
+            DownloadStatus.Paused => L.Format("Downloads.Paused", DisplayResolution(item.Resolution), sizeText),
             DownloadStatus.Completed =>
                 L.Format("DownloadsView.Completed.fb232f94", DisplayResolution(item.Resolution), DownloadManager.FormatBytes(item.TotalBytes)),
             DownloadStatus.Failed => L.Format("DownloadsView.Failed.c1793f06", item.ErrorMessage ?? L.Text("DownloadsView.UnknownError.11276586")),
             _ => "",
         };
+        var speed = CurrentSpeed(item);
+        SpeedText = Status == DownloadStatus.Downloading
+            ? speed > 0 ? L.Format("Downloads.Speed", DownloadManager.FormatBytes((long)speed)) : L.Text("Downloads.WaitingData")
+            : "";
+        if (Status == DownloadStatus.Downloading && item.VideoCompleted)
+            SpeedText = L.Text("Downloads.SavingSubtitles");
+        if (speed > 0 && total > item.BytesDownloaded)
+            SpeedText += L.Format("Downloads.TimeLeft", estimated ? "~" : "", FormatDuration((total - item.BytesDownloaded) / speed));
+        var duration = item.RuntimeTicks is > 0 ? item.RuntimeTicks.Value / (double)TimeSpan.TicksPerSecond : 0;
+        var prefix = duration > 0 && total > 0 && item.BytesDownloaded > 0
+            ? L.Format("Downloads.DownloadedDuration", FormatDuration(duration * Math.Clamp(fraction, 0, 1))) : "";
+        PlaybackText = Status switch
+        {
+            _ when item.VideoCompleted && item.Status != DownloadStatus.Completed =>
+                L.Text("Downloads.VideoReadySubtitlesPending"),
+            DownloadStatus.Completed => duration > 0 ? L.Format("Downloads.ReadyDuration", FormatDuration(duration)) : L.Text("Downloads.ReadyOffline"),
+            DownloadStatus.Downloading when _canPlay => L.Format("Downloads.PlayWhileDownloading", prefix),
+            DownloadStatus.Downloading => L.Format("Downloads.PreparingPlayback", DownloadManager.FormatBytes(item.BytesDownloaded), DownloadManager.FormatBytes(DownloadManager.MinPartialStreamBytes)),
+            DownloadStatus.Paused => L.Text("Downloads.ResumeToPlay"),
+            DownloadStatus.Failed => L.Text("Downloads.RetryToPlay"),
+            _ => L.Text("Downloads.WaitingSlot"),
+        };
+        PlayToolTip = Status == DownloadStatus.Completed || item.VideoCompleted ? L.Text("Downloads.PlayDownloaded")
+            : _canPlay ? L.Text("Downloads.PartialPlayTooltip")
+            : PlaybackText;
+    }
+
+    internal static double CurrentSpeed(DownloadItem item)
+        => item.Status == DownloadStatus.Downloading && item.ProgressTimestamp > 0
+            && System.Diagnostics.Stopwatch.GetElapsedTime(item.ProgressTimestamp) < TimeSpan.FromSeconds(2)
+            ? item.BytesPerSecond : 0;
+
+    private static string FormatDuration(double seconds)
+    {
+        var duration = TimeSpan.FromSeconds(Math.Clamp(seconds, 0, TimeSpan.MaxValue.TotalSeconds / 2));
+        if (duration.TotalHours >= 1)
+            return L.Format("Downloads.DurationHours", (int)duration.TotalHours, duration.Minutes);
+        return duration.TotalMinutes >= 1
+            ? L.Format("Downloads.DurationMinutes", (int)duration.TotalMinutes, duration.Seconds)
+            : L.Format("Downloads.DurationSeconds", Math.Max(1, duration.Seconds));
     }
 }
 
@@ -86,11 +152,11 @@ public partial class DownloadsView : UserControl
     private readonly Func<string, string, Task<bool>> _confirm;
     private readonly ObservableCollection<DownloadRow> _rows = [];
     private readonly DispatcherTimer _refresh;
-    private bool _dirty;
+    private int _dirty;
 
     /// <summary>Play a download (MainWindow resolves local-first playback: completed from the
     /// file, still running from the loopback partial stream).</summary>
-    public event Action<DownloadItem>? PlayRequested;
+    public event Func<DownloadItem, Task>? PlayRequested;
 
     public DownloadsView(DownloadManager manager, Func<string, string, Task<bool>> confirm)
     {
@@ -105,18 +171,28 @@ public partial class DownloadsView : UserControl
         _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
         _refresh.Tick += (_, _) =>
         {
-            if (_dirty)
+            if (Interlocked.Exchange(ref _dirty, 0) != 0 || _rows.Any(r => r.Status == DownloadStatus.Downloading))
             {
-                _dirty = false;
                 SyncRows();
             }
         };
-        _refresh.Start();
-        _manager.DownloadsChanged += () => _dirty = true;
+        Loaded += (_, _) =>
+        {
+            _manager.DownloadsChanged += OnDownloadsChanged;
+            SyncRows();
+            _refresh.Start();
+        };
+        Unloaded += (_, _) =>
+        {
+            _refresh.Stop();
+            _manager.DownloadsChanged -= OnDownloadsChanged;
+        };
         SyncRows();
         LiveText.Observe(this, (_, _) => SyncRows());
         Diagnostics.AppLog.Detail("downloads-view", $"event=load outcome=success count={_rows.Count}");
     }
+
+    private void OnDownloadsChanged() => Interlocked.Exchange(ref _dirty, 1);
 
     /// <summary>Keyed reconcile: update rows in place, add new, drop removed — order by
     /// enqueue time, matching the manager's snapshot.</summary>
@@ -155,16 +231,27 @@ public partial class DownloadsView : UserControl
         PauseAllButton.IsEnabled = anyActive;
         ClearCompletedButton.IsEnabled = _rows.Any(r => r.CanDelete);
         DeleteAllButton.IsEnabled = _rows.Count > 0;
+        var active = items.Count(i => i.Status == DownloadStatus.Downloading);
+        var queued = items.Count(i => i.Status == DownloadStatus.Queued);
+        var ready = items.Count(i => i.Status == DownloadStatus.Completed);
+        Summary.Text = L.Format("Downloads.Summary", active, queued, ready);
+        SummarySpeed.Text = active > 0
+            ? L.Format("Downloads.TotalSpeed", DownloadManager.FormatBytes((long)items.Sum(DownloadRow.CurrentSpeed))) : "";
     }
 
     private static DownloadRow? RowOf(object sender) => (sender as FrameworkElement)?.Tag as DownloadRow;
 
-    private void OnRowPlay(object sender, RoutedEventArgs e)
+    private async void OnRowPlay(object sender, RoutedEventArgs e)
     {
-        if (RowOf(sender) is { } row)
+        if (RowOf(sender) is { CanPlay: true } row)
         {
             Diagnostics.AppLog.Detail("downloads-view", $"event=interaction action=play item={row.Item.ItemId:N}");
-            PlayRequested?.Invoke(row.Item);
+            row.IsStarting = true;
+            try
+            {
+                if (PlayRequested is { } play) await play(row.Item);
+            }
+            finally { row.IsStarting = false; }
         }
     }
 

@@ -95,6 +95,15 @@ foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "LightWe
     }
 }
 
+// The browser editor shares the desktop catalog and reviewed language packs.
+foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "tools", "TranslationEditor", "wwwroot")))
+{
+    if (Path.GetExtension(path) is not (".js" or ".html")) continue;
+    var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
+    foreach (Match match in Regex.Matches(File.ReadAllText(path), @"TranslationEditor\.[A-Za-z]+"))
+        Record(match.Value, relative, relative);
+}
+
 foreach (var (key, entry) in catalog.Strings)
 {
     if (!sources.TryGetValue(key, out var used)) { failures.Add("unused catalog entry " + key); continue; }

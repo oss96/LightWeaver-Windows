@@ -476,6 +476,13 @@
                                        AutomationProperties.AutomationId="QueueBadge" />
                         </StackPanel>
                     </Button>
+                    <!-- Quality sits beside the track pickers and stays in the fit test's width:
+                         it is not one of the four code-owned track buttons below. -->
+                    <Button x:Name="QualityButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
+                            Content="{loc:Text OverlayWindow.Quality.9751e9f5}" Margin="6,0,0,0" ClickMode="Press"
+                            Click="OnQualityButton" ToolTip="{loc:Text OverlayWindow.PlaybackQuality.a736be69}"
+                            Visibility="{Binding QualityVisible, Converter={StaticResource BoolToVisibleConverter}}"
+                            AutomationProperties.AutomationId="QualityButton" />
                     <!-- Track pickers: the Video/Audio/Subs trio, plus the merged Tracks pill as
                          the NARROW fallback. P10 M11 replaced the trio with the one pill because a
                          DockPanel squeezes right-docked children to zero width once space runs out,
@@ -531,33 +538,18 @@
                 </StackPanel>
             </Border>
         </Popup>
-        <!-- Info panel: live playback state on top, server media metadata in a
-             collapsible section below (absent for local files). -->
         <Popup x:Name="SyncPlayPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
 
-        <Popup x:Name="InfoPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
-               PlacementTarget="{Binding ElementName=InfoButton}"
-               Opened="OnInfoPopupOpened" Closed="OnInfoPopupClosed">
-            <!-- Width is PINNED, not a 360-480 range. The range made the flyout jump ~110 px wider
-                 the moment the Media info expander opened, and at the narrow end the quality row
-                 did not fit: measured on the guest 2026-09-14, "Force transcode" rendered as
-                 "Force transcod" and the status line was cut mid-word, with no ellipsis and no
-                 wrap. 480 is a width this flyout already took whenever Media info was expanded.
-
-                 MaxHeight 340 is the space above the Info button at the 700x480 MINIMUM window,
-                 so it cannot also be right for a 900-tall one. Rather than size it dynamically,
-                 QUALITY now comes BEFORE the read-only PLAYBACK rows: the control this flyout
-                 offers is reachable without scrolling at every window size, and the diagnostics
-                 are what you scroll for. Measured first: with PLAYBACK on top at 1600x900 the
-                 segmented control was sliced by the panel edge and the toggle and status line
-                 were entirely below the fold, behind a 2 px scrollbar. -->
-            <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="480"
-                    MaxHeight="340">
-                <ScrollViewer x:Name="InfoScroll"
-                              AutomationProperties.AutomationId="InfoScroll"
-                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel>
+        <Popup x:Name="QualityPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+               PlacementTarget="{Binding ElementName=QualityButton}" Opened="OnQualityPopupOpened">
+            <!-- Width is PINNED at 480: measured on the guest 2026-09-14, a narrower panel rendered
+                 "Force transcode" as "Force transcod" and cut the status line mid-word, with no
+                 ellipsis and no wrap. MaxHeight 340 is the space above the transport row at the
+                 700x480 MINIMUM window. At that width the panel no longer fits right-aligned to
+                 its button, so OnQualityPopupOpened clamps it inside the overlay. -->
+            <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="480" MaxHeight="340">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <!-- No AutomationId on this panel: a WPF Panel creates no automation peer, so
                          one here would never reach the UIA tree and would read as a promise the UI
                          does not keep. QualityTierControl below is the group's UIA anchor, and it
@@ -589,6 +581,23 @@
                                    TextWrapping="Wrap"
                                    AutomationProperties.AutomationId="QualityStatus" />
                     </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Popup>
+
+        <!-- Info panel contains live playback statistics and server media metadata. -->
+        <Popup x:Name="InfoPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+               PlacementTarget="{Binding ElementName=InfoButton}"
+               Opened="OnInfoPopupOpened" Closed="OnInfoPopupClosed">
+            <!-- Width is pinned rather than a 360-480 range, which made the flyout jump ~110 px
+                 wider the moment the Media info expander opened. MaxHeight 340 is the space above
+                 the Info button at the 700x480 minimum window; the rows scroll beyond it. -->
+            <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="480"
+                    MaxHeight="340">
+                <ScrollViewer x:Name="InfoScroll"
+                              AutomationProperties.AutomationId="InfoScroll"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
                     <TextBlock Text="{loc:Text OverlayWindow.Playback.d305bd73}" Style="{StaticResource LwTypeLabel}" Margin="2,10,0,6" />
                     <ItemsControl ItemsSource="{Binding LiveStats}"
                                   ItemTemplate="{StaticResource InfoRowTemplate}"

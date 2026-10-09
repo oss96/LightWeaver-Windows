@@ -281,6 +281,7 @@
                                         <ListBox x:Name="PersonSuggestList"
                                                  Background="Transparent" BorderThickness="0"
                                                  ItemContainerStyle="{StaticResource LwSuggestItem}"
+                                                 PreviewMouseLeftButtonDown="OnPersonSuggestionClick"
                                                  SelectionChanged="OnPersonSuggestionPicked"
                                                  AutomationProperties.AutomationId="AsPersonSuggestList" />
                                     </ScrollViewer>

@@ -6,6 +6,38 @@
              xmlns:img="clr-namespace:LightWeaver.Imaging"
              xmlns:theme="clr-namespace:LightWeaver.Theme"
              AutomationProperties.AutomationId="DownloadsView">
+    <UserControl.Resources>
+        <Style x:Key="DownloadProgress" TargetType="ProgressBar">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid x:Name="PART_Track" Background="{TemplateBinding Background}">
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}" CornerRadius="2" />
+                            <Border x:Name="Activity" Background="{TemplateBinding Foreground}"
+                                    CornerRadius="2" Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="Activity" Property="Visibility" Value="Visible" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard x:Name="Pulse">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Activity" Storyboard.TargetProperty="Opacity"
+                                                             From="0.25" To="1" Duration="0:0:0.8"
+                                                             AutoReverse="True" RepeatBehavior="Forever" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions><RemoveStoryboard BeginStoryboardName="Pulse" /></Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <!-- Downloads management screen (Phase 7 M20): rows over the woven-light storm
          ladder; live progress binds to per-row view models (no list rebuild per tick). -->
     <DockPanel Margin="40,28,40,0">
@@ -13,7 +45,8 @@
              page, like every other library screen. Header actions are pill buttons matching
              the library-header language (M4.2). -->
         <Grid DockPanel.Dock="Top" Margin="0,0,0,18">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,0,14">
                 <Button x:Name="PauseAllButton" Style="{StaticResource LwButtonSecondary}" Height="34"
                         Content="{loc:Text DownloadsView.PauseAll.fcb2cc03}" Margin="0,0,10,0" Click="OnPauseAll"
                         AutomationProperties.AutomationId="DownloadsPauseAll" />
@@ -23,6 +56,12 @@
                 <Button x:Name="DeleteAllButton" Style="{StaticResource LwButtonDestructive}" Height="34"
                         Content="{loc:Text DownloadsView.DeleteAll.5f670623}" Click="OnDeleteAll"
                         AutomationProperties.AutomationId="DownloadsDeleteAll" />
+            </WrapPanel>
+            <StackPanel Grid.Row="1">
+                <TextBlock x:Name="Summary" FontSize="14" Foreground="{StaticResource LwText1Brush}"
+                           TextWrapping="Wrap" AutomationProperties.AutomationId="DownloadsSummary" />
+                <TextBlock x:Name="SummarySpeed" FontSize="12" Margin="0,4,0,0"
+                           Foreground="{StaticResource LwText2Brush}" AutomationProperties.AutomationId="DownloadsTotalSpeed" />
             </StackPanel>
         </Grid>
 
@@ -61,7 +100,7 @@
                                         </Grid>
                                     </Border>
 
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
                                         <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
                                                    Foreground="{StaticResource LwText1Brush}"
                                                    TextTrimming="CharacterEllipsis"
@@ -72,8 +111,17 @@
                                                    Visibility="{Binding HasSubtitle, Converter={StaticResource BoolToVisibleConverter}}" />
                                         <TextBlock Text="{Binding StatusText}" FontFamily="{StaticResource LwFontMono}"
                                                    FontSize="11.5" Margin="0,5,0,0"
+                                                   TextWrapping="Wrap"
                                                    Foreground="{StaticResource LwText2Brush}"
                                                    AutomationProperties.AutomationId="DownloadRowStatus" />
+                                        <TextBlock Text="{Binding SpeedText}" FontFamily="{StaticResource LwFontMono}"
+                                                   FontSize="11.5" Margin="0,3,0,0" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource LwText2Brush}"
+                                                   AutomationProperties.AutomationId="DownloadRowSpeed" />
+                                        <TextBlock Text="{Binding LanguageSummary}" FontSize="11.5"
+                                                   Margin="0,3,0,0" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource LwText2Brush}"
+                                                   AutomationProperties.AutomationId="DownloadRowLanguages" />
                                         <!-- P10 M6: the literal 1.5 was already the exact stadium
                                              for a 3 px track; routed through LwRFullFromHeight so
                                              it stays one if the height ever changes. Identical
@@ -84,18 +132,23 @@
                                                 theme:RoundedClip.Radius="1.5"
                                                 Background="{StaticResource LwStorm0Brush}"
                                                 Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVisibleConverter}}">
-                                            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                                            <ProgressBar Style="{StaticResource DownloadProgress}"
+                                                         Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                                                         IsIndeterminate="{Binding IsIndeterminate}"
                                                          Height="3" BorderThickness="0" Background="Transparent"
                                                          Foreground="{StaticResource LwProgressFillBrush}"
                                                          AutomationProperties.AutomationId="DownloadRowProgress" />
                                         </Border>
+                                        <TextBlock Text="{Binding PlaybackText}" FontSize="12" Margin="0,6,0,0"
+                                                   TextWrapping="Wrap" Foreground="{StaticResource LwText2Brush}"
+                                                   AutomationProperties.AutomationId="DownloadRowAvailability" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
-                                                FontSize="19" Content="{StaticResource IconPlay}" ToolTip="{loc:Text DownloadsView.Play.d9e1bf7a}"
+                                                FontSize="19" Content="{StaticResource IconPlay}" ToolTip="{Binding PlayToolTip}"
+                                                IsEnabled="{Binding CanPlay}" ToolTipService.ShowOnDisabled="True"
                                                 Click="OnRowPlay" Tag="{Binding}"
-                                                Visibility="{Binding CanPlay, Converter={StaticResource BoolToVisibleConverter}}"
                                                 AutomationProperties.AutomationId="DownloadRowPlay" />
                                         <Button Style="{StaticResource LwIconButton}" FontFamily="{StaticResource LwFontIcon}"
                                                 FontSize="19" Content="{StaticResource IconPause}" ToolTip="{loc:Text DownloadsView.Pause.f12f706f}"

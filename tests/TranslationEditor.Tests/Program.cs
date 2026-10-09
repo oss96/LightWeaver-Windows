@@ -158,6 +158,32 @@ await Check("changed filter includes text, metadata, translations and deleted lo
     await fixture.Store.Create("fr"); await fixture.Save("fr", ("unchanged", "Traduit"));
     Assert((await fixture.Store.Changed(baseline)).Contains("unchanged"));
 });
+await Check("changed filter reads Unicode Git output independently of console encoding", async () =>
+{
+    using var fixture = new Fixture();
+    fixture.Catalog.Strings["unicode"] = new("Downloads \u00b7 ready", "Fixture", ["src/LightWeaver/View.cs"]);
+    fixture.WriteCatalog();
+    await fixture.Store.Create("de"); await fixture.Save("de", ("unicode", "Gr\u00f6\u00dfe \u00b7 bereit"));
+    await fixture.Store.Create("ar"); await fixture.Save("ar", ("unicode", "\u062c\u0627\u0647\u0632 \u0644\u0644\u062a\u0634\u063a\u064a\u0644"));
+    // Git stores UTF-8 bytes; default JSON escaping would hide the decoding failure.
+    var rawUnicode = new JsonSerializerOptions(CatalogJson.Options)
+        { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    File.WriteAllText(fixture.CatalogPath, JsonSerializer.Serialize(fixture.Catalog, rawUnicode));
+    foreach (var code in new[] { "de", "ar" })
+        File.WriteAllText(fixture.LocalePath(code), JsonSerializer.Serialize(fixture.Store.Read(code), rawUnicode));
+    foreach (var path in new[] { fixture.CatalogPath, fixture.LocalePath("de"), fixture.LocalePath("ar") })
+        Assert(File.ReadAllText(path).Any(c => c > 127), "Git baseline must contain raw Unicode characters.");
+    await fixture.Git("init", "--quiet"); await fixture.Git("add", "localization");
+    await fixture.Git("-c", "user.name=Translation Tests", "-c", "user.email=tests@example.invalid", "commit", "--quiet", "-m", "Unicode baseline");
+    var baseline = (await fixture.Git("rev-parse", "HEAD")).Trim();
+    var originalEncoding = Console.OutputEncoding;
+    try
+    {
+        Console.OutputEncoding = System.Text.Encoding.ASCII;
+        Assert((await fixture.Store.Changed(baseline)).Length == 0, "Unchanged Unicode strings must remain outside the changed filter.");
+    }
+    finally { Console.OutputEncoding = originalEncoding; }
+});
 await Check("changed filter rejects command injection and missing revisions", async () =>
 {
     using var fixture = new Fixture(); await fixture.Git("init", "--quiet");

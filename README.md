@@ -26,6 +26,18 @@ one repo each) rather than one cross-platform build.
 - Playback speed control (0.5x–2x), mute, and a brief volume indicator on any change
 - Video buffer size in Settings: **Recommended** by default, with **Less memory** and
   **More read-ahead** presets and a custom size under Advanced
+- Settings show **Unlimited**, bitrate presets and **Custom** for the streaming cap, select
+  **Sans-serif (default)** for the subtitle font, and display the effective download folder.
+  Redundant helper text is removed; the logging explanation follows the current toggle state.
+- Subtitle text and border colors use named presets with visible swatches and a custom hex
+  color option. Border size, shadow offset and vertical position offer presets and custom values.
+- RTX HDR peak brightness stays manually adjustable in nits. **Use display value** copies the
+  current screen's Windows-reported HDR peak when available; it keeps the saved value if detection
+  fails or HDR is off. The reported value comes from display metadata or an override, not a measurement.
+- Unavailable Settings controls are disabled with a reason on hover: RTX options require a
+  supported GPU, RTX HDR also requires HDR enabled on the current display, and passthrough
+  requires a compatible output. The auto-play countdown is disabled while auto-play is off.
+  Saved preferences are retained, and display availability refreshes while Settings is open.
 - **Alternate versions**: when an item has more than one media source — a 4K remux beside a 1080p
   encode, on movies and, since Jellyfin 12, on episodes — a Versions button on the detail view
   picks which one to play, and a VERSIONS group in the player's track flyout switches between them
@@ -39,8 +51,9 @@ RTX VSR and RTX Video HDR apply to SDR content only (an NVIDIA limitation). On H
 sources the toggles grey out with the reason on hover, the filters are suppressed, and mpv's own
 tone mapping takes over. Without an RTX GPU the toggles are disabled outright.
 
-During a server item, open the player's info panel. Quality is the first section, above the
-playback stats: choose Default, Unlimited, 20, 10, 4 or 1 Mbps, and toggle Force transcode.
+During a server item, use the player's Quality button beside the audio and subtitle controls.
+Its own flyout offers Default, Unlimited, 20, 10, 4 or 1 Mbps, and Force transcode. The Info panel
+contains playback statistics and media details.
 Default uses the bitrate saved in Settings. Choices apply to the current item only and reset on
 the next one, and nothing here writes Settings. The player negotiates the replacement before it
 touches the current stream, so a failed negotiation keeps playing what you were watching;
@@ -92,9 +105,11 @@ loads, and absent for local files and direct URLs.
   never fetched
 - Library grids with sorting, watched and genre filters, an A–Z letter rail, collection (BoxSet)
   browsing and per-library genre grids
+- Playlist detail and Play all keep the server's entry order and repeated items, including
+  playlists longer than 500 entries. Watched changes update every occurrence of the item
 - Server-wide quick search plus advanced multi-filter search (type, genre, year, watched, and a
-  person type-ahead) with type-grouped result sections and removable seed chips; cast, crew and
-  genre labels deep-link into a pre-filtered search
+  person type-ahead with mouse and keyboard selection) with type-grouped result sections and
+  removable seed chips; cast, crew and genre labels deep-link into a pre-filtered search
 - Item detail with backdrop, rating and community score, 4K/HDR10/audio badges derived from real
   media info, Resume / From-start, an inline season episode list, a circular cast grid, More-like-this,
   and a Watch Trailer button
@@ -124,7 +139,14 @@ loads, and absent for local files and direct URLs.
   than track number, down to the variant: choosing "English (SDH)" keeps SDH on the next episode
   rather than plain English, as long as that episode names the track the same way
 - Auto-play next episode with an Up Next card and countdown that cancels when you seek back out of
-  the credits and pauses when playback does
+  the credits and pauses when playback does. Settings has the auto-play toggle and the countdown,
+  from 3 to 120 seconds, default 10; with auto-play off the card still offers Play now. The card
+  appears at the episode's credits marker. Without one it appears a set time before the end:
+  15, 30 or 60 seconds or a custom 5 to 300, default 30, chosen in Settings. The Up Next pill on
+  series and season pages and the Up Next button on episode pages override that time for the whole
+  show (Global, 15, 30, 60 or custom). Both open the same flyout and change one value, saved
+  locally per server and Jellyfin user. If the episode ends first, the remaining countdown keeps
+  running on the last frame; Dismiss stops it there.
 - A playback queue: Play all / Shuffle on seasons, series and server playlists, `N`/`P` keys, and an
   overlay queue popup with jump and remove
 - Dedicated next/previous-episode buttons that step by series order across season boundaries
@@ -145,13 +167,42 @@ loads, and absent for local files and direct URLs.
 
 ### Downloads and offline
 
+- Choose named audio and subtitle tracks before downloading, or keep all languages. The picker
+  starts with your preferred or default audio track and your preferred subtitles or None.
+  Quality choices remain available; incompatible audio and subtitle options are disabled in
+  their menus. Changing quality replaces unavailable choices with default audio or no subtitles.
+  All audio languages uses Original quality because Jellyfin's smaller downloads contain one
+  audio track.
+  Original keeps all embedded tracks; individual choices set the initial playback tracks.
+  Separate subtitles are saved beside the video for offline playback. Embedded graphical
+  subtitles also require Original quality; unsupported separate formats are identified before queueing
+- Download selection, progress, speed and readiness text follow the current UI language, including
+  German and Arabic. Language changes keep quality and track selections intact.
+- Each download shows its language choices. A completed video remains playable if subtitle saving
+  fails, and Retry fetches the missing subtitles without downloading the video again. An item is
+  ready offline only after its selected subtitles finish. Episode batches use each episode's
+  preferred or default audio until you explicitly select a named track. They retain the chosen
+  quality and report episodes with incompatible choices instead of upgrading to Original.
+  Episode batches resolve each episode's
+  own language tracks and report episodes that lack the requested language instead of substituting it
+- Live per-download progress, transfer speed and remaining time, with approximate labels for
+  transcoded size estimates and visible activity when the total size is unknown
+- Downloaded-duration estimates and a visible Play button that enables after the startup buffer
+  arrives. Partial playback starts from the beginning and can buffer when it catches up or seeks
+  beyond downloaded content; completed rows show full offline availability
+- The Downloads rail badge counts active transfers in both expanded and collapsed layouts;
+  the page summary separately counts downloading, queued and ready-offline items
+- Playback from Downloads shows "Starting playback" while refreshing Jellyfin metadata for up to
+  750 ms. Finished videos use the current resume position when it arrives in time, or saved metadata
+  when the server is unavailable or slow. Episode continuation loads in the background after startup
+
 - Download movies, episodes, or whole seasons and series at original quality or a transcoded
   1080p/720p/480p tier, with size estimates
 - Pause, resume and cancel, with HTTP-Range resume and recovery across restarts. Downloading an
   item again whose file is still on disk (after **Clear completed**, say) recognises a finished
   original-quality file and marks it complete, and restarts any other leftover from the start
 - A Downloads screen behind its own nav-rail entry and downloaded badges on cards
-- Local-first playback: a downloaded item plays from disk with no server round-trip
+- Local-first playback: a downloaded item plays its video from disk, with saved metadata available offline
 - Play a download while it is still downloading, from the bytes already on disk instead of pulling
   the same file a second time over the network. A completed download still wins; a running one is
   offered once a few MiB have landed and the part you are resuming into has arrived, and a stream
@@ -194,7 +245,7 @@ loads, and absent for local files and direct URLs.
   place it in `native/win-x64/` (gitignored; copied next to the exe at build time) or anywhere on
   `PATH`
 - For RTX features: an NVIDIA RTX GPU (20-series or newer) with RTX Video enabled in the NVIDIA App
-- To build: the .NET 10 SDK
+- To build: the .NET 10.0.300 SDK or a later 10.0.3xx patch, as selected by `global.json`
 
 ## Install
 
@@ -219,6 +270,47 @@ Debug builds run in an isolated app-data environment (`%LOCALAPPDATA%\LightWeave
 their window "LightWeaver (Debug)", so running the dev build never touches the installed build's
 login, settings or watched state. This is selected automatically via `#if DEBUG`.
 
+## Dependency maintenance
+
+NuGet versions live in `src/LightWeaver/LightWeaver.csproj`. Alongside `Jellyfin.Sdk`, explicit
+references keep all six Kiota runtime packages on 1.22.2 and `Std.UriTemplate` on 2.0.12 instead
+of taking the older transitive versions from the Jellyfin SDK. Renovate can propose updates for
+each reference. It groups Kiota updates and keeps them below 2.0 until a separate Jellyfin
+compatibility migration. Updates require review and merge, then a new app release.
+The current graph has eight explicit references and two indirect packages brought in by
+Kiota: `Microsoft.Extensions.DependencyInjection.Abstractions` and
+`Microsoft.IO.RecyclableMemoryStream`.
+
+`global.json` selects .NET SDK 10.0.300 and permits later patches in the same feature band,
+with preview SDKs disabled. Renovate tracks that SDK version and keeps proposals on .NET 10.
+Self-contained releases bundle the .NET runtime, so runtime fixes reach installed users when
+the app is rebuilt and released.
+
+The native library is supplied locally and stays out of Git. `dependencies/libmpv.json`
+records the current DLL's file version, SHA-256 and upstream source commit. The checksum was
+recorded from the existing maintainer-supplied DLL; it is not an upstream binary attestation
+or a download URL. To check your copy without running it:
+
+```powershell
+.\tools\Verify-LibMpv.ps1
+.\tests\Verify-LibMpv.Tests.ps1   # positive and rejection checks; requires the recorded DLL
+```
+
+Publishing runs this check before building and again on the copied DLL before signing or
+packaging. To update libmpv, obtain and verify a trusted Windows x64 build, replace the local
+DLL, update its version, hash and source commit together in the manifest, and test playback
+before releasing. Source builds can still use another local build or find libmpv on `PATH`;
+release packaging requires the recorded build. Bundled fonts and build-machine tools such
+as Inno Setup and GitHub CLI continue to be updated manually.
+
+To inspect the resolved packages and check for updates or known vulnerabilities:
+
+```powershell
+dotnet package list --project src/LightWeaver/LightWeaver.csproj --include-transitive
+dotnet package list --project src/LightWeaver/LightWeaver.csproj --include-transitive --outdated
+dotnet package list --project src/LightWeaver/LightWeaver.csproj --include-transitive --vulnerable
+```
+
 ## UI languages and translation editor
 
 UI text lives in [`localization/catalog.json`](localization/catalog.json). English is the
@@ -227,7 +319,7 @@ choose an available UI language in Settings to apply it immediately. The current
 and playback stay in place. System default
 uses the Windows UI language when a matching pack is available. Missing, outdated or invalid
 translations fall back to English.
-The German (`de`) and Arabic (`ar`) packs each cover all 812 current catalog entries, including
+The German (`de`) and Arabic (`ar`) packs each cover all 970 current catalog entries, including
 playback controls, settings, downloads, SyncPlay and error messages. Select Deutsch or العربية
 to use them.
 Standard library names such as Movies and TV Shows follow the interface language immediately.
@@ -243,7 +335,9 @@ Run the local editor from this checkout:
 dotnet run --project tools/TranslationEditor
 ```
 
-Open [the translation editor](http://127.0.0.1:5386/). Add a language column, enter translations,
+Open [the translation editor](http://127.0.0.1:5386/). Its interface supports English, German and
+Arabic, including right-to-left layout and Arabic editing. Use the interface-language selector
+independently of the translation-column filter. Add a language column, enter translations,
 then save. Each row includes its English source, key and source files. The editor checks format
 placeholders and warns when the English source has changed. A save updates only edited cells;
 filters do not remove other translations. Rebuild LightWeaver after editing a language file.
@@ -252,6 +346,7 @@ Filters are shareable through the URL. `q` searches text and keys, `source` filt
 `status` filters translation status, and `lang` chooses the language for that status. `keys`
 accepts comma-separated string keys. Use `changed=working-tree` for changes against HEAD, or
 `changed=<full-base-commit>` for a stable link to strings created or modified during a change.
+The filter reads Unicode Git content as UTF-8 when the editor runs in the background.
 Source edits and translation edits both count. Start the editor before sharing a local link.
 
 Localize new UI text in the same change. Keep keys stable when changing English text and update
@@ -334,7 +429,10 @@ Known issues and open work are tracked by the maintainer outside the repository.
 
 [design/](design/) holds the "woven light" design system: the design prompt, the generated spec
 (tokens, component states, and full-screen mockups for all six screens), and the Advanced Search
-redesign package.
+redesign package. [design/app-icon.icon](design/app-icon.icon) is the app icon source: the
+Gold-Violet "Shallan" seal as an Icon Composer bundle (SVG layers plus `icon.json`).
+`src/LightWeaver/Assets/LightWeaver.ico` is rendered from it: a `#251B3E` rounded plate under the
+gold layers, at 16–256 px. The exe, the windows, the taskbar and the installer all use that file.
 
 ## Contributing
 

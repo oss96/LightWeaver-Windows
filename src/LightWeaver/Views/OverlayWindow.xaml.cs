@@ -55,6 +55,7 @@ public partial class OverlayWindow : Window
 
     private readonly PlayerViewModel _viewModel;
     private readonly SyncPlayFlyoutTrigger _syncPlayTrigger;
+    private readonly SyncPlayFlyoutTrigger _qualityTrigger;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _volumePillTimer;
     private bool _controlsVisible = true;
@@ -106,6 +107,8 @@ public partial class OverlayWindow : Window
         LiveText.Watch(this);
         _syncPlayTrigger = new(SyncPlayPopup, SyncPlayButton);
         _syncPlayTrigger.Attach();
+        _qualityTrigger = new(QualityPopup, QualityButton);
+        _qualityTrigger.Attach();
         _viewModel = viewModel;
         DataContext = viewModel;
 
@@ -169,8 +172,14 @@ public partial class OverlayWindow : Window
                 or nameof(PlayerViewModel.HasChapters)
                 or nameof(PlayerViewModel.ShowNextPrevButtons)
                 or nameof(PlayerViewModel.HasAudioDeviceChoices)
-                or nameof(PlayerViewModel.SpeedDisplay))
+                or nameof(PlayerViewModel.SpeedDisplay)
+                or nameof(PlayerViewModel.QualityVisible))
                 RequestTrackButtonUpdate();
+            if (e.PropertyName == nameof(PlayerViewModel.QualityVisible))
+            {
+                UpdateCompactControls();
+                if (!_viewModel.QualityVisible) QualityPopup.IsOpen = false;
+            }
             // The flyout's sections are code-owned (no bindings), so a track list that changes
             // while it is up has to be pushed in.
             if (TracksPopup.IsOpen && e.PropertyName is nameof(PlayerViewModel.HasVideoChoices)
@@ -194,12 +203,29 @@ public partial class OverlayWindow : Window
             _idleTimer.Stop();
             _idleTimer.Start();
         };
-        IsVisibleChanged += (_, _) => { if (!IsVisible) CloseSyncPlayFlyout(); };
-        Closed += (_, _) => { _syncPlayTrigger.Dispose(); CloseSyncPlayFlyout(); };
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible) { CloseSyncPlayFlyout(); QualityPopup.IsOpen = false; }
+        };
+        Closed += (_, _) =>
+        {
+            _syncPlayTrigger.Dispose();
+            _qualityTrigger.Dispose();
+            CloseSyncPlayFlyout();
+            QualityPopup.IsOpen = false;
+        };
 
         // Keep the subtitle lift in sync with the bar geometry and playback start
         // (the overlay is shown per playback; controls may already be visible then).
-        SizeChanged += (_, _) => { UpdateSubtitlePosition(); UpdateCompactControls(); RequestTrackButtonUpdate(); };
+        // Quality is the one flyout whose HorizontalOffset is computed when it opens (it is
+        // clamped into the overlay), so a resize leaves it pointing at a stale position; close it.
+        SizeChanged += (_, _) =>
+        {
+            QualityPopup.IsOpen = false;
+            UpdateSubtitlePosition();
+            UpdateCompactControls();
+            RequestTrackButtonUpdate();
+        };
         // The row is the thing the track buttons have to fit into, and it moves for reasons the
         // window size does not cover — UpdateCompactControls' padding switch, a control the view
         // model showed or hid.
@@ -478,8 +504,10 @@ public partial class OverlayWindow : Window
     public void SetMiniMode(bool on)
     {
         CloseSyncPlayFlyout();
+        QualityPopup.IsOpen = false;
         Diagnostics.AppLog.Detail("overlay", $"event=state mini={on}");
         _miniMode = on;
+        UpdateCompactControls();
         // Mini mode has no time editor (OnTimeTextClick early-returns, like ToggleShortcuts), so a
         // transition must neither carry an open field into a 480x270 window nor leave the hover
         // affordance promising a click that mode will not answer.
@@ -655,16 +683,65 @@ public partial class OverlayWindow : Window
     // Live stats refresh only while the info panel is open.
     private DispatcherTimer? _infoTimer;
 
+    private void OnQualityButton(object sender, RoutedEventArgs e)
+    {
+        if (_qualityTrigger.ConsumeDismissal())
+        {
+            QualityPopup.IsOpen = false;
+            return;
+        }
+        if (!_viewModel.QualityVisible || _miniMode)
+            return;
+        var open = !QualityPopup.IsOpen;
+        if (open)
+        {
+            foreach (var flyout in Flyouts.Where(p => p != QualityPopup)) flyout.IsOpen = false;
+            // ClickMode=Press runs this while the button still holds the mouse capture it took on
+            // the press, and a Popup only captures the mouse when nothing else has it: opened now,
+            // it never sees an outside press, so StaysOpen=False never closes it. Taking the
+            // capture away early is no better - the popup then closes on this press's own release,
+            // which lands outside it. Open once the button lets go on that release instead.
+            if (QualityButton.IsMouseCaptured)
+            {
+                QualityButton.LostMouseCapture -= OpenQualityAfterRelease;
+                QualityButton.LostMouseCapture += OpenQualityAfterRelease;
+                return;
+            }
+        }
+        QualityPopup.IsOpen = open;
+    }
+
+    private void OpenQualityAfterRelease(object sender, MouseEventArgs e)
+    {
+        QualityButton.LostMouseCapture -= OpenQualityAfterRelease;
+        // Only a real release opens it. Alt+Tab mid-press also drops the capture, with the button
+        // still held, and a popup opened in a background window cannot take capture either (B8).
+        if (Mouse.LeftButton == MouseButtonState.Released
+            && _viewModel.QualityVisible && !_miniMode && IsVisible)
+            QualityPopup.IsOpen = true;
+    }
+
+    private void OnQualityPopupOpened(object sender, EventArgs e)
+    {
+        // Prefer the button's right edge, then keep the picker inside the overlay at narrow widths.
+        var anchor = QualityButton.TranslatePoint(new Point(), this).X;
+        var width = ((FrameworkElement)QualityPopup.Child).Width;
+        var left = Math.Clamp(anchor + QualityButton.ActualWidth - width, 0, Math.Max(0, ActualWidth - width));
+        QualityPopup.HorizontalOffset = left - anchor;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (QualityPopup.IsOpen) QualityTierControl.Focus();
+        }));
+    }
+
     private void OnInfoButton(object sender, RoutedEventArgs e)
         => InfoPopup.IsOpen = !InfoPopup.IsOpen;
 
     private void OnInfoPopupOpened(object sender, EventArgs e)
     {
         // A Popup keeps its child tree across close/open, so the ScrollViewer keeps its offset
-        // too. Without this, reading Media info once leaves the flyout permanently scrolled past
-        // the QUALITY group, which is the one thing in here you can actually act on. Measured on
-        // the guest 2026-09-14: reopening at 700x480 showed PLAYBACK with only the bottom sliver
-        // of the quality status line visible.
+        // too. Without this, reading Media info once leaves every later open scrolled past the
+        // live PLAYBACK rows.
         InfoScroll.ScrollToTop();
         _viewModel.RefreshLiveStats();
         UiLog($"InfoPopupOpened rows={_viewModel.LiveStats.Count}");
@@ -928,6 +1005,7 @@ public partial class OverlayWindow : Window
     }
 
     private bool? _compact;
+    private bool? _compactQuality;
 
     /// <summary>
     /// Reclaims horizontal room in the transport row at narrow widths (P10 M11). Merging the
@@ -944,13 +1022,24 @@ public partial class OverlayWindow : Window
     {
         // The threshold is the width at which the full-padding row stops fitting, with margin.
         var compact = ActualWidth > 0 && ActualWidth < 900;
-        if (_compact == compact)
+        // Mini mode collapses the Quality pill with the rest of the row, so it needs no room there.
+        var compactQuality = compact && _viewModel.QualityVisible && !_miniMode;
+        if (_compact == compact && _compactQuality == compactQuality)
             return;
         _compact = compact;
+        _compactQuality = compactQuality;
         ControlsPanel.Padding = compact
-            ? new Thickness(16, 40, 16, 24)
+            ? new Thickness(compactQuality ? 12 : 16, 40, compactQuality ? 12 : 16, 24)
             : new Thickness(40, 40, 40, 24);
-        VolumeSlider.Width = compact ? 56 : 96;
+        VolumeSlider.Width = compactQuality ? 40 : compact ? 56 : 96;
+        // Reclaim the new pill's width from glyph-button spacing while retaining every control.
+        var iconStyle = (Style)FindResource("LwOsdButton");
+        foreach (var button in ControlsRow.Children.OfType<System.Windows.Controls.Button>().Where(b => b.Style == iconStyle)
+            .Concat([MuteButton, AudioDeviceButton]))
+        {
+            if (compactQuality) button.MinWidth = 32;
+            else button.ClearValue(MinWidthProperty);
+        }
     }
 
     private void OnAudioDeviceButton(object sender, RoutedEventArgs e)
@@ -1296,13 +1385,21 @@ public partial class OverlayWindow : Window
     /// both need it and a second hand-written list is how AudioDevicePopup came to be missing
     /// from the idle-hide check (Phase 9 M3).</summary>
     private IEnumerable<System.Windows.Controls.Primitives.Popup> Flyouts
-        => [TracksPopup, InfoPopup, QueuePopup, SpeedPopup, AudioDevicePopup, SyncPlayPopup];
+        => [TracksPopup, QualityPopup, InfoPopup, QueuePopup, SpeedPopup, AudioDevicePopup, SyncPlayPopup];
 
     private bool AnyFlyoutOpen => Flyouts.Any(p => p.IsOpen);
 
     private void OnOverlayKeyDown(object sender, KeyEventArgs e)
     {
-        // A focused group trigger owns its activation keys before the player bridge.
+        // A focused flyout trigger owns its activation keys before the player bridge. Quality
+        // only while closed: with its flyout open, keys belong to the focused picker inside it.
+        if (QualityButton.IsKeyboardFocused && !QualityPopup.IsOpen && Keyboard.Modifiers == ModifierKeys.None
+            && e.Key is Key.Space or Key.Enter)
+        {
+            if (!e.IsRepeat) QualityButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            e.Handled = true;
+            return;
+        }
         if (SyncPlayButton.IsKeyboardFocused && Keyboard.Modifiers == ModifierKeys.None
             && e.Key is Key.Space or Key.Enter)
         {
@@ -1365,8 +1462,10 @@ public partial class OverlayWindow : Window
             // needs a click-away (a Popup does not close on Escape by itself).
             if (e.Key == Key.Escape)
             {
+                var qualityWasOpen = QualityPopup.IsOpen;
                 foreach (var flyout in Flyouts)
                     flyout.IsOpen = false;
+                if (qualityWasOpen && QualityButton.IsVisible) QualityButton.Focus();
                 e.Handled = true;
             }
             return;

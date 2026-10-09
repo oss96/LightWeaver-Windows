@@ -67,7 +67,20 @@ public sealed record PlaybackDecision(string Url, bool IsTranscode, string PlayS
 /// <summary>One row of the download resolution picker (Phase 7 M20): the original
 /// source (exact size) or a transcode tier (estimated from bitrate × runtime).</summary>
 public sealed record DownloadOption(string Label, string? MediaSourceId, bool IsOriginal,
-    int? MaxWidth, int? VideoBitRate, long? EstimatedSizeBytes, string? Container, string Resolution);
+    int? MaxWidth, int? VideoBitRate, long? EstimatedSizeBytes, string? Container, string Resolution)
+{
+    public IReadOnlyList<Downloads.DownloadTrack> AudioTracks { get; init; } = [];
+    public IReadOnlyList<Downloads.DownloadTrack> SubtitleTracks { get; init; } = [];
+    public DownloadOption? OriginalOption { get; init; }
+    public string? SourceResolution { get; init; }
+    public string DisplayLabel => IsOriginal
+        ? SourceResolution is { } source
+            ? L.Format("JellyfinService.Original.4bdcf56b", source,
+                EstimatedSizeBytes is { } size ? Downloads.DownloadManager.FormatBytes(size) : L.Text("JellyfinService.UnknownSize.6af2778f"))
+            : L.Text("DownloadsView.Original.b0322603")
+        : L.Format("Downloads.QualitySize", Resolution,
+            EstimatedSizeBytes is { } estimate ? "~" + Downloads.DownloadManager.FormatBytes(estimate) : L.Text("JellyfinService.Transcoded.1825889f"));
+}
 
 /// <summary>One alternate version (media source) of an item. Movies have carried several for
 /// years; Jellyfin 12 extends them to episodes. <see cref="Label"/> is derived once, at
@@ -956,16 +969,27 @@ public sealed class JellyfinService : IDisposable
         return Map(result?.Items);
     }
 
-    /// <summary>Children of a server playlist, in playlist order (queue source).</summary>
+    /// <summary>All occurrences in a server playlist, in playlist order. The limit is a
+    /// page size; repeated ids are intentional and must survive every page.</summary>
     public async Task<List<MediaItem>> GetPlaylistItemsAsync(Guid playlistId, int limit = 500)
     {
-        var result = await WithRetry(() => _client.Playlists[playlistId].Items.GetAsync(cfg =>
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        var items = new List<MediaItem>();
+        while (true)
         {
-            cfg.QueryParameters.UserId = UserId;
-            cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
-        })).ConfigureAwait(false);
-        return Map(result?.Items);
+            var result = await WithRetry(() => _client.Playlists[playlistId].Items.GetAsync(cfg =>
+            {
+                cfg.QueryParameters.UserId = UserId;
+                cfg.QueryParameters.StartIndex = items.Count;
+                cfg.QueryParameters.Limit = limit;
+                cfg.QueryParameters.Fields = [ItemFields.Overview];
+            })).ConfigureAwait(false);
+            var page = Map(result?.Items);
+            items.AddRange(page);
+            if (page.Count == 0 || (result?.TotalRecordCount is { } total && items.Count >= total)
+                || (result?.TotalRecordCount is null && page.Count < limit))
+                return items;
+        }
     }
 
     /// <summary>Album tracks in disc/track order. The generic child browse query sorts by name,
@@ -1009,11 +1033,13 @@ public sealed class JellyfinService : IDisposable
 
     /// <summary>External subtitle streams of the item's default media source. mpv
     /// authenticates the URLs with the same Authorization header as the video.</summary>
-    public async Task<List<ExternalSubtitle>> GetExternalSubtitlesAsync(Guid itemId)
+    public async Task<List<ExternalSubtitle>> GetExternalSubtitlesAsync(Guid itemId, string? mediaSourceId = null)
     {
         var info = await WithRetry(() => _client.Items[itemId].PlaybackInfo.GetAsync(cfg =>
             cfg.QueryParameters.UserId = UserId)).ConfigureAwait(false);
-        var source = info?.MediaSources?.FirstOrDefault();
+        var source = mediaSourceId is { Length: > 0 }
+            ? info?.MediaSources?.FirstOrDefault(s => s.Id == mediaSourceId)
+            : info?.MediaSources?.FirstOrDefault();
         if (source?.MediaStreams is null)
             return [];
 
@@ -1458,9 +1484,10 @@ public sealed class JellyfinService : IDisposable
         return Map(result?.Items);
     }
 
-    public async Task<MediaItem?> GetItemAsync(Guid itemId)
+    public async Task<MediaItem?> GetItemAsync(Guid itemId, CancellationToken cancellationToken = default)
     {
-        var dto = await WithRetry(() => _client.Items[itemId].GetAsync()).ConfigureAwait(false);
+        var dto = await WithRetry(ct => _client.Items[itemId].GetAsync(cancellationToken: ct),
+            cancellationToken).ConfigureAwait(false);
         return dto is null ? null : MapOne(dto);
     }
 
@@ -1585,7 +1612,7 @@ public sealed class JellyfinService : IDisposable
     /// static stream for original quality, or the server transcoder's h264/aac output
     /// when a maxWidth tier was picked. Auth rides the Authorization header.</summary>
     public string GetDownloadUrl(Guid itemId, string? mediaSourceId = null, int? maxWidth = null,
-        int? videoBitRate = null, string? container = null)
+        int? videoBitRate = null, string? container = null, int? audioStreamIndex = null)
     {
         var sb = new System.Text.StringBuilder($"{ServerUrl}/Videos/{itemId}/stream");
         if (maxWidth is not null && container is { Length: > 0 })
@@ -1598,13 +1625,25 @@ public sealed class JellyfinService : IDisposable
         else
         {
             sb.Append("static=false&videoCodec=h264&audioCodec=aac");
+            sb.Append("&subtitleStreamIndex=-1");
+            if (audioStreamIndex is { } audio)
+                sb.Append("&audioStreamIndex=").Append(audio);
             sb.Append("&maxWidth=").Append(maxWidth.Value);
             if (videoBitRate is not null)
                 sb.Append("&videoBitRate=").Append(videoBitRate.Value);
         }
         if (mediaSourceId is { Length: > 0 })
-            sb.Append("&mediaSourceId=").Append(mediaSourceId);
+            sb.Append("&mediaSourceId=").Append(Uri.EscapeDataString(mediaSourceId));
         return sb.ToString();
+    }
+
+    public string GetDownloadSubtitleUrl(Guid itemId, string? mediaSourceId, int streamIndex,
+        string codec)
+    {
+        if (string.IsNullOrWhiteSpace(mediaSourceId) || streamIndex < 0)
+            throw new InvalidOperationException(L.Text("Downloads.MissingSubtitleSource"));
+        var extension = Downloads.DownloadLanguages.SubtitleRequestFormat(codec);
+        return $"{ServerUrl}/Videos/{itemId}/{Uri.EscapeDataString(mediaSourceId)}/Subtitles/{streamIndex}/Stream.{extension}";
     }
 
     /// <summary>Resolution picker rows for an item (Phase 7 M20): the original source
@@ -1657,9 +1696,32 @@ public sealed class JellyfinService : IDisposable
             var sizeLabel = source.Size is { } size
                 ? Downloads.DownloadManager.FormatBytes(size)
                 : L.Text("JellyfinService.UnknownSize.6af2778f");
-            options.Add(new DownloadOption(L.Format("JellyfinService.Original.4bdcf56b", (resLabel), (sizeLabel)),
+            var audioTracks = new List<Downloads.DownloadTrack>();
+            var subtitleTracks = new List<Downloads.DownloadTrack>();
+            int audioOrdinal = 0, subtitleOrdinal = 0;
+            foreach (var stream in source.MediaStreams ?? [])
+            {
+                if (stream.Index is not { } index)
+                    continue;
+                var external = stream.IsExternal == true;
+                if (stream.Type == MediaStream_Type.Audio)
+                    audioTracks.Add(new Downloads.DownloadTrack(index, external ? -1 : audioOrdinal++,
+                        StreamDisplay(stream), stream.Language, stream.Title, stream.Codec,
+                        external, false, stream.IsDefault == true));
+                else if (stream.Type == MediaStream_Type.Subtitle)
+                    subtitleTracks.Add(new Downloads.DownloadTrack(index, external ? -1 : subtitleOrdinal++,
+                        StreamDisplay(stream), stream.Language, stream.Title, stream.Codec,
+                        external, stream.IsTextSubtitleStream == true, stream.IsDefault == true));
+            }
+            var original = new DownloadOption(L.Format("JellyfinService.Original.4bdcf56b", resLabel, sizeLabel),
                 source.Id, IsOriginal: true, MaxWidth: null, VideoBitRate: null,
-                EstimatedSizeBytes: source.Size, source.Container, "Original"));
+                EstimatedSizeBytes: source.Size, source.Container, "Original")
+            {
+                SourceResolution = resLabel,
+                AudioTracks = audioTracks,
+                SubtitleTracks = subtitleTracks,
+            };
+            options.Add(original);
 
             var durationSecs = (source.RunTimeTicks ?? 0) / 10_000_000;
             foreach (var (tierHeight, tierWidth, tierBitrate) in (ReadOnlySpan<(int, int, int)>)
@@ -1679,7 +1741,12 @@ public sealed class JellyfinService : IDisposable
                 options.Add(new DownloadOption(
                     L.Format("JellyfinService.P.98dfcb0c", (tierHeight), (estLabel)),
                     source.Id, IsOriginal: false, tierWidth, tierBitrate,
-                    estimated, "mp4", FormattableString.Invariant($"{tierHeight}p")));
+                    estimated, "mp4", FormattableString.Invariant($"{tierHeight}p"))
+                {
+                    AudioTracks = audioTracks,
+                    SubtitleTracks = subtitleTracks,
+                    OriginalOption = original,
+                });
             }
             break;   // picker reflects the default (first) media source
         }
@@ -1835,9 +1902,21 @@ public sealed class JellyfinService : IDisposable
             // it. A failed negotiation already has a graceful fallback (null → direct play with
             // client-side reporting), which is a far better outcome than a duplicate session.
             var info = await _client.Items[itemId].PlaybackInfo.PostAsync(body).ConfigureAwait(false);
-            var source = info?.MediaSources?.FirstOrDefault();
-            if (source is null || info?.PlaySessionId is not { Length: > 0 } playSessionId)
+            if (info?.PlaySessionId is not { Length: > 0 } playSessionId)
             {
+                NegotiateDetail(itemId, "incomplete", started, forceTranscode, effectiveBitrate);
+                return null;
+            }
+            var source = string.IsNullOrEmpty(mediaSourceId)
+                ? info.MediaSources?.FirstOrDefault()
+                : info.MediaSources?.FirstOrDefault(s =>
+                    string.Equals(s.Id, mediaSourceId, StringComparison.OrdinalIgnoreCase));
+            if (source is null)
+            {
+                // A selected version must never silently become a different version.
+                // This response allocated a session which no playback will report.
+                await DiscardUnplayedDecisionAsync(new PlaybackDecision("", false, playSessionId, null))
+                    .ConfigureAwait(false);
                 NegotiateDetail(itemId, "incomplete", started, forceTranscode, effectiveBitrate);
                 return null;
             }
