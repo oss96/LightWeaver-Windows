@@ -565,6 +565,8 @@ public partial class HomeView : UserControl
             StaysOpen = false,
             AllowsTransparency = true,
         };
+        // Created in code, outside the visual tree: nothing would zoom it otherwise.
+        Theme.ZoomPopups.SetFollow(_customizePopup, true);
         _customizePopup.IsOpen = true;
         Diagnostics.AppLog.Detail("home", "event=interaction action=customize-open");
     }

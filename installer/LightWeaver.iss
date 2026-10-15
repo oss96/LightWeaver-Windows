@@ -51,8 +51,27 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; Update flow: the app passes /RELAUNCH when the user chose Install, so a silent update ends with
+; the new version running. A silent install on a normal exit omits it and leaves the app closed.
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: RelaunchRequested
 
 [InstallDelete]
 ; Old-version binaries whose files may have been renamed/removed between releases —
 ; the publish output is self-contained, so a clean {app} avoids stale assemblies.
 Type: filesandordirs; Name: "{app}\*"
+
+[Code]
+// Silent only: an interactive install already offers the launch checkbox on its finish page.
+function RelaunchRequested: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  if not WizardSilent then Exit;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/RELAUNCH') = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+end;

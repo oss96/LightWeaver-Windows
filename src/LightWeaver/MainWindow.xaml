@@ -55,8 +55,9 @@
         </TaskbarItemInfo>
     </Window.TaskbarItemInfo>
     <Grid>
-        <!-- Browse layer: left nav rail + content (login / home / library / detail views) -->
-        <Grid x:Name="BrowseLayer">
+        <!-- Browse layer: left nav rail + content (login / home / library / detail views).
+             Carries the app-wide UI zoom (Theme/UiZoom.cs); the video layer below does not. -->
+        <Grid x:Name="BrowseLayer" LayoutTransform="{x:Static theme:UiZoom.Transform}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -284,58 +285,89 @@
             <player:MpvPlayerHost x:Name="PlayerHost" />
         </Border>
 
-        <!-- Subtle update banner (browse layer only, like the toast) -->
-        <Border x:Name="UpdateBanner"
-                HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                Margin="0,0,0,24" CornerRadius="{StaticResource LwR2}" Padding="16,11"
-                Background="{StaticResource LwStorm3Brush}"
-                BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
-                Effect="{StaticResource LwElevation2}"
-                Visibility="Collapsed" Cursor="Hand"
-                MouseLeftButtonDown="OnUpdateBannerClick">
-            <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,12,0"
-                         Fill="{StaticResource LwSapphireLitBrush}" Effect="{StaticResource LwGlowToggleOn}" />
-                <TextBlock x:Name="UpdateBannerText" FontSize="14" VerticalAlignment="Center"
-                           Foreground="{StaticResource LwText1Brush}"
-                           AutomationProperties.AutomationId="UpdateBanner" />
-                <TextBlock Text="{StaticResource IconClose}" FontFamily="{StaticResource LwFontIcon}"
-                           FontSize="15" Margin="14,0,0,0" Opacity="0.6" VerticalAlignment="Center"
-                           Foreground="{StaticResource LwText2Brush}"
-                           MouseLeftButtonDown="OnUpdateBannerDismiss"
-                           AutomationProperties.AutomationId="UpdateBannerDismiss" />
-            </StackPanel>
-        </Border>
+        <!-- In-window chrome above the browse layer, zoomed with it. One wrapper rather than a
+             transform per element, so margins and the modal scrim scale too. -->
+        <Grid x:Name="ChromeLayer" LayoutTransform="{x:Static theme:UiZoom.Transform}">
+            <!-- Subtle update banner (browse layer only, like the toast) -->
+            <Border x:Name="UpdateBanner"
+                    HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Margin="0,0,0,24" CornerRadius="{StaticResource LwR2}" Padding="16,11"
+                    Background="{StaticResource LwStorm3Brush}"
+                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                    Effect="{StaticResource LwElevation2}"
+                    Visibility="Collapsed" Cursor="Hand"
+                    MouseLeftButtonDown="OnUpdateBannerClick">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,12,0"
+                             Fill="{StaticResource LwSapphireLitBrush}" Effect="{StaticResource LwGlowToggleOn}" />
+                    <TextBlock x:Name="UpdateBannerText" FontSize="14" VerticalAlignment="Center"
+                               Foreground="{StaticResource LwText1Brush}"
+                               AutomationProperties.AutomationId="UpdateBanner" />
+                    <TextBlock Text="{StaticResource IconClose}" FontFamily="{StaticResource LwFontIcon}"
+                               FontSize="15" Margin="14,0,0,0" Opacity="0.6" VerticalAlignment="Center"
+                               Foreground="{StaticResource LwText2Brush}"
+                               MouseLeftButtonDown="OnUpdateBannerDismiss"
+                               AutomationProperties.AutomationId="UpdateBannerDismiss" />
+                </StackPanel>
+            </Border>
 
-        <!-- Transient error/info toast (browse layer only — the mpv HWND would
-             cover it while playing; playback errors return to Browse first) -->
-        <Border x:Name="Toast"
-                HorizontalAlignment="Center" VerticalAlignment="Top"
-                Margin="0,16,0,0" MaxWidth="640"
-                CornerRadius="{StaticResource LwR2}" Padding="16,12"
-                Background="{StaticResource LwStorm3Brush}"
-                BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
-                Effect="{StaticResource LwElevation2}"
-                Visibility="Collapsed"
-                MouseLeftButtonDown="OnToastClick">
-            <StackPanel Orientation="Horizontal">
-                <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,12,0"
-                         Fill="{StaticResource LwEmberLitBrush}" Effect="{StaticResource LwGlowEmber}" />
-                <!-- AutomationId lives on the TextBlock: Border has no automation peer -->
-                <TextBlock x:Name="ToastText" TextWrapping="Wrap" MaxWidth="560"
-                           AutomationProperties.AutomationId="Toast"
-                           Foreground="{StaticResource LwText1Brush}" FontSize="14" />
-            </StackPanel>
-        </Border>
+            <!-- Transient error/info toast (browse layer only — the mpv HWND would
+                 cover it while playing; playback errors return to Browse first) -->
+            <Border x:Name="Toast"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,16,0,0" MaxWidth="640"
+                    CornerRadius="{StaticResource LwR2}" Padding="16,12"
+                    Background="{StaticResource LwStorm3Brush}"
+                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                    Effect="{StaticResource LwElevation2}"
+                    Visibility="Collapsed"
+                    MouseLeftButtonDown="OnToastClick">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,12,0"
+                             Fill="{StaticResource LwEmberLitBrush}" Effect="{StaticResource LwGlowEmber}" />
+                    <!-- AutomationId lives on the TextBlock: Border has no automation peer -->
+                    <TextBlock x:Name="ToastText" TextWrapping="Wrap" MaxWidth="560"
+                               AutomationProperties.AutomationId="Toast"
+                               Foreground="{StaticResource LwText1Brush}" FontSize="14" />
+                </StackPanel>
+            </Border>
 
-        <Popup x:Name="SyncPlayPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
-               PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
+            <Popup x:Name="SyncPlayPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+                   PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
 
-        <!-- Modal layer (M23): topmost, collapsed until a confirm/alert shows -->
-        <views:ModalHost x:Name="Modal" />
+            <!-- Modal layer (M23): topmost, collapsed until a confirm/alert shows -->
+            <views:ModalHost x:Name="Modal" />
 
-        <!-- Keyboard-shortcuts panel (P10 M9), browse-layer host. The player has its own
-             instance in OverlayWindow — WPF cannot draw over the mpv HWND. -->
-        <views:ShortcutsOverlay x:Name="Shortcuts" />
+            <!-- Keyboard-shortcuts panel (P10 M9), browse-layer host. The player has its own
+                 instance in OverlayWindow — WPF cannot draw over the mpv HWND. -->
+            <views:ShortcutsOverlay x:Name="Shortcuts" />
+
+            <!-- Transient zoom readout ("125%"), raised by every zoom request while browsing.
+                 Below the header row, so it never covers the toast above it. Starts Collapsed so
+                 it is absent from UIA until a request shows it. -->
+            <Border x:Name="ZoomPill"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,76,0,0" Height="34" Padding="14,0"
+                    Background="{StaticResource LwStorm3Brush}"
+                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                    Effect="{StaticResource LwElevation2}"
+                    CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                    Opacity="0" Visibility="Collapsed" IsHitTestVisible="False">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{StaticResource IconZoomIn}"
+                               FontFamily="{StaticResource LwFontIcon}" FontSize="17"
+                               Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="ZoomPillText" Margin="9,0,0,0" MinWidth="40"
+                               TextAlignment="Right"
+                               FontFamily="{StaticResource LwFontMono}" FontSize="13.5"
+                               Foreground="{StaticResource LwText1Brush}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="ZoomIndicator" />
+                    <!-- "Screen limit" when the screen, not the ladder, stopped the step in. -->
+                    <TextBlock x:Name="ZoomPillLimit" Margin="8,0,0,0" Visibility="Collapsed"
+                               FontSize="12.5" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="ZoomLimitIndicator" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

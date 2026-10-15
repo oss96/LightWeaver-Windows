@@ -446,6 +446,13 @@
         "src/LightWeaver/Player/AppShortcuts.cs"
       ]
     },
+    "AppShortcuts.CtrlWheel.6a0e9c42": {
+      "text": "Ctrl + Wheel",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
     "AppShortcuts.Enter.fae48132": {
       "text": "Enter",
       "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
@@ -509,6 +516,13 @@
         "src/LightWeaver/Player/AppShortcuts.cs"
       ]
     },
+    "AppShortcuts.ResetZoom.e27a5c81": {
+      "text": "Reset zoom",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
     "AppShortcuts.ScrollARowSideways.065b160a": {
       "text": "Scroll a row sideways",
       "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
@@ -560,6 +574,27 @@
     },
     "AppShortcuts.Wheel.a7db831a": {
       "text": "Wheel",
+      "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ZoomIn.4c1e7b2a": {
+      "text": "Zoom in",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ZoomOut.9d3f60e5": {
+      "text": "Zoom out",
+      "context": "public static IReadOnlyList<ChromeShortcut> Chrome { get; } =",
+      "sources": [
+        "src/LightWeaver/Player/AppShortcuts.cs"
+      ]
+    },
+    "AppShortcuts.ZoomTheInterface.b85d3f17": {
+      "text": "Zoom the interface",
       "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
       "sources": [
         "src/LightWeaver/Player/AppShortcuts.cs"
@@ -2400,6 +2435,13 @@
         "src/LightWeaver/Views/LoginView.xaml"
       ]
     },
+    "LoginView.HidePassword": {
+      "text": "Hide password",
+      "context": "private void UpdatePasswordPeek()",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
     "LoginView.HttpIsUnencryptedCredentialsTravelInPlain.25d96c74": {
       "text": "HTTP is unencrypted — credentials travel in plain text.",
       "context": "XAML Text",
@@ -2445,6 +2487,13 @@
     "LoginView.ServerAndUsernameAreRequired.b128c904": {
       "text": "Server and username are required.",
       "context": "private async Task ConnectAsync()",
+      "sources": [
+        "src/LightWeaver/Views/LoginView.xaml.cs"
+      ]
+    },
+    "LoginView.ShowPassword": {
+      "text": "Show password",
+      "context": "private void UpdatePasswordPeek()",
       "sources": [
         "src/LightWeaver/Views/LoginView.xaml.cs"
       ]
@@ -3011,9 +3060,10 @@
     },
     "MainWindow.SwitchUserServer.cad78101": {
       "text": "Switch user / server…",
-      "context": "XAML Header",
+      "context": "XAML Header; login screen saved-profile button",
       "sources": [
-        "src/LightWeaver/MainWindow.xaml"
+        "src/LightWeaver/MainWindow.xaml",
+        "src/LightWeaver/Views/LoginView.xaml"
       ]
     },
     "MainWindow.SyncplayGroups.402c56fb": {
@@ -5266,6 +5316,13 @@
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
+    "SettingsView.LimitZoomToTheScreenSize.e4a19c06": {
+      "text": "Limit zoom to the screen size",
+      "context": "Settings toggle: the zoom stops at the largest level the screen shows every control at",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
     "SettingsView.LogFiles.68bcb2b9": {
       "text": "Log files",
       "context": "XAML Text",
@@ -5512,6 +5569,20 @@
         "src/LightWeaver/Views/SettingsView.xaml"
       ]
     },
+    "SettingsView.RemoveLimit.0b9d4e67": {
+      "text": "Remove limit",
+      "context": "Confirm button that turns the zoom limit off",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.RemoveTheZoomLimit.71c3e0d4": {
+      "text": "Remove the zoom limit?",
+      "context": "Confirmation title when turning the zoom limit off",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
     "SettingsView.ResetToDefaults.2f8aa8cd": {
       "text": "Reset to defaults",
       "context": "XAML Content",
@@ -5559,6 +5630,20 @@
       "context": "Client-only library display names; original Jellyfin metadata stays unchanged.",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.SaveRefusedUnreadable": {
+      "text": "Changes aren't being saved. LightWeaver can't read your existing settings file, so it leaves the file untouched rather than overwrite the settings in it. Changes last until LightWeaver closes. Fix the file's permissions, then restart LightWeaver.",
+      "context": "private void UpdateSaveFailureBanner()",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.SaveWriteFailed": {
+      "text": "The last change wasn't saved because LightWeaver couldn't write the settings file. Changes last until LightWeaver closes, and the next change tries saving again.",
+      "context": "private void UpdateSaveFailureBanner()",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
     },
     "SettingsView.Saved.22a48118": {
@@ -5616,6 +5701,20 @@
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ],
       "text": "Subtle (1)"
+    },
+    "SettingsView.ShortcutSharedWithApp.b17d4e2f": {
+      "text": "{0} is also used for “{1}”, which takes the key first in most places. Choose another key.",
+      "context": "Settings note under a player shortcut row whose saved key also belongs to an app shortcut. {0} = the key, {1} = the app shortcut's name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.ShortcutTakenByApp.5c0e93a7": {
+      "text": "{0} is already used for “{1}”. Choose another key.",
+      "context": "Settings note under a player shortcut row when the pressed key belongs to an app shortcut and was not bound. {0} = the key, {1} = the app shortcut's name",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
     },
     "SettingsView.Shortcuts.6b2fd38c": {
       "text": "SHORTCUTS",
@@ -5844,6 +5943,27 @@
     "SettingsView.ZipArchive.15f41101": {
       "text": "Zip archive",
       "context": "Diagnostics export file filter label",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml.cs"
+      ]
+    },
+    "SettingsView.Zoom.3c7f2a91": {
+      "text": "Zoom",
+      "context": "Settings group heading for the app-wide UI zoom",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ZoomLimitHint.8d52b3f0": {
+      "text": "Keeps every control on screen. Zoom with Ctrl+Plus, Ctrl+Minus or Ctrl+mouse wheel; Ctrl+0 resets.",
+      "context": "Settings hint under the zoom limit toggle",
+      "sources": [
+        "src/LightWeaver/Views/SettingsView.xaml"
+      ]
+    },
+    "SettingsView.ZoomLimitWarning.a6f8125b": {
+      "text": "Past the screen limit the app can look wrong, and some controls may not show or may be cut off.",
+      "context": "Confirmation body when turning the zoom limit off",
       "sources": [
         "src/LightWeaver/Views/SettingsView.xaml.cs"
       ]
@@ -6596,6 +6716,14 @@
       "context": "Translation editor interface",
       "sources": [
         "tools/TranslationEditor/wwwroot/editor.js"
+      ]
+    },
+    "UiZoom.ScreenLimit.5b0d7e3c": {
+      "text": "Screen limit",
+      "context": "Zoom readout suffix: the screen size, not the 200% maximum, stopped the zoom",
+      "sources": [
+        "src/LightWeaver/MainWindow.xaml.cs",
+        "src/LightWeaver/Views/OverlayWindow.xaml.cs"
       ]
     },
     "UpNextLeadPicker.Custom": {

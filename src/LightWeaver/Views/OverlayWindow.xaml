@@ -16,10 +16,15 @@
          storm-0 gradients (<= 0.92 a at the very edge), glyphs <= text-1, glow accents soft,
          so nothing blooms over HDR video. Near-invisible root so the overlay gets ALL mouse
          input over the video HWND (alpha must stay well above 1 or Windows clicks through). -->
-    <Grid Background="#0C000000" AllowDrop="True"
+    <!-- The root carries the app-wide UI zoom (Theme/UiZoom.cs), except in mini mode
+         (SetMiniMode), whose 480x270 layout is fixed. Size logic in the code-behind reads
+         OverlayRoot's size, which is in zoomed layout units, not the window's. -->
+    <Grid x:Name="OverlayRoot" Background="#0C000000" AllowDrop="True"
+          LayoutTransform="{x:Static theme:UiZoom.Transform}"
           MouseMove="OnRootMouseMove" Drop="OnRootDrop"
           MouseLeftButtonDown="OnRootMouseDown"
-          MouseWheel="OnRootMouseWheel">
+          MouseWheel="OnRootMouseWheel"
+          PreviewMouseWheel="OnRootPreviewMouseWheel">
 
         <!-- Top scrim (behind back / title / gem pills) -->
         <Border x:Name="TopScrim" VerticalAlignment="Top" Height="150" IsHitTestVisible="False">
@@ -160,6 +165,33 @@
                            FontFamily="{StaticResource LwFontMono}" FontSize="13.5"
                            Foreground="{StaticResource LwText1Brush}" VerticalAlignment="Center"
                            AutomationProperties.AutomationId="VolumeIndicator" />
+            </StackPanel>
+        </Border>
+
+        <!-- Zoom readout while playing (the browse window's pill is under the video here). Top
+             centre, clear of the title (left) and the gem pills and volume pill (right). Same
+             lifecycle as the volume pill: Collapsed until shown, so UIA presence means visible. -->
+        <Border x:Name="ZoomPill"
+                HorizontalAlignment="Center" VerticalAlignment="Top"
+                Margin="0,26,0,0" Height="34" Padding="14,0"
+                Background="{StaticResource LwStorm3Brush}"
+                BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                Effect="{StaticResource LwElevation2}"
+                CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}"
+                Opacity="0" Visibility="Collapsed" IsHitTestVisible="False">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{StaticResource IconZoomIn}"
+                           FontFamily="{StaticResource LwFontIcon}" FontSize="17"
+                           Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="ZoomPillText" Margin="9,0,0,0" MinWidth="40"
+                           TextAlignment="Right"
+                           FontFamily="{StaticResource LwFontMono}" FontSize="13.5"
+                           Foreground="{StaticResource LwText1Brush}" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="ZoomIndicator" />
+                <!-- "Screen limit" when the screen, not the ladder, stopped the step in. -->
+                <TextBlock x:Name="ZoomPillLimit" Margin="8,0,0,0" Visibility="Collapsed"
+                           FontSize="12.5" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="ZoomLimitIndicator" />
             </StackPanel>
         </Border>
 
@@ -523,7 +555,7 @@
 
         <!-- Seek preview: trickplay thumb + timestamp (or timestamp alone) above the hover x.
              Never hit-testable — it floats near the cursor and must not swallow slider input. -->
-        <Popup x:Name="SeekPreviewPopup" Placement="Relative" AllowsTransparency="True"
+        <Popup x:Name="SeekPreviewPopup" theme:ZoomPopups.Follow="True" Placement="Relative" AllowsTransparency="True"
                Focusable="False" IsHitTestVisible="False"
                PlacementTarget="{Binding ElementName=SeekSlider}">
             <Border x:Name="SeekPreviewRoot" Style="{StaticResource LwOsdFlyout}" Padding="5"
@@ -538,10 +570,10 @@
                 </StackPanel>
             </Border>
         </Popup>
-        <Popup x:Name="SyncPlayPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+        <Popup x:Name="SyncPlayPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
 
-        <Popup x:Name="QualityPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+        <Popup x:Name="QualityPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=QualityButton}" Opened="OnQualityPopupOpened">
             <!-- Width is PINNED at 480: measured on the guest 2026-09-14, a narrower panel rendered
                  "Force transcode" as "Force transcod" and cut the status line mid-word, with no
@@ -586,7 +618,7 @@
         </Popup>
 
         <!-- Info panel contains live playback statistics and server media metadata. -->
-        <Popup x:Name="InfoPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+        <Popup x:Name="InfoPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=InfoButton}"
                Opened="OnInfoPopupOpened" Closed="OnInfoPopupClosed">
             <!-- Width is pinned rather than a 360-480 range, which made the flyout jump ~110 px
@@ -613,7 +645,7 @@
                 </ScrollViewer>
             </Border>
         </Popup>
-        <Popup x:Name="SpeedPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+        <Popup x:Name="SpeedPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=SpeedButton}">
             <Border Style="{StaticResource LwOsdFlyout}" MinWidth="120">
                 <!-- P10 M8: LwOsdFlyoutItem like the other four OSD lists. Phase 9 M3 created
@@ -637,7 +669,7 @@
             </Border>
         </Popup>
         <!-- Queue popup: click a row to jump, X removes (the playing row can't be removed) -->
-        <Popup x:Name="QueuePopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+        <Popup x:Name="QueuePopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=QueueButton}">
             <Border Style="{StaticResource LwOsdFlyout}" MinWidth="280" MaxHeight="420">
                 <!-- No virtualization: queues are small (<=500) and UIA readers (and
@@ -678,7 +710,7 @@
              open the same popup showing only their own section, the merged pill shows every
              type that has a choice. The sections carry no Visibility binding for that reason -
              a binding would fight the per-button mode. -->
-        <Popup x:Name="TracksPopup" StaysOpen="False" Placement="Top" AllowsTransparency="True">
+        <Popup x:Name="TracksPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True">
             <Border Style="{StaticResource LwOsdFlyout}" MinWidth="260" MaxHeight="520">
                 <!-- The ONE scroller: the three lists below have their own turned off, so each
                      lays out at full height and this is the only thing that scrolls. Without
@@ -738,7 +770,7 @@
         </Popup>
         <!-- Audio output devices: same flyout/row language as the track popups; the
              garnet-selected row is mpv's CURRENT device (AudioDeviceOption.IsSelected). -->
-        <Popup x:Name="AudioDevicePopup" StaysOpen="False" Placement="Top" AllowsTransparency="True"
+        <Popup x:Name="AudioDevicePopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=AudioDeviceButton}">
             <Border Style="{StaticResource LwOsdFlyout}" MinWidth="260" MaxHeight="420">
                 <ListBox x:Name="AudioDeviceList" Background="Transparent" BorderThickness="0"

@@ -68,6 +68,9 @@ public static class AppShortcuts
     public const string Fullscreen = "Fullscreen";
     public const string Escape = "Escape";
     public const string BrowseBack = "BrowseBack";
+    public const string ZoomIn = "ZoomIn";
+    public const string ZoomOut = "ZoomOut";
+    public const string ZoomReset = "ZoomReset";
 
     /// <summary>
     /// The '?' that opens the panel. <see cref="ChromeShortcut.Registered"/> is false on purpose:
@@ -94,19 +97,17 @@ public static class AppShortcuts
         // stays unconditional, so rebinding ToggleFullscreen to (say) F gives the user F11 AND F,
         // and the panel then correctly prints both rows.
         //
-        // It inherits Space's one wart, which is worth naming so the next reader does not read it as
-        // new: binding some OTHER action to F11 through the capture flow silently unbinds
-        // ToggleFullscreen, after which F11 means different things depending on which window has
-        // focus — the chrome InputBinding still wins in the main window, while the stolen action
-        // resolves first in the overlay (HandleOverlayKey runs HandlePlayerKey before retrying our
-        // own chords). Identical mechanics to Space; not fixed here.
+        // Some OTHER action on F11 (or Space) would mean different things depending on which
+        // window has focus: the chrome InputBinding wins in the main window, while the other
+        // action resolves first in the overlay (HandleOverlayKey runs HandlePlayerKey before
+        // retrying our own chords). The capture flow refuses it (OwnerOf), as it refuses every
+        // chord this table registers.
         //
-        // One population meets that wart on the very first launch rather than by rebinding: a user
-        // whose settings.json ALREADY put some other action on F11 before ToggleFullscreen existed.
-        // The backfill gives them two actions on one chord, TryResolve's first match wins by enum
-        // order, and the panel still prints "Toggle fullscreen  F11" — so for them the panel is
-        // wrong on day one. The capture flow cannot reach this state (it unbinds the previous owner),
-        // so it needs a hand-written or pre-update file; left as-is with the rest of the wart.
+        // One population still meets it on the very first launch: a user whose settings.json
+        // ALREADY put some other action on F11 before ToggleFullscreen existed. The backfill gives
+        // them two actions on one chord, TryResolve's first match wins by enum order, and the panel
+        // still prints "Toggle fullscreen  F11" — so for them the panel is wrong on day one. Settings
+        // flags that row and the user rebinds it; nothing rewrites their file behind their back.
         new(Fullscreen, Key.F11, ModifierKeys.None, L.Text("AppShortcuts.ToggleFullscreen.b46f7946"), ShortcutGroup.General,
             DuplicateOf: PlayerAction.ToggleFullscreen),
         new(MiniPlayer, Key.M, ModifierKeys.Control, L.Text("AppShortcuts.ToggleMiniPlayer.c5a8790b"), ShortcutGroup.General),
@@ -116,8 +117,50 @@ public static class AppShortcuts
         new(OpenFile, Key.O, ModifierKeys.Control, L.Text("AppShortcuts.OpenFile.a046add4"), ShortcutGroup.General),
         new(OpenSettings, Key.OemComma, ModifierKeys.Control, L.Text("AppShortcuts.Settings.d0fd4f98"), ShortcutGroup.General),
         new(SwitchServer, Key.U, ModifierKeys.Control, L.Text("AppShortcuts.SwitchServer.18623bcb"), ShortcutGroup.General),
+        new(ZoomIn, Key.OemPlus, ModifierKeys.Control, L.Text("AppShortcuts.ZoomIn.4c1e7b2a"), ShortcutGroup.General),
+        new(ZoomOut, Key.OemMinus, ModifierKeys.Control, L.Text("AppShortcuts.ZoomOut.9d3f60e5"), ShortcutGroup.General),
+        new(ZoomReset, Key.D0, ModifierKeys.Control, L.Text("AppShortcuts.ResetZoom.e27a5c81"), ShortcutGroup.General),
         ShowShortcuts,
     ];
+
+    /// <summary>
+    /// Extra keys for a <see cref="Chrome"/> entry: registered as bindings under the same id, never
+    /// printed, because the panel row already names the function. The numpad keys are their own
+    /// virtual keys, and on a US layout '+' is Shift+'=', so Ctrl+'+' arrives with Shift held —
+    /// without that alias the key printed on the keycap would not zoom in.
+    /// </summary>
+    public static IReadOnlyList<ChromeShortcut> ChromeAliases =>
+    [
+        new(ZoomIn, Key.Add, ModifierKeys.Control, "", ShortcutGroup.General),
+        new(ZoomIn, Key.OemPlus, ModifierKeys.Control | ModifierKeys.Shift, "", ShortcutGroup.General),
+        new(ZoomOut, Key.Subtract, ModifierKeys.Control, "", ShortcutGroup.General),
+        new(ZoomReset, Key.NumPad0, ModifierKeys.Control, "", ShortcutGroup.General),
+    ];
+
+    /// <summary>True for any zoom chord, listed or alias. The overlay forwards these even while a
+    /// panel or flyout owns the keyboard, because zooming is how a user gets to read it.</summary>
+    public static bool IsZoomChord(Key key, ModifierKeys modifiers)
+        => Chrome.Concat(ChromeAliases).Any(c => c.Id is ZoomIn or ZoomOut or ZoomReset
+            && c.Key == key && c.Modifiers == modifiers);
+
+    /// <summary>
+    /// The app shortcut that already owns <paramref name="chord"/>, as the panel lists it (an
+    /// alias answers with its listed entry), or null when <paramref name="action"/> may have it.
+    /// In the main window an app shortcut's <see cref="KeyBinding"/> takes the key before any
+    /// player binding sees it, and over the player the zoom chords do too, so a player action
+    /// on one of these keys would do nothing there. Space and F11 stay open to the player action
+    /// they duplicate (<see cref="ChromeShortcut.DuplicateOf"/>): both registrations do the same
+    /// thing. Settings refuses a capture this answers for, and flags a saved binding it answers
+    /// for, which only a hand-edited or pre-update settings.json can hold.
+    /// </summary>
+    public static ChromeShortcut? OwnerOf(string? chord, PlayerAction action)
+    {
+        if (string.IsNullOrWhiteSpace(chord))
+            return null;
+        var owner = Chrome.Concat(ChromeAliases).FirstOrDefault(c => c.Registered && c.DuplicateOf != action
+            && PlayerActionDispatcher.ChordEquals(chord, PlayerActionDispatcher.ChordOf(c.Key, c.Modifiers)));
+        return owner is null ? null : Chrome.First(c => c.Id == owner.Id);
+    }
 
     /// <summary>Affordances with no chord: nothing to derive, so they are written out.</summary>
     private static IReadOnlyList<ShortcutRow> Unbound =>
@@ -126,6 +169,7 @@ public static class AppShortcuts
         new(ShortcutGroup.Mouse, L.Text("AppShortcuts.BackForward.f6075622"), L.Text("AppShortcuts.Mouse4Mouse5.53098a35"), false),
         new(ShortcutGroup.Mouse, L.Text("AppShortcuts.VolumeOverThePlayer.3e1534cd"), L.Text("AppShortcuts.Wheel.a7db831a"), false),
         new(ShortcutGroup.Mouse, L.Text("AppShortcuts.ScrollARowSideways.065b160a"), L.Text("AppShortcuts.ShiftWheel.afa7860e"), false),
+        new(ShortcutGroup.Mouse, L.Text("AppShortcuts.ZoomTheInterface.b85d3f17"), L.Text("AppShortcuts.CtrlWheel.6a0e9c42"), false),
     ];
 
     public static string GroupTitle(ShortcutGroup group) => group switch

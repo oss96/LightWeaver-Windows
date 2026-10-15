@@ -26,6 +26,24 @@ public enum AppState
 public sealed class AppViewModel : ObservableObject
 {
     private AppState _state = AppState.Loading;
+    private bool _accountOperationPending;
+
+    public bool IsAccountOperationAvailable => !_accountOperationPending;
+
+    // UI-thread gate shared by password login, Quick Connect and every switcher entry point.
+    public bool TryBeginAccountOperation()
+    {
+        if (_accountOperationPending) return false;
+        _accountOperationPending = true;
+        OnPropertyChanged(nameof(IsAccountOperationAvailable));
+        return true;
+    }
+
+    public void EndAccountOperation()
+    {
+        _accountOperationPending = false;
+        OnPropertyChanged(nameof(IsAccountOperationAvailable));
+    }
 
     private readonly Dictionary<string, JellyfinService> _sessions = new(StringComparer.OrdinalIgnoreCase);
 
@@ -225,10 +243,13 @@ public sealed class AppViewModel : ObservableObject
 
     public async Task<string?> LoginAsync(string serverUrl, string username, string password)
     {
-        var result = await Jellyfin.LoginAsync(serverUrl, username, password);
+        var service = Jellyfin;
+        var result = await service.LoginAsync(serverUrl, username, password);
+        if (!ReferenceEquals(Jellyfin, service))
+            return L.Text("AppViewModel.LoginFailed.ad94f0a5");
         if (!result.Success)
             return result.Error ?? L.Text("AppViewModel.LoginFailed.ad94f0a5");
-        Activate(result.Credentials!, Jellyfin);
+        Activate(result.Credentials!, service);
         State = AppState.Browse;
         return null;
     }

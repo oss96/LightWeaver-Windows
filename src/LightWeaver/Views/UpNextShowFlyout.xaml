@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.UpNextShowFlyout"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="clr-namespace:LightWeaver.Theme"
              xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:views="clr-namespace:LightWeaver.Views"
              Width="0" Height="0" HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -9,7 +10,7 @@
          in its host: the Popup is anchored to the host's trigger (Attach). The player's Quality
          flyout language: LwOsdFlyout backplate, eyebrow, segmented control, one status line.
          Width, offsets and side are set on open so it stays inside the window at 700x480. -->
-    <Popup x:Name="FlyoutPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+    <Popup x:Name="FlyoutPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
            VerticalOffset="8" Opened="OnPopupOpened" Closed="OnPopupClosed">
         <Border x:Name="FlyoutPanel" Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="440"
                 PreviewKeyDown="OnPanelKeyDown"

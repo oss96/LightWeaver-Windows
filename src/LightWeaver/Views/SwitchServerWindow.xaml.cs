@@ -27,14 +27,43 @@ public partial class SwitchServerWindow : Window
     /// <summary>True when the user chose "Add server…".</summary>
     public bool AddServerRequested { get; private set; }
 
-    public SwitchServerWindow(CredentialProfiles profiles, Func<SavedCredentials, bool>? isWarm = null)
+    public SwitchServerWindow(CredentialProfiles profiles, Func<SavedCredentials, bool>? isWarm = null,
+        bool hasActiveSession = true)
     {
         InitializeComponent();
         LiveText.Watch(this);
+        // The dialog opens at the app's UI zoom (modal, so the zoom cannot change while it is
+        // up): its content is scaled and the CLIENT area grows with it, so nothing inside is
+        // clipped. Done once the frame is known, because Width/Height include the title bar.
+        if (Content is FrameworkElement root && Math.Abs(Theme.UiZoom.Scale - 1.0) > 0.001)
+        {
+            root.LayoutTransform = Theme.UiZoom.Snapshot();
+            Loaded += (_, _) => GrowClientForZoom();
+        }
         for (var i = 0; i < profiles.Profiles.Count; i++)
-            ProfilesList.Items.Add(new ProfileRow(profiles.Profiles[i], i == profiles.ActiveIndex,
+            ProfilesList.Items.Add(new ProfileRow(profiles.Profiles[i], hasActiveSession && i == profiles.ActiveIndex,
                 isWarm?.Invoke(profiles.Profiles[i]) ?? false));
         Diagnostics.AppLog.Detail("profile-switch", $"event=load outcome=success count={profiles.Profiles.Count}");
+    }
+
+    private void GrowClientForZoom()
+    {
+        if (System.Windows.Media.VisualTreeHelper.GetChildrenCount(this) == 0 || System.Windows.Media.VisualTreeHelper.GetChild(this, 0) is not FrameworkElement client)
+            return;
+        var growth = Theme.UiZoom.Scale - 1.0;
+        // The owner's monitor, not SystemParameters.WorkArea (primary only), or a dialog opened
+        // over a window on another screen is pulled across to the primary one.
+        var work = MonitorWorkArea.Of(this);
+        if (work.IsEmpty)
+            work = SystemParameters.WorkArea;
+        var width = Math.Min(Width + client.ActualWidth * growth, work.Width);
+        var height = Math.Min(Height + client.ActualHeight * growth, work.Height);
+        // Max(): at a full-height clamp, Bottom - height can round one ulp below Top on a
+        // fractional-DIP monitor origin, and Math.Clamp throws when min > max.
+        Left = Math.Clamp(Left - (width - Width) / 2, work.Left, Math.Max(work.Left, work.Right - width));
+        Top = Math.Clamp(Top - (height - Height) / 2, work.Top, Math.Max(work.Top, work.Bottom - height));
+        Width = width;
+        Height = height;
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)

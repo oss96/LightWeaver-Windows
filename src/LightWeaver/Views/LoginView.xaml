@@ -105,8 +105,27 @@
                              AutomationProperties.AutomationId="UsernameBox" />
 
                     <TextBlock Text="{loc:Text LoginView.Password.6c4492e4}" Style="{StaticResource FieldLabel}" Margin="1,16,0,7" />
-                    <PasswordBox x:Name="PasswordBox" Style="{StaticResource LwPasswordField}" KeyDown="OnFieldKeyDown"
-                                 AutomationProperties.AutomationId="PasswordBox" />
+                    <!-- Masked by default; the eye button swaps in a plain-text twin, the same
+                         pattern as the OMDB key in Settings. Labels are set in code-behind. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Fields before the button in markup, so Tab reaches the password first. -->
+                        <PasswordBox x:Name="PasswordBox" Style="{StaticResource LwPasswordField}" KeyDown="OnFieldKeyDown"
+                                     AutomationProperties.AutomationId="PasswordBox"
+                                     AutomationProperties.Name="{loc:Text LoginView.Password.6c4492e4}" />
+                        <TextBox x:Name="PasswordReveal" Style="{StaticResource LwTextField}" KeyDown="OnFieldKeyDown"
+                                 Visibility="Collapsed" FlowDirection="LeftToRight" IsUndoEnabled="False"
+                                 AutomationProperties.AutomationId="PasswordReveal"
+                                 AutomationProperties.Name="{loc:Text LoginView.Password.6c4492e4}" />
+                        <Button x:Name="PasswordPeek" Grid.Column="1" Style="{StaticResource LwIconButton}"
+                                Width="38" Height="38" FontFamily="{StaticResource LwFontIcon}" FontSize="18"
+                                Margin="6,0,0,0" Click="OnTogglePasswordPeek"
+                                Content="{StaticResource IconVisible}"
+                                AutomationProperties.AutomationId="PasswordPeek" />
+                    </Grid>
 
                     <TextBlock x:Name="ErrorText" Foreground="{StaticResource LwEmberHoverTextBrush}" TextWrapping="Wrap"
                                FontSize="13" Margin="1,14,0,0" Visibility="Collapsed"
@@ -120,6 +139,10 @@
                             Click="OnQuickConnect" Style="{StaticResource LwLinkButton}"
                             HorizontalAlignment="Center" Margin="0,16,0,0"
                             AutomationProperties.AutomationId="QuickConnectButton" />
+                    <Button x:Name="SwitchUserButton" Content="{loc:Text MainWindow.SwitchUserServer.cad78101}"
+                            Click="OnSwitchUser" Style="{StaticResource LwLinkButton}"
+                            HorizontalAlignment="Center" Margin="0,16,0,0" Visibility="Collapsed"
+                            AutomationProperties.AutomationId="LoginSwitchUserButton" />
 
                     <!-- Quick Connect handshake: shows the code to enter on another device -->
                     <StackPanel x:Name="QuickConnectPanel" Visibility="Collapsed" Margin="0,18,0,0">

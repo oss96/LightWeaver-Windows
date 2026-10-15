@@ -17,9 +17,16 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Length > 0 && args[0] is LocalizationUiFixture.Mode or LocalizationUiFixture.RestartMode or LocalizationUiFixture.GermanMode or LocalizationUiFixture.EnglishMode
+            or LocalizationUiFixture.LoginSwitcherEnglishMode or LocalizationUiFixture.LoginSwitcherGermanMode
             or LocalizationUiFixture.UpNextMode or LocalizationUiFixture.UpNextGermanMode
             or LocalizationUiFixture.UpNextEpisodeMode or LocalizationUiFixture.UpNextEpisodeGermanMode)
             return LocalizationUiFixture.Run(args);
+        // Before the default app-data root below, for the same reason as the localization modes:
+        // the fixture brings its own root and the restart child must read the parent's settings.
+        if (args.Length > 0 && args[0] is UiZoomFixture.Mode or UiZoomFixture.InputMode or UiZoomFixture.RestartMode or UiZoomFixture.ScreenMode)
+            return UiZoomFixture.Run(args);
+        if (SettingsShellFixture.Handles(args))
+            return SettingsShellFixture.Run(args);
         if (args.Length == 4 && args[0] == "--serve")
             return HttpMediaFixture.Run(args[1], args[2], args[3]).GetAwaiter().GetResult();
         // Both halves of the two-client SyncPlay run come BEFORE the default app-data root below.

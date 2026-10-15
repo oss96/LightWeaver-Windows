@@ -2,7 +2,9 @@ using LightWeaver.Localization;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using LightWeaver.Player;
@@ -13,8 +15,9 @@ using LightWeaver.ViewModels;
 namespace LightWeaver.Views;
 
 /// <summary>
-/// Player settings. Saves on every change; live-applies what mpv supports at runtime
-/// (subtitle scale, hwdec, RTX filters).
+/// Player settings. Saves on every change (slider changes once their gesture settles); live-applies
+/// what mpv supports at runtime (subtitle scale, hwdec, RTX filters). A save that writes nothing
+/// shows an inline banner saying why.
 ///
 /// Phase 9 M6: an in-app navigation destination, not a floating window. One instance is
 /// cached by <see cref="MainWindow"/> and reached through the normal navigation stack, so
@@ -48,6 +51,13 @@ public partial class SettingsView : UserControl
     private bool _checkingDisplay;
     private PassthroughProbe? _passthroughProbe;
     private int _passthroughRequest;
+    /// <summary>Coalesces slider saves. A slider raises ValueChanged on every tick of a drag or a
+    /// held arrow key, and each one used to rewrite settings.json; the label and live-applied
+    /// limits still follow every tick, only the file write waits for the gesture to settle.</summary>
+    private readonly DispatcherTimer _sliderSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private SettingsSaveFailure _shownSaveFailure;
+    private bool _sliderSavePending;
+    private bool _sliderDragging;
 
     public SettingsView(AppSettings settings, Func<MpvPlayer?> player, PlayerViewModel playerViewModel,
         UpdateService updates)
@@ -149,6 +159,7 @@ public partial class SettingsView : UserControl
         BuildShortcutRows();
         VerboseLoggingBox.IsChecked = settings.VerboseLogging;
         UpdateVerboseLoggingHint();
+        ZoomLimitBox.IsChecked = settings.LimitUiZoomToScreen;
         foreach (var label in new[] { L.Text("SettingsView.ManualInstall.137212a0"), L.Text("SettingsView.AutoDownload.b44f785a"), L.Text("SettingsView.AutoDownloadAndInstall.0f40ada9") })
             UpdatePolicyBox.Items.Add(label);
         UpdatePolicyBox.SelectedIndex = (int)settings.UpdatePolicy;
@@ -159,9 +170,82 @@ public partial class SettingsView : UserControl
         LiveText.Observe(this, OnLanguageChanged);
         _availabilityTimer.Tick += (_, _) => RefreshDisplayAvailability();
         Loaded += (_, _) => { RefreshDisplayAvailability(); _availabilityTimer.Start(); };
-        Unloaded += (_, _) => _availabilityTimer.Stop();
+        Unloaded += (_, _) => { _availabilityTimer.Stop(); FlushPendingSave(); };
+        // The view is cached and shown again on every visit, so anything that changes while it is
+        // away (caches filling during browsing, logs, a save that failed elsewhere) is re-read on
+        // return; leaving flushes a slider save that has not settled yet.
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true)
+            {
+                RefreshCacheReadouts();
+                RefreshLogsReadout();
+                // Announce a failure still present on arrival: one recorded while the page was
+                // hidden, or before it was first shown (an unreadable file), reached no reader.
+                _shownSaveFailure = SettingsSaveFailure.None;
+                UpdateSaveFailureBanner();
+            }
+            else
+                FlushPendingSave();
+        };
+        _sliderSaveTimer.Tick += (_, _) =>
+        {
+            _sliderSaveTimer.Stop();
+            // Mid-drag pause: the drag's own completion flushes, so the file is written once.
+            if (!_sliderDragging) FlushPendingSave();
+        };
+        foreach (var slider in new[] { SubScaleSlider, ImageCacheSizeSlider, FolderCacheSizeSlider })
+        {
+            // handledEventsToo: Slider's own class handlers sit on the same thumb events.
+            slider.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, _) => _sliderDragging = true), true);
+            slider.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) =>
+            {
+                _sliderDragging = false;
+                FlushPendingSave();
+            }), true);
+        }
+        UpdateSaveFailureBanner();
         UpdateAvailability();
         Diagnostics.AppLog.Detail("settings", "event=load outcome=success");
+    }
+
+    /// <summary>Asks before the zoom limit is turned off (title, body, confirm label; true to go
+    /// ahead). Set by the window hosting the page; without it the change applies unasked.</summary>
+    public Func<string, string, string, Task<bool>>? ConfirmAsync { get; set; }
+
+    private bool _syncingZoomLimit;
+
+    /// <summary>Turning the limit off asks first: past it the layout no longer fits the screen,
+    /// and some controls can end up cut off or out of reach. Toggles while the question is open
+    /// are ignored, and the box is set to the answer afterwards, so it always shows what applies.</summary>
+    private async void OnZoomLimitChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _syncingZoomLimit)
+            return;
+        var limit = ZoomLimitBox.IsChecked == true;
+        if (!limit && ConfirmAsync is { } confirm)
+        {
+            _syncingZoomLimit = true;
+            try
+            {
+                limit = !await confirm(L.Text("SettingsView.RemoveTheZoomLimit.71c3e0d4"),
+                    L.Text("SettingsView.ZoomLimitWarning.a6f8125b"), L.Text("SettingsView.RemoveLimit.0b9d4e67"));
+                ZoomLimitBox.IsChecked = limit;
+            }
+            finally
+            {
+                _syncingZoomLimit = false;
+            }
+            if (limit)
+            {
+                Diagnostics.AppLog.Detail("settings", "event=change setting=LimitUiZoomToScreen outcome=declined");
+                return;
+            }
+        }
+        _settings.LimitUiZoomToScreen = limit;
+        SettingsStore.Save(_settings);
+        Theme.UiZoom.SetLimitToScreen(limit);
+        Diagnostics.AppLog.Detail("settings", $"event=change delta=LimitUiZoomToScreen:{!limit}->{limit}");
     }
 
     private void OnUiLanguageChanged(object sender, SelectionChangedEventArgs e)
@@ -169,7 +253,7 @@ public partial class SettingsView : UserControl
         if (_loading || UiLanguageBox.SelectedItem is not UiLanguage language) return;
         SaveLibraryNames();
         _settings.UiLanguage = language.Code;
-        SettingsStore.Save(_settings);
+        Save();
         L.Initialize(language.Code);
     }
 
@@ -280,7 +364,7 @@ public partial class SettingsView : UserControl
             LibraryNames.Set(_libraryServer, id, _libraryLanguage, field.Text);
             changed = true;
         }
-        if (changed) SettingsStore.Save(_settings);
+        if (changed) Save();
         return changed;
     }
 
@@ -541,6 +625,7 @@ public partial class SettingsView : UserControl
     // ---- Shortcuts (Phase 7 M16): one generated row per PlayerAction --------------
 
     private readonly Dictionary<PlayerAction, System.Windows.Controls.Button> _shortcutButtons = new();
+    private readonly Dictionary<PlayerAction, System.Windows.Controls.TextBlock> _shortcutNotes = new();
     private PlayerAction? _capturing;
 
     private void BuildShortcutRows()
@@ -560,13 +645,23 @@ public partial class SettingsView : UserControl
             System.Windows.Automation.AutomationProperties.SetAutomationId(btn, $"Shortcut{action}");
             System.Windows.Controls.DockPanel.SetDock(btn, System.Windows.Controls.Dock.Right);
             btn.Click += OnShortcutCaptureClick;
-            var dock = new System.Windows.Controls.DockPanel { LastChildFill = true };
-            dock.Children.Add(btn);
-            dock.Children.Add(LiveText.Bind(new System.Windows.Controls.TextBlock
+            // Says why a key was refused, or that a saved one collides with an app shortcut.
+            var note = new System.Windows.Controls.TextBlock
+            {
+                Style = (Style)FindResource("RowSub"),
+                Foreground = (System.Windows.Media.Brush)FindResource("LwGemAmberTextBrush"),
+                Visibility = Visibility.Collapsed,
+            };
+            System.Windows.Automation.AutomationProperties.SetAutomationId(note, $"ShortcutNote{action}");
+            var labels = new System.Windows.Controls.StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            labels.Children.Add(LiveText.Bind(new System.Windows.Controls.TextBlock
             {
                 Style = (Style)FindResource("RowTitle"),
-                VerticalAlignment = VerticalAlignment.Center,
             }, "Text", () => PlayerActionDispatcher.DisplayName(action)));
+            labels.Children.Add(note);
+            var dock = new System.Windows.Controls.DockPanel { LastChildFill = true };
+            dock.Children.Add(btn);
+            dock.Children.Add(labels);
             var row = new System.Windows.Controls.Border
             {
                 Style = (Style)FindResource("SettingRow"),
@@ -576,7 +671,9 @@ public partial class SettingsView : UserControl
                 row.BorderThickness = new Thickness(0);
             ShortcutsHost.Children.Add(row);
             _shortcutButtons[action] = btn;
+            _shortcutNotes[action] = note;
         }
+        RefreshShortcutButtons();
     }
 
     private void OnShortcutCaptureClick(object sender, RoutedEventArgs e)
@@ -617,16 +714,26 @@ public partial class SettingsView : UserControl
             RefreshShortcutButtons();
             return;
         }
-        var chord = PlayerActionDispatcher.ChordOf(key, System.Windows.Input.Keyboard.Modifiers);
-        var map = PlayerActionDispatcher.Resolve(_settings.KeyBindings);
+        BindShortcut(action, PlayerActionDispatcher.ChordOf(key, System.Windows.Input.Keyboard.Modifiers));
+    }
+
+    /// <summary>Binds a captured chord, unless an app shortcut owns it: that binding would do
+    /// nothing in the main window, so the row keeps its key and says which shortcut has it.</summary>
+    private void BindShortcut(PlayerAction action, string chord)
+    {
+        if (AppShortcuts.OwnerOf(chord, action) is { } owner)
+        {
+            Diagnostics.AppLog.Detail("settings",
+                $"event=interaction action=shortcut-bind outcome=refused reason=app_shortcut target={action} owner={owner.Id}");
+            RefreshShortcutButtons();
+            ShowShortcutNote(action, chord, owner, refused: true);
+            return;
+        }
         // Duplicate handling: the chord moves here; the previous owner shows (unbound).
-        foreach (var (other, c) in map.ToList())
-            if (other != action && string.Equals(c, chord, StringComparison.OrdinalIgnoreCase))
-                map[other] = "";
-        map[action] = chord;
+        var map = PlayerActionDispatcher.Rebind(_settings.KeyBindings, action, chord);
         _settings.KeyBindings = map.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value);
         Diagnostics.AppLog.Detail("settings", $"event=interaction action=shortcut-bind target={action}");
-        SettingsStore.Save(_settings);
+        Save();
         RefreshShortcutButtons();
     }
 
@@ -634,7 +741,30 @@ public partial class SettingsView : UserControl
     {
         var map = PlayerActionDispatcher.Resolve(_settings.KeyBindings);
         foreach (var (action, btn) in _shortcutButtons)
+        {
             btn.Content = PlayerActionDispatcher.DisplayChord(map[action]);
+            ShowShortcutNote(action, map[action], AppShortcuts.OwnerOf(map[action], action), refused: false);
+        }
+    }
+
+    /// <summary>The row's note: hidden when no app shortcut owns <paramref name="chord"/>;
+    /// otherwise why it was not taken, or, for a saved binding, that it may do nothing.</summary>
+    private void ShowShortcutNote(PlayerAction action, string? chord, ChromeShortcut? owner, bool refused)
+    {
+        var note = _shortcutNotes[action];
+        if (owner is null)
+        {
+            System.Windows.Data.BindingOperations.ClearBinding(note, System.Windows.Controls.TextBlock.TextProperty);
+            note.Visibility = Visibility.Collapsed;
+            return;
+        }
+        // Spelled again on every read, so the key names and the shortcut's follow a language switch.
+        string Keys() => PlayerActionDispatcher.DisplayChord(chord);
+        string Owner() => AppShortcuts.Chrome.First(c => c.Id == owner.Id).Function;
+        LiveText.Bind(note, "Text", refused
+            ? () => L.Format("SettingsView.ShortcutTakenByApp.5c0e93a7", Keys(), Owner())
+            : () => L.Format("SettingsView.ShortcutSharedWithApp.b17d4e2f", Keys(), Owner()));
+        note.Visibility = Visibility.Visible;
     }
 
     private void OnShortcutsReset(object sender, RoutedEventArgs e)
@@ -642,7 +772,7 @@ public partial class SettingsView : UserControl
         Diagnostics.AppLog.Detail("settings", "event=interaction action=shortcut-reset");
         CancelShortcutCapture();
         _settings.KeyBindings = new Dictionary<string, string>();
-        SettingsStore.Save(_settings);
+        Save();
         RefreshShortcutButtons();
     }
 
@@ -1153,7 +1283,14 @@ public partial class SettingsView : UserControl
         LogSafeSettingsDelta(safeBefore);
 
         SubScaleLabel.Text = $"{_settings.SubtitleScale * 100:F0}%";
-        SettingsStore.Save(_settings);
+        if (sender is Slider)
+        {
+            _sliderSavePending = true;
+            _sliderSaveTimer.Stop();
+            _sliderSaveTimer.Start();
+        }
+        else
+            Save();
         if (previousUpdatePolicy != _settings.UpdatePolicy)
         {
             _updates.OnPolicyChanged();
@@ -1177,6 +1314,49 @@ public partial class SettingsView : UserControl
         // on IsVisibleChanged when playback next starts.
         _playerViewModel.NotifySubtitleBasePositionChanged();
         _playerViewModel.ApplyRtxDefaults(_settings);
+    }
+
+    /// <summary>Every save this page makes goes through here, so the banner always describes the
+    /// latest attempt. Writes the whole settings object, so it also covers a pending slider save.
+    /// </summary>
+    private void Save()
+    {
+        _sliderSaveTimer.Stop();
+        _sliderSavePending = false;
+        SettingsStore.Save(_settings);
+        UpdateSaveFailureBanner();
+    }
+
+    /// <summary>Writes a slider change that is still waiting for its gesture to settle. Called
+    /// when a drag ends, when the page is left, and by the window as it closes.</summary>
+    public void FlushPendingSave()
+    {
+        if (_sliderSavePending) Save();
+    }
+
+    /// <summary>Shows why the latest save wrote nothing. Two different situations: an existing
+    /// file the app may not read is deliberately left alone (saving would overwrite settings the
+    /// user still has), while a failed write is an IO problem that the next save may get past.
+    /// Read from the store rather than from this page's own saves, so a failure in a save made
+    /// elsewhere (audio device in the player, a show's Up Next lead) shows here on return too.
+    /// </summary>
+    private void UpdateSaveFailureBanner()
+    {
+        var failure = SettingsStore.LastSaveFailure;
+        var changed = failure != _shownSaveFailure;
+        _shownSaveFailure = failure;
+        SaveFailureBanner.Visibility = failure == SettingsSaveFailure.None ? Visibility.Collapsed : Visibility.Visible;
+        LiveText.Bind(SaveFailureText, "Text", () => failure switch
+        {
+            SettingsSaveFailure.ReadDenied => L.Text("SettingsView.SaveRefusedUnreadable"),
+            SettingsSaveFailure.WriteFailed => L.Text("SettingsView.SaveWriteFailed"),
+            _ => string.Empty,
+        });
+        // WPF does not announce a live region on its own. Once per new failure, not per save,
+        // so a run of failed saves does not repeat the same sentence to a screen reader.
+        if (changed && failure != SettingsSaveFailure.None)
+            (UIElementAutomationPeer.FromElement(SaveFailureText) ?? UIElementAutomationPeer.CreatePeerForElement(SaveFailureText))
+                ?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     /// <summary>The OMDB key from whichever twin is showing (masked box or reveal field).</summary>

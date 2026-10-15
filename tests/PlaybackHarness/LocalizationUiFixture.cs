@@ -23,6 +23,8 @@ internal static class LocalizationUiFixture
     public const string RestartMode = "--localization-ui-restart";
     public const string GermanMode = "--localization-ui-german";
     public const string EnglishMode = "--localization-ui-english";
+    public const string LoginSwitcherEnglishMode = "--localization-ui-login-switcher-english";
+    public const string LoginSwitcherGermanMode = "--localization-ui-login-switcher-german";
     public const string UpNextMode = "--localization-ui-up-next";
     public const string UpNextGermanMode = "--localization-ui-up-next-german";
     public const string UpNextEpisodeMode = "--localization-ui-up-next-episode";
@@ -40,7 +42,8 @@ internal static class LocalizationUiFixture
         var restarting = args[0] == RestartMode;
         var upNextEpisode = args[0] is UpNextEpisodeMode or UpNextEpisodeGermanMode;
         var upNext = upNextEpisode || args[0] is UpNextMode or UpNextGermanMode;
-        var german = args[0] is GermanMode or UpNextGermanMode or UpNextEpisodeGermanMode;
+        var loginSwitcher = args[0] is LoginSwitcherEnglishMode or LoginSwitcherGermanMode;
+        var german = args[0] is GermanMode or LoginSwitcherGermanMode or UpNextGermanMode or UpNextEpisodeGermanMode;
         var child = args[0] != Mode;
         if (child && (args.Length != 2 || !Path.IsPathFullyQualified(args[1])))
             throw new ArgumentException("Child process requires the isolated fixture directory.");
@@ -63,6 +66,8 @@ internal static class LocalizationUiFixture
             if (!child)
             {
                 // Each child starts with a clean set of WPF resources and static view choices.
+                RunChild(LoginSwitcherEnglishMode, root, "fresh English process login switcher checks pass");
+                RunChild(LoginSwitcherGermanMode, root, "fresh German process login switcher checks pass");
                 RunChild(EnglishMode, root, "fresh English process UI checks pass");
                 RunChild(GermanMode, root, "fresh German process UI checks pass");
                 RunChild(RestartMode, root, "fresh process language persistence and translated login pass");
@@ -117,6 +122,8 @@ internal static class LocalizationUiFixture
                 }
                 else if (upNext)
                     UpNextUiFixture.Verify(main, language, upNextEpisode, Check, Capture, Pump);
+                else if (loginSwitcher)
+                    VerifyLoginSwitcher(main, language);
                 else
                     VerifyLanguage(main, language);
             }
@@ -919,6 +926,268 @@ internal static class LocalizationUiFixture
         Element<ComboBox>(view, "SubBorderSizePreset").SelectedIndex = 2;
         Element<ComboBox>(view, "SubShadowPreset").SelectedIndex = 0;
         Element<ComboBox>(view, "SubPositionPreset").SelectedIndex = 0;
+    }
+
+    private static void VerifyLoginSwitcher(MainWindow main, string language)
+    {
+        var model = Field<AppViewModel>(main, "_app");
+        var host = Element<ContentControl>(main, "ShellHost");
+        Check(Element<Button>((LoginView)host.Content, "SwitchUserButton").Visibility == Visibility.Collapsed,
+            language + " login hides the saved-user switcher when no profiles exist");
+        using var server = new LiveSessionFixture.FakeJellyfinServer();
+        var profile = new SavedCredentials(server.Origin, "TEST", "synthetic-login-switcher-token", server.UserId, "Fixture server");
+        try
+        {
+            CredentialStore.SaveProfiles(new CredentialProfiles([profile], 0));
+            typeof(MainWindow).GetMethod("ApplyState", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(main, [AppState.Login]);
+            Pump();
+            var login = (LoginView)host.Content;
+            var button = Element<Button>(login, "SwitchUserButton");
+            var scroll = Descendants(login).OfType<ScrollViewer>().Single(s => s.Content is StackPanel);
+            Check(button.IsVisible && Equals(button.Content, L.Text("MainWindow.SwitchUserServer.cad78101")),
+                language + " one saved user exposes the localized login switcher");
+            CaptureFocusedSizes(main, scroll, language + "-login-saved-user", button);
+
+            // Delayed password login blocks every other account path, even handler/Enter calls.
+            var passwordRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var passwordRequests = 0;
+            var revealedPasswordSubmitted = false;
+            server.ResponseOverride = async request =>
+            {
+                if (!request.Path.EndsWith("/Users/AuthenticateByName", StringComparison.OrdinalIgnoreCase)) return null;
+                using var body = System.Text.Json.JsonDocument.Parse(request.Body);
+                revealedPasswordSubmitted = body.RootElement.TryGetProperty("Pw", out var password)
+                    && password.GetString() == "synthetic-edited-password";
+                Interlocked.Increment(ref passwordRequests);
+                await passwordRelease.Task;
+                return "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            };
+            Element<TextBox>(login, "ServerBox").Text = server.Origin;
+            Element<TextBox>(login, "UsernameBox").Text = "TEST";
+            Element<PasswordBox>(login, "PasswordBox").Password = "synthetic-original-password";
+            Element<Button>(login, "PasswordPeek").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Element<TextBox>(login, "PasswordReveal").Text = "synthetic-edited-password";
+            var connectMethod = typeof(LoginView).GetMethod("ConnectAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var passwordTask = (Task)connectMethod.Invoke(login, null)!;
+            var passwordDeadline = Stopwatch.StartNew();
+            while (passwordRequests == 0 && passwordDeadline.Elapsed < TimeSpan.FromSeconds(5)) Pump();
+            Check(passwordRequests == 1 && !button.IsEnabled && !Element<Button>(login, "QuickConnectButton").IsEnabled
+                && !Element<Button>(login, "ConnectButton").IsEnabled
+                && !Element<TextBox>(login, "PasswordReveal").IsEnabled && !Element<Button>(login, "PasswordPeek").IsEnabled,
+                language + " pending password sign-in disables all account actions");
+            Check(revealedPasswordSubmitted, language + " sign-in submits the edited revealed password");
+            var duplicate = (Task)connectMethod.Invoke(login, null)!;
+            typeof(LoginView).GetMethod("OnQuickConnect", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(login, [login, new RoutedEventArgs()]);
+            Check(duplicate.IsCompleted && passwordRequests == 1 && !model.IsAccountOperationAvailable,
+                language + " repeated Enter and Quick Connect cannot overlap pending password login");
+            passwordRelease.SetResult();
+            while (!passwordTask.IsCompleted && passwordDeadline.Elapsed < TimeSpan.FromSeconds(10)) Pump();
+            Check(passwordTask.IsCompleted && model.IsAccountOperationAvailable && button.IsEnabled,
+                language + " failed password sign-in releases account controls");
+            Check(Element<TextBox>(login, "PasswordReveal").IsEnabled && Element<Button>(login, "PasswordPeek").IsEnabled,
+                language + " failed sign-in restores password visibility controls");
+
+            var quickConnectRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var quickConnectRequests = 0;
+            server.ResponseOverride = async request =>
+            {
+                if (!request.Path.EndsWith("/QuickConnect/Enabled", StringComparison.OrdinalIgnoreCase)) return null;
+                Interlocked.Increment(ref quickConnectRequests);
+                await quickConnectRelease.Task;
+                return "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 5\r\nConnection: close\r\n\r\nfalse";
+            };
+            Element<Button>(login, "QuickConnectButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(!model.IsAccountOperationAvailable && !button.IsEnabled
+                && ((Task)connectMethod.Invoke(login, null)!).IsCompleted,
+                language + " pending Quick Connect blocks password and saved-profile actions");
+            host.Content = new TextBlock();
+            Pump();
+            quickConnectRelease.SetResult();
+            var quickConnectDeadline = Stopwatch.StartNew();
+            while (!model.IsAccountOperationAvailable && quickConnectDeadline.Elapsed < TimeSpan.FromSeconds(10)) Pump();
+            Check(quickConnectRequests == 1 && model.IsAccountOperationAvailable && model.State == AppState.Login
+                && Element<StackPanel>(login, "QuickConnectPanel").Visibility == Visibility.Collapsed,
+                language + " unloading login cancels pending Quick Connect and releases the account gate");
+            host.Content = login;
+            Pump();
+            Check(Element<TextBox>(login, "PasswordReveal").Visibility == Visibility.Collapsed
+                && Element<TextBox>(login, "PasswordReveal").Text.Length == 0
+                && Element<PasswordBox>(login, "PasswordBox").Password == "synthetic-edited-password",
+                language + " leaving and returning to login conceals the revealed password without losing its value");
+
+            var approvedRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            server.ResponseOverride = async request =>
+            {
+                if (request.Path.EndsWith("/QuickConnect/Enabled", StringComparison.OrdinalIgnoreCase)) return Json(true);
+                if (request.Path.EndsWith("/QuickConnect/Initiate", StringComparison.OrdinalIgnoreCase))
+                    return Json(new { Code = "123456", Secret = "synthetic-qc-secret" });
+                if (request.Path.EndsWith("/QuickConnect/Connect", StringComparison.OrdinalIgnoreCase))
+                    return Json(new { Authenticated = true });
+                if (request.Path.EndsWith("/Users/AuthenticateWithQuickConnect", StringComparison.OrdinalIgnoreCase))
+                    return Json(new { AccessToken = "synthetic-qc-token", User = new { Id = server.UserId, Name = "TEST" } });
+                if (request.Path.EndsWith("/System/Info/Public", StringComparison.OrdinalIgnoreCase))
+                {
+                    await approvedRelease.Task;
+                    return Json(new { ServerName = "Fixture server" });
+                }
+                return null;
+            };
+            Element<Button>(login, "QuickConnectButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var approvalDeadline = Stopwatch.StartNew();
+            while (!model.Jellyfin.IsConnected && approvalDeadline.Elapsed < TimeSpan.FromSeconds(10)) Pump();
+            Check(model.Jellyfin.IsConnected && model.ActiveSessionKey is null && !model.IsAccountOperationAvailable,
+                language + " approved Quick Connect is held after authenticating the scratch session");
+            typeof(LoginView).GetMethod("OnQuickConnectCancel", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(login, [login, new RoutedEventArgs()]);
+            approvedRelease.SetResult();
+            while (!model.IsAccountOperationAvailable && approvalDeadline.Elapsed < TimeSpan.FromSeconds(15)) Pump();
+            Check(model.IsAccountOperationAvailable && !model.Jellyfin.IsConnected && model.ActiveSessionKey is null
+                && model.State == AppState.Login && CredentialStore.LoadProfiles().Profiles.Count == 1 && button.IsEnabled,
+                language + " cancelling approved Quick Connect discards scratch auth and keeps the saved user switchable");
+            server.ResponseOverride = null;
+
+            // Exercise the production login event and MainWindow's owned modal, not a second handler.
+            void Choose(Action<SwitchServerWindow> action)
+            {
+                Exception? failure = null;
+                var opened = false;
+                main.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+                {
+                    var dialog = Application.Current.Windows.OfType<SwitchServerWindow>().SingleOrDefault();
+                    try
+                    {
+                        Require(dialog is not null && dialog.Owner == main, "login opens the production owned profile switcher");
+                        opened = true;
+                        action(dialog!);
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                        dialog?.Close();
+                    }
+                }));
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (failure is not null) throw failure;
+                Check(opened, language + " login button opens the existing profile switcher");
+            }
+
+            Element<TextBox>(login, "UsernameBox").Text = "Unsaved draft";
+            Choose(dialog =>
+            {
+                var list = Element<ListBox>(dialog, "ProfilesList");
+                Check(list.Items.Count == 1, language + " switcher lists the only saved user");
+                list.SelectedIndex = 0;
+                Check(Element<Button>(dialog, "SwitchButton").IsEnabled,
+                    language + " previously active saved user is selectable while logged out");
+                Capture(dialog, language + "-login-profile-switcher");
+                dialog.Close();
+            });
+            Check(ReferenceEquals(host.Content, login) && Element<TextBox>(login, "UsernameBox").Text == "Unsaved draft"
+                && model.State == AppState.Login,
+                language + " cancel preserves the login form and its unsaved draft");
+
+            server.ResponseOverride = request => Task.FromResult<string?>(
+                request.Path.EndsWith("/Users/Me", StringComparison.OrdinalIgnoreCase)
+                    ? "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" : null);
+            var failureText = L.Format("MainWindow.CouldNotConnectToTheSavedSession.1ef8f20a", "Fixture server");
+            Choose(dialog => Element<Button>(dialog, "SwitchButton").RaiseEvent(SelectFirst(dialog)));
+            var rejectionDeadline = Stopwatch.StartNew();
+            while (Element<TextBlock>(main, "ToastText").Text != failureText
+                && rejectionDeadline.Elapsed < TimeSpan.FromSeconds(10)) Pump();
+            Check(Element<TextBlock>(main, "ToastText").Text == failureText && model.State == AppState.Login
+                && ReferenceEquals(host.Content, login) && CredentialStore.LoadProfiles().Profiles.Count == 1
+                && Element<TextBox>(login, "UsernameBox").Text == "Unsaved draft" && button.IsEnabled,
+                language + " rejected saved session preserves profiles and login draft and reports the failure");
+            var reconnectRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            server.ResponseOverride = async request =>
+            {
+                if (request.Path.EndsWith("/Users/Me", StringComparison.OrdinalIgnoreCase)) await reconnectRelease.Task;
+                return null;
+            };
+            Choose(dialog => Element<Button>(dialog, "SwitchButton").RaiseEvent(SelectFirst(dialog)));
+            Check(!model.IsAccountOperationAvailable && !button.IsEnabled
+                && !Element<Button>(login, "ConnectButton").IsEnabled
+                && !Element<Button>(login, "QuickConnectButton").IsEnabled
+                && !Element<TextBox>(login, "PasswordReveal").IsEnabled && !Element<Button>(login, "PasswordPeek").IsEnabled,
+                language + " pending saved-profile reconnect disables all login actions");
+            var unexpectedDialog = false;
+            main.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+            {
+                var dialog = Application.Current.Windows.OfType<SwitchServerWindow>().SingleOrDefault();
+                unexpectedDialog = dialog is not null;
+                dialog?.Close();
+            }));
+            typeof(MainWindow).GetMethod("OnSwitchServer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(main, [main, new RoutedEventArgs()]);
+            Pump();
+            Check(!unexpectedDialog && !model.IsAccountOperationAvailable,
+                language + " menu and keyboard switcher cannot overlap pending profile reconnect");
+            reconnectRelease.SetResult();
+            var deadline = Stopwatch.StartNew();
+            while (model.State != AppState.Browse && deadline.Elapsed < TimeSpan.FromSeconds(10)) Pump();
+            Check(model.State == AppState.Browse && model.Jellyfin.IsConnected && model.IsAccountOperationAvailable,
+                language + " login profile selection reconnects through the production flow");
+            server.ResponseOverride = null;
+            var warm = model.Jellyfin;
+
+            // A connected profile still cannot be selected as a redundant switch.
+            var connectedDialog = new SwitchServerWindow(CredentialStore.LoadProfiles(), model.IsSessionWarm)
+                { Owner = main };
+            connectedDialog.Show();
+            Element<ListBox>(connectedDialog, "ProfilesList").SelectedIndex = 0;
+            Check(!Element<Button>(connectedDialog, "SwitchButton").IsEnabled,
+                language + " connected switcher still disables the current profile");
+            connectedDialog.Close();
+
+            model.BeginAddServer();
+            Pump();
+            login = (LoginView)host.Content;
+            button = Element<Button>(login, "SwitchUserButton");
+            Choose(dialog => Element<Button>(dialog, "SwitchButton").RaiseEvent(SelectFirst(dialog)));
+            Check(model.State == AppState.Browse && ReferenceEquals(model.Jellyfin, warm),
+                language + " login can return to the same saved warm session after Add server");
+
+            // Multiple saved users and Add server continue to use the same dialog.
+            CredentialStore.SaveProfiles(new CredentialProfiles([profile,
+                profile with { Username = "Another saved user", UserId = Guid.NewGuid() }], 0));
+            model.BeginAddServer();
+            Pump();
+            login = (LoginView)host.Content;
+            button = Element<Button>(login, "SwitchUserButton");
+            Choose(dialog =>
+            {
+                Check(Element<ListBox>(dialog, "ProfilesList").Items.Count == 2,
+                    language + " login switcher lists multiple saved users");
+                Element<Button>(dialog, "AddServerButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            });
+            Check(model.State == AppState.Login && CredentialStore.LoadProfiles().Profiles.Count == 2,
+                language + " Add server leaves saved users intact on the login screen");
+        }
+        finally
+        {
+            // Only this fixture's temporary DPAPI store is touched.
+            CredentialStore.Clear();
+            model.BeginAddServer();
+            typeof(MainWindow).GetMethod("ApplyState", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(main, [AppState.Login]);
+            Pump();
+        }
+
+        static RoutedEventArgs SelectFirst(SwitchServerWindow dialog)
+        {
+            Element<ListBox>(dialog, "ProfilesList").SelectedIndex = 0;
+            Require(Element<Button>(dialog, "SwitchButton").IsEnabled, "saved login profile is switchable");
+            return new RoutedEventArgs(Button.ClickEvent);
+        }
+
+        static string Json(object value)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(value);
+            return "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+                + System.Text.Encoding.UTF8.GetByteCount(json) + "\r\nConnection: close\r\n\r\n" + json;
+        }
     }
 
     private static void CaptureSizes(MainWindow main, string name)

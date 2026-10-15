@@ -233,7 +233,8 @@ public sealed class UpdateService : IDisposable
             Detail($"event=exit_install outcome=noop reason=policy policy={PolicyToken(_settings.UpdatePolicy)} phase={PhaseToken(_status.Phase)}");
             return false;
         }
-        return LaunchStagedInstaller(silent: true);
+        // The user chose to quit, so the update installs without starting the app again.
+        return LaunchStagedInstaller(silent: true, relaunch: false);
     }
 
     public bool TryLaunchInstallAfterExit()
@@ -245,7 +246,8 @@ public sealed class UpdateService : IDisposable
         }
         _queuedInstallSilent = null;
         Detail($"event=exit_install route=queued silent={(silent ? "true" : "false")}");
-        return LaunchStagedInstaller(silent);
+        // The user chose Install, so the app closed only to let the installer replace it.
+        return LaunchStagedInstaller(silent, relaunch: true);
     }
 
     public void OpenReleasePage()
@@ -530,7 +532,7 @@ public sealed class UpdateService : IDisposable
         return true;
     }
 
-    private bool LaunchStagedInstaller(bool silent)
+    private bool LaunchStagedInstaller(bool silent, bool relaunch)
     {
         if (_installerLaunched || _stagedUpdate is not { AssetName: { } assetName } update)
         {
@@ -546,7 +548,7 @@ public sealed class UpdateService : IDisposable
                 return false;
             }
             SetStatus(new(UpdatePhase.Installing, update, LastCheckedUtc: _lastCheckedUtc));
-            _installerLaunched = _launcher.Launch(path, silent);
+            _installerLaunched = _launcher.Launch(path, silent, relaunch);
             if (!_installerLaunched)
             {
                 Detail($"event=launch outcome=failure reason=launcher_declined silent={(silent ? "true" : "false")}");

@@ -251,6 +251,15 @@ public sealed class MpvPlayer : IDisposable
             SetOption(ctx, "input-vo-keyboard", "no");
             SetOption(ctx, "volume-max", "200");
             SetOption(ctx, "keep-open", "yes");
+            // mpv hands its window title to the audio output as the stream name, and WASAPI
+            // shows that in the Windows volume mixer. The default "${media-title} - mpv" put
+            // the stream URL's file part there ("stream?static=..."), so pin the app's name,
+            // with the same Debug marker as the main window.
+#if DEBUG
+            SetOption(ctx, "title", "LightWeaver (Debug)");
+#else
+            SetOption(ctx, "title", "LightWeaver");
+#endif
             // Keep mpv's cache=auto source detection. The byte budget controls network
             // read-ahead; the generous duration ceiling prevents the default time cap
             // from making a larger byte setting ineffective for low-bitrate streams.

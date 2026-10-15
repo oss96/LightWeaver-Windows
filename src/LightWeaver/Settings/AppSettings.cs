@@ -36,6 +36,19 @@ public sealed class AppSettings
     /// migration for the files it exists to catch.</summary>
     public int SettingsVersion { get; set; }
 
+    // Appearance
+    private double _uiZoom = 1.0;
+    /// <summary>App-wide UI zoom (Ctrl+Plus / Ctrl+Minus / Ctrl+wheel); 1.0 = 100%. Values from
+    /// edited files are bounded to the range <see cref="Theme.UiZoom"/> supports.</summary>
+    public double UiZoom
+    {
+        get => _uiZoom;
+        set => _uiZoom = Theme.UiZoom.Clamp(value);
+    }
+    /// <summary>Stops the zoom at the largest level the window's screen shows every control at.
+    /// Off, the zoom runs to 200% anywhere, and Settings warns that controls can be cut off.</summary>
+    public bool LimitUiZoomToScreen { get; set; } = true;
+
     // Playback
     public bool HardwareDecoding { get; set; } = true;
     /// <summary>Bitrate cap for server playback in Mbps; 0 = unlimited (direct play).

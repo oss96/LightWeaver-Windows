@@ -89,14 +89,21 @@ public partial class UpNextShowFlyout : UserControl
         const double margin = 12;
         if (_trigger is null || Window.GetWindow(_trigger)?.Content is not FrameworkElement root || root.ActualWidth <= 0)
             return;
-        FlyoutPanel.Width = Math.Min(FlyoutWidth, Math.Max(0, root.ActualWidth - 2 * margin));
-        var origin = _trigger.TranslatePoint(new Point(0, 0), root);
-        var overflow = origin.X + FlyoutPanel.Width - (root.ActualWidth - margin);
+        // The popup inherits the trigger's UI zoom, so its width and offsets are in the trigger's
+        // layout units while the window root is not zoomed. Measure the window in those units.
+        var zoom = _trigger.TransformToAncestor(root) is System.Windows.Media.Transform toRoot ? toRoot.Value.M11 : 1.0;
+        if (zoom <= 0) zoom = 1.0;
+        var rootWidth = root.ActualWidth / zoom;
+        var rootHeight = root.ActualHeight / zoom;
+        FlyoutPanel.Width = Math.Min(FlyoutWidth, Math.Max(0, rootWidth - 2 * margin));
+        var rootOrigin = _trigger.TranslatePoint(new Point(0, 0), root);
+        var origin = new Point(rootOrigin.X / zoom, rootOrigin.Y / zoom);
+        var overflow = origin.X + FlyoutPanel.Width - (rootWidth - margin);
         FlyoutPopup.HorizontalOffset = overflow > 0 ? -Math.Min(overflow, Math.Max(0, origin.X - margin)) : 0;
 
         FlyoutPanel.Measure(new Size(FlyoutPanel.Width, double.PositiveInfinity));
         var height = FlyoutPanel.DesiredSize.Height;
-        var below = root.ActualHeight - margin - (origin.Y + _trigger.ActualHeight + Gap);
+        var below = rootHeight - margin - (origin.Y + _trigger.ActualHeight + Gap);
         var above = origin.Y - Gap - margin;
         var up = height > below && above > below;
         FlyoutPopup.Placement = up ? PlacementMode.Top : PlacementMode.Bottom;
@@ -108,10 +115,18 @@ public partial class UpNextShowFlyout : UserControl
     private void OnPopupOpened(object? sender, EventArgs e)
     {
         if (_trigger is not null) _trigger.IsHitTestVisible = false;
+        // Its width cap and offsets are in zoomed units, so a zoom step while it is open re-places it.
+        Theme.UiZoom.Changed += OnZoomChanged;
     }
+
+    /// <summary>After layout, not inside the step: until the next measure the trigger's transform
+    /// and position still report the previous zoom.</summary>
+    private void OnZoomChanged(double scale)
+        => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => { if (FlyoutPopup.IsOpen) Place(); });
 
     private void OnPopupClosed(object? sender, EventArgs e)
     {
+        Theme.UiZoom.Changed -= OnZoomChanged;
         var trigger = _trigger;
         if (trigger is null) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, () => trigger.IsHitTestVisible = true);

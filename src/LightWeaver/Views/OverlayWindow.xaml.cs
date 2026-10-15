@@ -219,7 +219,9 @@ public partial class OverlayWindow : Window
         // (the overlay is shown per playback; controls may already be visible then).
         // Quality is the one flyout whose HorizontalOffset is computed when it opens (it is
         // clamped into the overlay), so a resize leaves it pointing at a stale position; close it.
-        SizeChanged += (_, _) =>
+        // The root rather than the window: a zoom step changes the layout size without resizing
+        // the window, and everything below measures in layout units.
+        OverlayRoot.SizeChanged += (_, _) =>
         {
             QualityPopup.IsOpen = false;
             UpdateSubtitlePosition();
@@ -265,13 +267,13 @@ public partial class OverlayWindow : Window
     private void UpdateSubtitlePosition()
     {
         var resting = _viewModel.SubtitleBasePosition;
-        if (!_controlsVisible || ActualHeight < 1 || ControlsPanel.ActualHeight < 1)
+        if (!_controlsVisible || OverlayRoot.ActualHeight < 1 || ControlsPanel.ActualHeight < 1)
         {
             _viewModel.SetSubtitlePosition(resting);
             return;
         }
         var barTop = ControlsPanel.ActualHeight + ControlsPanel.Margin.Bottom;
-        var percent = (int)(100 * (1 - barTop / ActualHeight));
+        var percent = (int)(100 * (1 - barTop / OverlayRoot.ActualHeight));
         _viewModel.SetSubtitlePosition(Math.Min(resting, Math.Clamp(percent, 60, 100)));
     }
 
@@ -403,6 +405,18 @@ public partial class OverlayWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>Ctrl+wheel is the app-wide zoom, as in the browse window, and is taken on the
+    /// tunnel so the shortcuts panel's scroller cannot scroll on it first. Not in mini mode,
+    /// which does not zoom; handled there anyway so it does not fall through to the volume.</summary>
+    private void OnRootPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control || e.Delta == 0)
+            return;
+        if (!_miniMode)
+            Theme.UiZoom.Wheel(e.Delta);
+        e.Handled = true;
+    }
+
     /// <summary>Thumb buttons over the video: XButton1 returns to browsing (same as the
     /// overlay Back button); XButton2 is reserved. Suppressed in mini mode (video drag).</summary>
     private void OnOverlayMouseDown(object sender, MouseButtonEventArgs e)
@@ -507,6 +521,7 @@ public partial class OverlayWindow : Window
         QualityPopup.IsOpen = false;
         Diagnostics.AppLog.Detail("overlay", $"event=state mini={on}");
         _miniMode = on;
+        OverlayRoot.LayoutTransform = on ? System.Windows.Media.Transform.Identity : Theme.UiZoom.Transform;
         UpdateCompactControls();
         // Mini mode has no time editor (OnTimeTextClick early-returns, like ToggleShortcuts), so a
         // transition must neither carry an open field into a 480x270 window nor leave the hover
@@ -724,9 +739,9 @@ public partial class OverlayWindow : Window
     private void OnQualityPopupOpened(object sender, EventArgs e)
     {
         // Prefer the button's right edge, then keep the picker inside the overlay at narrow widths.
-        var anchor = QualityButton.TranslatePoint(new Point(), this).X;
+        var anchor = QualityButton.TranslatePoint(new Point(), OverlayRoot).X;
         var width = ((FrameworkElement)QualityPopup.Child).Width;
-        var left = Math.Clamp(anchor + QualityButton.ActualWidth - width, 0, Math.Max(0, ActualWidth - width));
+        var left = Math.Clamp(anchor + QualityButton.ActualWidth - width, 0, Math.Max(0, OverlayRoot.ActualWidth - width));
         QualityPopup.HorizontalOffset = left - anchor;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
@@ -1021,7 +1036,7 @@ public partial class OverlayWindow : Window
     private void UpdateCompactControls()
     {
         // The threshold is the width at which the full-padding row stops fitting, with margin.
-        var compact = ActualWidth > 0 && ActualWidth < 900;
+        var compact = OverlayRoot.ActualWidth > 0 && OverlayRoot.ActualWidth < 900;
         // Mini mode collapses the Quality pill with the rest of the row, so it needs no room there.
         var compactQuality = compact && _viewModel.QualityVisible && !_miniMode;
         if (_compact == compact && _compactQuality == compactQuality)
@@ -1391,6 +1406,13 @@ public partial class OverlayWindow : Window
 
     private void OnOverlayKeyDown(object sender, KeyEventArgs e)
     {
+        // Zoom chords go to the owner whatever holds the keyboard here: a panel or flyout is
+        // often exactly what the user is zooming in to read, and no field or list uses them.
+        if (Player.AppShortcuts.IsZoomChord(e.Key, Keyboard.Modifiers))
+        {
+            KeyPressed?.Invoke(e);
+            return;
+        }
         // A focused flyout trigger owns its activation keys before the player bridge. Quality
         // only while closed: with its flyout open, keys belong to the focused picker inside it.
         if (QualityButton.IsKeyboardFocused && !QualityPopup.IsOpen && Keyboard.Modifiers == ModifierKeys.None
@@ -2002,6 +2024,37 @@ public partial class OverlayWindow : Window
         }
         _volumePillTimer.Stop();
         _volumePillTimer.Start();
+    }
+
+    private DispatcherTimer? _zoomPillTimer;
+
+    /// <summary>The zoom readout over the video. Mini mode does not zoom, so it shows nothing.</summary>
+    public void ShowZoomPill()
+    {
+        if (_miniMode)
+            return;
+        ZoomPillText.Text = Theme.UiZoom.Percent.ToString(CultureInfo.InvariantCulture) + "%";
+        ZoomPillLimit.Text = L.Text("UiZoom.ScreenLimit.5b0d7e3c");
+        ZoomPillLimit.Visibility = Theme.UiZoom.AtScreenLimit ? Visibility.Visible : Visibility.Collapsed;
+        ZoomPill.Visibility = Visibility.Visible;
+        ZoomPill.BeginAnimation(OpacityProperty, new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(120)));
+        if (_zoomPillTimer is null)
+        {
+            _zoomPillTimer = new DispatcherTimer { Interval = VolumePillHold };
+            _zoomPillTimer.Tick += (_, _) =>
+            {
+                _zoomPillTimer.Stop();
+                var fadeOut = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(300));
+                fadeOut.Completed += (_, _) =>
+                {
+                    if (!_zoomPillTimer.IsEnabled)
+                        ZoomPill.Visibility = Visibility.Collapsed;
+                };
+                ZoomPill.BeginAnimation(OpacityProperty, fadeOut);
+            };
+        }
+        _zoomPillTimer.Stop();
+        _zoomPillTimer.Start();
     }
 
     private void HideVolumePill()

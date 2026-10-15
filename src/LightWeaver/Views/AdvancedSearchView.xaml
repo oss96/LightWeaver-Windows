@@ -1,6 +1,7 @@
 <UserControl x:Class="LightWeaver.Views.AdvancedSearchView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="clr-namespace:LightWeaver.Theme"
         xmlns:loc="clr-namespace:LightWeaver.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -260,7 +261,7 @@
                              into the box you are typing in would be spent closing the popup
                              instead of placing the caret. Closing is driven from code instead
                              (Esc, commit, focus loss, term under 2 chars). -->
-                        <Popup x:Name="PersonPopup" AllowsTransparency="True" Placement="Bottom"
+                        <Popup x:Name="PersonPopup" theme:ZoomPopups.Follow="True" AllowsTransparency="True" Placement="Bottom"
                                StaysOpen="True" PopupAnimation="Fade" VerticalOffset="4"
                                PlacementTarget="{Binding ElementName=PersonBox}">
                             <Border Background="{StaticResource LwStorm3Brush}"

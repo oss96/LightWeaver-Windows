@@ -3,6 +3,16 @@ using System.Text.Json;
 
 namespace LightWeaver.Settings;
 
+/// <summary>Why the most recent <see cref="SettingsStore.Save"/> wrote nothing.</summary>
+public enum SettingsSaveFailure
+{
+    None,
+    /// <summary>The file exists but could not be read, so saving is refused to protect it.</summary>
+    ReadDenied,
+    /// <summary>The write itself failed (disk, permissions on the folder, a locked file).</summary>
+    WriteFailed,
+}
+
 /// <summary>JSON persistence for <see cref="AppSettings"/> — defensive load, atomic save.</summary>
 public static class SettingsStore
 {
@@ -24,6 +34,12 @@ public static class SettingsStore
     /// the comment there. Never reset: a permissions problem does not heal inside one run, and
     /// treating it as transient is what would discard the settings.</summary>
     private static bool _readDeniedByPermissions;
+
+    /// <summary>Outcome of the latest save, for the Settings page's inline banner. Starts as
+    /// <see cref="SettingsSaveFailure.ReadDenied"/> when Load hit a permissions refusal, because
+    /// every later save is already known to be refused and the user should hear it before they
+    /// change something. Read on the UI thread; every caller of Save runs there.</summary>
+    public static SettingsSaveFailure LastSaveFailure { get; private set; }
 
     public static AppSettings Load()
     {
@@ -49,7 +65,10 @@ public static class SettingsStore
             // inside one run, and a plain `= ex is …` would let a hypothetical second Load that hit
             // a JsonException reset the flag and re-enable the overwrite this exists to prevent.
             if (ex is UnauthorizedAccessException)
+            {
                 _readDeniedByPermissions = true;
+                LastSaveFailure = SettingsSaveFailure.ReadDenied;
+            }
             Diagnostics.AppLog.Error("settings",
                 $"could not read settings; using defaults error={ex.GetType().Name}");
         }
@@ -112,7 +131,7 @@ public static class SettingsStore
     /// dispatcher — i.e. a crash — and none of them has anything useful to do with one. A save that
     /// silently does not happen is a worse outcome than a save that happens, but a far better one
     /// than losing the session, and the log line is what makes it diagnosable.</para></summary>
-    /// <returns>true if the file was written.</returns>
+    /// <returns>true if the file was written. <see cref="LastSaveFailure"/> says why not.</returns>
     public static bool Save(AppSettings settings)
     {
         // Refuse to overwrite a file we were not allowed to READ. Those settings are still in
@@ -126,6 +145,7 @@ public static class SettingsStore
                 "settings",
                 "not overwriting settings: the file exists but could not be read (permissions). " +
                 "This session's changes are in memory only.");
+            LastSaveFailure = SettingsSaveFailure.ReadDenied;
             return false;
         }
 
@@ -141,12 +161,14 @@ public static class SettingsStore
             // font, audio device) that the structural contract keeps out of the log.
             Diagnostics.AppLog.Detail("settings", FormattableString.Invariant(
                 $"event=save outcome=success bytes={json.Length}"));
+            LastSaveFailure = SettingsSaveFailure.None;
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Diagnostics.AppLog.Error("settings",
                 $"could not write settings error={ex.GetType().Name}");
+            LastSaveFailure = SettingsSaveFailure.WriteFailed;
             return false;
         }
     }

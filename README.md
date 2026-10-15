@@ -22,7 +22,8 @@ one repo each) rather than one cross-platform build.
   transcoder, with a bitrate cap in Settings
 - Audio output device picker with bitstream passthrough — the Settings row names which formats the
   selected output actually accepts, and a device that cannot take them falls back to decoded audio
-  with a notice instead of stalling. Volume normalization is switchable from the player too
+  with a notice instead of stalling. Volume normalization is switchable from the player too.
+  Playback appears as LightWeaver in the Windows volume mixer
 - Playback speed control (0.5x–2x), mute, and a brief volume indicator on any change
 - Video buffer size in Settings: **Recommended** by default, with **Less memory** and
   **More read-ahead** presets and a custom size under Advanced
@@ -74,8 +75,10 @@ loads, and absent for local files and direct URLs.
   Live session messages accept Jellyfin's compact and dashed identifiers for group and queue updates.
   The participant list is checked against the server after every join and leave, so one of two
   devices on the same account leaving does not empty it on the other.
-- Login including Quick Connect, with DPAPI-persisted tokens and auto-reconnect
-- Multiple server/user profiles with a `Ctrl+U` switcher. Sessions stay warm, so switching back is
+- Login including Quick Connect, with DPAPI-persisted tokens and auto-reconnect. The password
+  field has a show/hide button, and leaving the sign-in screen masks it again
+- Multiple server/user profiles with a `Ctrl+U` switcher, also available on the login screen when
+  a saved user exists. Sessions stay warm, so switching back is
   instant and restores that profile's exact browse state; playback and downloads continue under the
   profile that started them
 - Watch-state reporting, favorites, and mark-watched toggles that update the card you came from
@@ -126,6 +129,16 @@ loads, and absent for local files and direct URLs.
 - A consistent loading language: shape-matched skeletons on first paint, throbbing dots while a
   fetch runs behind content that is already on screen, and everything but the first paint held back
   250 ms so a fast answer shows no indicator at all
+- App-wide zoom from 50% to 200% (`Ctrl++` / `Ctrl+-`, `Ctrl+Wheel` or a touchpad pinch, `Ctrl+0`
+  to reset). The whole interface scales, including cards, artwork and the player controls, not just
+  the text, and grids re-flow to the new size. A short readout shows the level, which is remembered
+  across launches. The video picture and the mini-player's compact controls are not zoomed
+- Zoom stops at the largest level that still gives the interface as much room as the app's
+  smallest window has at 100%: 125% on a 1024x768 screen or 1920x1080 at 150% scaling,
+  150% on 1366x768 at 100%, 175% on 1920x1080 at 125% and 200% on 1920x1080 at 100%. The readout
+  says "Screen limit" when a step in is refused there. While limited, the window cannot be resized
+  smaller than the zoomed layout needs. Settings > Zoom > *Limit zoom to the screen size* turns
+  the limit off after a warning that controls can then be cut off or hidden
 
 ### Player controls and shortcuts
 
@@ -160,7 +173,8 @@ loads, and absent for local files and direct URLs.
 - An info panel with live playback stats and server media metadata
 - Every player key is rebindable in Settings → Shortcuts. Press `?` anywhere for the full list — the
   panel is generated from the same definitions the handlers use, so it shows your rebinds and cannot
-  drift from the app
+  drift from the app. Binding a key another action already holds moves it, even when the older
+  binding was saved under a different spelling of the same key (`Oem6` for `]`)
 - The window goes down to 700x480 without losing anything: the track pickers fold into one Tracks
   flyout, the detail action row wraps, search filters move behind a More filters disclosure, and the
   A–Z rail becomes a dropdown
@@ -216,8 +230,9 @@ loads, and absent for local files and direct URLs.
 
 - Self-updater reading GitHub Releases, with an immediate **Settings → Updates → Check for updates**
   action plus startup and six-hour checks, explicit status, and three policies: manual install
-  (default), automatic download, or verified silent installation when you normally exit. Staging is
-  resumable and replaces its metadata atomically
+  (default), automatic download, or verified silent installation when you normally exit. Choosing
+  **Install now** under that last policy installs silently and starts the new version afterwards.
+  Staging is resumable and replaces its metadata atomically
 - Diagnostics logging: a crash file for any unhandled exception, and a playback file — container,
   codecs, decoder, RTX and direct-play/transcode state — whenever mpv fails a file. Settings →
   Diagnostics shows the verbose state and log-folder size and can export the logs as one ZIP, open
@@ -235,7 +250,12 @@ loads, and absent for local files and direct URLs.
   download is reachable only through a fresh unguessable token that is retired when the playback
   ends. The socket closes again as soon as nothing is streaming
 - Disk-backed image and browse caches with a configurable item cap in Settings → Storage, plus
-  window position and size persistence
+  window position and size persistence. The cache sizes are re-read each time you return to
+  Settings
+- Settings save as you change them. Sliders apply live but write the file once the gesture
+  settles, when you leave Settings, or when the window closes. If a save fails, a banner at the top
+  of Settings says so and why: a file that could not be written, or an existing file LightWeaver is
+  not allowed to read, which it then leaves untouched rather than overwrite your settings
 
 ## Requirements
 
@@ -319,7 +339,7 @@ choose an available UI language in Settings to apply it immediately. The current
 and playback stay in place. System default
 uses the Windows UI language when a matching pack is available. Missing, outdated or invalid
 translations fall back to English.
-The German (`de`) and Arabic (`ar`) packs each cover all 970 current catalog entries, including
+The German (`de`) and Arabic (`ar`) packs each cover all 974 current catalog entries, including
 playback controls, settings, downloads, SyncPlay and error messages. Select Deutsch or العربية
 to use them.
 Standard library names such as Movies and TV Shows follow the interface language immediately.
@@ -356,8 +376,10 @@ invariant. See [TECHNICAL.md](TECHNICAL.md) for the catalog format and verificat
 ## Keyboard shortcuts
 
 Every player key below is rebindable in Settings → Shortcuts. Rebinding *adds* a key rather than
-moving one, so `F11` keeps working regardless. Press `?` anywhere, or the keyboard button in the
-player OSD, for the live list.
+moving one, so `F11` keeps working regardless. A key an app shortcut uses, such as `Ctrl+M`,
+`Ctrl+Plus` or `Backspace`, cannot be given to a player action (`Space` and `F11` only to play /
+pause and fullscreen): Settings keeps the old key and says which shortcut has it. Press `?`
+anywhere, or the keyboard button in the player OSD, for the live list.
 
 | Key | Action |
 |---|---|
@@ -379,6 +401,8 @@ player OSD, for the live list.
 | `Ctrl+L` | Stream from URL |
 | `Ctrl+U` | Switch profile |
 | `Ctrl+,` | Settings |
+| `Ctrl++` / `Ctrl+-`, `Ctrl+Wheel` | Zoom the interface in / out |
+| `Ctrl+0` | Reset zoom to 100% |
 | `Backspace` | Back (browsing) |
 | `?` | Shortcut list |
 

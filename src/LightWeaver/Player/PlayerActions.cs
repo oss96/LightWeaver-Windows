@@ -144,6 +144,7 @@ public static class PlayerActionDispatcher
         ["OemComma"] = ",",
         ["OemPeriod"] = ".",
         ["OemQuestion"] = "?",
+        ["D0"] = "0",
         ["Escape"] = L.Text("PlayerActions.Esc.abeb1d0a"),
         ["Back"] = L.Text("PlayerActions.Backspace.46280906"),
         ["Ctrl"] = L.Text("PlayerActions.Ctrl.4294439e"),
@@ -267,6 +268,23 @@ public static class PlayerActionDispatcher
         return TryParseChord(a, out var keyA, out var modsA)
             && TryParseChord(b, out var keyB, out var modsB)
             && keyA == keyB && modsA == modsB;
+    }
+
+    /// <summary>The map after binding <paramref name="chord"/> to <paramref name="action"/>: the
+    /// chord moves here and any other action holding the same keystroke becomes unbound. The
+    /// match is <see cref="ChordEquals"/>, not text, so a binding saved in an alias spelling
+    /// ("Oem6", "Shift+Ctrl+X") is found too; a textual match left both actions on one key, and
+    /// the dispatcher then fired whichever came first. Every other entry is returned unchanged.
+    /// </summary>
+    public static Dictionary<PlayerAction, string> Rebind(IDictionary<string, string>? saved,
+        PlayerAction action, string chord)
+    {
+        var map = Resolve(saved);
+        foreach (var (other, c) in map.ToList())
+            if (other != action && ChordEquals(c, chord))
+                map[other] = "";
+        map[action] = chord;
+        return map;
     }
 
     public static bool TryResolve(Key key, ModifierKeys modifiers,

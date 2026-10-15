@@ -88,7 +88,25 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="40,8,40,32">
+    <Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <!-- Save-failure banner. Pinned above the scroller rather than inside it: a change made far
+         down the page has to see that it was not written, and the top of a scrolled page is not
+         on screen. Collapsed whenever the latest save succeeded. -->
+    <Border x:Name="SaveFailureBanner" Grid.Row="0" Visibility="Collapsed" Margin="40,12,40,0"
+            Padding="14,10" CornerRadius="{StaticResource LwR2}" BorderThickness="1"
+            Background="{StaticResource LwGemAmberFillBrush}" BorderBrush="{StaticResource LwGemAmberBorderBrush}">
+        <!-- The text carries the automation identity and live region: a plain Border has no
+             automation peer. Code-behind raises the live-region event when a failure appears. -->
+        <TextBlock x:Name="SaveFailureText" Foreground="{StaticResource LwGemAmberTextBrush}" TextWrapping="Wrap"
+                   FontFamily="{StaticResource LwFontUi}" FontSize="13"
+                   AutomationProperties.AutomationId="SettingsSaveFailureText"
+                   AutomationProperties.LiveSetting="Assertive" />
+    </Border>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="40,8,40,32">
         <StackPanel>
             <TextBlock Text="{loc:Text SettingsView.Settings.ab089ec2}" Style="{StaticResource SectionTitle}" />
 
@@ -118,6 +136,23 @@
                     </StackPanel>
                 </Border>
             </Expander>
+
+            <!-- ===== Zoom ===== -->
+            <TextBlock Text="{loc:Text SettingsView.Zoom.3c7f2a91}" Style="{StaticResource GroupLabel}" />
+            <Border Style="{StaticResource SettingCard}">
+                <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                    <DockPanel LastChildFill="True">
+                        <CheckBox x:Name="ZoomLimitBox" Style="{StaticResource RowToggle}"
+                                  Checked="OnZoomLimitChanged" Unchecked="OnZoomLimitChanged"
+                                  AutomationProperties.AutomationId="ZoomLimitToggle"
+                                  AutomationProperties.Name="{loc:Text SettingsView.LimitZoomToTheScreenSize.e4a19c06}" />
+                        <StackPanel>
+                            <TextBlock Text="{loc:Text SettingsView.LimitZoomToTheScreenSize.e4a19c06}" Style="{StaticResource RowTitle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{loc:Text SettingsView.ZoomLimitHint.8d52b3f0}" Style="{StaticResource RowSub}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </Border>
 
             <!-- ===== Updates ===== -->
             <TextBlock Text="{loc:Text SettingsView.Updates.81f10b50}" Style="{StaticResource GroupLabel}" />
@@ -785,4 +820,5 @@
             </Border>
         </StackPanel>
     </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -31,6 +31,21 @@ public sealed class DiskJsonCache
     private static readonly string LogSalt =
         Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
 
+    /// <summary>Per-PROCESS sequence for lookup decisions, shared by every instance like
+    /// <see cref="LogSalt"/>. Each decision takes one number and writes it into both its
+    /// <c>event=lookup</c> record (<c>lookup=</c>) and its LIGHTWEAVER_CACHE_LOG line, so a test can
+    /// join the two files record for record. Concurrent lookups (the detail view loads
+    /// <c>streams:</c> and <c>versions:</c> together) can reach the two files in different orders,
+    /// so position alone cannot pair them. A counter says nothing about the key, the server or the
+    /// item. An unreadable entry also takes a number, but has no hook line to pair it with.</summary>
+    private static long _lookupSequence;
+
+    /// <summary>Serializes appends to the LIGHTWEAVER_CACHE_LOG file. File.AppendAllText opens it
+    /// with FileShare.Read, so two concurrent lookups made the second append throw and lose its
+    /// line while its app.log record stayed, which a record-for-record join reports as a
+    /// failure.</summary>
+    private static readonly Lock HookLock = new();
+
     private readonly string _cacheDir;
     private readonly string _logPrefix;
     private readonly string _cacheName;
@@ -49,7 +64,8 @@ public sealed class DiskJsonCache
 
     /// <summary>Cached value when fresh, else the fetch result (persisted). A failed
     /// or null fetch is never cached; on JSON/IO trouble the fetch runs as if uncached.
-    /// Set LIGHTWEAVER_CACHE_LOG to a path to get "hit/miss/stale &lt;key&gt;" lines.</summary>
+    /// Set LIGHTWEAVER_CACHE_LOG to a path to get "lookup=&lt;n&gt; [Prefix] hit/miss/stale &lt;key&gt;"
+    /// lines; n matches the <c>lookup=</c> field of the same decision's app.log record.</summary>
     public async Task<T?> GetOrFetchAsync<T>(string key, TimeSpan ttl, Func<Task<T?>> fetch)
         where T : class
     {
@@ -68,26 +84,23 @@ public sealed class DiskJsonCache
                             await File.ReadAllTextAsync(path).ConfigureAwait(false), Options);
                         if (cached is not null)
                         {
-                            Log($"hit {key}");
-                            Detail("lookup", "hit", key);
+                            Lookup("hit", key);
                             return cached;
                         }
                     }
                     else
                     {
-                        Log($"stale {key}");
-                        Detail("lookup", "stale", key);
+                        Lookup("stale", key);
                     }
                 }
             }
             catch (Exception ex) when (ex is JsonException or IOException)
             {
                 // unreadable entry: fall through to a live fetch
-                Detail("lookup", "unreadable", key, ex: ex);
+                Detail("lookup", "unreadable", key, ex: ex, lookupId: NextLookupId());
             }
 
-            Log($"miss {key}");
-            Detail("lookup", "miss", key);
+            Lookup("miss", key);
             var started = System.Diagnostics.Stopwatch.StartNew();
             T? fresh;
             try
@@ -159,7 +172,7 @@ public sealed class DiskJsonCache
         }
         catch (Exception ex)
         {
-            Detail("lookup", "unreadable", key, ex: ex);
+            Detail("lookup", "unreadable", key, ex: ex, lookupId: NextLookupId());
         }
         return null;
     }
@@ -334,17 +347,19 @@ public sealed class DiskJsonCache
     /// part that made the token precomputable. The on-disk layout is unchanged
     /// (<see cref="CacheFileName"/>), so no existing cache is invalidated.</para>
     ///
-    /// <para>The <c>LIGHTWEAVER_CACHE_LOG</c> hook above is untouched: it is test instrumentation
-    /// with its own format, and it prints raw keys precisely because it never leaves the
-    /// machine.</para></summary>
+    /// <para>The <c>LIGHTWEAVER_CACHE_LOG</c> hook is test instrumentation with its own format, and
+    /// it prints raw keys precisely because it never leaves the machine. The two meet only through
+    /// <c>lookup=</c> (<see cref="_lookupSequence"/>), which carries no part of the key.</para></summary>
     private void Detail(string eventName, string outcome, string key,
-        System.Diagnostics.Stopwatch? started = null, Exception? ex = null)
+        System.Diagnostics.Stopwatch? started = null, Exception? ex = null, long? lookupId = null)
     {
         // Ahead of the token, the formatting and the IO: this runs on every cache decision.
         if (!Diagnostics.AppLog.Verbose)
             return;
         var line = FormattableString.Invariant(
             $"event={eventName} cache={_cacheName} outcome={outcome} key_hash={LogKeyToken(key)}");
+        if (lookupId is not null)
+            line += FormattableString.Invariant($" lookup={lookupId}");
         if (started is not null)
             line += FormattableString.Invariant($" elapsed_ms={started.ElapsedMilliseconds}");
         if (ex is not null)
@@ -352,12 +367,30 @@ public sealed class DiskJsonCache
         Diagnostics.AppLog.Detail("cache", line);
     }
 
-    private void Log(string line)
+    private static long NextLookupId() => Interlocked.Increment(ref _lookupSequence);
+
+    /// <summary>One hit, miss or stale decision, written to both sinks under one
+    /// <see cref="_lookupSequence"/> number.</summary>
+    private void Lookup(string outcome, string key)
+    {
+        var id = NextLookupId();
+        Log(id, $"{outcome} {key}");
+        Detail("lookup", outcome, key, lookupId: id);
+    }
+
+    /// <summary>The id goes ahead of the prefix so every existing reader of
+    /// "[Prefix] outcome key" (anchored at the key's end) keeps matching.</summary>
+    private void Log(long lookupId, string line)
     {
         try
         {
             if (Environment.GetEnvironmentVariable("LIGHTWEAVER_CACHE_LOG") is { Length: > 0 } path)
-                File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss.fff} [{_logPrefix}] {line}{Environment.NewLine}");
+            {
+                var text = FormattableString.Invariant(
+                    $"{DateTime.Now:HH:mm:ss.fff} lookup={lookupId} [{_logPrefix}] {line}{Environment.NewLine}");
+                lock (HookLock)
+                    File.AppendAllText(path, text);
+            }
         }
         catch { /* logging is best-effort */ }
     }

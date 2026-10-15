@@ -81,12 +81,17 @@ public partial class MainWindow
         var host = _overlay is { IsVisible: true } ? (Window)_overlay : this;
         var work = WorkArea(MonitorFromWindow(new WindowInteropHelper(host).Handle, MONITOR_DEFAULTTONEAREST));
         var dpi = VisualTreeHelper.GetDpi(host);
-        var width = (work.Right - work.Left) / dpi.DpiScaleX;
-        var height = (work.Bottom - work.Top) / dpi.DpiScaleY;
-        if (width <= 0 || height <= 0) { width = host.ActualWidth; height = host.ActualHeight; }
+        // The popup inherits the trigger's UI zoom, so its content size is in zoomed units: bound it
+        // against the monitor and the host measured in those units too, or 200% doubles it past them.
+        var zoom = Theme.UiZoom.Scale;
+        var width = (work.Right - work.Left) / dpi.DpiScaleX / zoom;
+        var height = (work.Bottom - work.Top) / dpi.DpiScaleY / zoom;
+        var hostWidth = host.ActualWidth / zoom;
+        var hostHeight = host.ActualHeight / zoom;
+        if (width <= 0 || height <= 0) { width = hostWidth; height = hostHeight; }
         // WPF flips the anchored popup at screen edges. Bound its content in the monitor's DIPs.
-        content.Width = Math.Max(240, Math.Min(360, Math.Min(host.ActualWidth - 24, width - 24)));
-        content.Height = Math.Max(240, Math.Min(440, Math.Min(host.ActualHeight - 24, height * 0.75 - 16)));
+        content.Width = Math.Max(240, Math.Min(360, Math.Min(hostWidth - 24, width - 24)));
+        content.Height = Math.Max(240, Math.Min(440, Math.Min(hostHeight - 24, height * 0.75 - 16)));
         return content;
     }
 

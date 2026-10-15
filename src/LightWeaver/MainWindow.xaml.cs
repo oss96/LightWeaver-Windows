@@ -240,6 +240,10 @@ public partial class MainWindow : Window
         // and before the first Info() call decides whether to reach app.log.
         Diagnostics.AppLog.Verbose = _settings.VerboseLogging;
         LibraryNames.Configure(_settings);
+        // Before InitializeComponent, so the first layout pass already runs at the saved zoom. The
+        // screen cap follows in OnSourceInitialized, still before the first frame.
+        Theme.UiZoom.SetLimitToScreen(_settings.LimitUiZoomToScreen);
+        Theme.UiZoom.Set(_settings.UiZoom);
         InitializeComponent();
         LiveText.Watch(this);
         _updateService = new UpdateService(_settings);
@@ -366,7 +370,7 @@ public partial class MainWindow : Window
         // bindings are built from it, so the shortcuts overlay renders the same table the window
         // registers — a chord cannot be in one and not the other. The handlers stay here because
         // their state guards read this window's private state.
-        foreach (var shortcut in AppShortcuts.Chrome)
+        foreach (var shortcut in AppShortcuts.Chrome.Concat(AppShortcuts.ChromeAliases))
         {
             if (!shortcut.Registered)
                 continue;
@@ -381,6 +385,15 @@ public partial class MainWindow : Window
         // XButton members, so these can't be InputBindings — a tunneling PreviewMouseDown
         // handler is the correct mechanism. The overlay window handles them over the video.
         PreviewMouseDown += OnWindowMouseDown;
+        // Ctrl+wheel zooms. Tunneling, so it wins over every ScrollViewer and wheel-forwarding
+        // row in the browse views; the overlay handles the same gesture over the video.
+        PreviewMouseWheel += OnWindowMouseWheel;
+        Theme.UiZoom.Changed += OnUiZoomChanged;
+        Theme.UiZoom.PreferredChanged += OnUiZoomPreferredChanged;
+        Theme.UiZoom.Requested += OnUiZoomRequested;
+        // Tooltips and context menus open outside the visual tree, so nothing zooms them on its own.
+        Theme.ZoomPopups.Register();
+        Theme.UiZoom.LimitChanged += ApplyZoomMinSize;
         // '?' opens the shortcuts panel — on the character, not a chord (see OnWindowTextInput).
         TextInput += OnWindowTextInput;
 
@@ -390,7 +403,18 @@ public partial class MainWindow : Window
         // Fires when the video layer becomes visible and gets its real layout size —
         // the state-change itself runs before layout, when ActualWidth is still 0.
         VideoArea.SizeChanged += (_, _) => SyncOverlayBounds();
-        StateChanged += (_, _) => SyncOverlayBounds();
+        StateChanged += (_, _) =>
+        {
+            SyncOverlayBounds();
+            // Leaving maximized, fullscreen or minimized restores a size that may be below a
+            // minimum raised meanwhile: Windows grows it from its old corner, off the screen. Only
+            // then - an ordinary restore leaves a window the user parked half off-screen alone.
+            if (WindowState == WindowState.Normal && _slideOnRestore)
+            {
+                _slideOnRestore = false;
+                QueueSlideOntoWorkArea();
+            }
+        };
         DpiChanged += (_, _) => SyncOverlayBounds();
         IsVisibleChanged += (_, _) => SyncOverlayBounds();
         Activated += (_, _) => SyncOverlayBounds();
@@ -608,7 +632,9 @@ public partial class MainWindow : Window
                 // _shells keyed by their profile (SessionClosed prunes real logouts).
                 _shell = new ShellSession();
                 LibrariesNav.Children.Clear();
-                ShellHost.Content = new LoginView(_app);
+                var login = new LoginView(_app);
+                login.SwitchUserRequested += () => OnSwitchServer(this, null!);
+                ShellHost.Content = login;
                 BrowseLayer.Visibility = Visibility.Visible;
                 NavRail.Visibility = Visibility.Collapsed;
                 VideoArea.Visibility = Visibility.Collapsed;
@@ -893,6 +919,8 @@ public partial class MainWindow : Window
                 CornerRadius = (CornerRadius)FindResource("LwR3"),
                 Padding = new Thickness(18, 14, 18, 14),
                 Child = panel,
+                // A separate window, so the app zoom does not reach it on its own.
+                LayoutTransform = Theme.UiZoom.Snapshot(),
             }
         }, "Title", () => L.Text("MainWindow.MediaInfo.36f82419"));
         // Non-modal on purpose: click-away (Deactivated) or Esc dismisses; a modal
@@ -1367,19 +1395,21 @@ public partial class MainWindow : Window
     }
 
 
-    /// <summary>Below 1160 px window width the rail collapses to icons only (labels move
-    /// to tooltips), per the spec.</summary>
     /// <summary>Keeps the header search pill from overflowing on narrow windows: it holds its
-    /// 360 px design width when there's room and shrinks (down to 200) when there isn't.</summary>
+    /// 360 px design width when there's room and shrinks (down to 200) when there isn't.
+    /// Measured in zoomed layout units, like the rail breakpoint below.</summary>
     private void UpdateHeaderLayout()
     {
         if (SearchPill is not null)
-            SearchPill.Width = System.Math.Clamp(ActualWidth - 800, 200.0, 360.0);
+            SearchPill.Width = System.Math.Clamp(Theme.UiZoom.ToLayout(ActualWidth) - 800, 200.0, 360.0);
     }
 
+    /// <summary>Below 1160 px window width the rail collapses to icons only (labels move
+    /// to tooltips), per the spec. The width is the zoomed layout width, so zooming in on a
+    /// wide window collapses the rail exactly as a narrower window at 100% would.</summary>
     private void UpdateRailCollapse()
     {
-        var collapsed = ActualWidth < 1160;
+        var collapsed = Theme.UiZoom.ToLayout(ActualWidth) < 1160;
         if (collapsed == _railCollapsed)
             return;
         _railCollapsed = collapsed;
@@ -3699,8 +3729,8 @@ public partial class MainWindow : Window
             // CanResize keeps WS_THICKFRAME so the grip's native HTBOTTOMRIGHT sizing
             // loop works (M12); the WM_SIZING hook enforces 16:9 + clamps.
             ResizeMode = ResizeMode.CanResize;
-            // The shell minimums (700x480) would clamp the compact window — lift them
-            // for the duration of mini mode and restore them on the way out.
+            // The shell minimums (700x480, more when zoomed) would clamp the compact window —
+            // lift them for the duration of mini mode and restore them on the way out.
             MinWidth = 0;
             MinHeight = 0;
             WindowState = WindowState.Normal;
@@ -3733,14 +3763,22 @@ public partial class MainWindow : Window
             Topmost = false;
             WindowStyle = WindowStyle.SingleBorderWindow;
             ResizeMode = ResizeMode.CanResize;
-            MinWidth = 700;
-            MinHeight = 480;
+            ApplyZoomMinSize(slide: false);
             Left = _preMiniRect.X;
             Top = _preMiniRect.Y;
             Width = _preMiniRect.Width;
             Height = _preMiniRect.Height;
             WindowState = _preMiniState;
             _overlay?.SetMiniMode(false);
+            // The pre-mini rect may be smaller than a minimum raised while mini (another screen);
+            // only then is it grown, and only then slid back on screen.
+            if (_preMiniRect.Width < MinWidth - 0.5 || _preMiniRect.Height < MinHeight - 0.5)
+            {
+                if (_preMiniState == WindowState.Normal)
+                    QueueSlideOntoWorkArea();
+                else
+                    _slideOnRestore = true;
+            }
         }
         Dispatcher.BeginInvoke(SyncOverlayBounds, System.Windows.Threading.DispatcherPriority.Loaded);
     }
@@ -3783,7 +3821,25 @@ public partial class MainWindow : Window
         // AFTER the new position is in effect, so PointToScreen is current here. Deliberately
         // not marked handled — WPF still needs this message for Left/Top/LocationChanged.
         if (msg == 0x0047 /* WM_WINDOWPOSCHANGED */)
+        {
             SyncOverlayBounds();
+            QueueZoomScreenUpdate();
+        }
+        // A drag or resize in progress owns the window's position; the zoom's slide waits for it.
+        if (msg == 0x0231 /* WM_ENTERSIZEMOVE */)
+            _inSizeMove = true;
+        if (msg == 0x0232 /* WM_EXITSIZEMOVE */)
+        {
+            _inSizeMove = false;
+            if (_slideAfterSizeMove)
+            {
+                _slideAfterSizeMove = false;
+                QueueSlideOntoWorkArea();
+            }
+        }
+        // Another resolution, DPI or taskbar size changes what the zoom cap allows.
+        if (msg is 0x001A /* WM_SETTINGCHANGE */ or 0x007E /* WM_DISPLAYCHANGE */ or 0x02E0 /* WM_DPICHANGED */)
+            QueueZoomScreenUpdate();
         if (msg == 0x0083 /* WM_NCCALCSIZE */ && wParam != 0 && _isMiniPlayer)
         {
             handled = true;   // client area == whole window: chrome-less stays edge-to-edge
@@ -3981,7 +4037,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        _settingsView ??= new SettingsView(_settings, () => _player, _playerViewModel, _updateService);
+        _settingsView ??= new SettingsView(_settings, () => _player, _playerViewModel, _updateService)
+        {
+            ConfirmAsync = (title, body, confirm) => Modal.ConfirmAsync(title, body, confirm),
+        };
         _settingsView.SetLibraries(_app.Jellyfin.ServerUrl ?? "", _shell.Libraries);
         if (ReferenceEquals(_nav.Current?.View, _settingsView))
         {
@@ -3999,9 +4058,22 @@ public partial class MainWindow : Window
     /// Add-server path still tears playback down (it lands on the login form).</summary>
     private async void OnSwitchServer(object sender, RoutedEventArgs e)
     {
+        if (!_app.TryBeginAccountOperation()) return;
+        try
+        {
+            await SwitchServerAsync();
+        }
+        finally
+        {
+            _app.EndAccountOperation();
+        }
+    }
+
+    private async Task SwitchServerAsync()
+    {
         Diagnostics.AppLog.Detail("main", "event=interaction action=open-profile-switcher");
         var dialog = new Views.SwitchServerWindow(Jellyfin.CredentialStore.LoadProfiles(),
-            _app.IsSessionWarm)
+            _app.IsSessionWarm, hasActiveSession: _app.ActiveSessionKey is not null && _app.Jellyfin.IsConnected)
         { Owner = this };
         if (dialog.ShowDialog() != true)
         {
@@ -4030,6 +4102,19 @@ public partial class MainWindow : Window
     }
 
     private async void OnLogout(object sender, RoutedEventArgs e)
+    {
+        if (!_app.TryBeginAccountOperation()) return;
+        try
+        {
+            await LogoutCurrentProfileAsync();
+        }
+        finally
+        {
+            _app.EndAccountOperation();
+        }
+    }
+
+    private async Task LogoutCurrentProfileAsync()
     {
         // M23: destructive confirm through the in-app modal, not a native MessageBox.
         if (!await Modal.ConfirmAsync(L.Text("MainWindow.LogOut.85285b4a"),
@@ -4070,11 +4155,17 @@ public partial class MainWindow : Window
     /// </summary>
     private void HandleOverlayKey(KeyEventArgs e)
     {
-        HandlePlayerKey(e);
-        if (e.Handled)
-            return;
-
         var mods = Keyboard.Modifiers;
+        // Zoom chords skip the player's bindings, as they do in this window, where the
+        // KeyBindings run before OnKeyDown: a player action bound to Ctrl+Plus must not take the
+        // chord over the video only.
+        if (!AppShortcuts.IsZoomChord(e.Key, mods))
+        {
+            HandlePlayerKey(e);
+            if (e.Handled)
+                return;
+        }
+
         foreach (var binding in InputBindings)
         {
             if (binding is KeyBinding { Command: { } command } kb
@@ -4095,6 +4186,18 @@ public partial class MainWindow : Window
     /// </summary>
     private void InvokeChromeShortcut(string id)
     {
+        // Zoom acts whatever is open (a panel or flyout is often exactly what the user wants to
+        // read larger), but not in the mini-player, whose fixed layout does not zoom.
+        if (id is AppShortcuts.ZoomIn or AppShortcuts.ZoomOut or AppShortcuts.ZoomReset)
+        {
+            if (_isMiniPlayer)
+                return;
+            Diagnostics.AppLog.Detail("shortcut", $"event=invoke scope=chrome action={id}");
+            if (id == AppShortcuts.ZoomIn) Theme.UiZoom.StepIn();
+            else if (id == AppShortcuts.ZoomOut) Theme.UiZoom.StepOut();
+            else Theme.UiZoom.Reset();
+            return;
+        }
         if (SyncPlayFlyoutOpen)
         {
             if (id == AppShortcuts.Escape) { CloseSyncPlayFlyout(); _overlay?.CloseSyncPlayFlyout(); }
@@ -4147,6 +4250,247 @@ public partial class MainWindow : Window
                 if (_app.State == AppState.Browse) BrowseBack();
                 break;
         }
+    }
+
+    // ---- UI zoom ----
+
+    private System.Windows.Threading.DispatcherTimer? _zoomPillTimer;
+    private System.Windows.Threading.DispatcherTimer? _zoomSaveTimer;
+
+    private void OnWindowMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control || e.Delta == 0)
+            return;
+        if (!_isMiniPlayer)
+            Theme.UiZoom.Wheel(e.Delta);
+        e.Handled = true;
+    }
+
+    /// <summary>Every change of the applied scale (chords, Ctrl+wheel here or over the player, a
+    /// screen cap) lands here through <see cref="Theme.UiZoom.Changed"/>: re-run the width
+    /// breakpoints that compare against the zoomed layout.</summary>
+    private void OnUiZoomChanged(double scale)
+    {
+        Diagnostics.AppLog.Detail("main", $"event=interaction action=zoom percent={Theme.UiZoom.Percent}");
+        UpdateRailCollapse();
+        UpdateHeaderLayout();
+        ApplyZoomMinSize();
+        // The SyncPlay flyout's size caps are computed when it opens, in the zoom of that moment;
+        // at a new zoom they no longer fit the monitor, so close it rather than let it overflow.
+        if (SyncPlayFlyoutOpen)
+        {
+            CloseSyncPlayFlyout();
+            _overlay?.CloseSyncPlayFlyout();
+        }
+    }
+
+    /// <summary>The user's level is what settings.json keeps, saved whenever it changes, even
+    /// when a cap keeps the applied scale where it was. The save is debounced: a pinch or a held
+    /// key steps several times a second, and each step would otherwise rewrite settings.json.</summary>
+    private void OnUiZoomPreferredChanged()
+    {
+        if (Math.Abs(_settings.UiZoom - Theme.UiZoom.Preferred) < 0.001)
+            return;
+        _settings.UiZoom = Theme.UiZoom.Preferred;
+        if (_zoomSaveTimer is null)
+        {
+            _zoomSaveTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _zoomSaveTimer.Tick += (_, _) => FlushZoomSave();
+        }
+        _zoomSaveTimer.Stop();
+        _zoomSaveTimer.Start();
+    }
+
+    private void FlushZoomSave()
+    {
+        if (_zoomSaveTimer is not { IsEnabled: true })
+            return;
+        _zoomSaveTimer.Stop();
+        Settings.SettingsStore.Save(_settings);
+    }
+
+    /// <summary>The client area a window gets on this window's screen, maximized, in DIPs.
+    /// LIGHTWEAVER_TEST_WORK_AREA=WxH (Debug only) stands in for the work area, so the guest's
+    /// one 1920x1080 display can play every screen the cap is tested against.</summary>
+    private Size ZoomScreenClient()
+    {
+        var work = Rect.Empty;
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("LIGHTWEAVER_TEST_WORK_AREA") is { } simulated
+            && simulated.Split('x') is [var w, var h]
+            && double.TryParse(w, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)
+            && double.TryParse(h, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height))
+            work = new Rect(0, 0, width, height);
+#endif
+        if (work.IsEmpty)
+            work = Views.MonitorWorkArea.Of(this);
+        if (work.IsEmpty)
+            return Size.Empty;
+        var frame = ZoomFrameSize();
+        return new Size(Math.Max(0, work.Width - frame.Width), Math.Max(0, work.Height - frame.Height));
+    }
+
+    /// <summary>Window size minus client size in the normal (restored) state: caption and resize
+    /// borders. Measured once the window is laid out, a typical Windows 11 frame until then.
+    /// The restored frame is larger than a maximized one, so a cap computed with it also holds
+    /// for a window that fills the work area without being maximized.</summary>
+    private Size ZoomFrameSize()
+    {
+        // A frame without a caption is the mini-player's, or a window in the middle of leaving it.
+        if (WindowState == WindowState.Normal && Content is FrameworkElement root && root.ActualWidth > 0
+            && ActualHeight - root.ActualHeight >= 20)
+            _zoomFrame = new Size(ActualWidth - root.ActualWidth, ActualHeight - root.ActualHeight);
+        return _zoomFrame;
+    }
+
+    private Size _zoomFrame = new(16, 39);
+    private bool _zoomScreenPending;
+    private bool _inSizeMove;
+    private bool _slideAfterSizeMove;
+    private bool _slidePending;
+    private bool _slideOnRestore;
+
+    /// <summary>Recomputes the screen cap. From window messages it is posted, not run inline: it
+    /// can resize the window (<see cref="ApplyZoomMinSize"/>), which must not happen inside the
+    /// WM_WINDOWPOSCHANGED that triggered it.</summary>
+    private void QueueZoomScreenUpdate()
+    {
+        if (_zoomScreenPending)
+            return;
+        _zoomScreenPending = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            _zoomScreenPending = false;
+            UpdateZoomScreen();
+        });
+    }
+
+    private void UpdateZoomScreen()
+    {
+        var client = ZoomScreenClient();
+        if (client.IsEmpty)
+            return;
+        Theme.UiZoom.SetScreenCap(Theme.UiZoom.CapFor(client));
+        ApplyZoomMinSize();
+    }
+
+    /// <summary>While the zoom is limited to the screen, the window cannot be made smaller than
+    /// the UI needs at the current zoom: the cap alone would still let a small window squeeze the
+    /// layout until controls fall off. The cap guarantees this minimum fits the work area. Not in
+    /// the mini-player, which sets its own size limits and does not zoom.</summary>
+    private void ApplyZoomMinSize() => ApplyZoomMinSize(slide: true);
+
+    private void ApplyZoomMinSize(bool slide)
+    {
+        if (_isMiniPlayer)
+            return;
+        double minWidth = DesignMinWidth, minHeight = DesignMinHeight;
+        if (Theme.UiZoom.LimitToScreen)
+        {
+            // Not rounded up: CapFor guarantees MinLayout x Scale + frame fits the work area
+            // exactly, and a ceiling could make the minimum a DIP wider than the screen.
+            var frame = ZoomFrameSize();
+            minWidth = Math.Max(minWidth, Theme.UiZoom.MinLayoutWidth * Theme.UiZoom.Scale + frame.Width);
+            minHeight = Math.Max(minHeight, Theme.UiZoom.MinLayoutHeight * Theme.UiZoom.Scale + frame.Height);
+        }
+        if (Math.Abs(MinWidth - minWidth) < 0.01 && Math.Abs(MinHeight - minHeight) < 0.01)
+            return;
+        // Measured against the window, not the old minimum: a window already larger than the new
+        // minimum does not grow, and its placement is the user's.
+        var grows = ActualWidth < minWidth - 0.5 || ActualHeight < minHeight - 0.5;
+        MinWidth = minWidth;
+        MinHeight = minHeight;
+        // Growing to a larger minimum anchors the top-left corner, which can push the right or
+        // bottom edge off the screen. A restored window grows now; a maximized, fullscreen or
+        // minimized one when it is restored, so that restore slides only if its remembered size
+        // is below the minimum by then (a step in and back out leaves it alone). A window that
+        // does not grow is never moved.
+        if (!slide)
+            return;
+        if (WindowState != WindowState.Normal)
+            _slideOnRestore = !RestoreBounds.IsEmpty
+                && (RestoreBounds.Width < minWidth - 0.5 || RestoreBounds.Height < minHeight - 0.5);
+        else if (grows)
+            QueueSlideOntoWorkArea();
+    }
+
+    /// <summary>Slides a restored window that a raised zoom minimum grew past the work area back
+    /// onto it. Posted, so the size Windows settles on is known; held while the user drags or
+    /// resizes, so it never fights a move between monitors; and only ever asked for when the
+    /// window was smaller than a new minimum, so a window the user parks partly off-screen, or
+    /// snaps to an edge, stays where it is.</summary>
+    private void QueueSlideOntoWorkArea()
+    {
+        if (_inSizeMove)
+        {
+            _slideAfterSizeMove = true;
+            return;
+        }
+        if (_slidePending)
+            return;
+        _slidePending = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            _slidePending = false;
+            if (_inSizeMove)
+            {
+                _slideAfterSizeMove = true;
+                return;
+            }
+            if (_isMiniPlayer || WindowState != WindowState.Normal
+                || double.IsNaN(Left) || double.IsNaN(Top))
+                return;
+            var work = Views.MonitorWorkArea.Of(this);
+            if (work.IsEmpty)
+                return;
+            var left = Math.Max(work.Left, Math.Min(Left, work.Right - ActualWidth));
+            var top = Math.Max(work.Top, Math.Min(Top, work.Bottom - ActualHeight));
+            if (Math.Abs(left - Left) > 0.5) Left = left;
+            if (Math.Abs(top - Top) > 0.5) Top = top;
+        });
+    }
+
+    /// <summary>The XAML MinWidth/MinHeight: the smallest window the layout is designed for at 100%.</summary>
+    private const double DesignMinWidth = 700, DesignMinHeight = 480;
+
+    /// <summary>The readout, wherever the user is looking: the player's own pill while playing
+    /// (this window is under the video there), the browse pill otherwise.</summary>
+    private void OnUiZoomRequested()
+    {
+        if (_app.State == AppState.Playing)
+            _overlay?.ShowZoomPill();
+        else
+            ShowZoomPill();
+    }
+
+    /// <summary>Same fade-in, hold and fade-out as the player's volume pill.</summary>
+    private void ShowZoomPill()
+    {
+        ZoomPillText.Text = Theme.UiZoom.Percent.ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
+        ZoomPillLimit.Text = L.Text("UiZoom.ScreenLimit.5b0d7e3c");
+        ZoomPillLimit.Visibility = Theme.UiZoom.AtScreenLimit ? Visibility.Visible : Visibility.Collapsed;
+        // Unconditional: a step during the fade-out has to take the opacity back from it.
+        ZoomPill.Visibility = Visibility.Visible;
+        ZoomPill.BeginAnimation(OpacityProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(1.0, TimeSpan.FromMilliseconds(120)));
+        if (_zoomPillTimer is null)
+        {
+            _zoomPillTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+            _zoomPillTimer.Tick += (_, _) =>
+            {
+                _zoomPillTimer.Stop();
+                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(0.0, TimeSpan.FromMilliseconds(300));
+                // Collapse only if no new step re-armed the hold during the fade.
+                fadeOut.Completed += (_, _) =>
+                {
+                    if (!_zoomPillTimer.IsEnabled)
+                        ZoomPill.Visibility = Visibility.Collapsed;
+                };
+                ZoomPill.BeginAnimation(OpacityProperty, fadeOut);
+            };
+        }
+        _zoomPillTimer.Stop();
+        _zoomPillTimer.Start();
     }
 
     // ---- Keyboard-shortcuts overlay (P10 M9) ----
@@ -4261,6 +4605,8 @@ public partial class MainWindow : Window
             + $"Application.MainWindow is {(Application.Current?.MainWindow is null ? "null" : "set")}");
         base.OnSourceInitialized(e);
         Settings.WindowStateStore.Restore(this);
+        // The restored bounds name the screen, so the zoom cap is known before the first frame.
+        UpdateZoomScreen();
         InitializeSystemMediaControls();
         // Mini-player 16:9 sizing hook (M12) — active only while _isMiniPlayer.
         if (System.Windows.Interop.HwndSource.FromHwnd(
@@ -4343,11 +4689,14 @@ public partial class MainWindow : Window
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         _windowClosing = true;
+        FlushZoomSave();
         // Mini mode borrows a fake rect — restore the real one before saving.
         if (_isMiniPlayer)
             ToggleMiniPlayer();
         // Fullscreen borrows Maximized — save what the user would return to instead.
         Settings.WindowStateStore.Save(this, _isFullscreen ? _preFullscreenState : WindowState);
+        // A slider moved just before closing may still be waiting to be written.
+        _settingsView?.FlushPendingSave();
         // Send the stop report HERE and give it a bounded moment to land (B22). It used to be
         // fire-and-forget in OnClosed, racing process teardown and normally losing: the 5 s
         // progress reports cap the resume-position loss at ~5 s, but the SESSION never ended, so
@@ -4385,6 +4734,10 @@ public partial class MainWindow : Window
     {
         _windowClosing = true;
         _overlay = null;
+        Theme.UiZoom.Changed -= OnUiZoomChanged;
+        Theme.UiZoom.Requested -= OnUiZoomRequested;
+        Theme.UiZoom.LimitChanged -= ApplyZoomMinSize;
+        Theme.UiZoom.PreferredChanged -= OnUiZoomPreferredChanged;
         // Here and not in OnClosing: that path already spends a bounded 2 s waiting for the stop
         // report, and a socket teardown has nothing to tell the server that the stop report does
         // not. Dispose only aborts and joins for at most a second per profile.

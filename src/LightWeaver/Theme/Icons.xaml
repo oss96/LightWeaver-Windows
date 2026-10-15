@@ -29,6 +29,7 @@
     <sys:String x:Key="IconFolder">&#xE2C7;</sys:String>        <!-- folder -->
     <sys:String x:Key="IconSettings">&#xE8B8;</sys:String>      <!-- settings -->
     <sys:String x:Key="IconSearch">&#xE8B6;</sys:String>        <!-- search -->
+    <sys:String x:Key="IconZoomIn">&#xE8FF;</sys:String>        <!-- zoom_in -->
     <sys:String x:Key="IconTune">&#xE429;</sys:String>          <!-- tune (advanced filters) -->
 
     <sys:String x:Key="IconSyncPlay">&#xE7EF;</sys:String>      <!-- group -->
