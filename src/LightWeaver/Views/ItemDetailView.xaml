@@ -37,7 +37,7 @@
                             <Image img:CachedImage.DecodeWidth="264"
                                    img:CachedImage.SourceUrl="{Binding ThumbUrl}"
                                    Stretch="UniformToFill" />
-                            <Border Height="3" VerticalAlignment="Bottom"
+                            <Border Height="3" VerticalAlignment="Bottom" FlowDirection="LeftToRight"
                                     Background="{StaticResource LwStorm0Brush}"
                                     Visibility="{Binding ResumePositionTicks,
                                                  Converter={StaticResource PositiveToVisibleConverter}}">

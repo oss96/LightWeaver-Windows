@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The non-view code shared by the WinUI 3 app (v2). The sources stay where they are in
+       src/LightWeaver and are compiled here a second time, so the WPF line keeps building and
+       merging unchanged until v2 replaces it. Only WPF-free files are linked; a file that needs
+       WPF stays out until it is made framework-neutral. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>LightWeaver</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_App>..\LightWeaver\</_App>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core-only counterparts of WPF-bound helpers live in this folder. -->
+    <Compile Include="**\*.cs" Exclude="bin\**;obj\**" />
+    <Compile Include="$(_App)AppPaths.cs" Link="AppPaths.cs" />
+    <Compile Include="$(_App)Diagnostics\**\*.cs" LinkBase="Diagnostics" />
+    <Compile Include="$(_App)Downloads\**\*.cs" LinkBase="Downloads" />
+    <Compile Include="$(_App)Imaging\**\*.cs" LinkBase="Imaging"
+             Exclude="$(_App)Imaging\CachedImage.cs;$(_App)Imaging\ImageCache.cs" />
+    <Compile Include="$(_App)Jellyfin\**\*.cs" LinkBase="Jellyfin"
+             Exclude="$(_App)Jellyfin\TrickplayProvider.cs" />
+    <Compile Include="$(_App)Localization\**\*.cs" LinkBase="Localization"
+             Exclude="$(_App)Localization\LiveText.cs;$(_App)Localization\TextExtension.cs;$(_App)Localization\UiDirection.cs" />
+    <Compile Include="$(_App)Metadata\**\*.cs" LinkBase="Metadata" />
+    <Compile Include="$(_App)Player\**\*.cs" LinkBase="Player"
+             Exclude="$(_App)Player\AppShortcuts.cs;$(_App)Player\MpvPlayerHost.cs;$(_App)Player\PlayerActions.Keys.cs" />
+    <Compile Include="$(_App)Settings\**\*.cs" LinkBase="Settings"
+             Exclude="$(_App)Settings\WindowStateStore.cs" />
+    <Compile Include="$(_App)Theme\UiZoom.Range.cs" Link="Theme\UiZoom.Range.cs" />
+    <Compile Include="$(_App)Theme\UiZoom.Ladder.cs" Link="Theme\UiZoom.Ladder.cs" />
+    <Compile Include="$(_App)Threading\**\*.cs" LinkBase="Threading"
+             Exclude="$(_App)Threading\WpfUiDispatcher.cs" />
+    <Compile Include="$(_App)Updates\**\*.cs" LinkBase="Updates" />
+    <Compile Include="$(_App)ViewModels\**\*.cs" LinkBase="ViewModels"
+             Exclude="$(_App)ViewModels\NavigationService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LightWeaver.Localization\LightWeaver.Localization.csproj" />
+    <EmbeddedResource Include="..\..\localization\catalog.json" LogicalName="LightWeaver.Localization.catalog.json" />
+    <EmbeddedResource Include="..\..\localization\locales\*.json" LogicalName="LightWeaver.Localization.locales.%(Filename).json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LightWeaver" />
+    <InternalsVisibleTo Include="Login.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Sdk" Version="2025.10.21" />
+    <!-- Same pins as the WPF app: above the vulnerable 1.20.1 transitive (NU1903), as one compatible
+         Kiota 1.x set rather than the Jellyfin SDK's older transitive runtime -->
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="1.22.2" />
+    <PackageReference Include="Std.UriTemplate" Version="2.0.12" />
+    <!-- DPAPI for CredentialStore; the WPF app gets it from the Windows Desktop framework -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>

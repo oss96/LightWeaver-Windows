@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Login (design 12): a 400 px centred column. The server step takes an address or a saved
+     server; the auth step signs in with Quick Connect (a code approved on another device) or a
+     username and password. The window shows the minimal top bar over this page. -->
+<UserControl
+    x:Class="LightWeaver.WinUI.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    xmlns:loc="using:LightWeaver.WinUI.Localization"
+    xmlns:t="using:LightWeaver.WinUI.Theme"
+    AutomationProperties.AutomationId="LoginPage">
+
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled" IsTabStop="False">
+        <Grid x:Name="Viewport">
+            <!-- The bottom margin lifts the column so it centres on the window, not under the bar. -->
+            <StackPanel x:Name="Column" Width="400" Spacing="20" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,20,0,56">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="LightWeaver" FontSize="13" FontWeight="SemiBold" CharacterSpacing="20" Foreground="{StaticResource LwAccentFgBrush}" />
+                    <TextBlock x:Name="Heading" FontSize="26" FontWeight="Bold" CharacterSpacing="-10" AutomationProperties.HeadingLevel="Level1"
+                               AutomationProperties.AutomationId="LoginHeading" />
+                    <TextBlock x:Name="Subline" FontSize="13" LineHeight="19" TextWrapping="Wrap" Foreground="{StaticResource LwText2Brush}"
+                               Text="{loc:Text Key=Login.ConnectSubline}" />
+                </StackPanel>
+
+                <!-- Server step -->
+                <StackPanel x:Name="ServerStep" Spacing="20">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{loc:Text Key=Login.ServerAddress}" Style="{StaticResource LwFieldLabel}" />
+                        <c:FieldFrame x:Name="AddressFrame" Height="36">
+                            <TextBox x:Name="AddressBox" Style="{StaticResource LwBareTextBox}" FontSize="13.5" Margin="10,0" IsSpellCheckEnabled="False"
+                                     IsTextPredictionEnabled="False" AutomationProperties.AutomationId="LoginServerAddress"
+                                     AutomationProperties.Name="{loc:Text Key=Login.ServerAddress}" KeyDown="OnAddressKeyDown" TextChanged="OnAddressChanged" />
+                        </c:FieldFrame>
+                        <Grid x:Name="AddressError" ColumnSpacing="6" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.ErrorSolid}" Foreground="{StaticResource LwErrorBrush}"
+                                      VerticalAlignment="Top" Margin="0,1,0,0" />
+                            <TextBlock x:Name="AddressErrorText" Grid.Column="1" FontSize="12.5" LineHeight="17" TextWrapping="Wrap"
+                                       Foreground="{StaticResource LwErrorBrush}" AutomationProperties.AutomationId="LoginServerError"
+                                       AutomationProperties.LiveSetting="Assertive" />
+                        </Grid>
+                        <TextBlock x:Name="AddressHelp" Text="{loc:Text Key=Login.AddressExample}" FontSize="12" Foreground="{StaticResource LwText3Brush}" />
+                        <Grid Margin="0,6,0,0">
+                            <Button x:Name="CancelButton" Style="{StaticResource LwButton}" HorizontalAlignment="Left" Visibility="Collapsed"
+                                    Content="{loc:Text Key=Login.Cancel}" Click="OnCancel" AutomationProperties.AutomationId="LoginCancel" />
+                            <Button x:Name="ConnectButton" Style="{StaticResource LwAccentButton}" HorizontalAlignment="Right" Padding="20,0"
+                                    Click="OnConnect" AutomationProperties.AutomationId="LoginConnect">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ProgressRing x:Name="ConnectRing" Width="14" Height="14" MinWidth="0" MinHeight="0" Foreground="White"
+                                                  IsActive="False" Visibility="Collapsed" />
+                                    <TextBlock x:Name="ConnectText" FontSize="13.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="SavedSection" Spacing="8" Visibility="Collapsed">
+                        <TextBlock Text="{loc:Text Key=Login.SavedServers}" Style="{StaticResource LwFieldLabel}" />
+                        <Border CornerRadius="{StaticResource LwCardRadius}" Background="{StaticResource LwBoxBrush}"
+                                BorderBrush="{StaticResource LwBoxBorderBrush}" BorderThickness="1">
+                            <ScrollViewer x:Name="SavedScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled" IsTabStop="False">
+                                <StackPanel x:Name="SavedList" AutomationProperties.AutomationId="LoginSavedServers" />
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Auth step -->
+                <StackPanel x:Name="AuthStep" Spacing="20" Visibility="Collapsed">
+                    <Border CornerRadius="{StaticResource LwCardRadius}" Background="{StaticResource LwBoxBrush}" BorderBrush="{StaticResource LwBoxBorderBrush}"
+                            BorderThickness="1" Padding="10,8">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.Server}" Foreground="{StaticResource LwText2Brush}" />
+                            <TextBlock x:Name="ServerChipText" Grid.Column="1" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       AutomationProperties.AutomationId="LoginServerChip" />
+                            <Button Grid.Column="2" Style="{StaticResource LwLinkButton}" Content="{loc:Text Key=Login.Change}" Click="OnChangeServer"
+                                    AutomationProperties.AutomationId="LoginChangeServer" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="ModeSwitch" Style="{StaticResource LwSegmentTrack}" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton x:Name="QuickConnectMode" Style="{StaticResource LwSegment}" Height="30" GroupName="LoginMode"
+                                         Content="{loc:Text Key=Login.QuickConnect}" Checked="OnModeChecked" AutomationProperties.AutomationId="LoginModeQuickConnect" />
+                            <RadioButton x:Name="PasswordMode" Grid.Column="1" Style="{StaticResource LwSegment}" Height="30" GroupName="LoginMode"
+                                         Content="{loc:Text Key=Login.Password}" Checked="OnModeChecked" AutomationProperties.AutomationId="LoginModePassword" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Quick Connect -->
+                    <StackPanel x:Name="QuickConnectPanel" Spacing="14" Padding="16,22" CornerRadius="{StaticResource LwCardRadius}" Background="{StaticResource LwBoxBrush}"
+                                BorderBrush="{StaticResource LwBoxBorderBrush}" BorderThickness="1" Visibility="Collapsed">
+                        <TextBlock Text="{loc:Text Key=Login.YourCode}" FontSize="12.5" Foreground="{StaticResource LwText2Brush}" HorizontalAlignment="Center" />
+                        <StackPanel x:Name="CodeDigits" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" MinHeight="56"
+                                    AutomationProperties.AutomationId="LoginQuickConnectCode" />
+                        <TextBlock Text="{loc:Text Key=Login.QuickConnectHelp}" FontSize="12.5" LineHeight="19" Foreground="{StaticResource LwText2Brush}"
+                                   TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320" HorizontalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                            <ProgressRing x:Name="WaitRing" Width="12" Height="12" MinWidth="0" MinHeight="0" IsActive="False" />
+                            <TextBlock x:Name="QuickConnectStatus" FontSize="12" Foreground="{StaticResource LwText3Brush}" AutomationProperties.AutomationId="LoginQuickConnectStatus" />
+                        </StackPanel>
+                        <Button x:Name="CopyCodeButton" Style="{StaticResource LwButton}" Height="28" Padding="12,0" HorizontalAlignment="Center" Click="OnCopyCode"
+                                AutomationProperties.AutomationId="LoginCopyCode" AutomationProperties.Name="{loc:Text Key=Login.CopyCode}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Copy}" />
+                                <TextBlock Text="{loc:Text Key=Login.CopyCode}" FontSize="12.5" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Username and password -->
+                    <StackPanel x:Name="PasswordPanel" Spacing="14" Visibility="Collapsed">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Auto"
+                                      VerticalScrollMode="Disabled" IsTabStop="False" Visibility="{x:Bind PublicUsers.Visibility, Mode=OneWay}">
+                            <StackPanel x:Name="PublicUsers" Orientation="Horizontal" Spacing="10" Visibility="Collapsed"
+                                        AutomationProperties.AutomationId="LoginPublicUsers" />
+                        </ScrollViewer>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Text Key=Login.Username}" Style="{StaticResource LwFieldLabel}" />
+                            <c:FieldFrame Height="34">
+                                <TextBox x:Name="UsernameBox" Style="{StaticResource LwBareTextBox}" FontSize="13.5" Margin="10,0" IsSpellCheckEnabled="False"
+                                         IsTextPredictionEnabled="False" AutomationProperties.AutomationId="LoginUsername"
+                                         AutomationProperties.Name="{loc:Text Key=Login.Username}" KeyDown="OnCredentialKeyDown" />
+                            </c:FieldFrame>
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Text Key=Login.Password}" Style="{StaticResource LwFieldLabel}" />
+                            <c:FieldFrame x:Name="PasswordFrame" Height="34">
+                                <Grid Margin="10,0,4,0" ColumnSpacing="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <PasswordBox x:Name="PasswordInput" Style="{StaticResource LwBarePasswordBox}" AutomationProperties.AutomationId="LoginPassword"
+                                                 AutomationProperties.Name="{loc:Text Key=Login.Password}" KeyDown="OnCredentialKeyDown" PasswordChanged="OnPasswordChanged" />
+                                    <Button x:Name="RevealButton" Grid.Column="1" Style="{StaticResource LwSubtleButton}" Width="28" Height="26"
+                                            Foreground="{StaticResource LwText2Brush}" Click="OnReveal" AutomationProperties.AutomationId="LoginRevealPassword">
+                                        <FontIcon x:Name="RevealGlyph" Style="{StaticResource LwIcon}" FontSize="16" Glyph="{x:Bind t:Icons.Eye}" />
+                                    </Button>
+                                </Grid>
+                            </c:FieldFrame>
+                            <Grid x:Name="PasswordError" ColumnSpacing="6" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.ErrorSolid}" Foreground="{StaticResource LwErrorBrush}"
+                                          VerticalAlignment="Top" Margin="0,1,0,0" />
+                                <TextBlock x:Name="PasswordErrorText" Grid.Column="1" FontSize="12.5" LineHeight="17" TextWrapping="Wrap"
+                                           Foreground="{StaticResource LwErrorBrush}" AutomationProperties.AutomationId="LoginPasswordError"
+                                           AutomationProperties.LiveSetting="Assertive" />
+                            </Grid>
+                        </StackPanel>
+                        <Grid Margin="0,4,0,0">
+                            <CheckBox x:Name="StaySignedIn" IsChecked="True" Content="{loc:Text Key=Login.StaySignedIn}" FontSize="13" MinWidth="0"
+                                      VerticalAlignment="Center" AutomationProperties.AutomationId="LoginStaySignedIn" />
+                            <Button x:Name="SignInButton" Style="{StaticResource LwAccentButton}" HorizontalAlignment="Right" Padding="22,0" Click="OnSignIn"
+                                    AutomationProperties.AutomationId="LoginSignIn" AutomationProperties.Name="{loc:Text Key=Login.SignIn}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ProgressRing x:Name="SignInRing" Width="14" Height="14" MinWidth="0" MinHeight="0" Foreground="White"
+                                                  IsActive="False" Visibility="Collapsed" />
+                                    <TextBlock Text="{loc:Text Key=Login.SignIn}" FontSize="13.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

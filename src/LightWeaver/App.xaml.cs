@@ -24,6 +24,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         StartupLog($"App.OnStartup enter (args={e.Args.Length})");
+        Threading.UiDispatcher.Current = new Threading.WpfUiDispatcher(Dispatcher);
         if (e.Args.Length > 0)
             StartupFile = e.Args[0];
         base.OnStartup(e);

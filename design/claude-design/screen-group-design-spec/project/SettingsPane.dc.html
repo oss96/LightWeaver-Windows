@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:100%;height:100%;display:flex;font-family:{{ p.font }};color:{{ p.text }};position:relative;box-sizing:border-box;padding:{{ rootPad }};gap:{{ rootGap }}px;cursor:default;user-select:none">
+  <div style="width:{{ sideW }}px;flex:none;display:flex;flex-direction:column;gap:2px;padding:{{ sidePad }};box-sizing:border-box;border-radius:{{ sideR }}px;background:{{ sideBg }};border:{{ sideBorder }};box-shadow:{{ sideShadow }};overflow:hidden">
+    <sc-if value="{{ p.mac }}">
+      <div style="display:flex;gap:8px;padding:10px 6px 14px">
+        <div style="width:12px;height:12px;border-radius:50%;background:#FF5F57"></div><div style="width:12px;height:12px;border-radius:50%;background:#FEBC2E"></div><div style="width:12px;height:12px;border-radius:50%;background:#28C840"></div>
+      </div>
+    </sc-if>
+    <div style="height:{{ p.fieldH }}px;display:flex;align-items:center;gap:6px;padding:0 8px;margin:0 2px 8px;border-radius:{{ searchR }}px;background:{{ p.fieldBg }};border:{{ p.fieldBorder }};border-bottom:{{ p.fieldBottom }};font-size:12.5px;color:{{ p.text3 }}"><span style="font-family:{{ p.icon }};font-size:16px;line-height:1;font-weight:normal">search</span>Search settings</div>
+    <sc-for list="{{ nav }}" as="n">
+      <div onClick="{{ n.go }}" style="position:relative;height:{{ navH }}px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:{{ navR }}px;background:{{ n.bg }};color:{{ n.color }};font-size:{{ navFs }}px;flex:none" style-hover="background:{{ n.hbg }}">
+        <span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-weight:normal;font-variation-settings:{{ n.iv }};color:{{ n.icolor }}">{{ n.icon }}</span>{{ n.label }}
+        <sc-if value="{{ n.pill }}"><div style="position:absolute;left:0;top:50%;margin-top:-8px;width:3px;height:16px;border-radius:2px;background:{{ p.accentFg }}"></div></sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+    <div style="padding:{{ headPad }};font-size:{{ headFs }}px;font-weight:{{ headFw }};flex:none">{{ cur.label }}</div>
+    <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:{{ bodyPad }};display:flex;flex-direction:column;gap:{{ groupGap }}px;scrollbar-width:none">
+      <sc-for list="{{ groups }}" as="g">
+        <div style="display:flex;flex-direction:column;gap:{{ titleGap }}px">
+          <sc-if value="{{ g.title }}"><div style="font-size:{{ gtFs }}px;font-weight:600;color:{{ gtColor }};padding:{{ gtPad }}">{{ g.title }}</div></sc-if>
+          <sc-if value="{{ g.isPreview }}">
+            <div style="height:170px;border-radius:{{ boxR }}px;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 10px, rgba(255,255,255,0.012) 10px 20px), #101012;position:relative;overflow:hidden;border:{{ p.boxBorder }}">
+              <div style="position:absolute;left:12px;top:10px;font:500 10px/1 {{ p.mono }};color:rgba(255,255,255,0.3);letter-spacing:.06em">LIVE PREVIEW · VIDEO FRAME</div>
+              <div style="position:absolute;left:0;right:0;bottom:{{ subBottom }}px;text-align:center;font-family:{{ subFont }};font-size:{{ subSize }}px;font-weight:600;color:{{ subColor }};text-shadow:{{ subShadow }};-webkit-text-stroke:{{ subStroke }};paint-order:stroke fill;line-height:1.25">I told you the ferry doesn’t run after dark.</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ g.isLog }}">
+            <div style="height:180px;border-radius:{{ boxR }}px;background:#0f0f10;border:{{ p.boxBorder }};padding:10px 12px;box-sizing:border-box;font:11.5px/1.6 {{ p.mono }};color:rgba(255,255,255,0.7);overflow:hidden;white-space:pre">{{ g.log }}</div>
+          </sc-if>
+          <sc-if value="{{ g.hasRows }}">
+            <div style="display:flex;flex-direction:column;gap:{{ rowGap }}px;border-radius:{{ grpR }}px;background:{{ grpBg }};border:{{ grpBorder }};overflow:hidden">
+              <sc-for list="{{ g.rows }}" as="r">
+                <div style="min-height:{{ rowH }}px;display:flex;align-items:center;gap:12px;padding:{{ rowPad }};box-sizing:border-box;border-top:{{ r.bt }};border-radius:{{ cardR }}px;background:{{ cardBg }};border-left:{{ cardBorder }};border-right:{{ cardBorder }};border-bottom:{{ cardBorder }};border-top-color:{{ r.btc }};position:relative" style-hover="background:{{ cardHover }}">
+                  <sc-if value="{{ r.handle }}"><span style="font-family:{{ p.icon }};font-size:17px;line-height:1;font-weight:normal;color:{{ p.text3 }};margin-right:-4px">drag_indicator</span></sc-if>
+                  <sc-if value="{{ r.showIcon }}"><span style="font-family:{{ p.icon }};font-size:20px;line-height:1;font-weight:normal;font-variation-settings:{{ p.iv }};color:{{ p.text }};width:22px;flex:none">{{ r.icon }}</span></sc-if>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <div style="font-size:13px;color:{{ r.lc }}">{{ r.label }}</div>
+                    <sc-if value="{{ r.desc }}"><div style="font-size:12px;color:{{ p.text2 }};line-height:1.35">{{ r.desc }}</div></sc-if>
+                  </div>
+                  <sc-if value="{{ r.isToggle }}">
+                    <div onClick="{{ r.flip }}" style="width:{{ r.tw }}px;height:{{ r.th }}px;border-radius:{{ r.th }}px;background:{{ r.tbg }};border:{{ r.tborder }};box-sizing:border-box;position:relative;flex:none;transition:background 80ms">
+                      <div style="position:absolute;top:50%;left:{{ r.kl }}px;width:{{ r.kw }}px;height:{{ r.kh }}px;margin-top:{{ r.kmt }}px;border-radius:{{ r.kh }}px;background:{{ r.kbg }};box-shadow:{{ r.ksh }};transition:left 80ms"></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isPopup }}">
+                    <div style="height:{{ ctlH }}px;min-width:{{ r.minW }}px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px 0 10px;box-sizing:border-box;border-radius:{{ popupR }}px;background:{{ p.btnBg }};border:{{ p.btnBorder }};font-size:12.5px;flex:none" style-hover="background:{{ p.btnHover }}">{{ r.v }}<span style="font-family:{{ p.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ p.text2 }}">{{ popupIcon }}</span></div>
+                  </sc-if>
+                  <sc-if value="{{ r.isButton }}">
+                    <div style="height:{{ ctlH }}px;display:flex;align-items:center;padding:0 14px;border-radius:{{ p.btnR }}px;background:{{ r.bbg }};border:{{ r.bborder }};color:{{ r.bcolor }};font-size:12.5px;flex:none" style-hover="background:{{ r.bhbg }}">{{ r.v }}</div>
+                  </sc-if>
+                  <sc-if value="{{ r.isValue }}"><div style="font-size:12.5px;color:{{ p.text2 }};flex:none;font-variant-numeric:tabular-nums">{{ r.v }}</div></sc-if>
+                  <sc-if value="{{ r.isStepper }}">
+                    <div style="display:flex;align-items:center;gap:0;height:{{ ctlH }}px;border-radius:{{ p.fieldR }}px;background:{{ p.fieldBg }};border:{{ p.fieldBorder }};border-bottom:{{ p.fieldBottom }};overflow:hidden;flex:none">
+                      <div style="min-width:54px;padding:0 8px;font-size:12.5px;font-variant-numeric:tabular-nums">{{ r.v }}</div>
+                      <div style="width:24px;height:100%;display:flex;align-items:center;justify-content:center;color:{{ p.text2 }}" style-hover="background:{{ p.hover }}"><span style="font-family:{{ p.icon }};font-size:15px;line-height:1;font-weight:normal">remove</span></div>
+                      <div style="width:24px;height:100%;display:flex;align-items:center;justify-content:center;color:{{ p.text2 }}" style-hover="background:{{ p.hover }}"><span style="font-family:{{ p.icon }};font-size:15px;line-height:1;font-weight:normal">add</span></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isSlider }}">
+                    <div style="display:flex;align-items:center;gap:10px;flex:none">
+                      <div style="width:170px;position:relative;height:20px">
+                        <div style="position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:{{ p.track }}"></div>
+                        <div style="position:absolute;left:0;width:{{ r.pct }};top:8px;height:4px;border-radius:2px;background:{{ fillC }}"></div>
+                        <div style="position:absolute;left:{{ r.pct }};top:{{ knobTop }}px;margin-left:{{ knobMl }}px;width:{{ knobW }}px;height:{{ knobH }}px;border-radius:10px;background:{{ knobBg }};border:{{ knobBorder }};box-sizing:border-box;box-shadow:{{ knobSh }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ p.win }}"><div style="width:12px;height:12px;border-radius:6px;background:{{ p.accentFg }}"></div></sc-if></div>
+                      </div>
+                      <div style="width:64px;font-size:12.5px;color:{{ p.text2 }};text-align:right;font-variant-numeric:tabular-nums">{{ r.v }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isSeg }}">
+                    <div style="display:flex;padding:2px;border-radius:{{ p.segR }}px;background:{{ p.segBg }};border:{{ p.btnBorder }};flex:none">
+                      <sc-for list="{{ r.opts }}" as="o"><div style="position:relative;height:{{ segH }}px;padding:0 10px;display:flex;align-items:center;border-radius:{{ segItemR }}px;background:{{ o.bg }};color:{{ o.color }};font-size:12px;font-weight:500">{{ o.l }}<sc-if value="{{ o.ind }}"><div style="position:absolute;bottom:1px;left:50%;margin-left:-7px;width:14px;height:3px;border-radius:2px;background:{{ p.accentFg }}"></div></sc-if></div></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isSwatch }}">
+                    <div style="display:flex;gap:8px;flex:none">
+                      <sc-for list="{{ r.sw }}" as="s"><div style="width:20px;height:20px;border-radius:50%;background:{{ s.c }};box-shadow:{{ s.ring }}"></div></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isKeys }}">
+                    <div style="display:flex;gap:4px;align-items:center;flex:none">
+                      <sc-if value="{{ r.rec }}"><div style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:6px;border:1.5px dashed {{ p.accentFg }};color:{{ p.accentFg }};font-size:12px">Press new shortcut…</div><div style="height:24px;padding:0 8px;display:flex;align-items:center;font-size:12px;color:{{ p.text2 }}">Esc to cancel</div></sc-if>
+                      <sc-if value="{{ r.norec }}">
+                        <sc-for list="{{ r.keys }}" as="k"><div style="min-width:24px;height:24px;padding:0 7px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.10);border-bottom-width:2px;font-size:12px;font-family:{{ p.font }}">{{ k }}</div></sc-for>
+                        <sc-if value="{{ r.hov }}"><div style="height:24px;padding:0 8px;display:flex;align-items:center;font-size:12px;color:{{ p.accentFg }}">Change</div></sc-if>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ r.isServer }}">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ p.text2 }};flex:none"><div style="width:8px;height:8px;border-radius:4px;background:{{ okC }}"></div>Connected</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ g.foot }}"><div style="display:flex;gap:8px;justify-content:flex-end;padding-top:2px"><sc-for list="{{ g.foot }}" as="b"><div style="height:{{ ctlH }}px;display:flex;align-items:center;padding:0 14px;border-radius:{{ p.btnR }}px;background:{{ b.bg }};border:{{ b.border }};color:{{ b.color }};font-size:12.5px" style-hover="background:{{ b.hbg }}">{{ b.l }}</div></sc-for></div></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:860,&quot;height&quot;:640},&quot;p&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;server&quot;,&quot;home&quot;,&quot;playback&quot;,&quot;subtitles&quot;,&quot;audio&quot;,&quot;video&quot;,&quot;downloads&quot;,&quot;storage&quot;,&quot;language&quot;,&quot;keys&quot;,&quot;diag&quot;,&quot;updates&quot;],&quot;default&quot;:&quot;subtitles&quot;}}">
+class Component extends DCLogic {
+  state = { sec: undefined, tog: {} };
+  renderVals() {
+    const P = this.props, p = P.p;
+    if (!p) return {};
+    const mac = p.mac;
+    const secs = [
+      ['server', 'dns', 'Server & Profile'], ['home', 'home', 'Home'], ['playback', 'play_circle', 'Playback'], ['subtitles', 'subtitles', 'Subtitles'],
+      ['audio', 'volume_up', 'Audio'], ['video', 'movie', 'Video'], ['downloads', 'download', 'Downloads'], ['storage', 'hard_drive', 'Storage'],
+      ['language', 'language', 'Language'], ['keys', 'keyboard', 'Keyboard Shortcuts'], ['diag', 'bug_report', 'Diagnostics']
+    ].concat(mac ? [] : [['updates', 'update', 'Updates']]);
+    const sec = this.state.sec || P.section || 'subtitles';
+    const nav = secs.map(([k, icon, label]) => {
+      const sel = k === sec;
+      return { icon, label, go: () => this.setState({ sec: k }),
+        bg: sel ? (mac ? p.accentSoft : p.sel) : 'transparent', hbg: sel ? (mac ? p.accentSoft : p.sel) : p.hover,
+        color: p.text, icolor: sel && mac ? p.accentFg : p.text, iv: sel ? p.ivf : p.iv, pill: sel && !mac };
+    });
+    const cur = { label: secs.find(s => s[0] === sec)[2] };
+    const tg = (k, def) => (this.state.tog[k] !== undefined ? this.state.tog[k] : def);
+    const T = (label, desc, k, def, icon) => ({ label, desc, icon, ctl: 'toggle', on: tg(k, def), k });
+    const Pp = (label, desc, v, icon, minW) => ({ label, desc, icon, ctl: 'popup', v, minW });
+    const Bt = (label, desc, v, icon, primary) => ({ label, desc, icon, ctl: 'button', v, primary });
+    const V = (label, desc, v, icon) => ({ label, desc, icon, ctl: 'value', v });
+    const St = (label, desc, v, icon) => ({ label, desc, icon, ctl: 'stepper', v });
+    const Sl = (label, desc, pct, v, icon) => ({ label, desc, icon, ctl: 'slider', pct, v });
+    const Sg = (label, desc, opts, sel, icon) => ({ label, desc, icon, ctl: 'seg', opts, sel });
+    const K = (label, keys, extra) => Object.assign({ label, ctl: 'keys', keys }, extra || {});
+    const cmd = mac ? '⌘' : 'Ctrl+';
+    const subFontName = mac ? 'SF Pro Rounded' : 'Segoe UI Variable Display';
+    const G = {
+      server: [
+        { title: 'Server', rows: [{ label: 'Home Server', desc: 'https://media.home.lan:8096 · Jellyfin 10.11.2', icon: 'dns', ctl: 'server' }, Bt('Saved servers', '3 servers on this device', 'Manage…', 'list')] },
+        { title: 'Profile', rows: [V('Signed in as', null, 'Mara', 'person'), Bt('Switch user', 'Other users on Home Server', 'Switch…', 'switch_account'), Bt('Quick Connect', 'Sign in another device with a code', 'Authorize device…', 'qr_code_2')] },
+        { foot: [{ l: 'Log out', danger: true }] }
+      ],
+      home: [
+        { title: 'Rows on Home', desc: 'Drag to reorder. Hidden rows keep their position.', rows: [
+          ['Continue Watching', true], ['Next Up', true], ['Recently Added in Movies', true], ['Recently Added in TV Shows', true], ['My Libraries', true], ['Collections', false], ['Recently Added in Music', false], ['Live TV', false]
+        ].map(([l, on], i) => Object.assign(T(l, null, 'home' + i, on), { handle: true })) },
+        { foot: [{ l: 'Reset to server layout' }] }
+      ],
+      playback: [
+        { title: 'Languages', rows: [Pp('Preferred audio language', null, 'English', 'record_voice_over', 160), Pp('Preferred subtitle language', null, 'English', 'subtitles', 160), Pp('Subtitle mode', 'When to turn subtitles on automatically', 'Only forced', 'closed_caption', 160)] },
+        { title: 'Skipping', rows: [T('Skip intros automatically', 'Uses intro markers from the server', 'pi', true, 'fast_forward'), T('Skip credits automatically', null, 'pc', false, 'skip_next'), Sg('Skip back', null, ['5 s', '10 s', '15 s', '30 s'], '10 s', 'replay_10'), Sg('Skip forward', null, ['10 s', '15 s', '30 s', '60 s'], '30 s', 'forward_30')] },
+        { title: 'Up next', rows: [T('Play next episode automatically', null, 'pn', true, 'queue_play_next'), St('Countdown', 'Shown on the Up Next card', '10 s', 'timer')] }
+      ],
+      subtitles: [
+        { isPreview: true },
+        { title: 'Text', rows: [Pp('Font', null, subFontName, 'text_fields', 200), Sl('Size', null, '45%', '100%', 'format_size'), { label: 'Colour', icon: 'palette', ctl: 'swatch' }] },
+        { title: 'Outline & shadow', rows: [Sg('Border', null, ['None', 'Thin', 'Thick'], 'Thin', 'border_style'), Sl('Shadow', null, '30%', '30%', 'gradient')] },
+        { title: 'Position', rows: [Sl('Vertical position', 'Distance from the bottom of the video', '20%', '6%', 'vertical_align_bottom'), T('Move up when controls are visible', null, 'sm', true, 'expand_less'), T('Override styles in ASS/SSA subtitles', null, 'so', false, 'style')] }
+      ],
+      audio: [
+        { title: 'Output', rows: [Pp('Output device', null, mac ? 'System default (MacBook Pro Speakers)' : 'System default (Speakers, Realtek)', 'speaker', 260), Pp('Channels', null, 'Auto (Stereo)', 'surround_sound', 160), T('Passthrough (AC3, E-AC3, DTS)', 'Send bitstream to a receiver', 'ap', false, 'settings_input_hdmi')] },
+        { title: 'Loudness', rows: [T('Normalize volume', 'Uses ReplayGain / EBU R128 when available', 'an', true, 'equalizer'), Sl('Target loudness', null, '55%', '−16 LUFS', 'graphic_eq')] }
+      ],
+      video: [
+        { title: 'Decoding', rows: [T('Hardware decoding', null, 'vh', true, 'memory'), Pp('Decoder', null, mac ? 'VideoToolbox' : 'D3D11VA', 'developer_board', 160)] },
+        { title: 'HDR', rows: [Pp('Tone mapping', 'When the display is not in HDR mode', 'Auto (BT.2390)', 'hdr_on', 180), T('Override HDR peak brightness', null, 'vp', true, 'brightness_high'), Sl('Peak brightness', 'Use when the display reports a wrong value', '50%', '1000 nits', 'wb_sunny')] },
+        { title: 'Streaming', rows: [Pp('Max streaming bitrate', 'Higher bitrates transcode less', 'Auto (up to 40 Mbps)', 'speed', 200), Pp('Buffer size', 'Memory used for read-ahead', '150 MB', 'storage', 160), St('Read-ahead', null, '60 s', 'fast_forward')] }
+      ],
+      downloads: [
+        { title: 'Location', rows: [Bt(mac ? '~/Movies/LightWeaver' : 'D:\\Media\\LightWeaver', '81 GB free', 'Change…', 'folder'), Pp('Storage limit', null, '50 GB', 'data_usage', 140)] },
+        { title: 'Behaviour', rows: [Pp('Default quality', null, '1080p · 8 Mbps', 'high_quality', 180), St('Simultaneous downloads', null, '2', 'download'), T('Download on metered connections', null, 'dm', false, 'network_cell'), T('Delete after watching', 'After 7 days', 'dd', false, 'auto_delete')] }
+      ],
+      storage: [
+        { title: 'Caches', rows: [Bt('Image cache', '1.2 GB', 'Clear', 'image'), Bt('Trickplay thumbnails', '640 MB', 'Clear', 'view_carousel'), Bt('Metadata cache', '82 MB', 'Clear', 'description'), Pp('Cache size limit', null, '2 GB', 'tune', 120)] },
+        { foot: [{ l: 'Clear all caches' }] }
+      ],
+      language: [
+        { title: null, rows: [Pp('App language', 'Restart required', 'System (English)', 'translate', 200), Pp('Metadata language', 'Titles and overviews from the server', 'Use server setting', 'subject', 200), Pp('Date and number format', null, 'System', 'event', 160)] }
+      ],
+      keys: [
+        { title: 'Playback', rows: [K('Play / Pause', ['Space']), K('Skip back', ['←']), K('Skip forward', ['→']), K('Volume up / down', ['↑', '↓']), K('Next chapter', [mac ? '⇧' : 'Shift', '→'], { rec: true }), K('Toggle fullscreen', ['F'], { hov: true }), K('Cycle subtitles', ['S']), K('Cycle audio track', ['A'])] },
+        { title: 'Navigation', rows: [K('Search', [cmd.replace('+', ''), 'F']), K('Back', [mac ? '⌘' : 'Alt', mac ? '[' : '←']), K('Settings', mac ? ['⌘', ','] : ['Ctrl', ','])] },
+        { foot: [{ l: 'Reset all to defaults' }] }
+      ],
+      diag: [
+        { title: 'Logging', rows: [Pp('Log level', null, 'Info', 'tune', 120), T('Include mpv log', null, 'dl', true, 'subject')] },
+        { isLog: true, log: '16:42:10.118  INFO  api       GET /Items?ParentId=…  200  84 ms\n16:42:10.402  INFO  player    open  Harbor Lights (direct play)\n16:42:10.405  INFO  mpv       vo=gpu-next  hwdec=' + (mac ? 'videotoolbox' : 'd3d11va') + '\n16:42:10.611  INFO  mpv       HEVC Main 10  3840x1608  23.976 fps\n16:42:11.002  WARN  player    subtitle font fallback: PGS → bitmap\n16:42:41.880  INFO  syncplay  group "Movie night" state=Playing\n16:43:02.003  INFO  api       POST /Sessions/Playing/Progress  204\n16:43:12.004  INFO  api       POST /Sessions/Playing/Progress  204' },
+        { foot: [{ l: mac ? 'Show logs in Finder' : 'Open log folder' }, { l: 'Export diagnostics…', primary: true }] }
+      ],
+      updates: [
+        { title: null, rows: [V('LightWeaver 1.4.2', 'Last checked today at 09:14', 'Up to date', 'verified'), Pp('Update channel', null, 'Stable', 'alt_route', 140), T('Install updates automatically', 'Applied the next time the app starts', 'ua', true, 'download_for_offline')] },
+        { foot: [{ l: 'Check for updates', primary: true }] }
+      ]
+    };
+    const groups = (G[sec] || []).map(g => {
+      const rows = (g.rows || []).map((r, i) => {
+        const on = r.on;
+        const tw = mac ? 38 : 40, th = mac ? 22 : 20;
+        const o = Object.assign({}, r, {
+          lc: p.text, showIcon: !mac && !!r.icon,
+          bt: mac && i ? '1px solid' : (mac ? 'none' : (p.win ? '1px solid' : 'none')),
+          btc: mac ? p.sep : 'rgba(0,0,0,0.1)',
+          isToggle: r.ctl === 'toggle', isPopup: r.ctl === 'popup', isButton: r.ctl === 'button', isValue: r.ctl === 'value',
+          isStepper: r.ctl === 'stepper', isSlider: r.ctl === 'slider', isSeg: r.ctl === 'seg', isSwatch: r.ctl === 'swatch', isKeys: r.ctl === 'keys', isServer: r.ctl === 'server',
+          minW: r.minW || 140,
+          tw, th,
+          tbg: on ? (mac ? p.accent : p.accentFg) : (mac ? p.toggleOff : 'transparent'),
+          tborder: mac ? 'none' : (on ? '1px solid transparent' : '1px solid rgba(255,255,255,0.6)'),
+          kw: mac ? 26 : (on ? 12 : 10), kh: mac ? 18 : (on ? 12 : 10), kmt: mac ? -9 : (on ? -6 : -5),
+          kl: mac ? (on ? 10 : 2) : (on ? 23 : 4),
+          kbg: mac ? '#fff' : (on ? '#000' : 'rgba(255,255,255,0.8)'), ksh: mac ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
+          flip: r.k ? () => this.setState(s => ({ tog: Object.assign({}, s.tog, { [r.k]: !on }) })) : undefined,
+          bbg: r.primary ? p.accent : p.btnBg, bhbg: r.primary ? p.accentHover : p.btnHover, bborder: r.primary ? '1px solid transparent' : p.btnBorder, bcolor: r.primary ? '#fff' : p.text,
+          opts: (r.opts || []).map(l => ({ l, bg: l === r.sel ? p.segSel : 'transparent', color: l === r.sel ? p.text : p.text2, ind: !mac && l === r.sel })),
+          sw: ['#FFFFFF', '#FFE34D', '#7DE3F0', '#B6F07D', '#FF9DB0'].map((c, j) => ({ c, ring: j === 0 ? '0 0 0 2px ' + (mac ? '#1c1c1e' : '#272727') + ', 0 0 0 4px ' + p.accentFg : 'inset 0 0 0 1px rgba(0,0,0,0.3)' })),
+          rec: !!r.rec, norec: !r.rec, hov: !!r.hov
+        });
+        return o;
+      });
+      const foot = g.foot ? g.foot.map(b => ({ l: b.l, bg: b.primary ? p.accent : p.btnBg, hbg: b.primary ? p.accentHover : p.btnHover, border: b.primary ? '1px solid transparent' : p.btnBorder, color: b.primary ? '#fff' : (b.danger ? (mac ? '#FF6961' : '#FF99A4') : p.text) })) : null;
+      return { title: g.title || '', hasRows: rows.length > 0, rows, isPreview: !!g.isPreview, isLog: !!g.isLog, log: g.log, foot };
+    });
+    const win = !mac;
+    return {
+      p, nav, cur, groups,
+      rootPad: mac ? '8px' : '0', rootGap: mac ? 0 : 0,
+      sideW: mac ? 220 : 280, sidePad: mac ? '6px 8px' : '12px 8px 12px 12px', sideR: mac ? 16 : 0,
+      sideBg: mac ? 'rgba(58,58,64,0.40)' : 'transparent', sideBorder: mac ? p.glassBorder : 'none', sideShadow: mac ? p.glassShadow : 'none',
+      searchR: mac ? 999 : 4,
+      navH: mac ? 30 : 36, navR: mac ? 8 : 4, navFs: mac ? 13 : 14,
+      headPad: mac ? '14px 24px 10px' : '20px 32px 12px', headFs: mac ? 15 : 28, headFw: mac ? 600 : 600,
+      bodyPad: mac ? '6px 24px 24px' : '4px 32px 32px', groupGap: mac ? 18 : 22, titleGap: mac ? 6 : 6,
+      gtFs: mac ? 12 : 14, gtColor: mac ? p.text2 : p.text, gtPad: mac ? '0 10px' : '0 2px',
+      rowGap: mac ? 0 : 4, grpR: mac ? 12 : 0, grpBg: mac ? 'rgba(255,255,255,0.05)' : 'transparent', grpBorder: mac ? '0.5px solid rgba(255,255,255,0.07)' : 'none',
+      rowH: mac ? 44 : 64, rowPad: mac ? '8px 12px' : '12px 16px', cardR: mac ? 0 : 4,
+      cardBg: mac ? 'transparent' : 'rgba(255,255,255,0.0512)', cardHover: mac ? 'transparent' : 'rgba(255,255,255,0.0837)',
+      cardBorder: mac ? 'none' : '1px solid rgba(0,0,0,0.1)',
+      ctlH: mac ? 26 : 32, popupR: mac ? 999 : 4, popupIcon: mac ? 'unfold_more' : 'expand_more',
+      boxR: mac ? 12 : 8,
+      fillC: mac ? p.accent : p.accentFg, knobBg: mac ? '#f4f4f6' : '#454545', knobBorder: mac ? 'none' : '1px solid rgba(255,255,255,0.09)', knobSh: mac ? '0 1px 3px rgba(0,0,0,0.45)' : 'none',
+      knobW: mac ? 26 : 20, knobH: mac ? 16 : 20, knobTop: mac ? 2 : 0, knobMl: mac ? -13 : -10,
+      segH: mac ? 22 : 26, segItemR: mac ? 999 : 3,
+      okC: mac ? '#30D158' : '#6CCB5F',
+      subFont: mac ? '"SF Pro Rounded",-apple-system,sans-serif' : '"Segoe UI Variable Display","Segoe UI",sans-serif',
+      subSize: 22, subColor: '#fff', subShadow: '0 2px 4px rgba(0,0,0,0.6)', subStroke: '3px #000', subBottom: 26
+    };
+  }
+}
+</script>
+</body>
+</html>

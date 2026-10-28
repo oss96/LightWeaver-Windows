@@ -14,7 +14,10 @@ public static class UpdatePackageVerifier
     private const uint CertEUntrustedRoot = 0x800B0109;
     private static readonly Guid WinTrustActionGenericVerifyV2 = new("00AAC56B-CD44-11D0-8CC2-00C04FC295EE");
 
-    public static async Task<bool> VerifyAsync(string installerPath, string? debugSha256, CancellationToken cancellationToken)
+    /// <summary>True when the package is signed by this build's certificate and its signed product
+    /// version is the release version, so an older signed installer cannot ride a newer tag.</summary>
+    public static async Task<bool> VerifyAsync(string installerPath, Version expectedVersion, string? debugSha256,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(installerPath))
         {
@@ -34,11 +37,22 @@ public static class UpdatePackageVerifier
         }
 #endif
         var trusted = VerifyAuthenticode(installerPath);
+        var versioned = trusted && HasProductVersion(installerPath, expectedVersion);
         // The signer's subject, thumbprint and chain are identity and stay out of the record.
         Detail(FormattableString.Invariant(
-            $"event=verify outcome={(trusted ? "success" : "failure")} mode=authenticode elapsed_ms={started.ElapsedMilliseconds}"));
-        return trusted;
+            $"event=verify outcome={(versioned ? "success" : "failure")} mode=authenticode reason={(trusted ? versioned ? "none" : "version" : "signature")} elapsed_ms={started.ElapsedMilliseconds}"));
+        return versioned;
     }
+
+    /// <summary>True when the file's product version (Inno Setup writes AppVersion there) names the
+    /// same major.minor.build as <paramref name="expected"/>.</summary>
+    internal static bool HasProductVersion(string path, Version expected)
+        => MatchesVersion(FileVersionInfo.GetVersionInfo(path).ProductVersion, expected);
+
+    internal static bool MatchesVersion(string? productVersion, Version expected)
+        => Version.TryParse(productVersion?.Trim(), out var product)
+            && product.Major == expected.Major && product.Minor == expected.Minor
+            && Math.Max(0, product.Build) == Math.Max(0, expected.Build);
 
     private static void Detail(string record) => Diagnostics.AppLog.Detail("updates", record);
 

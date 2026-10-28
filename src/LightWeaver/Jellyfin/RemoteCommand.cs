@@ -75,6 +75,38 @@ public sealed record RemoteAction(RemoteActionKind Kind, double Number = 0,
 /// <c>MainWindow.RemoteControl</c> are then a switch with no parsing left in it.</summary>
 public static class RemoteCommand
 {
+    /// <summary>Most items one remote <c>Play</c> may queue. Each is fetched on its own, so an
+    /// unbounded list is a request flood against the server and an unbounded queue in memory.</summary>
+    public const int MaxPlayItems = 500;
+
+    /// <summary>Longest dashboard message shown as a toast; the toast is one line of text.</summary>
+    public const int MaxMessageLength = 300;
+
+    /// <summary>The request trimmed to <see cref="MaxPlayItems"/> ids, keeping the item it starts
+    /// at in the window and its index pointing at the same id.</summary>
+    public static PlayRequestMessage LimitPlayRequest(PlayRequestMessage message)
+    {
+        if (message.ItemIds is not { Count: > MaxPlayItems } ids)
+            return message;
+        var start = Math.Clamp(message.StartIndex ?? 0, 0, ids.Count - 1);
+        var first = Math.Min(start, ids.Count - MaxPlayItems);
+        return message with
+        {
+            ItemIds = ids.Skip(first).Take(MaxPlayItems).ToList(),
+            StartIndex = start - first,
+        };
+    }
+
+    /// <summary>A dashboard message's header and text joined into one trimmed line of at most
+    /// <see cref="MaxMessageLength"/> characters, or empty when both are blank.</summary>
+    public static string MessageText(string? header, string? text)
+    {
+        var line = string.Join(" — ", new[] { header, text }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => string.Join(' ', part!.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))));
+        return line.Length <= MaxMessageLength ? line : line[..(MaxMessageLength - 1)].TrimEnd() + "…";
+    }
+
     /// <summary>A transport command. Jellyfin's <c>Play</c> and <c>Unpause</c> are the same
     /// request; only the latter is current, but servers and plugins still send both.</summary>
     public static RemoteAction Resolve(PlaystateRequestMessage? message) => message?.Command switch

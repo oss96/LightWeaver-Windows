@@ -34,7 +34,7 @@ public sealed record MediaInfoField(string Label, string Value, string? Id = nul
 /// position among the EMBEDDED streams of the same type (-1 for external streams),
 /// which is what maps onto mpv's per-type 1-based track ids.</summary>
 public sealed record MediaStreamChoice(int Index, int TypeOrdinal, string Display,
-    string? Language, string? Title, bool IsDefault, bool IsExternal)
+    string? Language, string? Title, bool IsDefault, bool IsExternal, bool IsForced = false)
 {
     public override string ToString() => Display;
 }
@@ -50,7 +50,17 @@ public sealed record MediaSourceStreams(
 
 /// <summary>One trickplay resolution bucket (a grid of thumbnails per JPEG sheet).</summary>
 public sealed record TrickplayInfo(string MediaSourceId, int Width, int Height,
-    int TileWidth, int TileHeight, int ThumbnailCount, int IntervalMs);
+    int TileWidth, int TileHeight, int ThumbnailCount, int IntervalMs)
+{
+    private const int MaxThumbSide = 4096;
+    private const int MaxTilesPerSide = 100;
+
+    /// <summary>Every field positive and small enough that sheet and crop arithmetic cannot
+    /// overflow: Jellyfin writes 320 px thumbnails in 10x10 sheets, far inside these bounds.</summary>
+    public bool IsUsable => Width is > 0 and <= MaxThumbSide && Height is > 0 and <= MaxThumbSide
+        && TileWidth is > 0 and <= MaxTilesPerSide && TileHeight is > 0 and <= MaxTilesPerSide
+        && ThumbnailCount > 0 && IntervalMs > 0;
+}
 
 /// <summary>One row of a folder identity sweep: everything the incremental browse refresh needs
 /// to decide whether a cached item is still current, and nothing else. <see cref="Etag"/> is the
@@ -73,6 +83,9 @@ public sealed record DownloadOption(string Label, string? MediaSourceId, bool Is
     public IReadOnlyList<Downloads.DownloadTrack> SubtitleTracks { get; init; } = [];
     public DownloadOption? OriginalOption { get; init; }
     public string? SourceResolution { get; init; }
+
+    /// <summary>The source's video height, which decides whether a quality cap transcodes.</summary>
+    public int? SourceHeight { get; init; }
     public string DisplayLabel => IsOriginal
         ? SourceResolution is { } source
             ? L.Format("JellyfinService.Original.4bdcf56b", source,
@@ -206,7 +219,7 @@ public sealed class JellyfinService : IDisposable
         }
         catch (Exception ex)
         {
-            Diagnostics.AppLog.Error("jellyfin", "login failed", ex);
+            Diagnostics.AppLog.Error("jellyfin", $"login failed {FailureFields(ex)}");
             return new LoginResult(false, FriendlyError(ex), null);
         }
     }
@@ -320,7 +333,7 @@ public sealed class JellyfinService : IDisposable
             // uninformative "Home never loaded". This line is the difference between diagnosing
             // it and guessing at the network (see the pipeline notes in CLAUDE.md).
             Diagnostics.AppLog.Error("jellyfin",
-                "saved session was rejected; falling back to the login form", ex);
+                $"saved session was rejected; falling back to the login form {FailureFields(ex)}");
             return false;
         }
         finally
@@ -396,6 +409,34 @@ public sealed class JellyfinService : IDisposable
         {
             Diagnostics.AppLog.Detail("session", $"event=capabilities outcome=failure error={ex.GetType().Name}");
             return false;
+        }
+    }
+
+    /// <summary>Asks the server to end this session so its access token stops working there too.
+    /// The server address and token are captured before this returns, so the caller may close and
+    /// dispose the service straight away. Best-effort, bounded by <paramref name="timeout"/>, never
+    /// throws: an unreachable server must not hold up signing out locally.</summary>
+    public Task RevokeServerSessionAsync(TimeSpan timeout)
+        => AccessToken is null || ServerUrl is not { Length: > 0 } serverUrl
+            ? Task.CompletedTask
+            : RevokeAsync(serverUrl + "/Sessions/Logout", AuthorizationHeader, timeout);
+
+    private static readonly HttpClient RevokeHttp = new(new SocketsHttpHandler { UseProxy = false, ConnectTimeout = TimeSpan.FromSeconds(4) });
+
+    private static async Task RevokeAsync(string logoutUrl, string authorization, TimeSpan timeout)
+    {
+        using var cancellation = new CancellationTokenSource(timeout);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, logoutUrl);
+            request.Headers.TryAddWithoutValidation("Authorization", authorization);
+            using var response = await RevokeHttp.SendAsync(request, cancellation.Token).ConfigureAwait(false);
+            Diagnostics.AppLog.Detail("session", FormattableString.Invariant(
+                $"event=revoke outcome={(response.IsSuccessStatusCode ? "success" : "failure")} status={(int)response.StatusCode}"));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or UriFormatException)
+        {
+            Diagnostics.AppLog.Detail("session", $"event=revoke outcome=failure error={ex.GetType().Name}");
         }
     }
 
@@ -530,6 +571,14 @@ public sealed class JellyfinService : IDisposable
         Diagnostics.AppLog.Detail("jellyfin", line);
     }
 
+    /// <summary>The <c>error=</c> field for a login or reconnect failure, plus the HTTP status when
+    /// the server answered. Type and status only, for the reason <see cref="RequestDetail"/> gives:
+    /// a socket or HTTP message names the server's host, and these lines reach app.log even when
+    /// verbose is off. The status is what tells a dead token (401) from a broken server.</summary>
+    private static string FailureFields(Exception ex) => ex is ApiException api
+        ? FormattableString.Invariant($"error={ex.GetType().Name} status={api.ResponseStatusCode}")
+        : $"error={ex.GetType().Name}";
+
     private static void RetryDetail(string operation, Exception cause,
         System.Diagnostics.Stopwatch started)
     {
@@ -563,10 +612,35 @@ public sealed class JellyfinService : IDisposable
     public async Task<List<MediaItem>> GetLibrariesAsync()
     {
         var server = ServerUrl;
+        var profileKey = UserId != Guid.Empty && server is { Length: > 0 } ? $"{UserId:N}@{server}" : "";
+        var cacheKey = LibrariesCacheKey(profileKey);
         var result = await WithRetry(() => _client.UserViews.GetAsync()).ConfigureAwait(false);
         var libraries = Map(result?.Items);
         foreach (var library in libraries) library.LibraryNameServer = server;
+        if (profileKey.Length > 0)
+            await Imaging.MetadataCache.StoreAsync(cacheKey, libraries).ConfigureAwait(false);
         return libraries;
+    }
+
+    /// <summary>The saved library list for one profile and UI language.</summary>
+    public static Task<List<MediaItem>?> ReadCachedLibrariesAsync(string profileKey)
+        => profileKey.Length == 0 ? Task.FromResult<List<MediaItem>?>(null)
+            : Imaging.MetadataCache.ReadAsync<List<MediaItem>>(LibrariesCacheKey(profileKey));
+
+    private static string LibrariesCacheKey(string profileKey) => $"libraries:{profileKey}:{L.Language}:v1";
+
+    /// <summary>The user's playlists, by name.</summary>
+    public async Task<List<MediaItem>> GetPlaylistsAsync()
+    {
+        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
+        {
+            cfg.QueryParameters.UserId = UserId;
+            cfg.QueryParameters.Recursive = true;
+            cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Playlist];
+            cfg.QueryParameters.SortBy = [ItemSortBy.SortName];
+            cfg.QueryParameters.Fields = [ItemFields.ChildCount, ItemFields.DateCreated, ItemFields.CumulativeRunTimeTicks];
+        })).ConfigureAwait(false);
+        return Map(result?.Items);
     }
 
     /// <summary>The kinds the two Continue Watching queries ask for. Deliberately the same set
@@ -605,7 +679,7 @@ public sealed class JellyfinService : IDisposable
         {
             cfg.QueryParameters.Limit = limit;
             cfg.QueryParameters.IncludeItemTypes = ResumeItemTypes;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
@@ -616,12 +690,14 @@ public sealed class JellyfinService : IDisposable
         var result = await WithRetry(() => _client.Shows.NextUp.GetAsync(cfg =>
         {
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
 
-    /// <summary>Recently added across all libraries (flattened, newest first per library).</summary>
+    /// <summary>Recently added across all libraries (flattened, newest first per library), new
+    /// episodes grouped under their show. Played titles are left out only when the user's
+    /// HidePlayedInLatest server preference is on.</summary>
     public async Task<List<MediaItem>> GetLatestAsync(IEnumerable<Guid> libraryIds, int limitPerLibrary = 16)
     {
         var all = new List<MediaItem>();
@@ -633,7 +709,7 @@ public sealed class JellyfinService : IDisposable
                 {
                     cfg.QueryParameters.ParentId = libraryId;
                     cfg.QueryParameters.Limit = limitPerLibrary;
-                    cfg.QueryParameters.Fields = [ItemFields.Overview];
+                    cfg.QueryParameters.Fields = [ItemFields.Overview, ItemFields.DateCreated, ItemFields.DateLastMediaAdded, .. DetailPreviewFields];
                 })).ConfigureAwait(false);
                 if (items is not null)
                     all.AddRange(Map(items));
@@ -656,7 +732,7 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.Limit = limit;
             cfg.QueryParameters.EnableTotalRecordCount = true;
             cfg.QueryParameters.IncludeItemTypes = ResumeItemTypes;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
     }
@@ -669,7 +745,7 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.StartIndex = startIndex;
             cfg.QueryParameters.Limit = limit;
             cfg.QueryParameters.EnableTotalRecordCount = true;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
     }
@@ -687,9 +763,83 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.SortOrder = [SortOrder.Descending];
             cfg.QueryParameters.StartIndex = startIndex;
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
+    }
+
+    /// <summary>Recently Added's first page in the v2 app: the first <paramref name="limit"/> titles of
+    /// <paramref name="kinds"/> across the libraries in <paramref name="sortBy"/> order, unplayed only
+    /// when asked, with what a card shows, and how many such titles there are.</summary>
+    public async Task<(List<MediaItem> Items, int TotalCount)> GetRecentlyAddedHeadAsync(IReadOnlyList<BaseItemKind> kinds,
+        ItemSortBy sortBy, SortOrder sortOrder, bool unplayedOnly, int limit, CancellationToken cancellationToken)
+    {
+        var result = await WithRetry(ct => _client.Items.GetAsync(cfg =>
+        {
+            var p = cfg.QueryParameters;
+            p.Recursive = true;
+            p.IncludeItemTypes = [.. kinds];
+            p.SortBy = [sortBy];
+            p.SortOrder = [sortOrder];
+            if (unplayedOnly) p.Filters = [ItemFilter.IsUnplayed];
+            p.Limit = limit;
+            p.EnableTotalRecordCount = true;
+            p.EnableUserData = true;
+            p.Fields = [ItemFields.Overview, ItemFields.DateCreated, ItemFields.DateLastMediaAdded, .. DetailPreviewFields];
+        }, ct), cancellationToken).ConfigureAwait(false);
+        return (Map(result?.Items), result?.TotalRecordCount ?? 0);
+    }
+
+    /// <summary>Recently Added's See all in the v2 app: every title of <paramref name="kinds"/> across
+    /// the libraries in <paramref name="sortBy"/> order, unplayed only when asked, with no more than
+    /// the id and the dates the merge orders by (no images, no user data), so a few thousand are
+    /// one quick answer.</summary>
+    public async Task<List<MediaItem>> GetRecentlyAddedOrderAsync(IReadOnlyList<BaseItemKind> kinds,
+        ItemSortBy sortBy, SortOrder sortOrder, bool unplayedOnly, CancellationToken cancellationToken)
+    {
+        var result = await WithRetry(ct => _client.Items.GetAsync(cfg =>
+        {
+            var p = cfg.QueryParameters;
+            p.Recursive = true;
+            p.IncludeItemTypes = [.. kinds];
+            p.SortBy = [sortBy];
+            p.SortOrder = [sortOrder];
+            if (unplayedOnly) p.Filters = [ItemFilter.IsUnplayed];
+            p.EnableImages = false;
+            p.EnableUserData = false;
+            p.EnableTotalRecordCount = false;
+            p.Fields = [ItemFields.DateCreated, ItemFields.DateLastMediaAdded];
+        }, ct), cancellationToken).ConfigureAwait(false);
+        return Map(result?.Items);
+    }
+
+    /// <summary>The titles of <paramref name="ids"/> for Recently Added's See all cards, in the
+    /// server's order; ids it no longer knows are absent.</summary>
+    public async Task<List<MediaItem>> GetRecentlyAddedTitlesAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        var items = new List<MediaItem>(ids.Count);
+        for (var offset = 0; offset < ids.Count; offset += BrowseFolderCache.RefetchBatchSize)
+        {
+            var batch = ids.Skip(offset).Take(BrowseFolderCache.RefetchBatchSize).Select(id => (Guid?)id).ToArray();
+            var result = await WithRetry(ct => _client.Items.GetAsync(cfg =>
+            {
+                var p = cfg.QueryParameters;
+                p.Ids = batch;
+                p.EnableTotalRecordCount = false;
+                p.EnableUserData = true;
+                p.Fields = [ItemFields.Overview, ItemFields.DateCreated, ItemFields.DateLastMediaAdded, .. DetailPreviewFields];
+            }, ct), cancellationToken).ConfigureAwait(false);
+            items.AddRange(Map(result?.Items));
+        }
+        return items;
+    }
+
+    /// <summary>The user's HidePlayedInLatest preference, which the server's Latest list (the Home
+    /// row) follows; on when it cannot be read, the server's default.</summary>
+    public async Task<bool> HidesPlayedInLatestAsync(CancellationToken cancellationToken)
+    {
+        var me = await WithRetry(ct => _client.Users.Me.GetAsync(cancellationToken: ct), cancellationToken).ConfigureAwait(false);
+        return me?.Configuration?.HidePlayedInLatest ?? true;
     }
 
     /// <summary>Paged Favorites (see-all view). Same query as the rail, paged.</summary>
@@ -703,7 +853,7 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.SortBy = [ItemSortBy.SortName];
             cfg.QueryParameters.StartIndex = startIndex;
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
     }
@@ -733,7 +883,7 @@ public sealed class JellyfinService : IDisposable
                 cfg.QueryParameters.NameStartsWith = nameStartsWith;
             cfg.QueryParameters.StartIndex = startIndex;
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
     }
@@ -845,6 +995,11 @@ public sealed class JellyfinService : IDisposable
         return items;
     }
 
+    /// <summary>The video's stored size and its version count, three numbers per item, so a detail
+    /// page opened from a list has the video's shape and knows whether to offer versions before its
+    /// own lookups answer.</summary>
+    private static readonly ItemFields[] DetailPreviewFields = [ItemFields.Width, ItemFields.Height, ItemFields.MediaSourceCount];
+
     /// <summary>The field set a cached folder item must carry: enough for the card, the local
     /// sort keys, the genre filter, and the change token. Shared so a page fetched by
     /// <see cref="GetFolderPageAsync"/> and one repaired by <see cref="GetItemsByIdsAsync"/>
@@ -852,16 +1007,16 @@ public sealed class JellyfinService : IDisposable
     private static readonly ItemFields[] CanonicalBrowseFields =
     [
         ItemFields.Overview, ItemFields.SortName, ItemFields.DateCreated,
-        ItemFields.Genres, ItemFields.Etag,
+        ItemFields.Genres, ItemFields.Etag, .. DetailPreviewFields,
     ];
 
     /// <summary>Paged advanced search across the whole server (Phase 7 M4). Mirrors the paged
     /// <see cref="GetItemsAsync"/> shape but driven by the <see cref="AdvancedSearchQuery"/>
     /// contract (multi-type, multi-genre, person, year range, watched, sort). Recursive.</summary>
     public async Task<(List<MediaItem> Items, int TotalCount)> AdvancedSearchAsync(
-        AdvancedSearchQuery q, int startIndex, int limit)
+        AdvancedSearchQuery q, int startIndex, int limit, CancellationToken cancellationToken = default)
     {
-        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
+        var result = await WithRetry(ct => _client.Items.GetAsync(cfg =>
         {
             var p = cfg.QueryParameters;
             p.Recursive = true;
@@ -879,12 +1034,38 @@ public sealed class JellyfinService : IDisposable
                 p.MaxPremiereDate = new DateTimeOffset(new DateTime(max, 12, 31, 23, 59, 59, DateTimeKind.Utc));
             if (q.Watched is { } w)
                 p.Filters = [w];
-            p.SortBy = [q.Sort];
-            p.SortOrder = [q.Order];
+            if (q.MinRating is { } rating)
+                p.MinCommunityRating = rating;
+            // Name breaks ties so paging by StartIndex never repeats or skips items that share
+            // a sort value (same premiere date, or none).
+            p.SortBy = q.Sort == ItemSortBy.SortName ? [q.Sort] : [q.Sort, ItemSortBy.SortName];
+            p.SortOrder = q.Sort == ItemSortBy.SortName ? [q.Order] : [q.Order, SortOrder.Ascending];
             p.StartIndex = startIndex;
             p.Limit = limit;
-            p.Fields = [ItemFields.Overview];
-        })).ConfigureAwait(false);
+            p.Fields = [ItemFields.Overview, ItemFields.ChildCount, .. DetailPreviewFields];
+        }, ct), cancellationToken).ConfigureAwait(false);
+        return (Map(result?.Items), result?.TotalRecordCount ?? 0);
+    }
+
+    /// <summary>One group of the top-bar search: the first <paramref name="limit"/> items of one kind
+    /// whose name matches, A to Z, with the server's total. Asks only for what a search card shows:
+    /// the child count (a show's seasons line) and one tag each of Primary, Backdrop and Thumb.</summary>
+    public async Task<(List<MediaItem> Items, int TotalCount)> QuickSearchAsync(
+        string term, BaseItemKind kind, int limit, CancellationToken cancellationToken)
+    {
+        var result = await WithRetry(ct => _client.Items.GetAsync(cfg =>
+        {
+            var p = cfg.QueryParameters;
+            p.Recursive = true;
+            p.SearchTerm = term;
+            p.IncludeItemTypes = [kind];
+            p.SortBy = [ItemSortBy.SortName];
+            p.SortOrder = [SortOrder.Ascending];
+            p.Limit = limit;
+            p.Fields = [ItemFields.ChildCount, .. DetailPreviewFields];
+            p.EnableImageTypes = [ImageType.Primary, ImageType.Backdrop, ImageType.Thumb];
+            p.ImageTypeLimit = 1;
+        }, ct), cancellationToken).ConfigureAwait(false);
         return (Map(result?.Items), result?.TotalRecordCount ?? 0);
     }
 
@@ -909,14 +1090,17 @@ public sealed class JellyfinService : IDisposable
     /// <para><c>/Persons</c> takes no <c>StartIndex</c> — it does not page — which is fine for
     /// a suggestion list. <c>UserId</c> is passed so the server applies this user's library
     /// access instead of returning people from libraries they cannot see.</para></summary>
-    public async Task<List<PersonEntry>> SearchPeopleAsync(string term, int limit = 8)
+    public async Task<List<PersonEntry>> SearchPeopleAsync(string term, int limit = 8, CancellationToken cancellationToken = default)
     {
-        var result = await WithRetry(() => _client.Persons.GetAsync(cfg =>
+        var result = await WithRetry(ct => _client.Persons.GetAsync(cfg =>
         {
             cfg.QueryParameters.SearchTerm = term;
             cfg.QueryParameters.Limit = limit;
             cfg.QueryParameters.UserId = UserId;
-        })).ConfigureAwait(false);
+            cfg.QueryParameters.EnableUserData = false;
+            cfg.QueryParameters.EnableImageTypes = [ImageType.Primary];
+            cfg.QueryParameters.ImageTypeLimit = 1;
+        }, ct), cancellationToken).ConfigureAwait(false);
         return result?.Items?
             .Where(d => d.Id is not null && d.Name is { Length: > 0 })
             .Select(d =>
@@ -952,7 +1136,7 @@ public sealed class JellyfinService : IDisposable
             // Virtual/missing episodes (metadata-only placeholders) are neither
             // playable nor downloadable; hiding them matches Jellyfin's default UX.
             cfg.QueryParameters.IsMissing = false;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
@@ -964,67 +1148,205 @@ public sealed class JellyfinService : IDisposable
         {
             cfg.QueryParameters.UserId = UserId;   // explicit, not required — see GetEpisodesAsync (B17)
             cfg.QueryParameters.IsMissing = false; // exclude virtual placeholders (unplayable)
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
 
+    /// <summary>Ceiling on the requests one paged list makes. A server that ignores
+    /// <c>StartIndex</c>, or a total that never arrives, would otherwise page for ever.</summary>
+    private const int MaxListPages = 200;
+
     /// <summary>All occurrences in a server playlist, in playlist order. The limit is a
-    /// page size; repeated ids are intentional and must survive every page.</summary>
+    /// page size; repeated ids are intentional and must survive every page. That rules out the
+    /// new-id progress check the track lists use, so a page that repeats the previous one or the
+    /// first one (a server that ignored <c>StartIndex</c>) ends the list instead. Entries are
+    /// compared by their playlist entry id, which is unique per occurrence; a page with a row
+    /// that lacks one is left to <see cref="MaxListPages"/>.</summary>
     public async Task<List<MediaItem>> GetPlaylistItemsAsync(Guid playlistId, int limit = 500)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         var items = new List<MediaItem>();
-        while (true)
+        // Rows returned, not rows kept: see GetTrackPagesAsync.
+        var fetched = 0;
+        List<string>? firstPage = null;
+        List<string>? previousPage = null;
+        for (var pages = 0; ; pages++)
         {
+            if (pages == MaxListPages)
+            {
+                LogListPagingStop("playlist", playlistId, "page_cap", pages, fetched);
+                return items;
+            }
             var result = await WithRetry(() => _client.Playlists[playlistId].Items.GetAsync(cfg =>
             {
                 cfg.QueryParameters.UserId = UserId;
-                cfg.QueryParameters.StartIndex = items.Count;
+                cfg.QueryParameters.StartIndex = fetched;
                 cfg.QueryParameters.Limit = limit;
-                cfg.QueryParameters.Fields = [ItemFields.Overview];
+                cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
             })).ConfigureAwait(false);
-            var page = Map(result?.Items);
-            items.AddRange(page);
-            if (page.Count == 0 || (result?.TotalRecordCount is { } total && items.Count >= total)
-                || (result?.TotalRecordCount is null && page.Count < limit))
+            var rows = result?.Items?.Count ?? 0;
+            // A page with a row that has no entry id is neither compared nor compared against: by
+            // item id alone, a playlist that lists the same tracks twice repeats a page legally.
+            // A server that ignores StartIndex and sends such pages is ended by the page cap.
+            if (rows > 0)
+            {
+                var entries = result!.Items!.All(dto => !string.IsNullOrEmpty(dto.PlaylistItemId))
+                    ? result.Items!.Select(dto => dto.PlaylistItemId!).ToList()
+                    : null;
+                if (entries is not null
+                    && ((previousPage is not null && entries.SequenceEqual(previousPage))
+                        || (firstPage is not null && entries.SequenceEqual(firstPage))))
+                {
+                    LogListPagingStop("playlist", playlistId, "no_progress", pages, fetched);
+                    return items;
+                }
+                if (pages == 0)
+                    firstPage = entries;
+                previousPage = entries;
+            }
+            fetched += rows;
+            items.AddRange(Map(result?.Items));
+            if (rows == 0 || (result?.TotalRecordCount is { } total && fetched >= total)
+                || (result?.TotalRecordCount is null && rows < limit))
                 return items;
         }
     }
 
+    /// <summary>Approves another device's Quick Connect code for the signed-in user. Not retried:
+    /// a code is single use.</summary>
+    public async Task<bool> AuthorizeQuickConnectAsync(string code)
+    {
+        try
+        {
+            return await _client.QuickConnect.Authorize.PostAsync(cfg =>
+            {
+                cfg.QueryParameters.Code = code;
+                cfg.QueryParameters.UserId = UserId;
+            }).ConfigureAwait(false) == true;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or Microsoft.Kiota.Abstractions.ApiException)
+        {
+            Diagnostics.AppLog.Error("jellyfin", $"event=quick_connect_authorize outcome=failure error={ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    /// <summary>Creates a playlist, optionally with its first items; the new playlist's id, or
+    /// null when the server refused. Not retried: a repeated create would make two.</summary>
+    public async Task<Guid?> CreatePlaylistAsync(string name, IReadOnlyList<Guid> itemIds)
+    {
+        var result = await _client.Playlists.PostAsync(new CreatePlaylistDto
+        {
+            Name = name,
+            UserId = UserId,
+            Ids = [.. itemIds.Select(id => (Guid?)id)],
+        }).ConfigureAwait(false);
+        return Guid.TryParse(result?.Id, out var id) ? id : null;
+    }
+
+    /// <summary>Appends items to a playlist. Not retried: a repeated add would add twice.</summary>
+    public Task AddToPlaylistAsync(Guid playlistId, IReadOnlyList<Guid> itemIds)
+        => _client.Playlists[playlistId].Items.PostAsync(cfg =>
+        {
+            cfg.QueryParameters.Ids = [.. itemIds.Select(id => (Guid?)id)];
+            cfg.QueryParameters.UserId = UserId;
+        });
+
+    /// <summary>Removes playlist entries by their entry ids (<see cref="MediaItem.PlaylistItemId"/>).</summary>
+    public Task RemoveFromPlaylistAsync(Guid playlistId, IReadOnlyList<string> entryIds)
+        => _client.Playlists[playlistId].Items.DeleteAsync(cfg => cfg.QueryParameters.EntryIds = [.. entryIds]);
+
+    /// <summary>Moves one entry to a new zero-based position.</summary>
+    public Task MovePlaylistItemAsync(Guid playlistId, string entryId, int newIndex)
+        => _client.Playlists[playlistId].Items[entryId].Move[newIndex].PostAsync();
+
+    public Task RenamePlaylistAsync(Guid playlistId, string name)
+        => _client.Playlists[playlistId].PostAsync(new UpdatePlaylistDto { Name = name });
+
+    /// <summary>Deletes an item the user owns, such as a playlist.</summary>
+    public Task DeleteItemAsync(Guid itemId) => _client.Items[itemId].DeleteAsync();
+
     /// <summary>Album tracks in disc/track order. The generic child browse query sorts by name,
-    /// which is not an acceptable queue order for an album.</summary>
+    /// which is not an acceptable queue order for an album. The limit is a page size, as in
+    /// <see cref="GetPlaylistItemsAsync"/>: an audiobook or box set runs past 500 tracks, and the
+    /// album page and Play all both list what this returns.</summary>
     public async Task<List<MediaItem>> GetAlbumTracksAsync(Guid albumId, int limit = 500)
     {
-        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
-        {
-            cfg.QueryParameters.ParentId = albumId;
-            cfg.QueryParameters.Recursive = true;
-            cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Audio];
-            cfg.QueryParameters.SortBy = [ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber, ItemSortBy.SortName];
-            cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.UserId = UserId;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
-        })).ConfigureAwait(false);
-        return DistinctTracks(Map(result?.Items));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        return await GetTrackPagesAsync("album", albumId, limit, fetched =>
+            WithRetry(() => _client.Items.GetAsync(cfg =>
+            {
+                cfg.QueryParameters.ParentId = albumId;
+                cfg.QueryParameters.Recursive = true;
+                cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Audio];
+                cfg.QueryParameters.SortBy = [ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber, ItemSortBy.SortName];
+                cfg.QueryParameters.StartIndex = fetched;
+                cfg.QueryParameters.Limit = limit;
+                cfg.QueryParameters.UserId = UserId;
+                cfg.QueryParameters.Fields = [ItemFields.Overview];
+            }))).ConfigureAwait(false);
     }
 
     /// <summary>All library tracks credited to a music artist. This is a recursive audio query,
-    /// not a direct-child browse, so albums below the artist cannot leave Play all empty.</summary>
+    /// not a direct-child browse, so albums below the artist cannot leave Play all empty. The limit
+    /// is a page size, as in <see cref="GetAlbumTracksAsync"/>, so a large discography is queued
+    /// whole rather than cut at the first page.</summary>
     public async Task<List<MediaItem>> GetArtistTracksAsync(Guid artistId, int limit = 500)
     {
-        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
-        {
-            cfg.QueryParameters.Recursive = true;
-            cfg.QueryParameters.AlbumArtistIds = [artistId];
-            cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Audio];
-            cfg.QueryParameters.SortBy = [ItemSortBy.Album, ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber, ItemSortBy.SortName];
-            cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.UserId = UserId;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
-        })).ConfigureAwait(false);
-        return DistinctTracks(Map(result?.Items));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        return await GetTrackPagesAsync("artist", artistId, limit, fetched =>
+            WithRetry(() => _client.Items.GetAsync(cfg =>
+            {
+                cfg.QueryParameters.Recursive = true;
+                cfg.QueryParameters.AlbumArtistIds = [artistId];
+                cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Audio];
+                cfg.QueryParameters.SortBy = [ItemSortBy.Album, ItemSortBy.ParentIndexNumber, ItemSortBy.IndexNumber, ItemSortBy.SortName];
+                cfg.QueryParameters.StartIndex = fetched;
+                cfg.QueryParameters.Limit = limit;
+                cfg.QueryParameters.UserId = UserId;
+                cfg.QueryParameters.Fields = [ItemFields.Overview];
+            }))).ConfigureAwait(false);
     }
+
+    /// <summary>Pages a track list to its end. The offset counts every row the server returned:
+    /// mapping and de-duplication drop rows, and an offset taken from what is left would page
+    /// back over rows already fetched. A page that brings no id not seen before ends the list,
+    /// since a server that ignored <c>StartIndex</c> would otherwise repeat its first page up to
+    /// <see cref="MaxListPages"/> times. The SDK's sort keys offer nothing unique to end the sort
+    /// with, so rows that tie on every key can still trade places across a page boundary.</summary>
+    private async Task<List<MediaItem>> GetTrackPagesAsync(string list, Guid listId, int limit,
+        Func<int, Task<BaseItemDtoQueryResult?>> fetchPage)
+    {
+        var items = new List<MediaItem>();
+        var seen = new HashSet<Guid>();
+        var fetched = 0;
+        for (var pages = 0; ; pages++)
+        {
+            if (pages == MaxListPages)
+            {
+                LogListPagingStop(list, listId, "page_cap", pages, fetched);
+                return DistinctTracks(items);
+            }
+            var result = await fetchPage(fetched).ConfigureAwait(false);
+            var rows = result?.Items?.Count ?? 0;
+            if (rows > 0 && result!.Items!.Count(dto => dto.Id is { } id && seen.Add(id)) == 0)
+            {
+                LogListPagingStop(list, listId, "no_progress", pages, fetched);
+                return DistinctTracks(items);
+            }
+            fetched += rows;
+            items.AddRange(Map(result?.Items));
+            if (rows == 0 || (result?.TotalRecordCount is { } total && fetched >= total)
+                || (result?.TotalRecordCount is null && rows < limit))
+                return DistinctTracks(items);
+        }
+    }
+
+    /// <summary>Ids and counts only, like every other line here.</summary>
+    private static void LogListPagingStop(string list, Guid listId, string reason, int pages, int rows)
+        => Diagnostics.AppLog.Detail("jellyfin",
+            $"event=list_paging outcome=stop list={list} item={listId:N} reason={reason} pages={pages} rows={rows}");
 
     private static List<MediaItem> DistinctTracks(IEnumerable<MediaItem> items)
         => items.Where(item => item.Type == BaseItemDto_Type.Audio)
@@ -1050,11 +1372,8 @@ public sealed class JellyfinService : IDisposable
                 continue;
             // DeliveryUrl is authoritative when present (server-chosen container/codec);
             // otherwise fall back to the stable subtitle endpoint.
-            var url = string.IsNullOrEmpty(stream.DeliveryUrl)
-                ? $"/Videos/{itemId}/{source.Id}/Subtitles/{stream.Index}/Stream.vtt"
-                : stream.DeliveryUrl;
-            if (url.StartsWith('/'))
-                url = ServerUrl + url;
+            var url = SameOriginUrl(ServerUrl, stream.DeliveryUrl)
+                ?? ServerUrl + $"/Videos/{itemId}/{source.Id}/Subtitles/{stream.Index}/Stream.vtt";
             subs.Add(new ExternalSubtitle(url, stream.Title ?? stream.DisplayTitle, stream.Language));
         }
         return subs;
@@ -1135,7 +1454,17 @@ public sealed class JellyfinService : IDisposable
         return fields;
     }
 
-    /// <summary>Selectable streams of the item's default media source plus summary
+    /// <summary>Every media source (version) of the item with all its streams as the server
+    /// reports them, for a technical media info view. Not cached: it is opened on demand.</summary>
+    public async Task<IReadOnlyList<MediaSourceInfo>> GetMediaSourcesAsync(Guid itemId)
+    {
+        var info = await WithRetry(() => _client.Items[itemId].PlaybackInfo.GetAsync(cfg =>
+            cfg.QueryParameters.UserId = UserId)).ConfigureAwait(false);
+        return info?.MediaSources ?? [];
+    }
+
+    /// <summary>Selectable streams of the item's default media source (or of
+    /// <paramref name="mediaSourceId"/> when given and present) plus summary
     /// fields (resolution / aspect / codec / native source HDR — independent of the
     /// RTX Video HDR display toggle) for the detail view's preselection dropdowns.
     /// Disk-cached (M19): the projection is user-state-free playback metadata, so a
@@ -1143,15 +1472,18 @@ public sealed class JellyfinService : IDisposable
     /// round-trip. The cache scope includes the UI language and catalog revision because
     /// this projection carries translated display labels. (Item-detail responses are deliberately NOT cached — they carry
     /// UserData whose staleness would regress watched/resume freshness.)</summary>
-    public Task<MediaSourceStreams?> GetMediaStreamsAsync(Guid itemId)
-        => Imaging.MetadataCache.GetOrFetchAsync($"streams:{ServerUrl}:{itemId:N}:{L.CacheIdentity}",
-            TimeSpan.FromHours(1), () => FetchMediaStreamsAsync(itemId));
+    public Task<MediaSourceStreams?> GetMediaStreamsAsync(Guid itemId, string? mediaSourceId = null)
+        => Imaging.MetadataCache.GetOrFetchAsync(mediaSourceId is null
+                ? $"streams:{ServerUrl}:{itemId:N}:{L.CacheIdentity}"
+                : $"streams:{ServerUrl}:{itemId:N}:{mediaSourceId}:{L.CacheIdentity}",
+            TimeSpan.FromHours(1), () => FetchMediaStreamsAsync(itemId, mediaSourceId));
 
-    private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId)
+    private async Task<MediaSourceStreams?> FetchMediaStreamsAsync(Guid itemId, string? mediaSourceId)
     {
         var info = await WithRetry(() => _client.Items[itemId].PlaybackInfo.GetAsync(cfg =>
             cfg.QueryParameters.UserId = UserId)).ConfigureAwait(false);
-        var source = info?.MediaSources?.FirstOrDefault();
+        var source = mediaSourceId is null ? info?.MediaSources?.FirstOrDefault()
+            : info?.MediaSources?.FirstOrDefault(s => s.Id == mediaSourceId);
         if (source?.MediaStreams is not { Count: > 0 } streams)
             return null;
 
@@ -1176,7 +1508,7 @@ public sealed class JellyfinService : IDisposable
                     break;
                 case MediaStream_Type.Subtitle:
                     subtitles.Add(new MediaStreamChoice(index, external ? -1 : subOrdinal++,
-                        StreamDisplay(s), s.Language, s.Title, s.IsDefault == true, external));
+                        StreamDisplay(s), s.Language, s.Title, s.IsDefault == true, external, s.IsForced == true));
                     break;
             }
         }
@@ -1189,7 +1521,7 @@ public sealed class JellyfinService : IDisposable
                 summary.Add(new MediaInfoField(L.Text("JellyfinService.Resolution.7db02fde"), $"{v.Width}x{v.Height}", "Resolution") { LabelKey = "JellyfinService.Resolution.7db02fde" });
                 summary.Add(new MediaInfoField(L.Text("JellyfinService.Aspect.6855bee5"), v.AspectRatio is { Length: > 0 } ar
                     ? ar
-                    : FormattableString.Invariant($"{(double)v.Width.Value / v.Height.Value:0.##}:1"))
+                    : FormattableString.Invariant($"{(double)v.Width.Value / v.Height.Value:0.##}:1"), "Aspect")
                 { LabelKey = "JellyfinService.Aspect.6855bee5" });
             }
             if (v.Codec is { Length: > 0 } codec)
@@ -1344,14 +1676,10 @@ public sealed class JellyfinService : IDisposable
                     if (v.ValueKind != System.Text.Json.JsonValueKind.Object)
                         continue;
                     int Get(string name) => v.TryGetProperty(name, out var p)
-                        && p.ValueKind == System.Text.Json.JsonValueKind.Number ? p.GetInt32() : 0;
+                        && p.ValueKind == System.Text.Json.JsonValueKind.Number && p.TryGetInt32(out var value) ? value : 0;
                     var info = new TrickplayInfo(source.Name, Get("Width"), Get("Height"),
                         Get("TileWidth"), Get("TileHeight"), Get("ThumbnailCount"), Get("Interval"));
-                    if (info is not
-                        {
-                            Width: > 0, Height: > 0, TileWidth: > 0, TileHeight: > 0,
-                            ThumbnailCount: > 0, IntervalMs: > 0
-                        })
+                    if (!info.IsUsable)
                         continue;
                     if (best is null || Math.Abs(info.Width - 320) < Math.Abs(best.Width - 320))
                         best = info;
@@ -1381,7 +1709,7 @@ public sealed class JellyfinService : IDisposable
         var result = await WithRetry(() => _client.Items[itemId].Similar.GetAsync(cfg =>
         {
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
@@ -1415,7 +1743,7 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Episode];
             cfg.QueryParameters.SortBy = [ItemSortBy.SortName];
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
@@ -1439,6 +1767,23 @@ public sealed class JellyfinService : IDisposable
         }
         catch
         {
+            return false;
+        }
+    }
+
+    /// <summary>Sets the saved resume position. Zero takes the item off Continue Watching without
+    /// marking it played; the previous value puts it back (Undo).</summary>
+    public async Task<bool> SetResumePositionAsync(Guid itemId, long positionTicks)
+    {
+        try
+        {
+            await _client.UserItems[itemId].UserData.PostAsync(new UpdateUserItemDataDto { PlaybackPositionTicks = positionTicks },
+                cfg => cfg.QueryParameters.UserId = UserId).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.AppLog.Error("jellyfin", "resume position update failed", ex);
             return false;
         }
     }
@@ -1479,7 +1824,25 @@ public sealed class JellyfinService : IDisposable
             cfg.QueryParameters.Recursive = true;
             cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Episode];
             cfg.QueryParameters.Limit = limit;
-            cfg.QueryParameters.Fields = [ItemFields.Overview];
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
+        })).ConfigureAwait(false);
+        return Map(result?.Items);
+    }
+
+    /// <summary>Movies and shows that credit a person, newest first, with their People so each
+    /// credit's role and character are known (the person page's filmography).</summary>
+    public async Task<List<MediaItem>> GetPersonCreditsAsync(Guid personId, int limit = 400)
+    {
+        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
+        {
+            var p = cfg.QueryParameters;
+            p.PersonIds = [personId];
+            p.Recursive = true;
+            p.IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series];
+            p.Fields = [ItemFields.People, ItemFields.SortName, .. DetailPreviewFields];
+            p.SortBy = [ItemSortBy.PremiereDate, ItemSortBy.SortName];
+            p.SortOrder = [SortOrder.Descending, SortOrder.Ascending];
+            p.Limit = limit;
         })).ConfigureAwait(false);
         return Map(result?.Items);
     }
@@ -1501,6 +1864,7 @@ public sealed class JellyfinService : IDisposable
             ? tag?.ToString()
             : null;
         var backdropTag = dto.BackdropImageTags?.FirstOrDefault();
+        var video = dto.MediaStreams?.FirstOrDefault(s => s.Type == MediaStream_Type.Video);
         return new MediaItem
         {
             Id = id,
@@ -1518,7 +1882,8 @@ public sealed class JellyfinService : IDisposable
             ProductionYear = dto.ProductionYear,
             PremiereDate = dto.PremiereDate,
             DateCreated = dto.DateCreated,
-            RuntimeTicks = dto.RunTimeTicks,
+            DateLastMediaAdded = dto.DateLastMediaAdded,
+            RuntimeTicks = dto.RunTimeTicks ?? dto.CumulativeRunTimeTicks,
             Overview = dto.Overview,
             CommunityRating = dto.CommunityRating,
             OfficialRating = dto.OfficialRating,
@@ -1527,6 +1892,13 @@ public sealed class JellyfinService : IDisposable
             PlayedPercentage = dto.UserData?.PlayedPercentage,
             Played = dto.UserData?.Played ?? false,
             IsFavorite = dto.UserData?.IsFavorite ?? false,
+            UnplayedItemCount = dto.UserData?.UnplayedItemCount,
+            ChildCount = dto.ChildCount,
+            VideoWidth = video?.Width ?? dto.Width,
+            VideoHeight = video?.Height ?? dto.Height,
+            VideoAspectRatio = video?.AspectRatio is { Length: > 0 } streamAspect ? streamAspect : dto.AspectRatio,
+            MediaSourceCount = dto.MediaSourceCount,
+            PlaylistItemId = dto.PlaylistItemId,
             CollectionType = dto.CollectionType?.ToString().ToLowerInvariant(),
             ProviderIds = dto.ProviderIds?.AdditionalData?
                 .Where(kv => kv.Value?.ToString() is { Length: > 0 })
@@ -1538,11 +1910,13 @@ public sealed class JellyfinService : IDisposable
                     p.Role is { Length: > 0 } role ? role : p.Type?.ToString(),
                     p.Id is { } pid && p.PrimaryImageTag is { Length: > 0 } tag
                         ? GetPrimaryImageUrl(pid, tag)
-                        : null))
+                        : null) { Kind = p.Type?.ToString() })
                 .ToList() ?? [],
+            ProductionLocations = dto.ProductionLocations?.Where(l => l is { Length: > 0 }).Select(l => l!).ToList() ?? [],
             Chapters = dto.Chapters?.Select(c => new MediaChapter(c.Name, c.StartPositionTicks ?? 0)).ToList() ?? [],
             PrimaryImageTag = primaryTag,
             BackdropImageTag = backdropTag,
+            SeriesPrimaryImageTag = dto.SeriesPrimaryImageTag,
             PosterUrl = primaryTag is null ? null : GetPrimaryImageUrl(id, primaryTag),
             BackdropUrl = backdropTag is null ? null : GetBackdropImageUrl(id, backdropTag),
             // Episodes' Primary image is the landscape still; fetch it wider for 16:9 cards.
@@ -1561,14 +1935,40 @@ public sealed class JellyfinService : IDisposable
         };
     }
 
+    /// <summary>Resolves a server-supplied path or URL against the server address. Null unless the
+    /// result stays on the server (<see cref="OwnsUrl"/>), so the session token never leaves it.</summary>
+    internal static string? SameOriginUrl(string? serverUrl, string? candidate)
+    {
+        if (string.IsNullOrEmpty(candidate) || serverUrl is null)
+            return null;
+        var absolute = candidate.StartsWith('/') ? serverUrl.TrimEnd('/') + candidate : candidate;
+        return Uri.TryCreate(absolute, UriKind.Absolute, out var uri) && OwnsUrl(serverUrl, uri)
+            ? uri.AbsoluteUri
+            : null;
+    }
+
+    /// <summary>True when <paramref name="url"/> has the server's exact scheme, host and port, no
+    /// user info, and a normalized path under the server's base path at a segment boundary.</summary>
+    internal static bool OwnsUrl(string serverUrl, Uri url)
+    {
+        if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var server) || url.UserInfo.Length > 0
+            || Uri.Compare(url, server, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
+            return false;
+        var basePath = server.AbsolutePath.TrimEnd('/');
+        return basePath.Length == 0
+            || url.AbsolutePath.Equals(basePath, StringComparison.OrdinalIgnoreCase)
+            || url.AbsolutePath.StartsWith(basePath + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>First usable remote-trailer URL (a YouTube link preferred), or null.</summary>
-    private static string? PickTrailerUrl(List<MediaUrl>? trailers)
+    internal static string? PickTrailerUrl(List<MediaUrl>? trailers)
     {
         if (trailers is null)
             return null;
-        var urls = trailers.Select(t => t.Url).Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
-        return urls.FirstOrDefault(u => u!.Contains("youtu", StringComparison.OrdinalIgnoreCase))
-            ?? urls.FirstOrDefault();
+        var urls = trailers.Select(t => WebLinks.TryParse(t.Url, out var uri) ? uri : null)
+            .OfType<Uri>().ToList();
+        return (urls.FirstOrDefault(u => u.Host.Contains("youtu", StringComparison.OrdinalIgnoreCase))
+            ?? urls.FirstOrDefault())?.AbsoluteUri;
     }
 
     /// <summary>Authorized raw GET against the server (for plugin endpoints outside the SDK).
@@ -1711,13 +2111,14 @@ public sealed class JellyfinService : IDisposable
                 else if (stream.Type == MediaStream_Type.Subtitle)
                     subtitleTracks.Add(new Downloads.DownloadTrack(index, external ? -1 : subtitleOrdinal++,
                         StreamDisplay(stream), stream.Language, stream.Title, stream.Codec,
-                        external, stream.IsTextSubtitleStream == true, stream.IsDefault == true));
+                        external, stream.IsTextSubtitleStream == true, stream.IsDefault == true, stream.IsForced == true));
             }
             var original = new DownloadOption(L.Format("JellyfinService.Original.4bdcf56b", resLabel, sizeLabel),
                 source.Id, IsOriginal: true, MaxWidth: null, VideoBitRate: null,
                 EstimatedSizeBytes: source.Size, source.Container, "Original")
             {
                 SourceResolution = resLabel,
+                SourceHeight = height,
                 AudioTracks = audioTracks,
                 SubtitleTracks = subtitleTracks,
             };
@@ -1830,7 +2231,7 @@ public sealed class JellyfinService : IDisposable
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("jellyfin", FormattableString.Invariant(
-                $"event=media_versions outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={itemId:N}"), ex);
+                $"event=media_versions outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} error={ex.GetType().Name}"));
             return null;
         }
     }
@@ -1928,10 +2329,11 @@ public sealed class JellyfinService : IDisposable
                     source.Id, audioStreamIndex ?? source.DefaultAudioStreamIndex,
                     subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex);
             }
-            if (source.TranscodingUrl is { Length: > 0 } transcodingUrl)
+            if (source.TranscodingUrl?.StartsWith('/') == true
+                && SameOriginUrl(ServerUrl, source.TranscodingUrl) is { } transcodingUrl)
             {
                 NegotiateDetail(itemId, "transcode", started, forceTranscode, effectiveBitrate);
-                return new PlaybackDecision(ServerUrl + transcodingUrl, true, playSessionId,
+                return new PlaybackDecision(transcodingUrl, true, playSessionId,
                     source.Id, audioStreamIndex ?? source.DefaultAudioStreamIndex,
                     subtitleStreamIndex ?? source.DefaultSubtitleStreamIndex,
                     source.MediaStreams?.Any(s =>
@@ -2101,6 +2503,11 @@ public sealed class JellyfinService : IDisposable
         _settings.SetAccessToken(token);
     }
 
+    /// <summary>True when the address the user typed will be reached over plain HTTP, including a
+    /// bare host, which <see cref="NormalizeUrl"/> completes with <c>http://</c>.</summary>
+    public static bool UsesPlainHttp(string serverUrl)
+        => serverUrl.Trim().Length > 0 && NormalizeUrl(serverUrl).StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+
     private static string NormalizeUrl(string url)
     {
         var trimmed = url.Trim().TrimEnd('/');
@@ -2109,6 +2516,11 @@ public sealed class JellyfinService : IDisposable
             trimmed = "http://" + trimmed;
         return trimmed;
     }
+
+    /// <summary>Whether a request failed because the server has no such item — the answer it
+    /// gives for something deleted since a cache or a list showed it. Views use it to evict the
+    /// item instead of reporting a load failure; any other error still leaves the cached copy up.</summary>
+    public static bool IsNotFound(Exception ex) => ex is ApiException { ResponseStatusCode: 404 };
 
     private static string FriendlyError(Exception ex) => ex switch
     {

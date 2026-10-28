@@ -246,6 +246,11 @@ public partial class MainWindow : Window
         Theme.UiZoom.Set(_settings.UiZoom);
         InitializeComponent();
         LiveText.Watch(this);
+        // The browse and chrome layers mirror for a right-to-left language; the root grid and the
+        // video layer between them stay left-to-right, so mpv's HWND and the overlay sync never
+        // see a mirrored coordinate.
+        UiDirection.Follow(BrowseLayer);
+        UiDirection.Follow(ChromeLayer);
         _updateService = new UpdateService(_settings);
         _updateService.StatusChanged += OnUpdateStatusChanged;
         // One socket per warm profile (see LiveSessionService); MainWindow.RemoteControl records
@@ -271,10 +276,10 @@ public partial class MainWindow : Window
 #endif
         PlayerHost.HwndReady += OnVideoHwndReady;
         // Resolve the token from the session that owns the image's SERVER, not from whichever
-        // profile is active — the same rule the download engine uses (B14). The active session is
-        // the fallback so a URL we don't recognise still behaves as before.
+        // profile is active — the same rule the download engine uses (B14). A URL no signed-in
+        // server owns is fetched without a token rather than with the active profile's.
         Imaging.ImageCache.AuthorizationHeaderProvider = url =>
-            (_app.FindSessionForUrl(url) ?? _app.Jellyfin).AuthorizationHeader;
+            _app.FindSessionForUrl(url)?.AuthorizationHeader;
         Imaging.ImageCache.MaxCacheBytes = Math.Max(50, _settings.ImageCacheMaxMb) * 1024L * 1024;   // M19/M21
         Jellyfin.BrowseFolderCache.MaxItems = Math.Max(100, _settings.FolderCacheMaxItems);
         // The metadata cache had no eviction at all, only the manual Clear in settings (B19).
@@ -341,6 +346,7 @@ public partial class MainWindow : Window
         // browse stack is the authoritative set of live list views.
         _app.ItemUserDataChanged += OnItemUserDataChanged;
         _app.LibraryChanged += OnLibraryChanged;
+        _app.ItemsRemoved += OnItemsRemoved;
 
         // Warm multi-account sessions (Phase 7): swap the per-profile shell bundle the
         // moment a session activates (before the Browse state re-applies), drop shells
@@ -353,7 +359,7 @@ public partial class MainWindow : Window
             // the reconnect ladder would keep running against a dead HttpClient.
             _live.StopProfile(key);
             _shells.Remove(key);
-            Jellyfin.BrowsePrefetcher.CancelProfile(key);
+            _ = Jellyfin.BrowsePrefetcher.CancelProfile(key);
         });
         _app.SessionExpired += name => Dispatcher.Invoke(() =>
             ShowToast(L.Format("MainWindow.TheSessionForExpiredPleaseSignIn.637d6e1f", (name))));
@@ -393,6 +399,8 @@ public partial class MainWindow : Window
         Theme.UiZoom.Requested += OnUiZoomRequested;
         // Tooltips and context menus open outside the visual tree, so nothing zooms them on its own.
         Theme.ZoomPopups.Register();
+        // Nor does anything give them their owner's flow direction.
+        UiDirection.Register();
         Theme.UiZoom.LimitChanged += ApplyZoomMinSize;
         // '?' opens the shortcuts panel — on the character, not a chord (see OnWindowTextInput).
         TextInput += OnWindowTextInput;
@@ -767,6 +775,71 @@ public partial class MainWindow : Window
             }
     }
 
+    /// <summary>Items the server no longer has (see <see cref="AppViewModel.ItemsRemoved"/>): every
+    /// live view drops their cards — and its own cache entry's copy — and the history forgets
+    /// pages FOR them, which Back or Forward would only re-enter to a 404. The current page is
+    /// left to its owner: <see cref="OnItemNotFound"/> leaves it on a 404, and a removal the server
+    /// pushed while somebody is reading the page is not a reason to yank them off it.</summary>
+    private void OnItemsRemoved(IReadOnlySet<Guid> itemIds)
+    {
+        // Prefetch runs first: a run filling a folder writes its own list back on every page,
+        // including folders whose view is no longer in the history.
+        if (_app.ActiveSessionKey is { } profileKey)
+            Jellyfin.BrowsePrefetcher.RemoveItems(profileKey, itemIds);
+        foreach (var frame in _nav.Frames)
+            switch (frame.View)
+            {
+                case Views.LibraryView lib: lib.RemoveItems(itemIds); break;
+                case Views.HomeView home: home.RemoveItems(itemIds); break;
+                case Views.SectionView section: section.RemoveItems(itemIds); break;
+                case Views.ItemDetailView detail: detail.RemoveItems(itemIds); break;
+                case Views.SearchResultsView search: search.RemoveItems(itemIds); break;
+                case Views.AdvancedSearchView advanced: advanced.RemoveItems(itemIds); break;
+            }
+        _nav.RemoveFrames(frame => IsPageFor(frame, itemIds));
+        UpdateBrowseHeader();
+    }
+
+    private static bool IsPageFor(NavFrame? frame, IReadOnlySet<Guid> itemIds) => frame?.View switch
+    {
+        Views.ItemDetailView detail => itemIds.Contains(detail.ItemId),
+        Views.LibraryView lib => itemIds.Contains(lib.SourceId),
+        _ => false,
+    };
+
+    /// <summary>A page answered 404 for its own item: it was deleted after the card that opened it
+    /// was cached or listed. Evict it instead of showing a load failure — off the page, out of
+    /// every live list and cache entry, out of the history — and say why the page closed.
+    /// <para>The history is cleaned BEFORE leaving. Leaving first landed on the previous frame
+    /// even when that was another page for the same item (a flash, then a second 404 and a second
+    /// toast), never removed the current frame, and with nothing behind it left the dead page up.
+    /// Now the removal drops every other page for the item from Back and Forward, and the dead page
+    /// itself is discarded for the nearest surviving frame, or Home when none is left.</para>
+    /// <para>One toast per item: a page for it that was still loading in the background can
+    /// answer 404 after it left the history, and that report closes nothing on screen. A later
+    /// report that does close the current page says so again.</para></summary>
+    private void OnItemNotFound(Guid itemId)
+    {
+        Diagnostics.AppLog.Detail("main", $"event=item_not_found item={itemId:N}");
+        var ids = new HashSet<Guid> { itemId };
+        var leaving = IsPageFor(_nav.Current, ids);
+        _app.NotifyItemsRemoved(ids);
+        if (leaving && IsPageFor(_nav.Current, ids))
+        {
+            var home = _shell.Home is { } homeView
+                ? new NavFrame(homeView, L.Text("MainWindow.Home.87ce0665"), NavHome, IsRailRoot: true,
+                    TitleProvider: () => L.Text("MainWindow.Home.87ce0665"))
+                : null;
+            _nav.DiscardCurrent(home);
+            ShowCurrentFrame();
+        }
+        if (_notFoundReported.Add(itemId) || leaving)
+            ShowToast(L.Text("MainWindow.ThisItemIsNoLongerOnTheServer.3c9e51a7"));
+    }
+
+    /// <summary>Items <see cref="OnItemNotFound"/> has already told the user about.</summary>
+    private readonly HashSet<Guid> _notFoundReported = [];
+
     /// <summary>A Home rail's see-all header: push the full-screen paged listing for that
     /// section (Phase 7). One generic SectionView; only the query delegate differs.</summary>
     private void OnSeeAllRequested(Settings.HomeSectionId id)
@@ -782,7 +855,7 @@ public partial class MainWindow : Window
         };
         if (section is not { } s)
             return;
-        var view = new Views.SectionView(s.Query);
+        var view = new Views.SectionView(_app, s.Query);
         view.ItemSelected += OnBrowseItemSelected;
         NavigateTo(view, s.Title(), s.Title);
     }
@@ -809,7 +882,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("main",
-                $"event=card_action action=toggle-watched outcome=failure item={item.Id:N} type={item.Type}", ex);
+                $"event=card_action action=toggle-watched outcome=failure item={item.Id:N} type={item.Type} error={ex.GetType().Name}");
             ShowToast(L.Text("MainWindow.CouldNotUpdateWatchedState.f13a0822"));
         }
     }
@@ -862,7 +935,7 @@ public partial class MainWindow : Window
         {
             failed = true;
             Diagnostics.AppLog.Detail("main",
-                $"event=card_action action=media-info outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={item.Id:N} type={item.Type}", ex);
+                $"event=card_action action=media-info outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={item.Id:N} type={item.Type} error={ex.GetType().Name}");
         }
         if (streams is null)
         {
@@ -926,6 +999,7 @@ public partial class MainWindow : Window
         // Non-modal on purpose: click-away (Deactivated) or Esc dismisses; a modal
         // ShowDialog would also block UIA invokes in the verify suite.
         LiveText.Watch(popup);
+        UiDirection.Follow((FrameworkElement)popup.Content);
         popup.Deactivated += (_, _) => popup.Close();
         popup.KeyDown += (_, args) => { if (args.Key == Key.Escape) popup.Close(); };
         popup.Show();
@@ -1253,10 +1327,7 @@ public partial class MainWindow : Window
         var dir = _settings.DownloadDirectory is { Length: > 0 } custom
             ? custom
             : Downloads.DownloadStore.DefaultDirectory;
-        // Jellyfin reports containers like "mov,mp4,m4a" — the first token is the ext.
-        var ext = (opt.IsOriginal ? opt.Container : "mp4") is { Length: > 0 } c
-            ? c.Split(',')[0]
-            : "mkv";
+        var ext = Downloads.DownloadPaths.Extension(opt.IsOriginal ? opt.Container : "mp4");
         var invalid = System.IO.Path.GetInvalidFileNameChars();
         var safe = string.Concat(item.Name.Select(ch => invalid.Contains(ch) ? '_' : ch));
         if (safe.Length > 100)
@@ -1360,7 +1431,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("main",
-                $"event=load outcome=failure screen=rail-libraries elapsed_ms={started.ElapsedMilliseconds}", ex);
+                $"event=load outcome=failure screen=rail-libraries elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
             shell.LibrariesLoaded = false;   // let the next Browse entry retry
         }
     }
@@ -1481,6 +1552,7 @@ public partial class MainWindow : Window
         {
             if (int.TryParse(Environment.GetEnvironmentVariable("LIGHTWEAVER_SLOW_LOAD_MS"), out var slowMs) && slowMs > 0)
                 await Task.Delay(slowMs);
+            var requestedAtUtc = DateTime.UtcNow;
             var results = await _app.Jellyfin.SearchAsync(term);
             if (gen != _searchGeneration || SearchBox.Text.Trim() != term
                 || _app.State != AppState.Browse || !ReferenceEquals(shell, _shell)
@@ -1490,6 +1562,8 @@ public partial class MainWindow : Window
                     $"event=load outcome=stale generation={gen} elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length}");
                 return; // stale query or state/profile changed while searching
             }
+            // An item removed while the search was in flight stays out of its results.
+            results = _app.DropRemovedItems(results, requestedAtUtc, profileKey);
             if (shell.Search is not null && ReferenceEquals(_nav.Current?.View, shell.Search))
             {
                 // refine in place instead of stacking a view per keystroke
@@ -1516,7 +1590,7 @@ public partial class MainWindow : Window
                     $"event=load outcome=stale generation={gen} phase=exception elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length}");
             else
                 Diagnostics.AppLog.Detail("search",
-                    $"event=load outcome=failure generation={gen} elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length}", ex);
+                    $"event=load outcome=failure generation={gen} elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length} error={ex.GetType().Name}");
             // search is best-effort; whatever view is showing stays
         }
         finally
@@ -1542,6 +1616,7 @@ public partial class MainWindow : Window
         {
             var detail = new ItemDetailView(_app, _settings, item);
             detail.PlayRequested += OnDetailPlayRequested;
+            detail.ItemNotFound += OnItemNotFound;
             detail.ItemSelected += OnBrowseItemSelected;
             // M5: a cast/crew face opens the Advanced Search Screen scoped to that person,
             // across movies + series server-wide.
@@ -1570,6 +1645,7 @@ public partial class MainWindow : Window
     {
         var library = new LibraryView(_app, item, genre, _settings);
         library.ItemSelected += OnBrowseItemSelected;
+        library.ItemNotFound += OnItemNotFound;
         library.PlayAllRequested += OnPlayAllRequested;
         library.GenresRequested += OnGenresRequested;
         library.DownloadAllRequested += OnDownloadAllRequested;
@@ -2360,7 +2436,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine($"playback metadata: trickplay failed - {ex.Message}");
-            Diagnostics.AppLog.Error("playback-metadata", "trickplay failed", ex);
+            Diagnostics.AppLog.Error("playback-metadata", $"trickplay failed error={ex.GetType().Name}");
         }
     }
 
@@ -2393,7 +2469,10 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"playback metadata: {name} failed - {ex.Message}");
-                Diagnostics.AppLog.Error("playback-metadata", $"{name} failed", ex);
+                // Type only, never the exception object: an HTTP or IO message on these steps can
+                // name a server URL or a file path, a download's filename is built from the media
+                // title, and Redact keys on secret names, so it masks neither.
+                Diagnostics.AppLog.Error("playback-metadata", $"{name} failed error={ex.GetType().Name}");
             }
         }
 
@@ -2525,12 +2604,15 @@ public partial class MainWindow : Window
         }
         try
         {
-            _player = MpvPlayer.Create(hwnd, Dispatcher, _settings);
+            _player = MpvPlayer.Create(hwnd, new Threading.WpfUiDispatcher(Dispatcher), _settings);
         }
         catch (Exception ex) when (ex is DllNotFoundException or MpvException)
         {
             // M23: branded in-app alert instead of the native MessageBox.
-            Diagnostics.AppLog.Error("player", "mpv failed to initialize", ex);
+            // Type only: an option failure's message carries the option's value, and
+            // LIGHTWEAVER_MPV_LOG makes one of those values a file path. The alert below still
+            // shows the user the full message.
+            Diagnostics.AppLog.Error("player", $"mpv failed to initialize error={ex.GetType().Name}");
             _ = Modal.AlertAsync(L.Text("MainWindow.PlaybackEngineFailed.7e7cd92b"),
                 L.Format("MainWindow.FailedToInitializeMpvMakeSureLibmpv2DllMpv040IsNextToTheExeOrOnPath.c510cab0", ex.Message));
             return;
@@ -3957,8 +4039,6 @@ public partial class MainWindow : Window
                 ? WindowState.Maximized
                 : WindowState.Normal;
         }
-        // Every route into fullscreen ends here — F11, the video double-click, Escape, and now the
-        // OSD button — so this is the one place the button's glyph can be kept honest.
         // Every route into fullscreen ends here — F11, the video double-click, Escape, and the OSD
         // button — so this is the one place the button's glyph can be kept honest. Confirmed by
         // removing it: the button still worked, and both label assertions failed.
@@ -4619,7 +4699,7 @@ public partial class MainWindow : Window
     private void InitializeSystemMediaControls()
     {
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        _systemMedia = SystemMediaControls.TryCreate(hwnd, Dispatcher);
+        _systemMedia = SystemMediaControls.TryCreate(hwnd, new Threading.WpfUiDispatcher(Dispatcher), Imaging.ImageCache.GetFileAsync);
         if (_systemMedia is null)
             return;
         _systemMedia.PlayPressed += () => _playerViewModel.IsPaused = false;

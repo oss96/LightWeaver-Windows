@@ -1,4 +1,31 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Serialization;
+
 namespace LightWeaver.Settings;
+
+/// <summary>Seals a small secret to the current Windows user with DPAPI, as base64 text.</summary>
+internal static class UserSecret
+{
+    public static string? Protect(string value)
+        => value.Length == 0 ? null
+            : Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser));
+
+    public static string Unprotect(string? sealedValue)
+    {
+        if (string.IsNullOrEmpty(sealedValue))
+            return "";
+        try
+        {
+            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(sealedValue), null,
+                DataProtectionScope.CurrentUser));
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
+        {
+            return "";
+        }
+    }
+}
 
 /// <summary>What the Next/Previous transport controls do (Phase 7 M17) — the SMTC
 /// media keys and the overlay next/prev pair follow the same mapping.</summary>
@@ -100,8 +127,41 @@ public sealed class AppSettings
 
     // External metadata
     /// <summary>OMDB API key (omdbapi.com) for IMDb/Rotten Tomatoes/Metacritic scores on
-    /// the detail view. Empty = the external ratings row is silently skipped.</summary>
+    /// the detail view. Empty = the external ratings row is silently skipped. Never written in
+    /// plain text; see <see cref="OmdbApiKeyProtected"/>.</summary>
+    [JsonIgnore]
     public string OmdbApiKey { get; set; } = "";
+
+    /// <summary>The OMDB key as settings.json stores it: sealed with DPAPI to this Windows user,
+    /// base64. A value that does not unseal (another user's or machine's) reads as no key.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OmdbApiKeyProtected
+    {
+        get => UserSecret.Protect(OmdbApiKey);
+        set => OmdbApiKey = UserSecret.Unprotect(value);
+    }
+
+    /// <summary>Reads the plain-text key earlier versions wrote, so it survives the upgrade and is
+    /// written back sealed on the next save. Never written.</summary>
+    [JsonPropertyName(nameof(OmdbApiKey))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyOmdbApiKey
+    {
+        get => null;
+        set
+        {
+            if (value is not { Length: > 0 })
+                return;
+            ReadPlainTextOmdbKey = true;
+            if (OmdbApiKey.Length == 0)
+                OmdbApiKey = value;
+        }
+    }
+
+    /// <summary>Whether the loaded file still held the key in plain text, so the store re-saves it
+    /// sealed straight away.</summary>
+    [JsonIgnore]
+    internal bool ReadPlainTextOmdbKey { get; private set; }
 
     // Behavior
     public bool AutoSkipIntro { get; set; }
@@ -111,6 +171,8 @@ public sealed class AppSettings
     /// <summary>The Ctrl+Left / Ctrl+Right large seek, one value for both directions.</summary>
     public int LargeSkipSeconds { get; set; } = 30;
     public bool AutoPlayNextEpisode { get; set; } = true;
+    /// <summary>v2: Play on a detail page opens the video full screen instead of in the preview.</summary>
+    public bool AutoFullscreen { get; set; }
     private int _autoPlayCountdownSeconds = 10;
     public int AutoPlayCountdownSeconds
     {

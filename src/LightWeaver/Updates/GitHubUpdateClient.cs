@@ -25,14 +25,8 @@ public sealed class GitHubUpdateClient
 
     public async Task<UpdateInfo?> GetLatestAsync(CancellationToken cancellationToken)
     {
-        var api = GetApiBase();
         var started = Stopwatch.StartNew();
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(api, "releases?per_page=10"));
-        // GitHub rejects an anonymous request without a User-Agent; the other two headers pin the
-        // response shape. Set per request so an injected HttpClient is never mutated.
-        request.Headers.TryAddWithoutValidation("User-Agent", $"LightWeaver/{CurrentVersion.ToString(3)}");
-        request.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
-        request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
+        using var request = FeedRequest("releases?per_page=10");
         using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -81,53 +75,107 @@ public sealed class GitHubUpdateClient
                 return null;
             }
 
-            var expectedName = $"LightWeaver-{version.ToString(3)}-setup.exe";
-            Uri? download = null;
-            long? expectedSize = null;
-            if (release.TryGetProperty("assets", out var assets))
-            {
-                if (assets.ValueKind != JsonValueKind.Array)
-                {
-                    Detail("event=asset outcome=failure reason=assets_shape");
-                    throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsAreNotAnArray.3c183ac7"));
-                }
-                foreach (var asset in assets.EnumerateArray())
-                {
-                    if (asset.ValueKind != JsonValueKind.Object)
-                    {
-                        Detail("event=asset outcome=failure reason=asset_shape");
-                        throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsContainANonObjectAsset.e2ee2786"));
-                    }
-                    if (GetOptionalString(asset, "name") == expectedName
-                        && TryGetAbsoluteUri(GetOptionalString(asset, "browser_download_url"), out var candidate)
-                        && IsApprovedAssetEndpoint(candidate))
-                    {
-                        download = candidate;
-                        if (!asset.TryGetProperty("size", out var size) || size.ValueKind != JsonValueKind.Number
-                            || !size.TryGetInt64(out var bytes) || bytes <= 0)
-                        {
-                            Detail("event=asset outcome=failure reason=size_invalid");
-                            throw new JsonException(L.Text("GitHubUpdateClient.TheInstallerAssetSizeIsMissingOr.fdad4dfe"));
-                        }
-                        expectedSize = bytes;
-                        break;
-                    }
-                }
-            }
-            var fixtureHash = GetDebugFixtureHash();
-            if (IsDebugFixture && download is not null && fixtureHash is null)
-            {
-                Detail("event=asset outcome=failure reason=fixture_hash_missing");
-                throw new JsonException(L.Text("GitHubUpdateClient.TheDebugUpdateFixtureIsMissingIts.13a127ac"));
-            }
-            // The asset NAME is the app's own expectedName and the URI is never recorded: what the
-            // selection is diagnosed from is whether one matched, for which version, and how big.
-            Detail(FormattableString.Invariant(
-                $"event=asset outcome={(download is null ? "miss" : "success")} to_version={version.ToString(3)} bytes_total={(expectedSize is { } assetBytes ? FormattableString.Invariant($"{assetBytes}") : "unknown")}"));
-            return new UpdateInfo(version, download, page, download is null ? null : expectedName,
-                expectedSize, DebugSha256: fixtureHash);
+            return ReadRelease(release, version, page);
         }
         return null;
+    }
+
+    /// <summary>A stable release by its exact version, whether older or newer than this one (the
+    /// release an update is reverted to); null when GitHub has no such release.</summary>
+    public async Task<UpdateInfo?> GetReleaseAsync(Version version, CancellationToken cancellationToken)
+    {
+        var tag = version.ToString(3);
+        using var request = FeedRequest("releases/tags/" + Uri.EscapeDataString(tag));
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            Detail($"event=release_lookup outcome=miss to_version={tag}");
+            return null;
+        }
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var release = doc.RootElement;
+        if (release.ValueKind != JsonValueKind.Object)
+        {
+            Detail("event=release_lookup outcome=failure reason=release_shape");
+            throw new JsonException(L.Text("GitHubUpdateClient.TheReleaseFeedContainsANonObject.3da710ea"));
+        }
+        if (GetBoolean(release, "draft") || GetBoolean(release, "prerelease")
+            || !TryParseThreePartVersion(RequiredString(release, "tag_name"), out var found) || found != version)
+        {
+            Detail($"event=release_lookup outcome=miss reason=not_stable to_version={tag}");
+            return null;
+        }
+        var page = RequiredUri(release, "html_url");
+        if (!IsAllowedEndpoint(page, allowFixture: IsDebugFixture))
+        {
+            Detail("event=release_lookup outcome=failure reason=endpoint_not_allowed");
+            throw new JsonException(L.Text("GitHubUpdateClient.TheLatestStableReleasePageIsNot.c864abed"));
+        }
+        return ReadRelease(release, version, page);
+    }
+
+    /// <summary>A GET on the release API. GitHub rejects an anonymous request without a User-Agent;
+    /// the other two headers pin the response shape. Set per request so an injected HttpClient is
+    /// never mutated.</summary>
+    private static HttpRequestMessage FeedRequest(string path)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, new Uri(GetApiBase(), path));
+        request.Headers.TryAddWithoutValidation("User-Agent", $"LightWeaver/{CurrentVersion.ToString(3)}");
+        request.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+        request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
+        return request;
+    }
+
+    /// <summary>The release's setup asset, matched by its exact name and allowed host.</summary>
+    private static UpdateInfo ReadRelease(JsonElement release, Version version, Uri page)
+    {
+        var expectedName = $"LightWeaver-{version.ToString(3)}-setup.exe";
+        Uri? download = null;
+        long? expectedSize = null;
+        if (release.TryGetProperty("assets", out var assets))
+        {
+            if (assets.ValueKind != JsonValueKind.Array)
+            {
+                Detail("event=asset outcome=failure reason=assets_shape");
+                throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsAreNotAnArray.3c183ac7"));
+            }
+            foreach (var asset in assets.EnumerateArray())
+            {
+                if (asset.ValueKind != JsonValueKind.Object)
+                {
+                    Detail("event=asset outcome=failure reason=asset_shape");
+                    throw new JsonException(L.Text("GitHubUpdateClient.ReleaseAssetsContainANonObjectAsset.e2ee2786"));
+                }
+                if (GetOptionalString(asset, "name") == expectedName
+                    && TryGetAbsoluteUri(GetOptionalString(asset, "browser_download_url"), out var candidate)
+                    && IsApprovedAssetEndpoint(candidate))
+                {
+                    download = candidate;
+                    if (!asset.TryGetProperty("size", out var size) || size.ValueKind != JsonValueKind.Number
+                        || !size.TryGetInt64(out var bytes) || bytes <= 0)
+                    {
+                        Detail("event=asset outcome=failure reason=size_invalid");
+                        throw new JsonException(L.Text("GitHubUpdateClient.TheInstallerAssetSizeIsMissingOr.fdad4dfe"));
+                    }
+                    expectedSize = bytes;
+                    break;
+                }
+            }
+        }
+        var fixtureHash = GetDebugFixtureHash();
+        if (IsDebugFixture && download is not null && fixtureHash is null)
+        {
+            Detail("event=asset outcome=failure reason=fixture_hash_missing");
+            throw new JsonException(L.Text("GitHubUpdateClient.TheDebugUpdateFixtureIsMissingIts.13a127ac"));
+        }
+        // The asset NAME is the app's own expectedName and the URI is never recorded: what the
+        // selection is diagnosed from is whether one matched, for which version, and how big.
+        Detail(FormattableString.Invariant(
+            $"event=asset outcome={(download is null ? "miss" : "success")} to_version={version.ToString(3)} bytes_total={(expectedSize is { } assetBytes ? FormattableString.Invariant($"{assetBytes}") : "unknown")}"));
+        return new UpdateInfo(version, download, page, download is null ? null : expectedName,
+            expectedSize, DebugSha256: fixtureHash);
     }
 
     private static void Detail(string record) => Diagnostics.AppLog.Detail("updates", record);
@@ -168,7 +216,7 @@ public sealed class GitHubUpdateClient
         TryGetAbsoluteUri(RequiredString(element, property), out var uri)
             ? uri : throw new JsonException(L.Format("GitHubUpdateClient.ReleasePropertyIsNotAnAbsoluteUri.1bb8d91c", (property)));
 
-    private static bool TryParseThreePartVersion(string tag, out Version version)
+    internal static bool TryParseThreePartVersion(string tag, out Version version)
     {
         version = new Version(0, 0, 0);
         var text = tag;

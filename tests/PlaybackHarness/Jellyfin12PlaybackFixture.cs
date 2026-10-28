@@ -47,7 +47,7 @@ internal static class Jellyfin12PlaybackFixture
         var result = 1;
         void Check(bool condition, string name)
         {
-            if (!condition) throw new InvalidOperationException(name);
+            if (!condition) throw new FixtureCheckException(name);
             checks++;
             Console.WriteLine("PASS: " + name);
         }
@@ -59,13 +59,13 @@ internal static class Jellyfin12PlaybackFixture
             var movies = Await(service.SearchAsync("10 Cloverfield Lane"));
             var movie = movies.FirstOrDefault(m => m.Type == BaseItemDto_Type.Movie
                 && m.Name.Equals("10 Cloverfield Lane", StringComparison.OrdinalIgnoreCase))
-                ?? throw new InvalidOperationException("The known h264 PGS fixture is not visible to TEST.");
+                ?? throw new FixtureCheckException("The known h264 PGS fixture is not visible to TEST.");
             var dto = Await(service.Client.Items[movie.Id].GetAsync());
             var source = dto?.MediaSources?.FirstOrDefault(s => s.MediaStreams?.Any(t =>
                 t.Type == MediaStream_Type.Video && t.Codec?.Equals("h264", StringComparison.OrdinalIgnoreCase) == true) == true
                 && s.MediaStreams.Any(t => t.Type == MediaStream_Type.Subtitle
                     && t.Codec?.Equals("pgssub", StringComparison.OrdinalIgnoreCase) == true))
-                ?? throw new InvalidOperationException("The known fixture has no h264/PGS source.");
+                ?? throw new FixtureCheckException("The known fixture has no h264/PGS source.");
             var subtitle = source.MediaStreams!.Where(s => s.Type == MediaStream_Type.Subtitle
                 && s.Codec?.Equals("pgssub", StringComparison.OrdinalIgnoreCase) == true)
                 .OrderBy(s => s.IsForced == true)
@@ -77,7 +77,7 @@ internal static class Jellyfin12PlaybackFixture
             window = new Window { Title = "LightWeaver TEST PGS playback", Width = 1000, Height = 700, Content = host };
             host.HwndReady += hwnd =>
             {
-                player = MpvPlayer.Create(hwnd, window.Dispatcher, new AppSettings { VideoBufferMiB = 32 });
+                player = MpvPlayer.Create(hwnd, new LightWeaver.Threading.WpfUiDispatcher(window.Dispatcher), new AppSettings { VideoBufferMiB = 32 });
                 // Count fixed error categories without emitting native messages, which may contain URLs.
                 player.LogMessage += message =>
                 {
@@ -103,7 +103,7 @@ internal static class Jellyfin12PlaybackFixture
             overlay.Show();
             var direct = Await(service.NegotiatePlaybackAsync(movie.Id, 0,
                 subtitleStreamIndex: subtitle.Index, mediaSourceId: source.Id))
-                ?? throw new InvalidOperationException("Direct PGS negotiation returned no decision.");
+                ?? throw new FixtureCheckException("Direct PGS negotiation returned no decision.");
             decisions.Add(direct);
             Check(!direct.IsTranscode && !direct.SubtitleIsBurnedIn, "original h264 source negotiates direct playback with embedded PGS");
             player!.SetHttpHeaders(service.AuthorizationHeader);
@@ -136,7 +136,7 @@ internal static class Jellyfin12PlaybackFixture
 
             var transcode = Await(service.NegotiatePlaybackAsync(movie.Id, 4_000_000, true,
                 subtitleStreamIndex: subtitle.Index, mediaSourceId: source.Id))
-                ?? throw new InvalidOperationException("Forced PGS negotiation returned no decision.");
+                ?? throw new FixtureCheckException("Forced PGS negotiation returned no decision.");
             decisions.Add(transcode);
             Check(transcode.IsTranscode && transcode.SubtitleIsBurnedIn
                 && transcode.SubtitleStreamIndex == subtitle.Index,
@@ -152,7 +152,7 @@ internal static class Jellyfin12PlaybackFixture
         {
             // Network/native exceptions can include credential-bearing media URLs. Types only.
             Console.WriteLine("FAIL: TEST graphical-subtitle playback: " + ex.GetType().Name);
-            if (ex is TimeoutException) Console.WriteLine("FAIL: " + ex.Message);
+            if (ex is TimeoutException or FixtureCheckException) Console.WriteLine("FAIL: " + ex.Message);
             if (player is not null)
                 Console.WriteLine(FormattableString.Invariant(
                     $"DIAGNOSTIC: position={player.TimePos:0.000} tracks={player.Tracks.Count} graphical={GraphicalTrack(player) is not null} errors={mpvErrors} authorization={authorizationErrors} graphics={graphicsErrors}"));
@@ -229,3 +229,7 @@ internal static class Jellyfin12PlaybackFixture
         encoder.Save(file);
     }
 }
+
+/// <summary>A failed fixture check. Its message is fixed fixture text, never a URL, so the catch may
+/// print it where production exceptions are reduced to their type.</summary>
+internal sealed class FixtureCheckException(string message) : Exception(message);

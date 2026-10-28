@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Advanced search, Windows variant of the Claude Design handoff "05 Advanced Search": a filter
+     column on the leading side (docked at 1100 px and wider, an overlay pane below), results that
+     update as filters change, active filters as removable tokens, and an empty state that names
+     the filter to remove. -->
+<UserControl
+    x:Class="LightWeaver.WinUI.Search.AdvancedSearchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    xmlns:loc="using:LightWeaver.WinUI.Localization"
+    xmlns:t="using:LightWeaver.WinUI.Theme"
+    AutomationProperties.AutomationId="AdvancedSearchPage"
+    KeyboardAcceleratorPlacementMode="Hidden"
+    KeyDown="OnKeyDown">
+
+    <UserControl.KeyboardAccelerators>
+        <KeyboardAccelerator Key="F5" Invoked="OnRefreshAccelerator" />
+    </UserControl.KeyboardAccelerators>
+
+    <Grid x:Name="Root">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="PanelColumn" Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Results -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Padding="24,16,24,14" ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button x:Name="DrawerButton" Style="{StaticResource LwSubtleButton}" Height="{StaticResource LwButtonHeight}" Padding="10,0"
+                            Background="{StaticResource LwAccentSoftBrush}" Visibility="Collapsed" Click="OnOpenPanel"
+                            AutomationProperties.AutomationId="FiltersButton">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Style="{StaticResource LwIcon}" FontSize="16" Glyph="{x:Bind t:Icons.Tune}" />
+                            <TextBlock x:Name="DrawerLabel" FontSize="12.5" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{loc:Text Key=AdvancedSearch.Title}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock x:Name="CountText" FontSize="13" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="ResultCount" />
+                    <StackPanel x:Name="Updating" Orientation="Horizontal" Spacing="6" Visibility="Collapsed" VerticalAlignment="Center">
+                        <ProgressRing Width="11" Height="11" MinWidth="11" MinHeight="11" IsActive="True" Foreground="{StaticResource LwAccentFgBrush}" />
+                        <TextBlock Text="{loc:Text Key=AdvancedSearch.Updating}" FontSize="12" Foreground="{StaticResource LwText3Brush}"
+                                   AutomationProperties.AutomationId="UpdatingIndicator" />
+                    </StackPanel>
+                </StackPanel>
+                <Button x:Name="RefreshButton" Grid.Column="1" Style="{StaticResource LwSubtleButton}" Width="{StaticResource LwButtonHeight}"
+                        Height="{StaticResource LwButtonHeight}" VerticalAlignment="Center" Click="OnRefresh"
+                        AutomationProperties.AutomationId="AdvancedSearchRefresh" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.Refresh}"
+                        AutomationProperties.AcceleratorKey="F5" ToolTipService.ToolTip="{loc:Text Key=AdvancedSearch.RefreshShortcut}">
+                    <FontIcon Style="{StaticResource LwIcon}" FontSize="16" Glyph="{x:Bind t:Icons.Refresh}" />
+                </Button>
+            </Grid>
+
+            <c:WrapPanel x:Name="TokenRow" Grid.Row="1" HorizontalSpacing="6" VerticalSpacing="6" Margin="24,0,24,16" />
+
+            <ScrollViewer x:Name="ResultsScroller" Grid.Row="2" Padding="24,0,24,24" HorizontalScrollMode="Disabled"
+                          ViewChanged="OnResultsScrolled" AutomationProperties.AutomationId="ResultsScroller">
+                <ItemsRepeater x:Name="Results" ElementPrepared="OnElementPrepared">
+                    <ItemsRepeater.Layout>
+                        <!-- minmax(140px, 1fr): 140 x (140 x 1.5 poster + 42 text), scaled up uniformly to fill the row. -->
+                        <UniformGridLayout x:Name="GridLayout" MinItemWidth="140" MinItemHeight="252" MinColumnSpacing="14"
+                                           MinRowSpacing="20" ItemsStretch="Uniform" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <c:MediaCard />
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <!-- Nothing matches -->
+            <StackPanel x:Name="EmptyState" Grid.Row="2" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="0,0,0,90" Visibility="Collapsed">
+                <FontIcon FontFamily="{StaticResource LwIconFont}" FontSize="44" Foreground="{StaticResource LwText3Brush}"
+                          Glyph="{x:Bind t:Icons.FilterAltOff}" />
+                <TextBlock Text="{loc:Text Key=AdvancedSearch.NothingMatches}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           AutomationProperties.AutomationId="EmptyStateTitle" />
+                <TextBlock x:Name="EmptyHint" FontSize="13" Foreground="{StaticResource LwText2Brush}" HorizontalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" />
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <Button x:Name="RemoveHintButton" Style="{StaticResource LwButton}" Click="OnRemoveHint"
+                            AutomationProperties.AutomationId="RemoveSuggestedFilter" />
+                    <Button Style="{StaticResource LwAccentButton}" Content="{loc:Text Key=AdvancedSearch.ResetAll}" Click="OnReset"
+                            AutomationProperties.AutomationId="ResetAllButton" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- Light-dismiss layer behind the overlay pane (narrow windows) -->
+        <Border x:Name="Scrim" Grid.ColumnSpan="2" Background="Transparent" Visibility="Collapsed" Tapped="OnScrimTapped" />
+
+        <!-- Filter panel -->
+        <Border x:Name="Panel" Width="300" HorizontalAlignment="Left" Background="{StaticResource LwPanelBrush}"
+                BorderBrush="{StaticResource LwSeparatorBrush}" BorderThickness="0,0,1,0">
+            <ScrollViewer HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="FilterPanel"
+                          AutomationProperties.Name="{loc:Text Key=AdvancedSearch.Filters}">
+                <StackPanel Spacing="18" Padding="18,16,18,16">
+                    <!-- Header -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Text Key=AdvancedSearch.Filters}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button x:Name="ResetButton" Grid.Column="1" Style="{StaticResource LwSubtleButton}" Height="26" Padding="10,0"
+                                Foreground="{StaticResource LwAccentFgBrush}" Content="{loc:Text Key=AdvancedSearch.Reset}" Click="OnReset"
+                                AutomationProperties.AutomationId="ResetFiltersButton" />
+                        <Button x:Name="CloseFiltersButton" Grid.Column="2" Style="{StaticResource LwSubtleButton}" Width="26" Height="26" Foreground="{StaticResource LwText2Brush}"
+                                Click="OnClosePanel" AutomationProperties.AutomationId="CloseFiltersButton"
+                                ToolTipService.ToolTip="{loc:Text Key=AdvancedSearch.CloseFilters}" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.CloseFilters}">
+                            <FontIcon Style="{StaticResource LwIcon}" FontSize="17" Glyph="{x:Bind t:Icons.Close}" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Type -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Type}" />
+                        <Grid x:Name="TypeGrid" ColumnSpacing="12" RowSpacing="8" AutomationProperties.AutomationId="TypeFilter">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <CheckBox x:Name="TypeMovies" MinWidth="0" FontSize="13" Padding="8,0,0,0" MinHeight="20"
+                                      AutomationProperties.AutomationId="TypeMovies" Click="OnTypeChanged" />
+                            <CheckBox x:Name="TypeShows" Grid.Column="1" MinWidth="0" FontSize="13" Padding="8,0,0,0" MinHeight="20"
+                                      AutomationProperties.AutomationId="TypeShows" Click="OnTypeChanged" />
+                            <CheckBox x:Name="TypeEpisodes" Grid.Row="1" MinWidth="0" FontSize="13" Padding="8,0,0,0" MinHeight="20"
+                                      AutomationProperties.AutomationId="TypeEpisodes" Click="OnTypeChanged" />
+                            <CheckBox x:Name="TypeCollections" Grid.Row="1" Grid.Column="1" MinWidth="0" FontSize="13" Padding="8,0,0,0" MinHeight="20"
+                                      AutomationProperties.AutomationId="TypeCollections" Click="OnTypeChanged" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Genre -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Genre}" />
+                        <c:TokenBox x:Name="GenreBox" AutomationProperties.AutomationId="GenreFilter" />
+                    </StackPanel>
+
+                    <!-- Person -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Person}" />
+                        <c:TokenBox x:Name="PersonBox" AutomationProperties.AutomationId="PersonFilter" />
+                    </StackPanel>
+
+                    <!-- Year -->
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Year}" />
+                            <TextBlock x:Name="YearValue" Style="{StaticResource LwFilterLabel}" FontWeight="Normal" HorizontalAlignment="Right" />
+                        </Grid>
+                        <c:RangeSlider x:Name="YearSlider" AutomationProperties.AutomationId="YearSlider" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="MinYearBox" FontSize="13" MinHeight="32" InputScope="Number" MaxLength="4"
+                                     AutomationProperties.AutomationId="MinYear" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.FromYear}"
+                                     LostFocus="OnYearBoxCommitted" KeyDown="OnYearBoxKeyDown" />
+                            <TextBlock Grid.Column="1" Text="–" Foreground="{StaticResource LwText3Brush}" VerticalAlignment="Center" />
+                            <TextBox x:Name="MaxYearBox" Grid.Column="2" FontSize="13" MinHeight="32" InputScope="Number" MaxLength="4"
+                                     AutomationProperties.AutomationId="MaxYear" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.ToYear}"
+                                     LostFocus="OnYearBoxCommitted" KeyDown="OnYearBoxKeyDown" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Watched -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Watched}" />
+                        <Border Style="{StaticResource LwSegmentTrack}">
+                            <Grid x:Name="WatchedGroup" AutomationProperties.AutomationId="WatchedFilter">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <RadioButton x:Name="WatchedAll" Style="{StaticResource LwSegment}" GroupName="Watched"
+                                             AutomationProperties.AutomationId="WatchedAll" Checked="OnWatchedChanged" />
+                                <RadioButton x:Name="WatchedUnplayed" Grid.Column="1" Style="{StaticResource LwSegment}" GroupName="Watched"
+                                             AutomationProperties.AutomationId="WatchedUnplayed" Checked="OnWatchedChanged" />
+                                <RadioButton x:Name="WatchedPlayed" Grid.Column="2" Style="{StaticResource LwSegment}" GroupName="Watched"
+                                             AutomationProperties.AutomationId="WatchedPlayed" Checked="OnWatchedChanged" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Minimum rating -->
+                    <StackPanel Spacing="8">
+                        <Grid>
+                            <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.MinimumRating}" />
+                            <TextBlock x:Name="RatingValue" Style="{StaticResource LwFilterLabel}" FontWeight="Normal" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="RatingSlider" Minimum="0" Maximum="10" StepFrequency="0.5" SmallChange="0.5" LargeChange="1"
+                                Margin="6,-6,6,-6" IsThumbToolTipEnabled="False" AutomationProperties.AutomationId="RatingSlider"
+                                AutomationProperties.Name="{loc:Text Key=AdvancedSearch.MinimumRating}" ValueChanged="OnRatingChanged" />
+                    </StackPanel>
+
+                    <!-- Sort -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource LwFilterLabel}" Text="{loc:Text Key=AdvancedSearch.Sort}" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="SortButton" Style="{StaticResource LwButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                    Padding="10,0,8,0" Click="OnSortClick" AutomationProperties.AutomationId="SortButton"
+                                    AutomationProperties.Name="{loc:Text Key=AdvancedSearch.Sort}">
+                                <Grid>
+                                    <TextBlock x:Name="SortLabel" FontSize="13" VerticalAlignment="Center" />
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="16" Foreground="{StaticResource LwText2Brush}"
+                                              HorizontalAlignment="Right" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                                </Grid>
+                            </Button>
+                            <Border Grid.Column="1" Style="{StaticResource LwSegmentTrack}">
+                                <StackPanel Orientation="Horizontal" AutomationProperties.AutomationId="SortOrder">
+                                    <RadioButton x:Name="OrderAscending" Style="{StaticResource LwSegmentPlain}" Width="30" GroupName="SortOrder"
+                                                 AutomationProperties.AutomationId="SortAscending" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.Ascending}"
+                                                 ToolTipService.ToolTip="{loc:Text Key=AdvancedSearch.Ascending}" Checked="OnOrderChanged">
+                                        <FontIcon Style="{StaticResource LwIcon}" FontSize="16" Glyph="{x:Bind t:Icons.ArrowUpward}" />
+                                    </RadioButton>
+                                    <RadioButton x:Name="OrderDescending" Style="{StaticResource LwSegmentPlain}" Width="30" GroupName="SortOrder"
+                                                 AutomationProperties.AutomationId="SortDescending" AutomationProperties.Name="{loc:Text Key=AdvancedSearch.Descending}"
+                                                 ToolTipService.ToolTip="{loc:Text Key=AdvancedSearch.Descending}" Checked="OnOrderChanged">
+                                        <FontIcon Style="{StaticResource LwIcon}" FontSize="16" Glyph="{x:Bind t:Icons.ArrowDownward}" />
+                                    </RadioButton>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

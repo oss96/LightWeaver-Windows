@@ -11,8 +11,17 @@ const initialText = {
   Save: 'Save changes', Reload: 'Reload', Reloading: 'Reloading…',
   AddColumn: 'Add column', Clean: 'No unsaved changes',
   Unreadable: 'The editor returned an unreadable response ({0}). Your unsaved edits are kept.',
-  RequestFailed: 'Request failed ({0}). Your unsaved edits are kept.'
+  RequestFailed: 'Request failed ({0}). Your unsaved edits are kept.',
+  SessionRequired: 'This browser has no editor session. Open the session link the translation editor printed when it started.'
 };
+const sessionStorageKey = 'translation-editor-session';
+let session = new URLSearchParams(location.hash.slice(1)).get('session');
+if (session) {
+  try { localStorage.setItem(sessionStorageKey, session); } catch { /* Storage may be disabled; the page keeps it in memory. */ }
+  history.replaceState(null, '', location.pathname + location.search);
+} else {
+  try { session = localStorage.getItem(sessionStorageKey); } catch { /* Storage may be disabled. */ }
+}
 function t(key, ...args) {
   const entry = state.workspace?.catalog.strings[key];
   const pack = state.workspace?.locales.find(item => item.code === interfaceLanguage);
@@ -32,7 +41,10 @@ function number(value) { return value.toLocaleString(interfaceLanguage); }
 
 
 async function api(path, method = 'GET', data) {
-  const response = await fetch(path, { method, headers: method === 'GET' ? {} : { 'Content-Type': 'application/json', 'X-Translation-Editor': '1' }, body: data === undefined ? undefined : JSON.stringify(data) });
+  const headers = { 'X-Translation-Editor-Session': session ?? '' };
+  if (method !== 'GET') Object.assign(headers, { 'Content-Type': 'application/json', 'X-Translation-Editor': '1' });
+  const response = await fetch(path, { method, headers, body: data === undefined ? undefined : JSON.stringify(data) });
+  if (response.status === 401) throw new Error(t('TranslationEditor.SessionRequired'));
   let result;
   try { result = await response.json(); } catch { throw new Error(t('TranslationEditor.Unreadable', response.status)); }
   if (!response.ok) throw new Error(t('TranslationEditor.RequestFailed', response.status) + (result.error ? ` ${result.error}` : ''));

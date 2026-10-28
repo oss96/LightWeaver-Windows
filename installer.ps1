@@ -6,10 +6,10 @@ $root = $PSScriptRoot
 # 1) publish (also produces the portable zip)
 & (Join-Path $root 'publish.ps1')
 
-# 2) version from the csproj
-$csproj = Join-Path $root 'src\LightWeaver\LightWeaver.csproj'
-$version = (Select-String -Path $csproj -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
-if (-not $version) { Write-Error 'No <Version> found in LightWeaver.csproj' }
+# 2) version from Directory.Build.props
+$props = Join-Path $root 'Directory.Build.props'
+$version = (Select-String -Path $props -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
+if (-not $version) { Write-Error 'No <Version> found in Directory.Build.props' }
 
 # 3) compile the installer
 $iscc = @(

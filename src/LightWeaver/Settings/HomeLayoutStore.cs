@@ -28,6 +28,13 @@ public static class HomeLayoutStore
         Converters = { new JsonStringEnumConverter() },   // readable ids, reorder-diffable file
     };
 
+    /// <summary>The per-profile key. It is a persisted key component in TWO places: this file's
+    /// dictionary, and — as <see cref="ViewModels.AppViewModel.SessionKey"/> /
+    /// <c>ActiveSessionKey</c> — every browse cache key (<c>browse:{profile}:…</c>, including
+    /// <see cref="Jellyfin.BrowseFolderCache.Key"/> and its profile index). The server URL is
+    /// used exactly as stored, so changing how a URL is normalised (trailing slash, scheme,
+    /// case, port) silently misses every saved layout and every cached folder: no error, just
+    /// cold caches and a reset Home.</summary>
     public static string ProfileKey(Guid userId, string? serverUrl) => $"{userId:N}@{serverUrl}";
 
     /// <summary>The saved layout for the profile, reconciled (port of Velly's

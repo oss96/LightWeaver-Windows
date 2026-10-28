@@ -1,0 +1,521 @@
+<!doctype html>
+<!--
+  Proposal: Advanced Search live updates (designer skill, 2026-10-20).
+  System declared up front, all values from src/LightWeaver.WinUI/Theme/Tokens.xaml and design 05/14:
+  - Canvas: the handoff's presentation style (#e7e5e1 canvas, system-ui notes, orange numbered pins).
+  - Frames: Windows 11 window 1120 x 700, LwWindowBrush #202020, content layer rgba(58,58,58,.30),
+    Segoe UI Variable Text, Segoe Fluent Icons. Type 22/700 title, 13 count, 12 status, 13/11.5 cards.
+  - Accent: LwAccentBrush #B83A52 fills, LwAccentFgBrush #F08C9C indicators, LwAccentSoftBrush tokens.
+  - Motion notes stay inside the design's rules: <= 80 ms hover, <= 200 ms everything else.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advanced search: live updates. Proposal 2026-10-20</title>
+<style>
+  :root {
+    --win: #202020; --layer: rgba(58,58,58,.30); --layer-top: rgba(255,255,255,.06);
+    --text: #fff; --text2: rgba(255,255,255,.786); --text3: rgba(255,255,255,.544);
+    --sep: rgba(255,255,255,.0837); --panel: rgba(255,255,255,.02);
+    --btn: rgba(255,255,255,.0605); --btn-hover: rgba(255,255,255,.0837); --btn-border: rgba(255,255,255,.0698);
+    --field-bottom: rgba(255,255,255,.5442); --glass: rgba(255,255,255,.031);
+    --accent: #B83A52; --accent-fg: #F08C9C; --accent-soft: rgba(184,58,82,.26);
+    --popup: rgba(44,44,44,.97); --popup-border: rgba(255,255,255,.09);
+    --ok: #6CCB5F; --off: rgba(255,255,255,.30); --error: #FF99A4; --warn-bg: #433519; --warn-icon: #FCE100;
+    --placeholder: #2a2a2a;
+    --ph: repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 6px, rgba(255,255,255,.015) 6px 12px), #2a2a2a;
+    --ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --icons: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+    --mono: "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  .doc { padding: 56px 64px 96px; display: flex; flex-direction: column; gap: 56px; min-width: 1200px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; margin: 8px 0 0; }
+  .lede { font-size: 15px; color: #444; max-width: 860px; line-height: 1.55; margin: 12px 0 0; text-wrap: pretty; }
+  .lede q { font-style: italic; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1480px; }
+  .box { padding: 16px 18px; border-radius: 10px; background: #f4f3f0; border: 1px solid rgba(0,0,0,.07); font-size: 13.5px; line-height: 1.5; color: #333; }
+  .box h3 { margin: 0 0 8px; font-size: 14px; color: #1a1a1a; }
+  .box ul { margin: 0; padding-left: 18px; }
+  .box li { margin: 3px 0; }
+  .box code, .note code, td code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  section.option { display: flex; flex-direction: column; gap: 18px; }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .badge { font: 600 11px ui-monospace, Menlo, monospace; padding: 3px 7px; background: #1a1a1a; color: #fff; border-radius: 4px; }
+  .opt-title { font-size: 24px; font-weight: 650; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  .why { font-size: 14.5px; color: #444; max-width: 980px; line-height: 1.55; margin: 0; text-wrap: pretty; }
+  .row { display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-label { font: 500 12px ui-monospace, Menlo, monospace; color: #666; margin-bottom: 10px; }
+  .notes { width: 330px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 30px; }
+  .note { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: #2b2b2b; text-wrap: pretty; }
+  .pin { flex: none; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: #FF8A1F; color: #000; font: 700 11px/20px system-ui, sans-serif; text-align: center; }
+  .states { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 14px 24px; max-width: 1480px; }
+  .state-cap { font: 500 12px ui-monospace, Menlo, monospace; color: #555; margin: 0 0 6px; }
+  .state-cap b { color: #1a1a1a; font-weight: 600; }
+  .state-sub { font-size: 12.5px; color: #555; margin: 6px 0 0; line-height: 1.45; text-wrap: pretty; }
+  .cost { border-collapse: collapse; font-size: 13px; line-height: 1.45; background: #f8f7f5; border: 1px solid rgba(0,0,0,.1); border-radius: 10px; overflow: hidden; max-width: 1480px; }
+  .cost th { background: #1a1a1a; color: #fff; text-align: left; font-weight: 600; padding: 10px 14px; font-size: 12.5px; }
+  .cost td { padding: 9px 14px; border-top: 1px solid rgba(0,0,0,.07); vertical-align: top; color: #333; }
+  .cost td:first-child { font-weight: 600; color: #1a1a1a; width: 210px; }
+  .rec { padding: 20px 22px; border-radius: 10px; background: #fff; border: 1px solid rgba(138,28,48,.35); max-width: 1100px; font-size: 15px; line-height: 1.55; }
+  .rec h2 { margin: 0 0 8px; font-size: 20px; }
+
+  /* ---------- Windows frames (tokens from Tokens.xaml / lw.js win) ---------- */
+  .win { position: relative; width: 1120px; height: 700px; border-radius: 8px; background: var(--win); border: 1px solid rgba(255,255,255,.10);
+         box-shadow: 0 32px 64px rgba(0,0,0,.37), 0 2px 21px rgba(0,0,0,.37); overflow: hidden; font-family: var(--ui); color: var(--text); flex: none; }
+  .ic { font-family: var(--icons); font-weight: normal; line-height: 1; font-style: normal; display: inline-block; }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 56px; display: flex; align-items: center; gap: 10px; padding-left: 8px; }
+  .hist { display: flex; gap: 2px; padding: 0 3px; }
+  .sbtn { width: 36px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .group { height: 46px; padding: 2px; border-radius: 8px; background: var(--glass); border: 1px solid var(--btn-border); display: flex; gap: 2px; }
+  .gitem { width: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; color: var(--text2); border-radius: 6px; }
+  .gitem .ic { font-size: 16px; color: var(--text); }
+  .gitem.sel { background: var(--btn-hover); }
+  .search { flex: 1; max-width: 560px; margin: 0 auto; height: 34px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); border-bottom-color: var(--field-bottom);
+            display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; font-size: 13px; color: var(--text3); }
+  .search .grow { flex: 1; }
+  .fbtn { width: 28px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--text); }
+  .fbtn.on { background: var(--accent-soft); }
+  .avatar { width: 32px; height: 32px; border-radius: 16px; background: #6B4D57; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .caption { width: 138px; display: flex; height: 100%; }
+  .caption span { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  .layer { position: absolute; left: 0; right: 0; bottom: 0; top: 56px; background: var(--layer); border-top: 1px solid var(--layer-top); display: flex; overflow: hidden; }
+  .panel { width: 300px; flex: none; border-right: 1px solid var(--sep); background: var(--panel); padding: 16px 18px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+  .ph { display: flex; align-items: center; gap: 8px; }
+  .ph .t { font-size: 15px; font-weight: 600; flex: 1; }
+  .reset { height: 26px; padding: 0 10px; display: flex; align-items: center; font-size: 12.5px; color: var(--accent-fg); }
+  .flabel { font-size: 12px; font-weight: 600; color: var(--text2); display: flex; justify-content: space-between; }
+  .flabel span:last-child { font-weight: 400; }
+  .fgroup { display: flex; flex-direction: column; gap: 8px; }
+  .types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; font-size: 13px; }
+  .cb { display: flex; align-items: center; gap: 8px; }
+  .cb i { width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.1); display: flex; align-items: center; justify-content: center; font-size: 12px; color: #000; font-style: normal; }
+  .cb i.on { background: var(--accent-fg); border-color: transparent; }
+  .tokfield { min-height: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); border-bottom-color: var(--field-bottom); }
+  .gtok { height: 22px; display: flex; align-items: center; gap: 4px; padding: 0 5px 0 8px; border-radius: 4px; background: var(--accent-soft); font-size: 12px; }
+  .gtok .ic { font-size: 9px; color: var(--text2); }
+  .addg { font-size: 12.5px; color: var(--text3); padding: 0 6px; }
+  .slider { position: relative; height: 20px; margin: 0 6px; }
+  .slider .track { position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--field-bottom); }
+  .slider .fill { position: absolute; top: 8px; height: 4px; background: var(--accent-fg); }
+  .slider .knob { position: absolute; top: 0; margin-left: -10px; width: 20px; height: 20px; border-radius: 10px; background: #454545; border: 1px solid rgba(255,255,255,.09); display: flex; align-items: center; justify-content: center; }
+  .slider .knob::after { content: ""; width: 12px; height: 12px; border-radius: 6px; background: var(--accent-fg); }
+  .years { display: flex; align-items: center; gap: 8px; }
+  .field { flex: 1; height: 32px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); border-bottom-color: var(--field-bottom); font-size: 13px; }
+  .seg { display: flex; padding: 2px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); }
+  .seg div { flex: 1; position: relative; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 12.5px; font-weight: 500; color: var(--text2); }
+  .seg div.sel { background: var(--btn-hover); color: var(--text); }
+  .seg div.sel::after { content: ""; position: absolute; bottom: 1px; left: 50%; margin-left: -8px; width: 16px; height: 3px; border-radius: 2px; background: var(--accent-fg); }
+  .sortrow { display: flex; gap: 8px; }
+  .btn { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); font-size: 13px; color: var(--text); white-space: nowrap; }
+  .btn.grow { flex: 1; justify-content: space-between; padding: 0 8px 0 10px; }
+  .btn .ic { font-size: 14px; color: var(--text2); }
+  .seg.order div { width: 30px; flex: none; }
+  .seg.order div .ic { font-size: 14px; }
+
+  .results { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+  .rhead { display: flex; align-items: center; gap: 10px; padding: 16px 24px 14px; min-height: 60px; }
+  .rhead .title { font-size: 22px; font-weight: 700; }
+  .rhead .count { font-size: 13px; color: var(--text2); }
+  .rhead .spacer { flex: 1; }
+  .tokens { display: flex; gap: 6px; padding: 0 24px 16px; flex-wrap: wrap; }
+  .tok { height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; border-radius: 12px; background: var(--btn); border: 1px solid var(--btn-border); font-size: 12px; }
+  .tok .ic { font-size: 9px; color: var(--text2); }
+  .gridwrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  .cards { position: absolute; inset: 0 24px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px 14px; align-content: start; }
+  .card { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .art { position: relative; aspect-ratio: 2 / 3; border-radius: 8px; background: var(--ph); overflow: hidden; }
+  .art .lbl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 500 9.5px/1 var(--mono); color: var(--text3); letter-spacing: .06em; text-transform: uppercase; }
+  .art .check { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 10px; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .art .prog { position: absolute; left: 8px; right: 8px; bottom: 7px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); overflow: hidden; }
+  .art .prog b { display: block; height: 100%; background: var(--accent-fg); }
+  .art .ring { position: absolute; inset: 0; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--accent-fg); }
+  .card.leaving .art > :not(.check) { opacity: .4; }
+  .card.leaving .art { background: repeating-linear-gradient(135deg, rgba(255,255,255,.016) 0 6px, rgba(255,255,255,.006) 6px 12px), #242424; }
+  .card.leaving .ttl { color: var(--text3); }
+  .cap { display: flex; flex-direction: column; gap: 2px; padding: 0 2px; min-width: 0; }
+  .ttl { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+  .ttl .dot { flex: none; width: 6px; height: 6px; border-radius: 3px; background: var(--accent-fg); }
+  .sub { font-size: 11.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub.reason { color: var(--text3); }
+
+  /* status line pieces (12 px, text3, like the existing Updating indicator) */
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3); white-space: nowrap; }
+  .status .led { width: 6px; height: 6px; border-radius: 3px; background: var(--ok); }
+  .status .led.off { background: var(--off); }
+  .status .spin { width: 11px; height: 11px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent-fg); border-right-color: var(--accent-fg); }
+  .status.news { color: var(--text2); }
+  .status.err { color: var(--error); }
+  .status .link { color: var(--accent-fg); }
+  .status .ic { font-size: 12px; }
+  .rbtn { width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--text); }
+  .rbtn.hover { background: var(--btn-hover); }
+  .tip { position: absolute; padding: 6px 9px; border-radius: 4px; background: var(--popup); border: 1px solid var(--popup-border); box-shadow: 0 8px 16px rgba(0,0,0,.26); font-size: 12px; color: var(--text); white-space: nowrap; z-index: 5; }
+  .tip .k { color: var(--text3); margin-left: 8px; }
+
+  /* B: held-changes pill (toast surface, stadium like the filter tokens) */
+  .pill { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); height: 32px; padding: 0 6px 0 14px; border-radius: 16px; background: var(--popup); border: 1px solid var(--popup-border);
+          box-shadow: 0 8px 16px rgba(0,0,0,.26); display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text); z-index: 4; white-space: nowrap; }
+  .pill .ic { font-size: 13px; color: var(--accent-fg); }
+  .pill .act { height: 24px; padding: 0 10px; border-radius: 12px; background: var(--btn-hover); display: flex; align-items: center; color: var(--accent-fg); font-weight: 600; }
+  .pill .sep { width: 1px; height: 14px; background: var(--sep); }
+
+  /* C: sync split button */
+  .split { display: flex; height: 32px; border-radius: 4px; background: var(--btn); border: 1px solid var(--btn-border); font-size: 12.5px; color: var(--text); }
+  .split .main { display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+  .split .more { width: 28px; display: flex; align-items: center; justify-content: center; border-left: 1px solid var(--btn-border); font-size: 10px; color: var(--text2); }
+  .split .led { width: 6px; height: 6px; border-radius: 3px; background: var(--ok); }
+  .split .ic { font-size: 13px; }
+  .split .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent-fg); border-right-color: var(--accent-fg); }
+  .split.warn { background: var(--warn-bg); border-color: rgba(0,0,0,.1); }
+  .split.warn .ic { color: var(--warn-icon); }
+  .split.warn .more { border-left-color: rgba(255,255,255,.08); }
+  .split .muted { color: var(--text2); }
+  .split .accent { color: var(--accent-fg); font-weight: 600; }
+  .cring { position: relative; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+  .cring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .cring .ic { font-size: 9px; }
+  .flyout { position: absolute; width: 330px; padding: 4px; border-radius: 8px; background: var(--popup); border: 1px solid var(--popup-border); box-shadow: 0 8px 16px rgba(0,0,0,.26); z-index: 6; font-size: 13px; }
+  .flyout .fh { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 6px; font-size: 12px; font-weight: 600; color: var(--text3); }
+  .flyout .fi { display: grid; grid-template-columns: 40px 1fr; gap: 8px; padding: 7px 10px; border-radius: 4px; line-height: 1.35; }
+  .flyout .fi .tm { font: 12px var(--mono); color: var(--text3); padding-top: 1px; }
+  .flyout .fi .w { color: var(--text2); font-size: 12px; }
+  .flyout .fsep { height: 1px; margin: 4px; background: var(--sep); }
+  .flyout .fa { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px; border-radius: 4px; }
+  .flyout .fa.hi { background: var(--btn); }
+  .flyout .fa .ic { font-size: 14px; }
+  .flyout .fa .k { margin-left: auto; color: var(--text3); font-size: 12px; }
+
+  /* header-only crops for the state strips */
+  .crop { width: 100%; max-width: 820px; border-radius: 8px; background: var(--win); overflow: hidden; font-family: var(--ui); color: var(--text); border: 1px solid rgba(255,255,255,.10); position: relative; }
+  .crop .inner { background: var(--layer); }
+  .crop.tall { height: 150px; }
+  .zoom { display: flex; gap: 24px; flex-wrap: wrap; }
+  .cardzoom { width: 497px; padding: 18px 20px 20px; border-radius: 8px; background: var(--win); border: 1px solid rgba(255,255,255,.10); font-family: var(--ui); color: var(--text); position: relative; }
+  .cardzoom .cards { position: static; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px 14px; }
+</style>
+</head>
+<body>
+<main class="doc">
+
+  <header>
+    <div class="crumb">LightWeaver v2 (WinUI 3) · design/proposals · 2026-10-20 · screen 05 Advanced search</div>
+    <h1>Advanced search: live updates</h1>
+    <p class="lede">The owner asked: <q>What is the cost of adding a live update with a reasonable interval, not every second? Maybe even indicate if an update happens. Maybe even the timer for the next update with a manual refresh.</q> Today the page queries on first show and after a failure only; going Back keeps the old grid, so a title marked watched on the TV still shows as unplayed until a filter or the text changes.</p>
+    <p class="lede">Three ways the page could show it, from staying inside the system (A) to stretching it (C). All three sit on the same plumbing, described first, because the cost question is mostly answered there: the app already holds Jellyfin's session WebSocket, so most changes arrive by push and polling is only the fallback.</p>
+  </header>
+
+  <div class="grid2">
+    <div class="box">
+      <h3>Reference used for the current screen</h3>
+      <ul>
+        <li>No live screenshot. The host must not run the app and VM screenshots cannot be retrieved yet. No owner screenshot of Advanced Search exists in the T3 attachments.</li>
+        <li>The "Now" frame is rebuilt from <code>src/LightWeaver.WinUI/Search/AdvancedSearchPage.xaml</code> and <code>.xaml.cs</code>, <code>Controls/MediaCard.xaml</code>, <code>Shell/TopBar.xaml</code> and the values in <code>Theme/Tokens.xaml</code>, laid out as in design <code>05 Advanced Search.dc.html</code> 5a (the handoff the code implements).</li>
+        <li>For the top bar and the cards, I cross-checked the owner's real v2 screenshots of the detail page from 2026-10-19 in the attachments.</li>
+        <li>Poster art is the handoff's placeholder pattern, as in design 05; in the app these are real posters.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Shared plumbing (whichever option is picked)</h3>
+      <ul>
+        <li><b>Push first.</b> <code>UserDataChanged</code> carries Played, IsFavorite, position and percentage per item, so a matching card is updated in place with zero requests. One re-query only when the change can move the item in or out of the results (the Watched filter is set, or the sort uses play data). <code>LibraryChanged</code> triggers one re-query per burst, debounced 3 s (a library scan sends many).</li>
+        <li><b>Only while seen.</b> The page works only while it is the current page and the window is not minimized. Otherwise it sets a dirty flag, and on <code>OnShown</code> (Back) it re-queries once if dirty or older than 60 s.</li>
+        <li><b>Fallback poll.</b> If the socket is down but the server answers, the page re-queries every 60 s, but only while it is visible and the window has focus. A reconnect triggers one catch-up query and stops the timer.</li>
+        <li><b>Server unreachable</b> is already handled by the shell: <code>ServerUnreachableView</code> replaces the page, probes every 15 s with its own countdown, and <code>Reload()</code> re-queries when the server is back. The page draws nothing new for that case.</li>
+        <li><b>No flicker.</b> Replace <code>Items.Clear()</code> + re-add in <code>AdvancedSearchModel.RunAsync</code> with a keyed diff (insert, remove, move, replace). An unchanged card keeps its decoded art (the <code>keepPicture</code> path in <code>MediaCard.Item</code>), and ScrollViewer anchoring keeps the first visible card fixed. Background updates never dim the grid. The 0.6 dim stays reserved for the user's own filter changes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===================== NOW ===================== -->
+  <section class="option">
+    <div class="opt-head"><span class="badge">Now</span><span class="opt-title">Current page, reconstructed</span></div>
+    <div class="row">
+      <div><div class="frame-label">Windows 11 · 1120×700 · docked filters · after Back</div><div id="f-now"></div></div>
+      <div class="notes">
+        <div class="note"><span class="pin">1</span><span>“Glass Season” was marked watched on another device three minutes ago. The Watched filter says Unplayed, yet the card is still here, with no check.</span></div>
+        <div class="note"><span class="pin">2</span><span>The header says nothing about freshness. The only status is “Updating”, and it appears only while a filter change is in flight.</span></div>
+        <div class="note"><span class="pin">3</span><span>No way to refresh except changing a filter and changing it back.</span></div>
+        <div class="note"><span class="pin">i</span><span>If it did re-query today, <code>Items.Clear()</code> would recycle every card: the art would go blank and decode again from the memory cache, so a minute-by-minute refresh would flash the whole grid.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== A ===================== -->
+  <section class="option">
+    <div class="opt-head"><span class="badge">A</span><span class="opt-title">Status line and refresh button</span><span class="impact">Within the system</span></div>
+    <p class="why"><b>What changes:</b> the header gets a quiet status after the count (“Live”, a short summary when something lands, or “Checked 1 min ago” when polling) and a Refresh button at the trailing end. Cards change in place and need no extra marking: the watched check or progress bar appearing <i>is</i> the indicator. <b>Why:</b> it answers “is this current?” where the eye already reads the count, and costs almost nothing. <b>System impact:</b> none new. The status dot reuses the 7 px <code>LwOkBrush</code>/<code>LwOffBrush</code> dot from the profile menu's server status (6 px here). Status text uses the existing Updating indicator's type (12, <code>LwText3Brush</code>), and the button is <code>LwSubtleButton</code> with <code>Icons.Refresh</code>.</p>
+    <div class="row">
+      <div><div class="frame-label">Update just landed · Live · pointer on Refresh</div><div id="f-a"></div></div>
+      <div class="notes">
+        <div class="note"><span class="pin">1</span><span>For 4 s after an update lands, the status reads what happened, in <code>LwText2Brush</code>: “2 added · 1 no longer matches”. Then it settles back to “● Live”. The count updates with it (84 → 85).</span></div>
+        <div class="note"><span class="pin">2</span><span>Refresh (F5) re-queries now and keeps the grid. While the request runs, the status shows the existing ring and “Updating”; the grid does not dim.</span></div>
+        <div class="note"><span class="pin">3</span><span>Changed cards update in place: Kestrel gets the progress bar it now has on the server, and new titles take their sorted place with a 120 ms fade.</span></div>
+        <div class="note"><span class="pin">!</span><span>The trade-off: a removed card closes its gap at once, so cards after it shift one place. Anchoring holds the viewport only for changes above it.</span></div>
+      </div>
+    </div>
+    <div class="states" id="s-a"></div>
+  </section>
+
+  <!-- ===================== B ===================== -->
+  <section class="option">
+    <div class="opt-head"><span class="badge">B</span><span class="opt-title">Held changes: in place now, reflow on request</span><span class="impact">New component variant · new rule</span></div>
+    <p class="why"><b>What changes:</b> A's header, plus a split by kind. Changes that keep a card in place (watched check, progress, favourite) apply at once, and the card gets a brief 1 px accent ring. Changes that would move the grid (titles joining, leaving, re-sorting) wait while you are browsing. A floating pill counts them (“2 new · 1 leaving · Show”), and a leaving card stays in place, dimmed, with the reason under its title. At the top of the list, with the pointer off the grid, changes apply at once with no pill. <b>Why:</b> a live grid must never move under the pointer. This keeps the page honest about what changed without shifting what you are about to click. <b>System impact:</b> a new variant, the floating action pill. It uses the toast surface (<code>LwPopupBrush</code>, <code>LwPopupBorderBrush</code>, flyout shadow) in the 32 px stadium shape of the filter tokens, and sits top centre so it never meets the bottom-centre toasts. Two new card states: <i>changed</i> (1 px <code>LwAccentFgBrush</code> ring, the existing CurrentRing at 1 px, 1.5 s then a 200 ms fade) and <i>leaving</i> (art at 40 %). New rule: <i>live updates never reflow a grid the user is browsing.</i></p>
+    <div class="row">
+      <div><div class="frame-label">Scrolled a little · 3 changes held · Kestrel just changed in place</div><div id="f-b"></div></div>
+      <div class="notes">
+        <div class="note"><span class="pin">1</span><span>The pill: 32 px, toast surface, accent-fg arrow and “Show” action. Clicking it applies the diff in one 120 ms fade and keeps the first visible card anchored. Esc or any filter change also applies it.</span></div>
+        <div class="note"><span class="pin">2</span><span>A leaving card stays where it is: art at 40 %, the watched check it now has, and the reason in <code>LwText3Brush</code>. It is still clickable.</span></div>
+        <div class="note"><span class="pin">3</span><span>An in-place change gets a 1 px accent ring for 1.5 s. It is the only per-card highlight, and nothing glows.</span></div>
+        <div class="note"><span class="pin">4</span><span>The count stays at what is on screen (84) until the held changes apply; the pill carries the difference.</span></div>
+      </div>
+    </div>
+    <div class="states" id="s-b"></div>
+    <div class="zoom" id="z-b"></div>
+  </section>
+
+  <!-- ===================== C ===================== -->
+  <section class="option">
+    <div class="opt-head"><span class="badge">C</span><span class="opt-title">Sync control with history and a fallback countdown</span><span class="impact">New component · rule change</span></div>
+    <p class="why"><b>What changes:</b> status and refresh merge into one stock <code>SplitButton</code> at the trailing end of the header. The main part refreshes; the chevron opens a short history of what changed (“14:32 · Glass Season marked watched · no longer matches”). Changed and new cards carry a 6 px accent dot before the title until hovered or until you leave the page. When the socket is down, the button shows a determinate <code>ProgressRing</code> that drains to the next check, labelled “Next check in 42 s”, the phrasing of the offline banner in design 14a. <b>Why:</b> this is the owner's “timer for the next update with a manual refresh”, shown only where a next update exists. In live mode nothing is scheduled; the next update comes whenever the server pushes one, so a countdown there would be made up. <b>System impact:</b> a new component (the sync control) from stock parts (SplitButton, ProgressRing, MenuFlyout surface), and a new card mark (title dot). Rule change: a visible 1 Hz countdown outside the offline banner, and an accent dot in the caption, which the system has kept to the art so far.</p>
+    <div class="row">
+      <div><div class="frame-label">Live · history open · three cards marked</div><div id="f-c"></div></div>
+      <div class="notes">
+        <div class="note"><span class="pin">1</span><span>SplitButton, 32 px, <code>LwButton</code> chrome. Main part: status dot, state text and the Refresh glyph. Chevron: the history flyout (last 6 events this session, newest first).</span></div>
+        <div class="note"><span class="pin">2</span><span>The history names titles. It is the only place that can still show what left the results after the grid has moved on.</span></div>
+        <div class="note"><span class="pin">3</span><span>Title dot, 6 px <code>LwAccentFgBrush</code>, on new or changed cards; it clears on hover. The art stays untouched, so the dot cannot collide with the watched or offline badges.</span></div>
+        <div class="note"><span class="pin">!</span><span>The fallback countdown updates once a second. That cost is tiny, but it keeps the UI thread waking every second, and on a low-end laptop on battery that is the one recurring cost on this page.</span></div>
+      </div>
+    </div>
+    <div class="states" id="s-c"></div>
+  </section>
+
+  <!-- ===================== COST ===================== -->
+  <section class="option">
+    <div class="opt-head"><span class="badge">Cost</span><span class="opt-title">Runtime and implementation cost</span></div>
+    <table class="cost">
+      <tr><th></th><th>Shared plumbing</th><th>A · Status line</th><th>B · Held changes</th><th>C · Sync control</th></tr>
+      <tr><td>Requests, socket up</td><td>0 on a timer. 0 per watched/favourite/progress change that keeps the card in the results. 1 re-query per change that can move an item in or out, and 1 per library-change burst (3 s debounce). 0 while the page is hidden; at most 1 when it is shown again.</td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Requests, socket down</td><td>At most 1 per 60 s while the page is visible and focused (≤ 60/h; 0 when minimized, unfocused or on another page). Server unreachable: the shell's existing 15 s probe, nothing extra.</td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Size of one re-query</td><td>Start 0, limit = loaded count rounded up to a page (60), capped at 300. Estimate: 1–2 KB of JSON per item, so 60–120 KB for 60 items before compression. Not measured.</td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>CPU per update</td><td>Keyed diff of ≤ 300 items: well under 1 ms. JSON parse of a 60-item page: a few ms on a low-end CPU (estimate). 0 image decodes for unchanged cards; today's clear-and-refill re-realizes every visible card.</td><td>+ one text update</td><td>+ held diff kept in memory; ring timer per changed card</td><td>+ history list (≤ 6 entries); dot state per card</td></tr>
+      <tr><td>Timers</td><td>60 s poll only in fallback</td><td>Relative “Checked 1 min ago” label: 1 tick per 60 s, fallback only</td><td>As A</td><td>1 Hz countdown in fallback while visible and focused</td></tr>
+      <tr><td>Work (rough)</td><td>About 1.5–2 days: <code>Disconnected</code> event on <code>LiveSessionService</code> (only <code>Connected</code> exists), page subscriptions (the WinUI shell does not route <code>UserDataChanged</code> yet), <code>INavPage.OnShown</code>/<code>Reload</code> on the page, diff in <code>AdvancedSearchModel</code>, unit tests in SearchModel.Tests, guest-suite checks.</td><td>+0.5 day · ~5 strings · F5 accelerator (check focus from the search field and the panel)</td><td>+1.5 days · ~7 strings · pending-diff state in the model, card leaving/changed states, pill</td><td>+2 days · ~10 strings · SplitButton, ProgressRing timer, history flyout, title dot</td></tr>
+      <tr><td>System impact</td><td>None (behaviour only)</td><td>Within the system</td><td>New variant: floating action pill; new card states; new rule</td><td>New component; new card mark; rule change (countdown, caption dot)</td></tr>
+    </table>
+  </section>
+
+  <div class="rec">
+    <h2>Recommendation: B</h2>
+    B is A plus the one thing A cannot do: it keeps the grid still while you browse. Push makes the cost near zero in all three, so the real choice is how the page moves. With the Watched filter set (the likely case for “what's left to watch?”), every title marked watched elsewhere leaves the results. In A that pulls cards out from under the pointer; in B it waits for a click. A countdown belongs only to fallback polling, and B (like A) states “Checked 1 min ago” there instead. If the owner wants the visible timer anyway, C's determinate ring can be added to B's Refresh button for fallback mode only. A is a sound first step if B's extra day is not worth it yet: B adds to A without changing anything A shipped.
+  </div>
+</main>
+
+<script>
+(function () {
+  const G = {
+    back: "", fwd: "", home: "", lib: "", pl: "", dl: "", groups: "", settings: "",
+    search: "", tune: "", close: "", check: "", expand: "", up: "", down: "",
+    refresh: "", warn: "", error: "", arrowUp: "", min: "", max: "", x: "", clock: ""
+  };
+  const ic = (g, extra) => `<span class="ic"${extra ? ' style="' + extra + '"' : ''}>${g}</span>`;
+
+  const base = [
+    ["The Ninth Hour", 2011, 7.6], ["Copper Coast", 2009, 7.3], ["Iron Orchard", 2009, 7.0], ["Midnight Ferry", 2007, 7.9],
+    ["Static Bloom", 2004, 7.2], ["Salt & Cedar", 2004, 7.6], ["Kestrel", 2001, 7.8], ["Glass Season", 1998, 7.3],
+    ["A Field of Bells", 1998, 7.6], ["Wren", 1996, 7.4], ["Low Tide", 1996, 7.3], ["Ember Road", 1995, 7.0],
+    ["The Cartographer", 1995, 7.1], ["Westerly", 1995, 7.2], ["Blue Hour", 1995, 7.5]
+  ].map(([t, y, r]) => ({ t, sub: y + " · ★ " + r.toFixed(1), y }));
+  const added = [{ t: "Harbor Lights", sub: "2010 · ★ 7.4", y: 2010, isNew: true }, { t: "Paper Moons", sub: "2005 · ★ 7.5", y: 2005, isNew: true }];
+
+  function cardsBefore() { return base.map(c => Object.assign({}, c)); }
+  function cardsAfter(opts) {
+    const list = base.filter(c => c.t !== "Glass Season").map(c => Object.assign({}, c));
+    for (const a of added) {
+      const i = list.findIndex(c => c.y < a.y);
+      list.splice(i, 0, Object.assign({}, a));
+    }
+    for (const c of list) {
+      if (c.t === "Kestrel") { c.progress = 0.35; c.changed = true; }
+      if (opts && opts.dots && (c.isNew || c.changed)) c.dot = true;
+    }
+    return list;
+  }
+  function cardsHeld() {
+    return base.map(c => {
+      const o = Object.assign({}, c);
+      if (o.t === "Glass Season") { o.leaving = true; o.watched = true; o.sub = "No longer matches"; o.why = true; }
+      if (o.t === "Kestrel") { o.progress = 0.35; o.ring = true; }
+      return o;
+    });
+  }
+
+  function card(c) {
+    return `<div class="card${c.leaving ? " leaving" : ""}">
+      <div class="art"><div class="lbl">poster</div>
+        ${c.watched ? `<div class="check">${ic(G.check)}</div>` : ""}
+        ${c.progress != null ? `<div class="prog"><b style="width:${Math.round(c.progress * 100)}%"></b></div>` : ""}
+        ${c.ring ? `<div class="ring"></div>` : ""}
+      </div>
+      <div class="cap"><div class="ttl">${c.dot ? '<span class="dot"></span>' : ""}<span style="overflow:hidden;text-overflow:ellipsis">${c.t.replace("&", "&amp;")}</span></div>
+      <div class="sub${c.why ? " reason" : ""}">${c.sub}</div></div>
+    </div>`;
+  }
+
+  function topBar() {
+    return `<div class="bar">
+      <div class="hist"><div class="sbtn">${ic(G.back)}</div><div class="sbtn" style="color:var(--text3)">${ic(G.fwd)}</div></div>
+      <div class="group" style="width:198px">
+        <div class="gitem">${ic(G.home)}Home</div><div class="gitem">${ic(G.lib)}Libraries</div><div class="gitem">${ic(G.pl)}Playlists</div>
+      </div>
+      <div class="search"><span class="grow">Search movies, shows, people</span><span class="fbtn on">${ic(G.tune)}</span><span class="fbtn">${ic(G.search)}</span></div>
+      <div class="group"><div class="gitem">${ic(G.dl)}Downloads</div><div class="gitem">${ic(G.groups)}SyncPlay</div><div class="gitem">${ic(G.settings)}Settings</div></div>
+      <div class="avatar">OS</div>
+      <div class="caption"><span>${ic(G.min)}</span><span>${ic(G.max)}</span><span>${ic(G.x)}</span></div>
+    </div>`;
+  }
+
+  function panel() {
+    return `<div class="panel">
+      <div class="ph"><div class="t">Filters</div><div class="reset">Reset</div><div class="fbtn" style="color:var(--text2)">${ic(G.close, "font-size:12px")}</div></div>
+      <div class="fgroup"><div class="flabel"><span>Type</span></div>
+        <div class="types"><div class="cb"><i class="on">${ic(G.check, "font-size:11px")}</i>Movies</div><div class="cb"><i class="on">${ic(G.check, "font-size:11px")}</i>Shows</div><div class="cb"><i></i>Episodes</div><div class="cb"><i></i>Collections</div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Genre</span></div>
+        <div class="tokfield"><div class="gtok">Drama${ic(G.close)}</div><div class="gtok">Thriller${ic(G.close)}</div><div class="addg">Add genre…</div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Person</span></div>
+        <div class="tokfield"><div class="addg">Add person…</div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Year</span><span>1995 – 2012</span></div>
+        <div class="slider"><div class="track"></div><div class="fill" style="left:58%;right:20%"></div><div class="knob" style="left:58%"></div><div class="knob" style="left:80%"></div></div>
+        <div class="years"><div class="field">1995</div><span style="color:var(--text3)">–</span><div class="field">2012</div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Watched</span></div>
+        <div class="seg"><div>All</div><div class="sel">Unplayed</div><div>Played</div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Minimum rating</span><span>★ 7.0</span></div>
+        <div class="slider"><div class="track"></div><div class="fill" style="left:0;width:70%;border-radius:2px"></div><div class="knob" style="left:70%"></div></div></div>
+      <div class="fgroup"><div class="flabel"><span>Sort</span></div>
+        <div class="sortrow"><div class="btn grow">Release date${ic(G.expand)}</div><div class="seg order"><div>${ic(G.up)}</div><div class="sel">${ic(G.down)}</div></div></div></div>
+    </div>`;
+  }
+
+  const tokenRow = () => `<div class="tokens">${["Movies, Shows", "Drama, Thriller", "1995–2012", "Unplayed", "★ 7.0+"].map(t => `<div class="tok">${t}${ic(G.close)}</div>`).join("")}</div>`;
+
+  function head(count, status, trailing) {
+    return `<div class="rhead"><div class="title">Advanced search</div><div class="count">${count}</div>${status || ""}<div class="spacer"></div>${trailing || ""}</div>`;
+  }
+
+  function frame(o) {
+    return `<div class="win">${topBar()}<div class="layer">${panel()}
+      <div class="results">${head(o.count, o.status, o.trailing)}${tokenRow()}
+        <div class="gridwrap">${o.overlay || ""}<div class="cards" style="${o.cardsStyle || ""}">${o.cards.map(card).join("")}</div></div>
+        ${o.extra || ""}
+      </div></div>${o.pins || ""}</div>`;
+  }
+
+  const pinAt = (n, x, y) => `<div class="pin" style="position:absolute;left:${x}px;top:${y}px;z-index:9">${n}</div>`;
+
+  /* --- status pieces --- */
+  const S = {
+    live: `<div class="status"><span class="led"></span>Live</div>`,
+    news: `<div class="status news"><span class="led"></span>2 added · 1 no longer matches</div>`,
+    updating: `<div class="status"><span class="spin"></span>Updating</div>`,
+    polling: `<div class="status"><span class="led off"></span>Checked 1 min ago</div>`,
+    failed: `<div class="status err">${ic(G.error)}Couldn’t update<span class="link">&nbsp;·&nbsp;Retry</span></div>`,
+    refresh: (hover) => `<div class="rbtn${hover ? " hover" : ""}">${ic(G.refresh)}</div>`
+  };
+
+  function crop(h, inner, extra) {
+    return `<div class="crop"${h ? ` style="height:${h}px"` : ""}><div class="inner">${inner}</div>${extra || ""}</div>`;
+  }
+  function stateBlock(name, trigger, html, sub) {
+    return `<div><p class="state-cap"><b>${name}</b> · ${trigger}</p>${html}${sub ? `<p class="state-sub">${sub}</p>` : ""}</div>`;
+  }
+
+  /* --- NOW --- */
+  document.getElementById("f-now").innerHTML = frame({
+    count: "84 results", cards: cardsBefore(),
+    pins: pinAt(1, 760, 420) + pinAt(2, 576, 82) + pinAt(3, 1080, 82)
+  });
+
+  /* --- A --- */
+  const tipA = `<div class="tip" style="right:24px;top:52px">Refresh<span class="k">F5</span></div>`;
+  document.getElementById("f-a").innerHTML = frame({
+    count: "85 results", status: S.news, trailing: S.refresh(true), cards: cardsAfter(),
+    extra: tipA,
+    pins: pinAt(1, 760, 70) + pinAt(2, 1086, 128) + pinAt(3, 420, 600)
+  });
+  document.getElementById("s-a").innerHTML = [
+    stateBlock("Live", "socket up, nothing pending", crop(0, head("85 results", S.live, S.refresh(false))),
+      "Tooltip on the status: “Changes on the server show up here as they happen.”"),
+    stateBlock("Update landed", "for 4 s, then back to Live", crop(0, head("85 results", S.news, S.refresh(false))),
+      "Built from the diff, counting only titles that joined or left. In-place changes (watched, progress) are not counted; the card shows them."),
+    stateBlock("Refreshing", "F5, Refresh, catch-up after Back or reconnect", crop(0, head("85 results", S.updating, S.refresh(false))),
+      "The existing Updating ring and text; the grid keeps full opacity because nothing the user did made it stale."),
+    stateBlock("Polling fallback", "socket down, server reachable", crop(0, head("85 results", S.polling, S.refresh(false))),
+      "Grey dot (<code>LwOffBrush</code>). The label ticks once a minute; tooltip: “Live updates are unavailable. Checking every minute while this page is open.” No countdown."),
+    stateBlock("Refresh failed", "one request failed, server otherwise up", crop(0, head("85 results", S.failed, S.refresh(false))),
+      "<code>LwErrorBrush</code> text, Retry in <code>LwAccentFgBrush</code>. Results stay. If the failure is a lost server, the shell's Server unreachable page (14a) takes over instead.")
+  ].join("");
+
+  /* --- B --- */
+  const pill = `<div class="pill">${ic(G.arrowUp)}<span>2 new</span><span class="sep"></span><span>1 leaving</span><span class="act">Show</span></div>`;
+  document.getElementById("f-b").innerHTML = frame({
+    count: "84 results", status: S.live, trailing: S.refresh(false), cards: cardsHeld(),
+    overlay: pill, cardsStyle: "top:-90px",
+    pins: pinAt(1, 822, 168) + pinAt(2, 642, 364) + pinAt(3, 600, 364) + pinAt(4, 530, 58)
+  });
+  const pillAlone = (txt, arrow) => `<div style="position:relative;height:56px">${`<div class="pill" style="top:12px">${arrow ? ic(G.arrowUp) : ""}${txt}<span class="act">Show</span></div>`}</div>`;
+  document.getElementById("s-b").innerHTML = [
+    stateBlock("Live", "same header as A", crop(0, head("84 results", S.live, S.refresh(false))), "A's header states apply unchanged (updating, polling, failed)."),
+    stateBlock("Pill: only additions", "sorted into a place above or in view", crop(0, pillAlone("<span>2 new</span>", true)),
+      "The arrow points up because additions land at their sorted place, usually above the viewport when sorted by date added."),
+    stateBlock("Pill: only removals", "e.g. marked watched elsewhere under Unplayed", crop(0, pillAlone("<span>1 leaving</span>")),
+      "The leaving card is already marked in the grid; Show closes its gap."),
+    stateBlock("No pill", "list at the top and pointer off the grid", crop(0, head("85 results", S.news, S.refresh(false))),
+      "Nothing to protect, so changes apply at once and the header summary from A appears.")
+  ].join("");
+  document.getElementById("z-b").innerHTML =
+    `<div><p class="state-cap"><b>Card states, 1:1</b> · changed (ring), leaving, unchanged</p><div class="cardzoom"><div class="cards">${
+      [{ t: "Kestrel", sub: "2001 · ★ 7.8", progress: 0.35, ring: true },
+       { t: "Glass Season", sub: "No longer matches", leaving: true, watched: true, why: true },
+       { t: "A Field of Bells", sub: "1998 · ★ 7.6" }].map(card).join("")}</div></div></div>`;
+
+  /* --- C --- */
+  const ring = (frac) => {
+    const r = 7.5, c = 2 * Math.PI * r;
+    return `<span class="cring"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="${r}" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="2"/><circle cx="9" cy="9" r="${r}" fill="none" stroke="#F08C9C" stroke-width="2" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${(c * (1 - frac)).toFixed(2)}" stroke-linecap="round"/></svg>${ic(G.refresh)}</span>`;
+  };
+  const split = (cls, main) => `<div class="split${cls ? " " + cls : ""}"><div class="main">${main}</div><div class="more">${ic(G.expand)}</div></div>`;
+  const C = {
+    live: split("", `<span class="led"></span><span>Live</span>${ic(G.refresh)}`),
+    news: split("", `<span class="led"></span><span>2 added · 1 left</span>${ic(G.refresh)}`),
+    updating: split("", `<span class="spin"></span><span class="muted">Updating</span>`),
+    polling: split("", `${ring(0.7)}<span class="muted">Next check in 42 s</span>`),
+    failed: split("warn", `${ic(G.warn)}<span>Couldn’t update</span><span class="accent">Retry</span>`)
+  };
+  const fly = `<div class="flyout" style="right:24px;top:106px">
+      <div class="fh"><span>Changes this session</span><span style="font-weight:400">Live since 14:02</span></div>
+      <div class="fi"><span class="tm">14:32</span><span>Glass Season<br><span class="w">Marked watched · no longer matches</span></span></div>
+      <div class="fi"><span class="tm">14:32</span><span>Kestrel<br><span class="w">Started · 35 % watched</span></span></div>
+      <div class="fi"><span class="tm">14:30</span><span>Harbor Lights, Paper Moons<br><span class="w">Added to the library</span></span></div>
+      <div class="fsep"></div>
+      <div class="fa hi">${ic(G.refresh)}Refresh now<span class="k">F5</span></div>
+    </div>`;
+  document.getElementById("f-c").innerHTML = frame({
+    count: "85 results", trailing: C.live, cards: cardsAfter({ dots: true }), extra: fly,
+    pins: pinAt(1, 958, 82) + pinAt(2, 1092, 190) + pinAt(3, 440, 655)
+  });
+  document.getElementById("s-c").innerHTML = [
+    stateBlock("Live", "socket up", crop(0, head("85 results", "", C.live)), "Main part refreshes; the chevron opens the history."),
+    stateBlock("Update landed", "for 4 s", crop(0, head("85 results", "", C.news)), "Cards that changed get the title dot; the history gets an entry."),
+    stateBlock("Refreshing", "manual or catch-up", crop(0, head("85 results", "", C.updating)), "Indeterminate ring in the same slot; the button stays the same width (min width set to the widest state)."),
+    stateBlock("Polling fallback", "socket down: the only state with a timer", crop(0, head("85 results", "", C.polling)),
+      "Determinate <code>ProgressRing</code> drains over 60 s; the text follows design 14a's “next attempt in 9 s”. Paused (ring frozen, “Paused”) while the window is unfocused."),
+    stateBlock("Refresh failed", "server answered with an error", crop(0, head("85 results", "", C.failed)),
+      "InfoBar warning colours from design 14a (<code>#433519</code>, <code>#FCE100</code> glyph). A lost server still hands over to the shell's 14a page.")
+  ].join("");
+})();
+</script>
+</body>
+</html>

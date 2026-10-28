@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -9,11 +11,12 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = ar
 builder.WebHost.ConfigureKestrel(options => { options.Listen(IPAddress.Loopback, 5386); options.Limits.MaxRequestBodySize = 2 * 1024 * 1024; });
 var repository = FindRepository();
 var store = new CatalogStore(repository);
+var session = new EditorSession(EditorSession.DefaultPath);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
-    if (!RequestSecurity.Allows(context.Request)) { context.Response.StatusCode = 403; return; }
+    if (RequestSecurity.Refusal(context.Request, session) is { } refusal) { context.Response.StatusCode = refusal; return; }
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     context.Response.Headers.CacheControl = "no-store";
@@ -37,6 +40,14 @@ var files = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(Path.Com
 app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = files });
 app.MapGet("/", () => Results.File(Path.Combine(repository, "tools", "TranslationEditor", "wwwroot", "index.html"), "text/html"));
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var link = $"http://127.0.0.1:5386/#{EditorSession.FragmentName}={session.Token}";
+    Console.WriteLine("Translation editor session link (opens the editor in this browser profile): " + link);
+    if (args.Contains("--no-browser")) return;
+    try { Process.Start(new ProcessStartInfo(link) { UseShellExecute = true }); }
+    catch (Win32Exception) { Console.WriteLine("Could not open a browser. Open the link above."); }
+});
 app.Run();
 
 static string FindRepository()

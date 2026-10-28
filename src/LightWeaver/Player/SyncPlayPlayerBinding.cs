@@ -1,4 +1,4 @@
-using System.Windows.Threading;
+using LightWeaver.Threading;
 using LightWeaver.Diagnostics;
 using LightWeaver.Jellyfin;
 
@@ -9,14 +9,14 @@ namespace LightWeaver.Player;
 public sealed class SyncPlayPlayerBinding : IDisposable
 {
     private readonly MpvPlayer _player;
-    private readonly Dispatcher _dispatcher;
+    private readonly IUiDispatcher _dispatcher;
     private readonly ISyncPlayReporter _reporter;
     private readonly Func<(SyncPlayState State, TimeSpan Offset)?> _readGroup;
     private readonly Func<DateTime> _utcNow;
     private int _generation = -1;
     private SyncPlayReportContext? _reportContext;
     private SyncPlayAction? _deferred;
-    private DispatcherTimer? _due;
+    private IUiTimer? _due;
     private bool _readyPending;
     private bool _settled;
     private bool _awaitingLoad;
@@ -26,7 +26,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public event Action? StopRequested;
 
-    public SyncPlayPlayerBinding(MpvPlayer player, Dispatcher dispatcher, ISyncPlayReporter reporter,
+    public SyncPlayPlayerBinding(MpvPlayer player, IUiDispatcher dispatcher, ISyncPlayReporter reporter,
         Func<(SyncPlayState State, TimeSpan Offset)?> readGroup, Func<DateTime>? utcNow = null)
     {
         _player = player;
@@ -45,7 +45,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public void ArmForLoad(int loadGeneration, bool startPaused, SyncPlayReportContext? expectedContext = null)
     {
-        _dispatcher.VerifyAccess();
+        VerifyAccess();
         if (_disposed) return;
         Reset();
         var context = expectedContext ?? _reporter.ReportContext;
@@ -59,7 +59,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public void Apply(SyncPlayAction action, int loadGeneration)
     {
-        _dispatcher.VerifyAccess();
+        VerifyAccess();
         if (!Owns(loadGeneration))
         {
             AppLog.Detail("syncplay", "event=action outcome=stale");
@@ -110,7 +110,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public void RefreshReportContext(SyncPlayReportContext context)
     {
-        _dispatcher.VerifyAccess();
+        VerifyAccess();
         if (_disposed || _generation != _player.LoadGeneration || _reportContext is not { } previous
             || previous.GroupId != context.GroupId || previous.PlaylistItemId != context.PlaylistItemId
             || context != _reporter.ReportContext || _readGroup() is null) return;
@@ -132,19 +132,18 @@ public sealed class SyncPlayPlayerBinding : IDisposable
     private void ArmUnpause(DateTime dueUtc, int generation)
     {
         var remaining = dueUtc - _utcNow();
-        var timer = new DispatcherTimer(DispatcherPriority.Normal, _dispatcher)
-        { Interval = remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero };
-        _due = timer;
-        timer.Tick += (_, _) =>
+        IUiTimer? timer = null;
+        timer = _dispatcher.CreateTimer(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, () =>
         {
-            timer.Stop();
+            timer!.Stop();
             if (_due != timer) return;
             _due = null;
             if (!Owns(generation)) return;
             _player.Pause = false;
             AppLog.Info("syncplay", FormattableString.Invariant(
                 $"event=unpause outcome=applied late_ms={(_utcNow() - dueUtc).TotalMilliseconds:0}"));
-        };
+        }, urgent: true);
+        _due = timer;
         timer.Start();
     }
 
@@ -229,7 +228,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public void Reset()
     {
-        _dispatcher.VerifyAccess();
+        VerifyAccess();
         CancelDue();
         _generation = -1;
         _reportContext = null;
@@ -242,7 +241,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     public void Dispose()
     {
-        _dispatcher.VerifyAccess();
+        VerifyAccess();
         if (_disposed) return;
         Reset();
         _disposed = true;
@@ -250,5 +249,10 @@ public sealed class SyncPlayPlayerBinding : IDisposable
         _player.PlaybackRestarted -= OnPlaybackRestarted;
         _player.BufferingChanged -= OnBufferingChanged;
         _player.PositionChanged -= OnPositionChanged;
+    }
+
+    private void VerifyAccess()
+    {
+        if (!_dispatcher.HasThreadAccess) throw new InvalidOperationException("SyncPlayPlayerBinding is used off the UI thread.");
     }
 }

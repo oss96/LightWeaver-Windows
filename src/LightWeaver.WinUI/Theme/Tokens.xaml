@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design tokens for Windows, from the Claude Design handoff (screen-group design spec, lw.js
+     `win`). Alpha values are the design's rgba() rounded to the nearest byte. The app is dark
+     only, like the design. -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Accent. WinUI's dark theme draws accent fills (checkbox, slider, focus underline, toggle)
+         with SystemAccentColorLight2, which is the design's accentFg. -->
+    <Color x:Key="SystemAccentColor">#B83A52</Color>
+    <Color x:Key="SystemAccentColorDark1">#A3233B</Color>
+    <Color x:Key="SystemAccentColorDark2">#8A1C30</Color>
+    <Color x:Key="SystemAccentColorDark3">#6E1626</Color>
+    <Color x:Key="SystemAccentColorLight1">#D96A7E</Color>
+    <Color x:Key="SystemAccentColorLight2">#F08C9C</Color>
+    <Color x:Key="SystemAccentColorLight3">#F6B3BE</Color>
+
+    <Color x:Key="LwAccentColor">#B83A52</Color>
+    <Color x:Key="LwAccentHoverColor">#C44A61</Color>
+    <Color x:Key="LwAccentFgColor">#F08C9C</Color>
+    <SolidColorBrush x:Key="LwAccentBrush" Color="#B83A52" />
+    <SolidColorBrush x:Key="LwAccentHoverBrush" Color="#C44A61" />
+    <SolidColorBrush x:Key="LwAccentFgBrush" Color="#F08C9C" />
+    <SolidColorBrush x:Key="LwAccentSoftBrush" Color="#42B83A52" />
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="LwWindowBrush" Color="#202020" />
+    <SolidColorBrush x:Key="LwLayerBrush" Color="#4D3A3A3A" />
+    <SolidColorBrush x:Key="LwLayerTopBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwPanelBrush" Color="#05FFFFFF" />
+    <SolidColorBrush x:Key="LwSurfaceBrush" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="LwSurface2Brush" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="LwSeparatorBrush" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="LwStrokeBrush" Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="LwHoverBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwPressBrush" Color="#0BFFFFFF" />
+    <SolidColorBrush x:Key="LwGlassBrush" Color="#08FFFFFF" />
+    <SolidColorBrush x:Key="LwSelectedBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwPlaceholderBrush" Color="#2A2A2A" />
+    <SolidColorBrush x:Key="LwPopupBrush" Color="#F72C2C2C" />
+    <!-- Overlay pane: the popover colour, opaque (no backdrop blur behind in-app panes). -->
+    <SolidColorBrush x:Key="LwPaneBrush" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="LwPopupBorderBrush" Color="#17FFFFFF" />
+    <SolidColorBrush x:Key="LwOverlayBrush" Color="#A81C1C1C" />
+    <!-- Grouped box (saved servers, Quick Connect code): boxBg with a dark 1 px edge. -->
+    <SolidColorBrush x:Key="LwBoxBrush" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="LwBoxBorderBrush" Color="#1A000000" />
+    <SolidColorBrush x:Key="LwRowHoverBrush" Color="#0AFFFFFF" />
+    <!-- Over video (design 13): the player's flyouts, rgba(18,18,20,0.72) with a 9 % white edge. -->
+    <SolidColorBrush x:Key="LwPlayerGlassBrush" Color="#B8121214" />
+    <SolidColorBrush x:Key="LwPlayerGlassBorderBrush" Color="#17FFFFFF" />
+    <!-- Message text over video: the top of the 70-88 % white range (DESIGN.md rules). -->
+    <SolidColorBrush x:Key="LwPlayerTextBrush" Color="#E0FFFFFF" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="LwTextBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LwText2Brush" Color="#C8FFFFFF" />
+    <SolidColorBrush x:Key="LwText3Brush" Color="#8BFFFFFF" />
+    <SolidColorBrush x:Key="LwErrorBrush" Color="#FF99A4" />
+    <SolidColorBrush x:Key="LwOkBrush" Color="#6CCB5F" />
+    <SolidColorBrush x:Key="LwOffBrush" Color="#4DFFFFFF" />
+
+    <!-- Controls -->
+    <SolidColorBrush x:Key="LwButtonBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwButtonHoverBrush" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="LwButtonBorderBrush" Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="LwFieldBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwFieldFocusBrush" Color="#1C1C1C" />
+    <SolidColorBrush x:Key="LwFieldBorderBrush" Color="#12FFFFFF" />
+    <SolidColorBrush x:Key="LwFieldBottomBrush" Color="#8BFFFFFF" />
+    <SolidColorBrush x:Key="LwTrackBrush" Color="#8BFFFFFF" />
+    <SolidColorBrush x:Key="LwSegmentBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="LwSegmentSelectedBrush" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="LwKnobBrush" Color="#454545" />
+    <SolidColorBrush x:Key="LwKnobBorderBrush" Color="#17FFFFFF" />
+    <SolidColorBrush x:Key="LwCheckOffBrush" Color="#1A000000" />
+    <SolidColorBrush x:Key="LwCheckOffBorderBrush" Color="#99FFFFFF" />
+    <SolidColorBrush x:Key="LwSwatchEdgeBrush" Color="#4D000000" />
+    <SolidColorBrush x:Key="LwAvatarStartBrush" Color="#6B4D57" />
+    <SolidColorBrush x:Key="LwCaptionCloseHoverBrush" Color="#C42B1C" />
+
+    <!-- Metrics -->
+    <x:Double x:Key="LwBarHeight">56</x:Double>
+    <x:Double x:Key="LwButtonHeight">32</x:Double>
+    <x:Double x:Key="LwFieldHeight">32</x:Double>
+    <x:Double x:Key="LwGroupHeight">46</x:Double>
+    <!-- Top-bar items: 64 wide with a 60 px label as drawn; from LwBarLabelsNaturalFrom of window
+         width the bar's items take their label's width, up to 76 (a 72 px label). -->
+    <x:Double x:Key="LwBarItemWidth">64</x:Double>
+    <x:Double x:Key="LwBarItemMaxWidth">76</x:Double>
+    <x:Double x:Key="LwBarLabelsNaturalFrom">1000</x:Double>
+    <CornerRadius x:Key="LwControlRadius">4</CornerRadius>
+    <CornerRadius x:Key="LwGroupRadius">8</CornerRadius>
+    <CornerRadius x:Key="LwItemRadius">6</CornerRadius>
+    <CornerRadius x:Key="LwCardRadius">8</CornerRadius>
+    <CornerRadius x:Key="LwTokenRadius">12</CornerRadius>
+    <CornerRadius x:Key="LwSegmentItemRadius">3</CornerRadius>
+
+    <!-- Card rows on Home and the detail page: card widths as drawn for a 1440 DIP window. From
+         LwCardScaleFrom up, cards and their gaps grow with the window width up to LwCardScaleMax,
+         and captions and row headings by LwCardTextShare of that growth (Home option B, an
+         experiment). The detail page's season grid sizes its posters by LwDetailPosterWidth and
+         its episode grid by LwHomeWideCardWidth, at the same scale. -->
+    <x:Double x:Key="LwHomeWideCardWidth">296</x:Double>
+    <x:Double x:Key="LwHomePosterWidth">150</x:Double>
+    <x:Double x:Key="LwDetailPosterWidth">140</x:Double>
+    <x:Double x:Key="LwDetailPersonWidth">120</x:Double>
+    <x:Double x:Key="LwCardScaleFrom">1440</x:Double>
+    <x:Double x:Key="LwCardScaleMax">1.5</x:Double>
+    <x:Double x:Key="LwCardTextShare">0.5</x:Double>
+
+    <!-- Type -->
+    <FontFamily x:Key="LwFont">Segoe UI Variable Text</FontFamily>
+    <!-- Windows 11's icon font, with the Windows 10 one as fallback. -->
+    <FontFamily x:Key="LwIconFont">Segoe Fluent Icons,Segoe MDL2 Assets</FontFamily>
+    <FontFamily x:Key="LwMonoFont">Cascadia Mono,Consolas</FontFamily>
+</ResourceDictionary>

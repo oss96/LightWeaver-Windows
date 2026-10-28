@@ -72,7 +72,8 @@ The automatic updater does not treat HTTPS or a release-page checksum as suffici
 execute a downloaded installer. Immediately after staging and again immediately before launch it
 validates the Authenticode digest, timestamp and code-signing EKU, then requires the installer
 certificate thumbprint to match the certificate embedded in the currently running
-`LightWeaver.exe`. This turns the already-running signed release into the trust anchor.
+`LightWeaver.exe` (from 2.0 the WinUI 3 app, built under the same exe name as 1.x). This turns the
+already-running signed release into the trust anchor.
 
 The configured certificate is self-signed, so `WinVerifyTrust` returns `CERT_E_UNTRUSTEDROOT` even
 for an intact release. The updater accepts only that exact chain result, and only after the digest,
@@ -88,12 +89,12 @@ an immediate release action.
 | Piece | Where |
 | --- | --- |
 | The signing step | `sign.ps1` (repo root) |
-| App binaries signed | `publish.ps1` — `LightWeaver.exe` + `LightWeaver.dll`, **before** the zip and before Inno reads the folder |
+| App binaries signed | `publish.ps1` — `LightWeaver.exe`, `LightWeaver.dll`, `LightWeaver.Core.dll` + `LightWeaver.Localization.dll`, **before** the zip and before Inno reads the folder |
 | Installer signed | `installer.ps1` — `dist\LightWeaver-<version>-setup.exe`, **after** ISCC |
 
-Only our own two binaries are signed. The .NET runtime files are already signed by Microsoft, and
-signing a third party's `libmpv-2.dll` with our certificate would assert authorship we do not have —
-verified: it stays `NotSigned` through a full run.
+Only our own binaries are signed. The .NET and Windows App SDK runtime files are already signed by
+Microsoft, and signing a third party's `libmpv-2.dll` with our certificate would assert authorship we
+do not have — verified: it stays `NotSigned` through a full run.
 
 **Known gap:** the uninstaller Inno extracts on the user's machine (`unins000.exe`) is **not**
 signed. Signing `setup.exe` after ISCC cannot reach a binary that ISCC embeds, so closing this needs
@@ -210,8 +211,9 @@ an unsigned release believing it was signed. With it, the build stops. The envir
 exists because you run `publish.ps1` / `installer.ps1` / `release.ps1`, never `sign.ps1` directly, so
 its `-Require` switch alone would be unreachable.
 
-Note that `release.ps1 -SkipBuild` uploads whatever `dist\*-setup.exe` already exists and checks no
-signature at all, so it can publish a stale unsigned build. Prefer a full run for a real release.
+Note that `release.ps1 -SkipBuild` uploads whatever `dist\*-setup.exe` already exists. It runs the
+same signature, certificate and version checks, but cannot tell a stale build from a fresh one.
+Prefer a full run for a real release.
 
 ## Timestamping is not optional
 

@@ -20,6 +20,7 @@ AppId={{7A0E693C-50D5-45A6-9151-C67A6A590B2E}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}
 AppPublisher=Oss Alali
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -32,9 +33,11 @@ Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+; Windows 10 2004 (build 19041), the app's TargetPlatformMinVersion.
+MinVersion=10.0.19041
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=..\src\LightWeaver\Assets\LightWeaver.ico
+SetupIconFile=..\src\LightWeaver.WinUI\Assets\LightWeaver.ico
 ; Update flow: prompt Windows Restart Manager to close a running LightWeaver.
 CloseApplications=yes
 RestartApplications=no
@@ -60,7 +63,40 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: RelaunchRequested
 ; the publish output is self-contained, so a clean {app} avoids stale assemblies.
 Type: filesandordirs; Name: "{app}\*"
 
+[UninstallDelete]
+; Written by [Code] after the files are in, so the uninstaller's file list does not know it.
+Type: files; Name: "{app}\previous-version.txt"
+
 [Code]
+// Revert support (v2 and later): the version this setup replaces goes to {app}\previous-version.txt,
+// so Settings > Updates can offer to go back to it. Reinstalling the same version keeps the record.
+// Read at ssInstall, before [InstallDelete] clears {app}; written back after the files are in.
+var
+  PreviousVersion: String;
+
+function InitializeSetup(): Boolean;
+begin
+  PreviousVersion := '';
+  RegQueryStringValue(HKA, ExpandConstant('Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1'),
+    'DisplayVersion', PreviousVersion);
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Kept: AnsiString;
+begin
+  if (CurStep = ssInstall) and (PreviousVersion = '{#MyAppVersion}') then
+  begin
+    if LoadStringFromFile(ExpandConstant('{app}\previous-version.txt'), Kept) then
+      PreviousVersion := Trim(String(Kept))
+    else
+      PreviousVersion := '';
+  end;
+  if (CurStep = ssPostInstall) and (PreviousVersion <> '') then
+    SaveStringToFile(ExpandConstant('{app}\previous-version.txt'), PreviousVersion, False);
+end;
+
 // Silent only: an interactive install already offers the launch checkbox on its finish page.
 function RelaunchRequested: Boolean;
 var

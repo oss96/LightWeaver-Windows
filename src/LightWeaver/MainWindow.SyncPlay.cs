@@ -79,7 +79,7 @@ public partial class MainWindow
     private void AttachSyncPlayPlayer()
     {
         if (_player is not { } player) return;
-        _syncPlayBinding = new(player, Dispatcher, _syncPlay, () => IsGroupPlayback
+        _syncPlayBinding = new(player, new Threading.WpfUiDispatcher(Dispatcher), _syncPlay, () => IsGroupPlayback
             ? (new SyncPlayState(_syncPlay.JoinedAtUtc, _syncPlay.PlaylistItemId,
                 LastApplied: _syncPlay.LastApplied), _syncPlay.Clock?.Offset ?? TimeSpan.Zero) : null);
         _syncPlayBinding.StopRequested += () => OnSyncPlayActionRequired(new(SyncPlayActionKind.Stop));

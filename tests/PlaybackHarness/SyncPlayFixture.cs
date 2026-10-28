@@ -461,6 +461,19 @@ internal static class SyncPlayFixture
         check(SyncPlayScheduler.Resolve(future, state, offset, localNow, 600.2).NeedsSeek == false,
             "a player already within the threshold is armed without a seek");
 
+        // A server can date an Unpause centuries out. The unpause timer cannot hold an interval
+        // past ~24.8 days, so the pre-roll is capped where no honest server reaches.
+        var farFuture = Command(SyncPlayCommandTypes.Unpause, new DateTime(9999, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+            tenMinutes, item, serverNow);
+        var capped = SyncPlayScheduler.Resolve(farFuture, state, offset, localNow, 0);
+        check(capped.Kind == SyncPlayActionKind.SeekAndArmUnpause
+            && capped.DueLocalUtc == localNow + SyncPlayScheduler.MaxPreRoll,
+            "an Unpause dated far in the future is armed no later than the pre-roll ceiling");
+        var farPast = Command(SyncPlayCommandTypes.Unpause, new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            tenMinutes, item, serverNow);
+        check(SyncPlayScheduler.Resolve(farPast, state, TimeSpan.FromDays(1), localNow, 0).Kind == SyncPlayActionKind.UnpauseNow,
+            "an Unpause dated at the start of the calendar resolves without overflowing");
+
         // Late, by three seconds. The group did not wait, so the position to land on is where it
         // has got to, not where it started.
         var late = Command(SyncPlayCommandTypes.Unpause, serverNow.AddSeconds(-3), tenMinutes, item, serverNow);
@@ -1239,6 +1252,37 @@ internal static class SyncPlayFixture
         check(Field(LastRequest(server, "/SyncPlay/Seek").Body, "PositionTicks").GetInt64() == seekTicks * 2,
             "and its body carries the new position rather than the first one");
 
+        // A click's pause and the double-click's unpause right behind it: the HTTP client would
+        // run them side by side, and an unpause the server handles first leaves the group paused.
+        var pauseAnswer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.ResponseOverride = async request =>
+        {
+            if (request.Path.EndsWith("/SyncPlay/Pause", StringComparison.OrdinalIgnoreCase))
+                await pauseAnswer.Task.ConfigureAwait(false);
+            return null;
+        };
+        var (pausesBefore, unpausesBefore) = (server.CountOf("/SyncPlay/Pause"), server.CountOf("/SyncPlay/Unpause"));
+        var heldPause = client.PauseAsync();
+        var queuedUnpause = client.UnpauseAsync();
+        check(await SettlesAsync(() => server.CountOf("/SyncPlay/Pause") == pausesBefore + 1, TimeSpan.FromSeconds(5))
+                .ConfigureAwait(false),
+            "a pause whose answer is held reaches the server");
+        await Task.Delay(400).ConfigureAwait(false);
+        check(server.CountOf("/SyncPlay/Unpause") == unpausesBefore && !queuedUnpause.IsCompleted,
+            "the unpause behind it waits for the pause to be answered");
+        pauseAnswer.SetResult();
+        check(await heldPause.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false)
+                && await queuedUnpause.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false),
+            "both are accepted once the pause is answered");
+        var order = server.Requests.Select(request => request.Path)
+            .Where(path => path.EndsWith("/SyncPlay/Pause", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith("/SyncPlay/Unpause", StringComparison.OrdinalIgnoreCase))
+            .TakeLast(2).ToArray();
+        check(order is [var first, var second] && first.EndsWith("/Pause", StringComparison.OrdinalIgnoreCase)
+                && second.EndsWith("/Unpause", StringComparison.OrdinalIgnoreCase),
+            "the server sees the pause before the unpause");
+        server.ResponseOverride = null;
+
         // The 403 rule, which is the reason all four go through the same PostAsync as the join, the
         // leave and the Ready. Denial has no socket message behind it, and a transport POST is
         // exactly the traffic that discovers a membership the server has stopped honouring.
@@ -1261,6 +1305,58 @@ internal static class SyncPlayFixture
         check(!await client.PauseAsync().ConfigureAwait(false)
             && server.CountOf("/SyncPlay/Pause") == afterDenial,
             "a pause after the denials ended the membership reaches the server not at all");
+
+        // A request queued behind one in flight is checked again when its turn comes: once the
+        // group has been left it is dropped, not sent to a group this client no longer holds.
+        check(await client.JoinAsync(profileKey, group).ConfigureAwait(false), "the transport fixture joins again");
+        await connection.SendAsync(GroupJoinedFrame(group, "Movie night", "Paused", "bob")).ConfigureAwait(false);
+        check(await SettlesAsync(() => client.IsInGroup, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the client is back in the group before the queued-leave leg");
+        var leaveAnswer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.ResponseOverride = async request =>
+        {
+            if (request.Path.EndsWith("/SyncPlay/Pause", StringComparison.OrdinalIgnoreCase))
+                await leaveAnswer.Task.ConfigureAwait(false);
+            return null;
+        };
+        var unpausesBeforeLeave = server.CountOf("/SyncPlay/Unpause");
+        var inFlight = client.PauseAsync();
+        var behindLeave = client.UnpauseAsync();
+        await client.LeaveAsync().ConfigureAwait(false);
+        leaveAnswer.SetResult();
+        await inFlight.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        check(!await behindLeave.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false)
+                && server.CountOf("/SyncPlay/Unpause") == unpausesBeforeLeave,
+            "an unpause queued behind a pause is dropped when the group is left before its turn");
+
+        // The same group again before the held pause is answered: the group id and profile match,
+        // but the stop was asked of the membership that ended, not of the new one.
+        check(await client.JoinAsync(profileKey, group).ConfigureAwait(false), "the transport fixture joins a third time");
+        await connection.SendAsync(GroupJoinedFrame(group, "Movie night", "Paused", "bob")).ConfigureAwait(false);
+        check(await SettlesAsync(() => client.IsInGroup, TimeSpan.FromSeconds(10)).ConfigureAwait(false),
+            "the client is in the group before the same-group rejoin leg");
+        var rejoinAnswer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.ResponseOverride = async request =>
+        {
+            if (request.Path.EndsWith("/SyncPlay/Pause", StringComparison.OrdinalIgnoreCase))
+                await rejoinAnswer.Task.ConfigureAwait(false);
+            return null;
+        };
+        var stopsBeforeRejoin = server.CountOf("/SyncPlay/Stop");
+        var heldAcrossRejoin = client.PauseAsync();
+        var stopBehindRejoin = client.StopAsync();
+        await client.LeaveAsync().ConfigureAwait(false);
+        check(await client.JoinAsync(profileKey, group).ConfigureAwait(false), "the same group is joined again behind the held pause");
+        await connection.SendAsync(GroupJoinedFrame(group, "Movie night", "Paused", "bob")).ConfigureAwait(false);
+        check(await SettlesAsync(() => client.IsInGroup, TimeSpan.FromSeconds(10)).ConfigureAwait(false)
+                && client.GroupId == group,
+            "the client holds the same group again while the stop still waits");
+        rejoinAnswer.SetResult();
+        await heldAcrossRejoin.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        check(!await stopBehindRejoin.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false)
+                && server.CountOf("/SyncPlay/Stop") == stopsBeforeRejoin && client.IsInGroup,
+            "a stop queued before a leave and rejoin of the same group is dropped and the new membership stays");
+        server.ResponseOverride = null;
     }
 
     // A restore that spans a LEAVE AND A FRESH JOIN, which is the one window where the re-join can

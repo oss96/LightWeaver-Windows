@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>06</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Playlists</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">The list of playlists (Playlists → All in the morph) and a playlist page with ordered items, Play all, Shuffle, reorder and remove.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden">
+              <sc-if value="{{ f.isList }}">
+                <div style="display:flex;flex-direction:column;height:100%">
+                  <div style="display:flex;align-items:center;gap:8px;padding:16px 24px">
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-right:auto"><div style="font-size:26px;font-weight:700">Playlists</div><div style="font-size:13px;color:{{ f.text2 }}">8 playlists</div></div>
+                    <div style="height:{{ f.btnH }}px;display:flex;align-items:center;gap:6px;padding:0 8px 0 10px;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:12.5px" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">arrow_downward</span>Last modified<span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.text2 }}">{{ f.menuIcon }}</span></div>
+                    <div style="height:{{ f.btnH }}px;display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:12.5px;font-weight:500" style-hover="background:{{ f.accentHover }}"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal">add</span>New playlist</div>
+                  </div>
+                  <div style="flex:1;min-height:0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:22px 16px;align-content:start;overflow:hidden">
+                    <sc-for list="{{ f.pls }}" as="c"><dc-import name="Card" p="{{ f }}" kind="square" title="{{ c.title }}" sub="{{ c.sub }}" label="playlist art" hover="{{ c.hover }}" hint-size="100%,250px"></dc-import></sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.isPage }}">
+                <div style="display:flex;flex-direction:column;height:100%">
+                  <div style="display:flex;align-items:flex-end;gap:22px;padding:20px 24px 18px">
+                    <div style="width:{{ f.artW }}px;height:{{ f.artW }}px;flex:none;border-radius:{{ f.cardR }}px;background:{{ f.ph }};display:flex;align-items:center;justify-content:center;font:500 9.5px/1 {{ f.mono }};color:{{ f.text3 }};letter-spacing:.06em">PLAYLIST ART</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">
+                      <div style="font-size:12px;color:{{ f.text2 }};font-weight:500">Playlist</div>
+                      <div style="font-size:34px;font-weight:700;letter-spacing:-0.01em">Road Trip</div>
+                      <div style="font-size:13px;color:{{ f.text2 }}">{{ f.meta }}</div>
+                      <div style="display:flex;gap:8px;margin-top:10px;position:relative">
+                        <div style="height:{{ f.bigBtnH }}px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13px;font-weight:600" style-hover="background:{{ f.accentHover }}"><span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal;font-variation-settings:'FILL' 1">play_arrow</span>Play all</div>
+                        <div style="height:{{ f.bigBtnH }}px;display:flex;align-items:center;gap:6px;padding:0 14px 0 12px;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};box-sizing:border-box;font-size:13px" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">shuffle</span>Shuffle</div>
+                        <div style="width:{{ f.bigBtnH }}px;height:{{ f.bigBtnH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};box-sizing:border-box" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">more_horiz</span></div>
+                        <div style="position:absolute;left:-10px;top:-10px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="margin:0 24px;display:flex;align-items:center;gap:14px;height:30px;padding:0 12px;border-bottom:1px solid {{ f.sep }};font-size:11.5px;font-weight:600;color:{{ f.text3 }}">
+                    <div style="width:24px;text-align:right">#</div><div style="width:96px"></div><div style="flex:1">Title</div><div style="width:110px">Type</div><div style="width:70px;text-align:right">Duration</div><div style="width:64px"></div>
+                  </div>
+                  <div style="flex:1;min-height:0;overflow:hidden;padding:4px 24px 0;position:relative">
+                    <sc-for list="{{ f.items }}" as="it">
+                      <sc-if value="{{ it.gap }}"><div style="height:2px;margin:0 8px;background:{{ f.accentFg }};border-radius:1px;position:relative"><div style="position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:4px;border:2px solid {{ f.accentFg }};box-sizing:border-box;background:{{ f.winBg }}"></div></div></sc-if>
+                      <div style="height:62px;display:flex;align-items:center;gap:14px;padding:0 12px;border-radius:{{ f.rowR }}px;background:{{ it.bg }};box-shadow:{{ it.shadow }};opacity:{{ it.op }};position:relative;transform:{{ it.tf }};z-index:{{ it.z }}" style-hover="background:{{ f.hover }}">
+                        <div style="width:24px;text-align:right;font-size:13px;color:{{ f.text2 }};display:flex;justify-content:flex-end">
+                          <sc-if value="{{ it.handle }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">drag_indicator</span></sc-if>
+                          <sc-if value="{{ it.num }}">{{ it.n }}</sc-if>
+                        </div>
+                        <div style="width:96px;height:54px;flex:none;border-radius:{{ f.thumbR }}px;background:{{ f.ph }}"></div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                          <div style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.title }}</div>
+                          <div style="font-size:12px;color:{{ f.text2 }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sub }}</div>
+                        </div>
+                        <div style="width:110px;font-size:12.5px;color:{{ f.text2 }}">{{ it.type }}</div>
+                        <div style="width:70px;text-align:right;font-size:12.5px;color:{{ f.text2 }};font-variant-numeric:tabular-nums">{{ it.dur }}</div>
+                        <div style="width:64px;display:flex;justify-content:flex-end;gap:2px">
+                          <sc-if value="{{ it.hover }}">
+                            <div title="Remove from playlist" style="width:28px;height:28px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text2 }}" style-hover="background:rgba(255,255,255,0.1);color:{{ f.text }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">remove_circle_outline</span></div>
+                            <div style="width:28px;height:28px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text2 }}" style-hover="background:rgba(255,255,255,0.1);color:{{ f.text }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">more_horiz</span></div>
+                            <div style="position:absolute;right:-10px;top:4px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.toast }}">
+                <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;height:{{ f.toastH }}px;padding:0 6px 0 16px;border-radius:{{ f.toastR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};backdrop-filter:{{ f.popBlur }};-webkit-backdrop-filter:{{ f.popBlur }};font-size:13px;white-space:nowrap">
+                  <span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">remove_circle_outline</span>Removed “Glass Season” from Road Trip
+                  <div style="height:28px;padding:0 12px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};font-weight:600;color:{{ f.accentFg }}" style-hover="background:{{ f.btnHover }}">Undo</div>
+                  <div style="position:absolute;right:-26px;top:8px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                </div>
+              </sc-if>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="playlists" active-lib="{{ f.plIdx }}" badge="2" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const L = window.LW;
+    f.isList = f.k === 'list'; f.isPage = f.k !== 'list';
+    f.plIdx = f.isList ? 0 : 1;
+    f.pls = [['Road Trip', '18 items · 14 h 32 min'], ['Friday Night', '9 items · 16 h'], ['Kids Rotation', '42 items · 21 h'], ['Rewatch 2026', '12 items · 23 h'], ['Documentaries to finish', '6 items · 7 h 10 min'], ['Concert nights', '5 items · 9 h'], ['Comfort shows', '64 items · 31 h'], ['Sunday mornings', '11 items · 8 h']].map(([t, s], i) => ({ title: t, sub: s, hover: i === 1 }));
+    f.artW = f.w < 1000 ? 120 : 168; f.bigBtnH = f.mac ? 32 : 32; f.rowR = f.mac ? 8 : 4; f.thumbR = f.mac ? 6 : 4;
+    f.toastH = 44; f.toastR = f.mac ? 22 : 8;
+    const src = [
+      ['Harbor Lights', '2019 · Drama', 'Movie', '1:58:20'], ['Lantern House', 'S1 · E1 — Pilot', 'Episode', '52:10'], ['Glass Season', '2021 · Drama', 'Movie', '2:04:45'],
+      ['Lantern House', 'S1 · E2 — The Keeper', 'Episode', '49:31'], ['Northbound', '2022 · Thriller', 'Movie', '1:47:02'], ['The Dispatch', 'S3 · E5 — Copy Desk', 'Episode', '44:58'],
+      ['Westerly', '1998 · Adventure', 'Movie', '2:11:30'], ['Borderland', 'S2 · E1 — Crossing', 'Episode', '58:12'], ['Copper Coast', '2013 · Drama', 'Movie', '1:39:44'], ['Blue Hour', '2021 · Romance', 'Movie', '1:52:00']
+    ];
+    let list = src.map((s, i) => ({ title: s[0], sub: s[1], type: s[2], dur: s[3] }));
+    if (f.removed) list = list.filter((_, i) => i !== 2);
+    f.meta = f.removed ? '17 items · 12 h 27 min · by Mara' : '18 items · 14 h 32 min · by Mara';
+    f.items = list.map((it, i) => {
+      const hover = f.hoverIdx === i, drag = f.dragIdx === i;
+      return Object.assign(it, {
+        n: i + 1, hover, handle: hover || drag, num: !(hover || drag),
+        bg: drag ? (f.mac ? '#2c2c30' : '#2f2f2f') : (hover ? f.hover : 'transparent'),
+        shadow: drag ? '0 10px 30px rgba(0,0,0,0.5)' : 'none', op: drag ? 0.96 : 1, gap: f.gapBefore === i, tf: drag ? 'translate(18px,-148px)' : 'none', z: drag ? 5 : 'auto'
+      });
+    });
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '6a', label: 'All playlists', frames: fr({ k: 'list' }), notes: [
+        { n: 'i', t: 'Reached from Playlists → All in the nav morph. Cards use the same hover ✓ / ⋯ pattern; ⋯ has Play, Shuffle, Rename, Download, Delete.' },
+        { n: '+', t: 'New playlist opens a small sheet (macOS) / ContentDialog (Windows) asking for a name. Items are added from any card’s ⋯ → Add to playlist.' }
+      ] },
+      { id: '6b', label: 'Playlist page — hover on a row', frames: fr({ k: 'page', hoverIdx: 2 }), notes: [
+        { n: 1, t: 'Play all starts item 1 in the full-window player with the playlist as the queue. Shuffle does the same in random order. ⋯: Rename, Download all, Delete playlist.' },
+        { n: 2, t: 'Row hover swaps the number for a drag handle and shows Remove and ⋯. Double-click or Return plays from that item.' },
+        { n: '⌫', t: 'Delete / Backspace removes the selected rows. ⌘/Ctrl-click and Shift-click multi-select.' }
+      ] },
+      { id: '6c', label: 'Item removed — Undo toast', frames: fr({ k: 'page', removed: true, toast: true }), notes: [
+        { n: 1, t: 'Removal is immediate, rows close the gap without animation, and a toast offers Undo for 6 s. No confirmation dialog.' }
+      ] },
+      { id: '6d', label: 'Reordering by drag', frames: fr({ k: 'page', dragIdx: 4, gapBefore: 2 }), notes: [
+        { n: '↕', t: 'Dragging lifts the row; an insertion line with a dot marks the drop position. Rows don’t shuffle while dragging, so the target stays still. Esc cancels the drag.' },
+        { n: '⌨', t: 'Keyboard: ⌥↑/⌥↓ (macOS) or Alt+Up/Down (Windows) moves the selected row.' }
+      ] },
+      { id: '6e', label: 'Narrow (960 × 600)', frames: fr({ k: 'page', hoverIdx: 1 }, 960, 600), notes: [
+        { n: '1', t: 'Art shrinks to 120 px; fixed columns keep their width and the title column absorbs the difference.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

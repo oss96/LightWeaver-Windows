@@ -189,14 +189,14 @@
                                 Content="{StaticResource IconBack}" FontFamily="{StaticResource LwFontIcon}"
                                 Width="38" Height="34" FontSize="20" Padding="0"
                                 VerticalAlignment="Center" Margin="0,0,6,0"
-                                Click="OnBrowseBack"
+                                Click="OnBrowseBack" loc:UiDirection.MirrorGlyph="True"
                                 AutomationProperties.AutomationId="BrowseBackButton" />
                         <Button x:Name="BrowseForwardBtn" DockPanel.Dock="Left"
                                 Style="{StaticResource LwButtonGhost}"
                                 Content="{StaticResource IconForward}" FontFamily="{StaticResource LwFontIcon}"
                                 Width="38" Height="34" FontSize="20" Padding="0"
                                 VerticalAlignment="Center" Margin="0,0,14,0"
-                                Click="OnBrowseForward"
+                                Click="OnBrowseForward" loc:UiDirection.MirrorGlyph="True"
                                 AutomationProperties.AutomationId="BrowseForwardButton" />
                         <!-- Search pill (right).
                              P10 M6, disposition (b): the literal 19 was already the CORRECT
@@ -288,9 +288,38 @@
         <!-- In-window chrome above the browse layer, zoomed with it. One wrapper rather than a
              transform per element, so margins and the modal scrim scale too. -->
         <Grid x:Name="ChromeLayer" LayoutTransform="{x:Static theme:UiZoom.Transform}">
+            <!-- Bottom stack: the toast above the update banner, so the two never overlap when
+                 both are up. No background, so the empty width does not take clicks. -->
+            <StackPanel VerticalAlignment="Bottom">
+            <!-- Transient error/info toast (browse layer only — the mpv HWND would
+                 cover it while playing; playback errors return to Browse first).
+                 Bottom-right at w <= 360, as the design spec has it. It used to sit top-centre
+                 at up to 640 wide, which is the browse header's row: at ~930 px it covered the
+                 Advanced button, and at other widths the search pill. The right margin clears
+                 the library's A-Z rail (22 + 6). -->
+            <Border x:Name="Toast"
+                    HorizontalAlignment="Right"
+                    Margin="0,0,32,24" MaxWidth="360"
+                    CornerRadius="{StaticResource LwR2}" Padding="16,12"
+                    Background="{StaticResource LwStorm3Brush}"
+                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
+                    Effect="{StaticResource LwElevation2}"
+                    Visibility="Collapsed"
+                    MouseLeftButtonDown="OnToastClick">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,12,0"
+                             Fill="{StaticResource LwEmberLitBrush}" Effect="{StaticResource LwGlowEmber}" />
+                    <!-- AutomationId lives on the TextBlock: Border has no automation peer.
+                         MaxWidth is the toast's 360 less its padding, border and dot. -->
+                    <TextBlock x:Name="ToastText" TextWrapping="Wrap" MaxWidth="306"
+                               AutomationProperties.AutomationId="Toast"
+                               Foreground="{StaticResource LwText1Brush}" FontSize="14" />
+                </StackPanel>
+            </Border>
+
             <!-- Subtle update banner (browse layer only, like the toast) -->
             <Border x:Name="UpdateBanner"
-                    HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    HorizontalAlignment="Center"
                     Margin="0,0,0,24" CornerRadius="{StaticResource LwR2}" Padding="16,11"
                     Background="{StaticResource LwStorm3Brush}"
                     BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
@@ -310,27 +339,7 @@
                                AutomationProperties.AutomationId="UpdateBannerDismiss" />
                 </StackPanel>
             </Border>
-
-            <!-- Transient error/info toast (browse layer only — the mpv HWND would
-                 cover it while playing; playback errors return to Browse first) -->
-            <Border x:Name="Toast"
-                    HorizontalAlignment="Center" VerticalAlignment="Top"
-                    Margin="0,16,0,0" MaxWidth="640"
-                    CornerRadius="{StaticResource LwR2}" Padding="16,12"
-                    Background="{StaticResource LwStorm3Brush}"
-                    BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1"
-                    Effect="{StaticResource LwElevation2}"
-                    Visibility="Collapsed"
-                    MouseLeftButtonDown="OnToastClick">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,12,0"
-                             Fill="{StaticResource LwEmberLitBrush}" Effect="{StaticResource LwGlowEmber}" />
-                    <!-- AutomationId lives on the TextBlock: Border has no automation peer -->
-                    <TextBlock x:Name="ToastText" TextWrapping="Wrap" MaxWidth="560"
-                               AutomationProperties.AutomationId="Toast"
-                               Foreground="{StaticResource LwText1Brush}" FontSize="14" />
-                </StackPanel>
-            </Border>
+            </StackPanel>
 
             <Popup x:Name="SyncPlayPopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
                    PlacementTarget="{Binding ElementName=SyncPlayButton}" VerticalOffset="8" />
@@ -343,7 +352,7 @@
             <views:ShortcutsOverlay x:Name="Shortcuts" />
 
             <!-- Transient zoom readout ("125%"), raised by every zoom request while browsing.
-                 Below the header row, so it never covers the toast above it. Starts Collapsed so
+                 Below the header row, so it never covers the header's controls. Starts Collapsed so
                  it is absent from UIA until a request shows it. -->
             <Border x:Name="ZoomPill"
                     HorizontalAlignment="Center" VerticalAlignment="Top"

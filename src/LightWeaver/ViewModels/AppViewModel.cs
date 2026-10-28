@@ -88,8 +88,58 @@ public sealed class AppViewModel : ObservableObject
     /// </summary>
     public event Action<MediaItem>? ItemUserDataChanged;
 
-    /// <summary>Broadcast a refreshed item to any cached list views (see <see cref="ItemUserDataChanged"/>).</summary>
-    public void NotifyItemUserDataChanged(MediaItem item) => ItemUserDataChanged?.Invoke(item);
+    /// <summary>Broadcast a refreshed item to any cached list views (see <see cref="ItemUserDataChanged"/>),
+    /// and record it in the user-data ledger first so a view opened LATER can apply it too.</summary>
+    public void NotifyItemUserDataChanged(MediaItem item)
+    {
+        RecordUserData(item);
+        ItemUserDataChanged?.Invoke(item);
+    }
+
+    /// <summary>The fan-out above only reaches views that are alive in the history. A library
+    /// opened after a toggle elsewhere renders its folder from the disk cache, which nobody told
+    /// about the toggle, and shows the old badge until its identity sweep lands — on a busy LAN a
+    /// visible flash, and for a folder that is never swept, until the entry is next rewritten. This
+    /// ledger is the in-process memory of every update fanned out, so a cached render can apply
+    /// the ones newer than its entry. Only the user-state fields are taken from it (see
+    /// <see cref="ApplyUserDataLedger"/>); the entry's own metadata stays.
+    /// <para>One profile at a time: ids from another server mean nothing here, so a different
+    /// active profile clears it. Bounded, oldest first: past the cap the cache entry has almost
+    /// certainly been rewritten by a sweep since.</para></summary>
+    private readonly Dictionary<Guid, (MediaItem Item, DateTime AtUtc)> _userDataLedger = [];
+    private string? _userDataLedgerProfile;
+    private const int UserDataLedgerCapacity = 512;
+
+    private void RecordUserData(MediaItem item)
+    {
+        if (ActiveSessionKey is not { } profileKey)
+            return;
+        if (_userDataLedgerProfile != profileKey)
+        {
+            _userDataLedger.Clear();
+            _userDataLedgerProfile = profileKey;
+        }
+        _userDataLedger[item.Id] = (item, DateTime.UtcNow);
+        if (_userDataLedger.Count > UserDataLedgerCapacity)
+            _userDataLedger.Remove(_userDataLedger.MinBy(pair => pair.Value.AtUtc).Key);
+    }
+
+    /// <summary>Applies every ledger update NEWER than <paramref name="cachedAtUtc"/> to a list
+    /// read from a cache written at that time. An update older than the entry is already in it, or
+    /// was overtaken by the fresher read that wrote it, so it is left alone. Returns the input
+    /// instances where nothing applies, so a caller's reference comparisons stay cheap.</summary>
+    public List<MediaItem> ApplyUserDataLedger(IEnumerable<MediaItem> cached, DateTime cachedAtUtc,
+        string? profileKey)
+    {
+        if (_userDataLedger.Count == 0 || profileKey is null || profileKey != _userDataLedgerProfile)
+            return cached.ToList();
+        return cached.Select(item =>
+                _userDataLedger.TryGetValue(item.Id, out var update) && update.AtUtc > cachedAtUtc
+                    ? item.WithUserData(update.Item.Played, update.Item.IsFavorite,
+                        update.Item.ResumePositionTicks, update.Item.PlayedPercentage)
+                    : item)
+            .ToList();
+    }
 
     /// <summary>
     /// The server reported that the ACTIVE profile's library changed, after the browse caches for
@@ -100,6 +150,143 @@ public sealed class AppViewModel : ObservableObject
 
     /// <summary>Broadcast a library change to the live views (see <see cref="LibraryChanged"/>).</summary>
     public void NotifyLibraryChanged(IReadOnlyList<Guid> folderIds) => LibraryChanged?.Invoke(folderIds);
+
+    /// <summary>
+    /// Items the ACTIVE profile's server no longer has: either it said so (a LibraryChanged
+    /// batch's removed ids) or it answered 404 when one was opened. Every live view drops the
+    /// cards, and the views that own a cache entry drop them from it too. A set, not one id per
+    /// event: a library scan can remove thousands at once and each view scans its list once.
+    /// </summary>
+    public event Action<IReadOnlySet<Guid>>? ItemsRemoved;
+
+    /// <summary>Broadcast removed items to the live views (see <see cref="ItemsRemoved"/>).</summary>
+    public void NotifyItemsRemoved(IReadOnlySet<Guid> itemIds)
+    {
+        if (itemIds.Count == 0)
+            return;
+        foreach (var id in itemIds)
+            _userDataLedger.Remove(id);
+        // Before the fan-out: a view's removal edit of a cache entry must find the tombstone
+        // already there when a stale store checks for one after it (see StoreBrowseListAsync).
+        RecordRemovals(itemIds);
+        ItemsRemoved?.Invoke(itemIds);
+    }
+
+    /// <summary>The removal ledger: every item passed to <see cref="NotifyItemsRemoved"/>, with
+    /// its time. The fan-out only edits what is on screen and in the cache at that moment; a
+    /// request that started before the removal can still answer with the item afterwards, pass
+    /// its view's generation check, and paint it back and store it again.
+    /// <see cref="DropRemovedItems"/> filters such a response by the time its request started, and
+    /// a cache entry by its <c>CachedAtUtc</c>, so a removal newer than the data wins and an item
+    /// re-added under the same id later comes back from the next request.
+    /// <para>Same scope as the user-data ledger: the active profile only (another one clears it),
+    /// bounded, oldest first. A library scan removes thousands at once, so the cap is higher.
+    /// Locked: cache stores check it off the UI thread.</para></summary>
+    private readonly Dictionary<Guid, DateTime> _removalLedger = [];
+    private string? _removalLedgerProfile;
+    private readonly object _removalLedgerLock = new();
+    private const int RemovalLedgerCapacity = 4096;
+
+    private void RecordRemovals(IReadOnlySet<Guid> itemIds)
+    {
+        if (ActiveSessionKey is not { } profileKey)
+            return;
+        var now = DateTime.UtcNow;
+        lock (_removalLedgerLock)
+        {
+            if (_removalLedgerProfile != profileKey)
+            {
+                _removalLedger.Clear();
+                _removalLedgerProfile = profileKey;
+            }
+            foreach (var id in itemIds)
+                _removalLedger[id] = now;
+            var excess = _removalLedger.Count - RemovalLedgerCapacity;
+            if (excess > 0)
+                foreach (var id in _removalLedger.OrderBy(pair => pair.Value).Take(excess)
+                             .Select(pair => pair.Key).ToList())
+                    _removalLedger.Remove(id);
+        }
+    }
+
+    /// <summary>The items of a list observed at <paramref name="observedAtUtc"/> (a request's start,
+    /// or a cache entry's <c>CachedAtUtc</c>) that no removal newer than that names. Returns a new
+    /// list in the same order, with the input instances.</summary>
+    public List<MediaItem> DropRemovedItems(IEnumerable<MediaItem> items, DateTime observedAtUtc,
+        string? profileKey)
+    {
+        lock (_removalLedgerLock)
+        {
+            if (_removalLedger.Count == 0 || profileKey is null || profileKey != _removalLedgerProfile)
+                return items.ToList();
+            return items.Where(item => !(_removalLedger.TryGetValue(item.Id, out var removedAtUtc)
+                    && removedAtUtc > observedAtUtc))
+                .ToList();
+        }
+    }
+
+    /// <summary>The ids among <paramref name="items"/> that a removal newer than
+    /// <paramref name="observedAtUtc"/> names: what a store of that list has to take out again.</summary>
+    public HashSet<Guid> RemovedSince(IEnumerable<MediaItem> items, DateTime observedAtUtc, string? profileKey)
+    {
+        lock (_removalLedgerLock)
+        {
+            if (_removalLedger.Count == 0 || profileKey is null || profileKey != _removalLedgerProfile)
+                return [];
+            return items.Where(item => _removalLedger.TryGetValue(item.Id, out var removedAtUtc)
+                    && removedAtUtc > observedAtUtc)
+                .Select(item => item.Id)
+                .ToHashSet();
+        }
+    }
+
+    /// <summary>Stores an ordered browse list (a series' seasons, a season's episodes, a playlist,
+    /// an album) fetched by a request that started at <paramref name="observedAtUtc"/>, which it
+    /// is stamped with. Under the entry's write gate (<see cref="Imaging.MetadataCache.LockAsync"/>),
+    /// like <see cref="RemoveFromBrowseListAsync"/>, and filtered against the removal ledger inside
+    /// it: the ledger records a removal before its fan-out edits any entry, so that edit either ran
+    /// before this write, which then already filters the item out, or waits for the gate and reads
+    /// this write. A removal recorded while the write ran is taken out before the gate is released,
+    /// for the list whose view has gone and so will not edit it.</summary>
+    public async Task StoreBrowseListAsync(string cacheKey, List<MediaItem> items, DateTime observedAtUtc,
+        string? profileKey)
+    {
+        using (await Imaging.MetadataCache.LockAsync(cacheKey).ConfigureAwait(false))
+        {
+            var kept = DropRemovedItems(items, observedAtUtc, profileKey);
+            var refiltered = items.Count - kept.Count;
+            await Imaging.MetadataCache.StoreAsync(cacheKey,
+                new Imaging.BrowseCacheEntry<MediaItem>(kept, kept.Count, observedAtUtc)).ConfigureAwait(false);
+            while (RemovedSince(kept, observedAtUtc, profileKey) is { Count: > 0 } late)
+            {
+                kept = kept.Where(item => !late.Contains(item.Id)).ToList();
+                refiltered += late.Count;
+                await Imaging.MetadataCache.StoreAsync(cacheKey,
+                    new Imaging.BrowseCacheEntry<MediaItem>(kept, kept.Count, observedAtUtc)).ConfigureAwait(false);
+            }
+            if (refiltered > 0)
+                Diagnostics.AppLog.Detail("library", $"event=cache_store outcome=refiltered count={refiltered}");
+        }
+    }
+
+    /// <summary>Takes items out of an ordered browse list entry, keeping its stamp. The read and
+    /// the write hold the entry's write gate, so two removals cannot each write back a list that
+    /// still has the other's item.</summary>
+    public static async Task RemoveFromBrowseListAsync(string cacheKey, IReadOnlySet<Guid> itemIds)
+    {
+        using (await Imaging.MetadataCache.LockAsync(cacheKey).ConfigureAwait(false))
+        {
+            var cached = await Imaging.MetadataCache.ReadAsync<Imaging.BrowseCacheEntry<MediaItem>>(cacheKey)
+                .ConfigureAwait(false);
+            if (cached?.Items is null)
+                return;
+            var kept = cached.Items.Where(item => !itemIds.Contains(item.Id)).ToList();
+            if (kept.Count == cached.Items.Count)
+                return;
+            await Imaging.MetadataCache.StoreAsync(cacheKey, cached with { Items = kept, TotalCount = kept.Count })
+                .ConfigureAwait(false);
+        }
+    }
 
     public event Action<AppState>? StateChanged;
 
@@ -151,10 +338,10 @@ public sealed class AppViewModel : ObservableObject
     public JellyfinService? FindSessionByKey(string key)
         => _sessions.TryGetValue(key, out var session) ? session : null;
 
-    /// <summary>The connected session that owns an absolute asset URL — matched by
-    /// <c>ServerUrl</c> PREFIX, so a server hosted under a sub-path (<c>http://host/jellyfin</c>)
-    /// resolves as well as a bare origin, and the longest match wins when two profiles differ only
-    /// by path. Null when no warm session owns it.
+    /// <summary>The connected session that owns an absolute asset URL — same scheme, host and port
+    /// as its <c>ServerUrl</c> and under its path at a segment boundary, so a server hosted under a
+    /// sub-path (<c>http://host/jellyfin</c>) resolves as well as a bare origin, and the longest
+    /// match wins when two profiles differ only by path. Null when no warm session owns it.
     ///
     /// <para>Exists for the image cache (B14): images were fetched with whichever profile was
     /// ACTIVE, so with two servers warm an uncached poster from server A requested while profile B
@@ -166,14 +353,17 @@ public sealed class AppViewModel : ObservableObject
         JellyfinService? best = null;
         foreach (var s in _sessions.Values.Append(Jellyfin))
         {
-            if (!s.IsConnected || s.ServerUrl is not { Length: > 0 } su
-                || !url.StartsWith(su, StringComparison.OrdinalIgnoreCase))
+            if (!s.IsConnected || s.ServerUrl is not { Length: > 0 } su || !ServerOwnsUrl(su, url))
                 continue;
             if (su.Length > (best?.ServerUrl?.Length ?? 0))
                 best = s;
         }
         return best;
     }
+
+    /// <summary>True when the URL has the server's exact origin and sits under its base path.</summary>
+    internal static bool ServerOwnsUrl(string serverUrl, string url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var asset) && JellyfinService.OwnsUrl(serverUrl, asset);
 
     /// <summary>Registers the service as the profile's warm session and makes it
     /// active. The credential save keeps the on-disk ActiveIndex in step.</summary>
@@ -254,22 +444,56 @@ public sealed class AppViewModel : ObservableObject
         return null;
     }
 
+    private static readonly TimeSpan LogoutRevokeTimeout = TimeSpan.FromSeconds(3);
+
     /// <summary>Removes the active profile and its warm session; lands on the next
     /// saved profile (instant when warm) or the login form when none remain.</summary>
     public async Task LogoutAsync()
     {
         // Only the active profile goes; other saved servers/users stay switchable.
-        CredentialStore.RemoveActive();
-        if (ActiveSessionKey is { } key)
-        {
-            SessionLog($"logout {key}");
-            CloseSession(key);
-        }
+        if (ActiveSessionKey is null)
+            CredentialStore.RemoveActive();
+        else
+            EndActiveSession();
         if (CredentialStore.Load() is { } next && await SwitchProfileAsync(next))
             return;
         ReplaceWithScratchSession();   // scratch for the login form; disposes the outgoing one (B27)
         State = AppState.Login;
     }
+
+    /// <summary>Signs out of the active profile only and shows the login form, without moving on
+    /// to another saved profile (v2: Login opens with this server preselected). Finishes locally
+    /// before returning; the server revocation runs on behind it. Without an active session no
+    /// saved profile is removed, so a repeated sign-out cannot take the next one with it.</summary>
+    public void SignOut()
+    {
+        EndActiveSession();
+        ReplaceWithScratchSession();
+        State = AppState.Login;
+    }
+
+    /// <summary>Forgets the active session's profile and closes the session at once, so nothing can
+    /// act on it afterwards. The revocation it starts (<see cref="LastRevocation"/>) carries the
+    /// token captured beforehand and never holds up the local sign-out.</summary>
+    private void EndActiveSession()
+    {
+        if (ActiveSessionKey is not { } key)
+            return;
+        CredentialStore.RemoveWhere(p => string.Equals(SessionKey(p), key, StringComparison.OrdinalIgnoreCase));
+        SessionLog($"logout {key}");
+        if (RevokesServerSessions && _sessions.TryGetValue(key, out var session))
+            LastRevocation = session.RevokeServerSessionAsync(LogoutRevokeTimeout);
+        CloseSession(key);
+    }
+
+    /// <summary>Whether a sign-out ends the session on the server too. Release only: the verify
+    /// driver seeds the Debug profile with a COPY of the installed app's credentials.dat, so a
+    /// Debug logout that revoked its token would sign the installed app out on the server too.</summary>
+    internal bool RevokesServerSessions { get; init; } = !AppPaths.IsDebugEnvironment;
+
+    /// <summary>The revocation the last sign-out started; it logs its own outcome and never
+    /// throws. Completed when none was started.</summary>
+    internal Task LastRevocation { get; private set; } = Task.CompletedTask;
 
     /// <summary>Finishes a login that happened outside LoginAsync (Quick Connect).</summary>
     public void CompleteExternalLogin(SavedCredentials credentials)
@@ -304,6 +528,30 @@ public sealed class AppViewModel : ObservableObject
         }
         SessionLog($"cold-connect {key} {sw.ElapsedMilliseconds}ms");
         Activate(profile, service);
+        BounceToBrowse();
+        return true;
+    }
+
+    /// <summary>Reconnects the saved profile and activates it only if <paramref name="stillWanted"/>
+    /// holds once the server has answered; playback stays on screen. True when restored, false when
+    /// the server refused or could not be reached, null when nothing is saved or it is no longer wanted.</summary>
+    public async Task<bool?> RestoreSavedAsync(Func<bool> stillWanted)
+    {
+        if (CredentialStore.Load() is not { } saved)
+            return null;
+        var service = new JellyfinService();
+        if (!await service.ReconnectAsync(saved))
+        {
+            service.Dispose();
+            return false;
+        }
+        if (!stillWanted())
+        {
+            service.Dispose();
+            return null;
+        }
+        SessionLog($"restore {SessionKey(saved)}");
+        Activate(saved, service);
         BounceToBrowse();
         return true;
     }
@@ -347,6 +595,10 @@ public sealed class AppViewModel : ObservableObject
     public void EnterPlayback() => State = AppState.Playing;
 
     public void LeavePlayback() => State = AppState.Browse;
+
+    /// <summary>No usable session (a saved token was refused): the shell shows sign-in, and the
+    /// saved profiles stay.</summary>
+    public void RequireSignIn() => State = AppState.Login;
 
     /// <summary>Test hook: LIGHTWEAVER_SESSION_LOG=&lt;path&gt; appends switch/lifecycle
     /// lines (warm-activate / cold-connect / revalidate / logout) for the verify suite.</summary>

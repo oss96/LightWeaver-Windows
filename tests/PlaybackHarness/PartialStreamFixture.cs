@@ -591,7 +591,7 @@ internal static class PartialStreamFixture
 
         Test("a complete leftover file is recognised as complete, not downloaded again", () =>
         {
-            var path = Path.Combine(root, "dl-complete.mkv");
+            var path = DownloadPath(root, "dl-complete.mkv");
             File.WriteAllBytes(path, content);
             using var server = new RangeServer(content);
             var (done, completions) = RunDownload(server, path);
@@ -611,7 +611,7 @@ internal static class PartialStreamFixture
 
         Test("an oversized leftover file is restarted from byte 0 and ends at the right size", () =>
         {
-            var path = Path.Combine(root, "dl-oversized.mkv");
+            var path = DownloadPath(root, "dl-oversized.mkv");
             var corrupt = new byte[content.Length + 1000];
             Array.Fill(corrupt, (byte)0xEE);
             File.WriteAllBytes(path, corrupt);
@@ -634,7 +634,7 @@ internal static class PartialStreamFixture
         {
             // The safe reading of a 416 that names no total: nothing proves the file complete, and a
             // wrong Completed is the expensive mistake — PlayItem prefers it over the server (B15).
-            var path = Path.Combine(root, "dl-no-content-range.mkv");
+            var path = DownloadPath(root, "dl-no-content-range.mkv");
             File.WriteAllBytes(path, content);
             using var server = new RangeServer(content) { OmitContentRange = true };
             var (done, _) = RunDownload(server, path);
@@ -648,7 +648,7 @@ internal static class PartialStreamFixture
         {
             // An encode is not byte-identical from one run to the next, so the right SIZE is not
             // evidence of the right bytes for a transcode the way it is for the original file.
-            var path = Path.Combine(root, "dl-transcoded.mkv");
+            var path = DownloadPath(root, "dl-transcoded.mkv");
             File.WriteAllBytes(path, content);
             using var server = new RangeServer(content);
             var (done, _) = RunDownload(server, path, transcoded: true);
@@ -660,7 +660,7 @@ internal static class PartialStreamFixture
 
         Test("a server that refuses the restart too fails the row instead of looping", () =>
         {
-            var path = Path.Combine(root, "dl-refuse-all.mkv");
+            var path = DownloadPath(root, "dl-refuse-all.mkv");
             File.WriteAllBytes(path, new byte[content.Length + 1000]);
             using var server = new RangeServer(content) { RefuseEverything = true };
             var (done, completions) = RunDownload(server, path);
@@ -674,7 +674,7 @@ internal static class PartialStreamFixture
         Test("a partial leftover file still resumes with a 206 from its own length", () =>
         {
             const int prefix = 100_000;
-            var path = Path.Combine(root, "dl-partial.mkv");
+            var path = DownloadPath(root, "dl-partial.mkv");
             File.WriteAllBytes(path, content.AsSpan(0, prefix).ToArray());
             using var server = new RangeServer(content);
             var (done, completions) = RunDownload(server, path);
@@ -688,18 +688,63 @@ internal static class PartialStreamFixture
             Expect(whole - prefix, served[0].BodyBytes, "only the missing tail was sent");
             ExpectFile(path, content);
         });
+
+        Test("a resume answered 200 rewrites the file instead of appending the whole body", () =>
+        {
+            // A server may ignore Range and send the whole resource. Appended onto the prefix that
+            // would be a file prefix + whole bytes long whose own length then looks complete.
+            const int prefix = 100_000;
+            var path = DownloadPath(root, "dl-range-ignored.mkv");
+            File.WriteAllBytes(path, content.AsSpan(0, prefix).ToArray());
+            using var server = new RangeServer(content) { IgnoreRange = true };
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(whole, done.TotalBytes, "TotalBytes is the body's size, not prefix + body");
+            Expect(1, completions, "Completed is raised once");
+            var served = server.Served;
+            Expect(1, served.Count, "one request");
+            Expect(FormattableString.Invariant($"bytes={prefix}-"), served[0].Range, "the resume asked from the file's length");
+            Expect(200, served[0].Status, "the server ignored the range");
+            Expect(whole, served[0].BodyBytes, "the whole file was sent");
+            ExpectFile(path, content);
+        });
+
+        Test("a 206 that starts at the wrong byte is restarted, not appended", () =>
+        {
+            // The 206 names its own start in Content-Range. One that is not the byte asked for is
+            // a body for a different offset; appended, it made a file prefix + whole bytes long
+            // that the end-of-transfer check could not see (it only catches a SHORT file).
+            const int prefix = 100_000;
+            var path = DownloadPath(root, "dl-range-misaligned.mkv");
+            File.WriteAllBytes(path, content.AsSpan(0, prefix).ToArray());
+            using var server = new RangeServer(content) { MisalignRanges = true };
+            var (done, completions) = RunDownload(server, path);
+            Expect(DownloadStatus.Completed, done.Status, "status");
+            Expect(whole, done.TotalBytes, "TotalBytes");
+            Expect(1, completions, "Completed is raised once");
+            var served = server.Served;
+            Expect(2, served.Count, "the misaligned resume, then a restart");
+            Expect(206, served[0].Status, "the resume was answered from byte 0");
+            Expect(null, served[1].Range, "the restart asks for the whole file");
+            Expect(200, served[1].Status, "the restart is a plain 200");
+            ExpectFile(path, content);
+        });
     }
 
     /// <summary>Enqueues one item on a fresh engine and waits for it to settle. A fresh engine per
     /// leg so no leg's state is another's precondition; the shared on-disk index only ever holds
     /// settled entries with their own ids, which a new engine loads and leaves alone.</summary>
+    /// <summary>A download path named the way the app names one, after its item id, which the
+    /// engine requires before it writes.</summary>
+    private static string DownloadPath(string root, string name) => Path.Combine(root, $"{Guid.NewGuid():N}_{name}");
+
     private static (DownloadItem Item, int Completions) RunDownload(RangeServer server, string path,
         bool transcoded = false)
     {
         using var manager = new DownloadManager(() => 1, _ => server.Url, _ => "MediaBrowser Token=\"fixture\"");
         var completions = 0;
         manager.Completed += _ => Interlocked.Increment(ref completions);
-        var id = Guid.NewGuid();
+        var id = Guid.ParseExact(Path.GetFileName(path)[..32], "N");
         manager.Enqueue(new DownloadItem
         {
             ItemId = id,
@@ -778,6 +823,13 @@ internal static class PartialStreamFixture
         /// <summary>Answer EVERY request 416, ranged or not: the restart's own refusal.</summary>
         public bool RefuseEverything { get; init; }
 
+        /// <summary>Answer every request 200 with the whole resource, Range or not.</summary>
+        public bool IgnoreRange { get; init; }
+
+        /// <summary>Answer a ranged request 206 with the whole resource from byte 0, whatever start
+        /// was asked for, and say so in Content-Range.</summary>
+        public bool MisalignRanges { get; init; }
+
         public IReadOnlyList<ServedRequest> Served
         {
             get
@@ -823,13 +875,15 @@ internal static class PartialStreamFixture
                 while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(token).ConfigureAwait(false)))
                     if (line.StartsWith("Range:", StringComparison.OrdinalIgnoreCase)) range = line[6..].Trim();
                 long start = 0, end = _content.Length - 1;
-                var partial = range?.StartsWith("bytes=", StringComparison.Ordinal) == true;
+                var partial = !IgnoreRange && range?.StartsWith("bytes=", StringComparison.Ordinal) == true;
                 if (partial)
                 {
                     var parts = range![6..].Split('-');
                     start = long.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
                     if (parts.Length > 1 && parts[1].Length > 0)
                         end = Math.Min(end, long.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+                    if (MisalignRanges)
+                        (start, end) = (0, _content.Length - 1);
                 }
                 if (RefuseEverything || start < 0 || start >= _content.Length || end < start)
                 {
@@ -946,7 +1000,7 @@ internal static class PartialStreamFixture
         using var server = new PartialFileServer();
         var url = server.Publish(Guid.NewGuid(), download.Path, download.State);
         // HardwareDecoding=false: software decode, so the leg needs no GPU.
-        using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+        using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
             new AppSettings { HardwareDecoding = false });
         var outcome = PlayerEnd.Nothing;
         player.PlaybackFailed += _ => { if (outcome == PlayerEnd.Nothing) outcome = PlayerEnd.Failed; };
@@ -1017,7 +1071,7 @@ internal static class PartialStreamFixture
     /// </summary>
     private static void CheckPositionGeneration(string clip)
     {
-        using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+        using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
             new AppSettings { HardwareDecoding = false });
         var deliveries = 0;
         var lastGeneration = -1;

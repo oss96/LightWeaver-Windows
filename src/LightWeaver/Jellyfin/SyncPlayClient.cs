@@ -155,6 +155,11 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     private long _bufferingCycle;
     private long _readySequence;
 
+    /// <summary>The last local transport request in line. The HTTP client runs requests side by
+    /// side, so a pause and the unpause right behind it could reach the group the other way round
+    /// and leave it paused; each one waits for the one before it to be answered.</summary>
+    private Task _transportTail = Task.CompletedTask;
+
     /// <summary>Whether a debounce window is open. See <see cref="ReportBuffering"/>.</summary>
     private bool _bufferingPending;
 
@@ -403,7 +408,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     {
         if (items.Count == 0 || position < 0 || position >= items.Count || items.Any(id => id == Guid.Empty))
             return Task.FromResult(false);
-        return PostQueueAsync("set_queue", (service, token) => service.Client.SyncPlay.SetNewQueue.PostAsync(
+        return PostTransportAsync("set_queue", (service, token) => service.Client.SyncPlay.SetNewQueue.PostAsync(
             new PlayRequestDto { PlayingQueue = items.Select(id => (Guid?)id).ToList(), PlayingItemPosition = position,
                 StartPositionTicks = Math.Max(0, ticks) }, cancellationToken: token));
     }
@@ -412,38 +417,67 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
         ? NextItemAsync(id) : Task.FromResult(false);
 
     public Task<bool> NextItemAsync(Guid expectedPlaylistItem)
-    {
-        Membership group;
-        lock (_lock)
-        {
-            if (_group is not { } current || current.PlaylistItemId != expectedPlaylistItem)
-                return Task.FromResult(false);
-            group = current;
-        }
-        if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
-            return Task.FromResult(false);
-        return PostAsync("next", token => service.Client.SyncPlay.NextItem.PostAsync(
-            new NextItemRequestDto { PlaylistItemId = expectedPlaylistItem }, cancellationToken: token));
-    }
+        => PostTransportAsync("next", (service, token) => service.Client.SyncPlay.NextItem.PostAsync(
+                new NextItemRequestDto { PlaylistItemId = expectedPlaylistItem }, cancellationToken: token),
+            group => group.PlaylistItemId == expectedPlaylistItem);
 
     public Task<bool> PreviousItemAsync() => PlaylistItemId is { } id
-        ? PostQueueAsync("previous", (service, token) => service.Client.SyncPlay.PreviousItem.PostAsync(
+        ? PostTransportAsync("previous", (service, token) => service.Client.SyncPlay.PreviousItem.PostAsync(
             new PreviousItemRequestDto { PlaylistItemId = id }, cancellationToken: token)) : Task.FromResult(false);
 
     public Task<bool> SetPlaylistItemAsync(Guid id) => id != Guid.Empty
-        ? PostQueueAsync("select", (service, token) => service.Client.SyncPlay.SetPlaylistItem.PostAsync(
+        ? PostTransportAsync("select", (service, token) => service.Client.SyncPlay.SetPlaylistItem.PostAsync(
             new SetPlaylistItemRequestDto { PlaylistItemId = id }, cancellationToken: token)) : Task.FromResult(false);
 
     public Task<bool> RemovePlaylistItemAsync(Guid id) => id != Guid.Empty
-        ? PostQueueAsync("remove", (service, token) => service.Client.SyncPlay.RemoveFromPlaylist.PostAsync(
+        ? PostTransportAsync("remove", (service, token) => service.Client.SyncPlay.RemoveFromPlaylist.PostAsync(
             new RemoveFromPlaylistRequestDto { PlaylistItemIds = [id], ClearPlayingItem = true,
                 ClearPlaylist = false }, cancellationToken: token)) : Task.FromResult(false);
 
-    private Task<bool> PostQueueAsync(string verb, Func<JellyfinService, CancellationToken, Task> post)
+    /// <summary>Queues a local transport request behind the ones before it and sends it once they
+    /// have been answered. It is dropped if the membership changed while it waited, a leave and
+    /// rejoin of the same group included, so it never reaches a membership it was not asked in.</summary>
+    private Task<bool> PostTransportAsync(string verb, Func<JellyfinService, CancellationToken, Task> post,
+        Func<Membership, bool>? stillMeant = null)
     {
-        if (_group is not { } group || _resolveSession(group.ProfileKey) is not { IsConnected: true } service)
-            return Task.FromResult(false);
-        return PostAsync(verb, token => post(service, token));
+        Membership group;
+        long epoch;
+        Task previous;
+        var turn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_lock)
+        {
+            if (_disposed || _group is not { } current || stillMeant?.Invoke(current) == false)
+                return Task.FromResult(false);
+            group = current;
+            epoch = _membershipEpoch;
+            previous = _transportTail;
+            _transportTail = turn.Task;
+        }
+        return SendAsync();
+
+        async Task<bool> SendAsync()
+        {
+            try
+            {
+                await previous.ConfigureAwait(false);
+                bool held;
+                lock (_lock)
+                    held = !_disposed && _membershipEpoch == epoch && _group is { } current
+                        && stillMeant?.Invoke(current) != false;
+                if (!held)
+                {
+                    AppLog.Detail("syncplay", $"event={verb} outcome=dropped reason=membership_changed");
+                    return false;
+                }
+                if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
+                    return false;
+                return await PostAsync(verb, token => post(service, token)).ConfigureAwait(false);
+            }
+            finally
+            {
+                turn.SetResult();
+            }
+        }
     }
 
     /// <summary>Asks the GROUP to pause. The server broadcasts a <c>Pause</c> command to every
@@ -456,13 +490,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     /// refused or could not be reached. The caller shows that; there is nothing else to see,
     /// because a request the group never took up produces no echo either.</para></summary>
     public Task<bool> PauseAsync()
-    {
-        if (_group is not { } group)
-            return Task.FromResult(false);
-        if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
-            return Task.FromResult(false);
-        return PostAsync("pause", token => service.Client.SyncPlay.Pause.PostAsync(cancellationToken: token));
-    }
+        => PostTransportAsync("pause", (service, token) => service.Client.SyncPlay.Pause.PostAsync(cancellationToken: token));
 
     /// <summary>Asks the group to resume. The server does not answer this with "playing now": it
     /// picks an instant a little way into the future, tells every member to be at the group's
@@ -471,13 +499,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     ///
     /// <para>False is "the group was not asked", as <see cref="PauseAsync"/>.</para></summary>
     public Task<bool> UnpauseAsync()
-    {
-        if (_group is not { } group)
-            return Task.FromResult(false);
-        if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
-            return Task.FromResult(false);
-        return PostAsync("unpause", token => service.Client.SyncPlay.Unpause.PostAsync(cancellationToken: token));
-    }
+        => PostTransportAsync("unpause", (service, token) => service.Client.SyncPlay.Unpause.PostAsync(cancellationToken: token));
 
     /// <summary>Asks the group to seek. The server moves EVERY member to
     /// <paramref name="positionTicks"/> and parks the group in <c>Waiting</c> until each one has
@@ -491,16 +513,14 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     /// <para>False is "the group was not asked", as <see cref="PauseAsync"/>.</para></summary>
     public Task<bool> SeekAsync(long positionTicks)
     {
-        if (_group is not { } group)
-            return Task.FromResult(false);
-        if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
+        if (_group is null)
             return Task.FromResult(false);
         // The target, because nothing else records it: the echo that follows carries the position
         // the group RESOLVED to, which is what a mis-clamped or mis-converted request looks like
         // from the outside once the server has had it.
         AppLog.Detail("syncplay", FormattableString.Invariant(
             $"event=seek outcome=requested ticks={positionTicks}"));
-        return PostAsync("seek", token => service.Client.SyncPlay.Seek.PostAsync(
+        return PostTransportAsync("seek", (service, token) => service.Client.SyncPlay.Seek.PostAsync(
             new SeekRequestDto { PositionTicks = positionTicks }, cancellationToken: token));
     }
 
@@ -510,13 +530,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     ///
     /// <para>False is "the group was not asked", as <see cref="PauseAsync"/>.</para></summary>
     public Task<bool> StopAsync()
-    {
-        if (_group is not { } group)
-            return Task.FromResult(false);
-        if (_resolveSession(group.ProfileKey) is not { IsConnected: true } service)
-            return Task.FromResult(false);
-        return PostAsync("stop", token => service.Client.SyncPlay.Stop.PostAsync(cancellationToken: token));
-    }
+        => PostTransportAsync("stop", (service, token) => service.Client.SyncPlay.Stop.PostAsync(cancellationToken: token));
 
     /// <summary>Tells the group this client is in position. Sent after a seek lands and after a
     /// buffer clears; the server holds the whole group in <c>Waiting</c> until every member has.

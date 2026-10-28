@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Control styles for the design's buttons. Hover and press colours snap (no BrushTransition):
+     the WinUI defaults fade them over 83 ms, which the W1 latency run measured as visible lag. -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls">
+
+    <Style x:Key="LwIcon" TargetType="FontIcon">
+        <Setter Property="FontFamily" Value="{StaticResource LwIconFont}" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+
+    <!-- A glyph that points along the reading direction (back, forward, row and see-all arrows,
+         paging and disclosure chevrons): mirrored under a right-to-left language. Media transport
+         glyphs and glyphs with digits stay as drawn. -->
+    <Style x:Key="LwDirectionalIcon" TargetType="FontIcon" BasedOn="{StaticResource LwIcon}">
+        <Setter Property="MirroredWhenRightToLeft" Value="True" />
+    </Style>
+
+    <!-- Transparent until hovered: top-bar back/forward, field buttons, panel close. -->
+    <Style x:Key="LwSubtleButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource LwTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwControlRadius}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters><Setter Target="Content.Foreground" Value="{StaticResource LwText3Brush}" /></VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- One segment of a segmented control (design: Watched, sort order). A RadioButton, so UIA
+         sees a selection group. Selected: segSel fill, full-white text, 16 x 3 accent bar. -->
+    <Style x:Key="LwSegment" TargetType="RadioButton">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwSegmentItemRadius}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid x:Name="Root" Background="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border x:Name="Fill" Background="{StaticResource LwSegmentSelectedBrush}" Visibility="Collapsed" />
+                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <Border x:Name="Indicator" Width="16" Height="3" CornerRadius="2" Margin="0,0,0,1" VerticalAlignment="Bottom"
+                                Background="{StaticResource LwAccentFgBrush}" Visibility="Collapsed" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Indicator.Visibility" Value="Visible" />
+                                        <Setter Target="Content.Foreground" Value="{StaticResource LwTextBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A segment without the accent bar (design: the sort-order arrows). -->
+    <Style x:Key="LwSegmentPlain" TargetType="RadioButton">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwSegmentItemRadius}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid x:Name="Root" Background="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border x:Name="Fill" Background="{StaticResource LwSegmentSelectedBrush}" Visibility="Collapsed" />
+                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Content.Foreground" Value="{StaticResource LwTextBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A colour swatch (SettingsPane, subtitle colour): a 20 px circle in its Background with a
+         dark 1 px edge; the chosen one has a 2 px accentFg ring 2 px outside it. A RadioButton, so
+         the colours are one selection group for the keyboard and UIA. -->
+    <Style x:Key="LwSwatch" TargetType="RadioButton">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid Background="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                        <Ellipse x:Name="Ring" Stroke="{StaticResource LwAccentFgBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                        <Ellipse Width="20" Height="20" Fill="{TemplateBinding Background}" Stroke="{StaticResource LwSwatchEdgeBrush}" StrokeThickness="1" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver" />
+                                <VisualState x:Name="Pressed" />
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters><Setter Target="Ring.Visibility" Value="Visible" /></VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The segmented control's track: segBg, 1 px stroke, 2 px inset. -->
+    <Style x:Key="LwSegmentTrack" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource LwSegmentBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwButtonBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwControlRadius}" />
+        <Setter Property="Padding" Value="2" />
+    </Style>
+
+    <!-- A text toggle in the player bar (RTX VSR, RTX HDR): off, transparent with 78 % white text;
+         on, accentSoft fill with full-white text. -->
+    <Style x:Key="LwBarToggle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#C7FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="MinWidth" Value="44" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwControlRadius}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border x:Name="Fill" Background="{StaticResource LwAccentSoftBrush}" Visibility="Collapsed" />
+                        <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters><Setter Target="Content.Foreground" Value="{StaticResource LwText3Brush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Content.Foreground" Value="White" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedPointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" />
+                                        <Setter Target="Content.Foreground" Value="White" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedPressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" />
+                                        <Setter Target="Content.Foreground" Value="White" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedDisabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Visibility" Value="Visible" />
+                                        <Setter Target="Content.Foreground" Value="{StaticResource LwText3Brush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Section label in the filter panel: 12 px semibold, text2. -->
+    <Style x:Key="LwFilterLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+    </Style>
+
+    <!-- Round avatar: keeps its own background and lightens on hover. -->
+    <Style x:Key="LwAvatarButton" TargetType="Button">
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid CornerRadius="{TemplateBinding CornerRadius}" Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border x:Name="Hover" Background="{StaticResource LwHoverBrush}" Opacity="0" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Hover.Opacity" Value="1" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Hover.Opacity" Value="1" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Standard button: btnBg, 1 px stroke, 32 px high. -->
+    <!-- A table column header (playlist rows). -->
+    <Style x:Key="LwColumnHeader" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource LwText3Brush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="LwButton" TargetType="Button" BasedOn="{StaticResource LwSubtleButton}">
+        <Setter Property="Background" Value="{StaticResource LwButtonBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwButtonBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="{StaticResource LwButtonHeight}" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwButtonHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters><Setter Target="Content.Foreground" Value="{StaticResource LwText3Brush}" /></VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Primary action: accent fill, white text. -->
+    <Style x:Key="LwAccentButton" TargetType="Button" BasedOn="{StaticResource LwButton}">
+        <Setter Property="Background" Value="{StaticResource LwAccentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwAccentHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Opacity" Value="0.85" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters><Setter Target="Root.Opacity" Value="0.5" /></VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Text input with no chrome: the design's fields draw their own border, bottom line and
+         clear button around it, so the stock template's border, delete button and placeholder
+         are left out. The host shows its own placeholder. -->
+    <Style x:Key="LwBareTextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource LwTextBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="SelectionHighlightColor" Value="{StaticResource LwAccentBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid Background="Transparent">
+                        <ScrollViewer x:Name="ContentElement" Padding="{TemplateBinding Padding}" Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalScrollMode="Disabled" VerticalScrollMode="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"
+                                      IsTabStop="False" ZoomMode="Disabled" AutomationProperties.AccessibilityView="Raw" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A top-bar group item: icon over label; selected = filled icon, tint, accent bar. The label
+         trims at the item's width less 2 px a side. -->
+    <Style x:Key="LwBarItemBase" TargetType="c:BarItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource LwTextBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwItemRadius}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="c:BarItem">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border x:Name="SelectedFill" Background="{StaticResource LwSelectedBrush}" Visibility="Collapsed" />
+                        <StackPanel VerticalAlignment="Center" Spacing="1" Margin="0,0,0,6">
+                            <FontIcon x:Name="Glyph" FontFamily="{StaticResource LwIconFont}" FontSize="17" Height="19" Glyph="{TemplateBinding Icon}"
+                                      Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="LabelText" Text="{TemplateBinding Label}" FontFamily="{StaticResource LwFont}" FontSize="10.5" FontWeight="Medium"
+                                       HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0" Foreground="{TemplateBinding Foreground}" />
+                        </StackPanel>
+                        <Border x:Name="Indicator" Width="16" Height="3" CornerRadius="2" Background="{StaticResource LwAccentFgBrush}"
+                                VerticalAlignment="Bottom" Margin="0,0,0,2" Visibility="Collapsed" />
+                        <Border x:Name="BadgeHost" Visibility="{TemplateBinding BadgeVisibility}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Margin="36,4,0,0" MinWidth="15" Height="15" Padding="4,0" CornerRadius="8" Background="{StaticResource LwAccentBrush}">
+                            <TextBlock Text="{TemplateBinding Badge}" FontSize="9.5" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="SelectionStates">
+                                <VisualState x:Name="Unselected" />
+                                <VisualState x:Name="Selected">
+                                    <VisualState.Setters>
+                                        <Setter Target="SelectedFill.Visibility" Value="Visible" />
+                                        <Setter Target="Indicator.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 64 px wide, as drawn: the nav morph's items. -->
+    <Style TargetType="c:BarItem" BasedOn="{StaticResource LwBarItemBase}">
+        <Setter Property="Width" Value="{StaticResource LwBarItemWidth}" />
+    </Style>
+    <!-- The bar's own items: as wide as the label, from 64 up to 76 (a 72 px label, the morph's
+         limit in Chrome.dc.html); TopBar pins them to 64 when the window is narrow. -->
+    <Style x:Key="LwBarItemFlexible" TargetType="c:BarItem" BasedOn="{StaticResource LwBarItemBase}">
+        <Setter Property="MinWidth" Value="{StaticResource LwBarItemWidth}" />
+        <Setter Property="MaxWidth" Value="{StaticResource LwBarItemMaxWidth}" />
+    </Style>
+
+    <!-- Label above a form field (login): 12.5 px medium, text2. -->
+    <Style x:Key="LwFieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+    </Style>
+
+    <!-- Password input without chrome, for a FieldFrame; the reveal button is the frame's. -->
+    <Style x:Key="LwBarePasswordBox" TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{StaticResource LwTextBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="SelectionHighlightColor" Value="{StaticResource LwAccentBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Grid Background="Transparent">
+                        <ScrollViewer x:Name="ContentElement" Padding="{TemplateBinding Padding}" Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalScrollMode="Disabled" VerticalScrollMode="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"
+                                      IsTabStop="False" ZoomMode="Disabled" AutomationProperties.AccessibilityView="Raw" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Text link (login "Change"): accentFg, hover fill. -->
+    <Style x:Key="LwLinkButton" TargetType="Button" BasedOn="{StaticResource LwSubtleButton}">
+        <Setter Property="Foreground" Value="{StaticResource LwAccentFgBrush}" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="FontSize" Value="12.5" />
+    </Style>
+
+    <!-- A full-width row in a grouped box (saved servers): content stretches, hover 4 % white. -->
+    <Style x:Key="LwRowButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource LwTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FontFamily" Value="{StaticResource LwFont}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter x:Name="Content" Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="Center"
+                                          Foreground="{TemplateBinding Foreground}" Content="{TemplateBinding Content}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwRowHoverBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="Root.Background" Value="{StaticResource LwPressBrush}" /></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters><Setter Target="Content.Opacity" Value="0.5" /></VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A non-interactive menu row: a section header, or through Tag any content (the profile
+         menu's account header). Disabled, so keyboard focus skips it. -->
+    <Style x:Key="LwMenuHeader" TargetType="MenuFlyoutItem">
+        <Setter Property="IsEnabled" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuFlyoutItem">
+                    <TextBlock Text="{TemplateBinding Text}" Margin="12,8,12,4" FontFamily="{StaticResource LwFont}" FontSize="12"
+                               FontWeight="SemiBold" Foreground="{StaticResource LwText3Brush}" TextTrimming="CharacterEllipsis" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="LwMenuContent" TargetType="MenuFlyoutItem">
+        <Setter Property="IsEnabled" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuFlyoutItem">
+                    <ContentPresenter Content="{TemplateBinding Tag}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A flyout or menu over the video (design 13): dim glass instead of the stock acrylic, which
+         draws as opaque grey over the swapchain. -->
+    <Style x:Key="LwPlayerFlyoutPresenter" TargetType="FlyoutPresenter">
+        <Setter Property="Background" Value="{StaticResource LwPlayerGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwPlayerGlassBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwGroupRadius}" />
+    </Style>
+    <Style x:Key="LwPlayerMenuPresenter" TargetType="MenuFlyoutPresenter">
+        <Setter Property="Background" Value="{StaticResource LwPlayerGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LwPlayerGlassBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource LwGroupRadius}" />
+    </Style>
+
+    <!-- The profile menu: 300 px wide (design 11). -->
+    <Style x:Key="LwProfileMenuPresenter" TargetType="MenuFlyoutPresenter">
+        <Setter Property="MinWidth" Value="300" />
+        <Setter Property="MaxWidth" Value="300" />
+    </Style>
+</ResourceDictionary>

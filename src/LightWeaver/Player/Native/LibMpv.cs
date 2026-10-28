@@ -16,14 +16,19 @@ internal static partial class LibMpv
 
     static LibMpv()
     {
-        // Bundled dll next to the exe wins; returning Zero falls back to the default
-        // search order (PATH etc.).
+        // The bundled dll next to the exe is the only one a release build loads, so a libmpv-2.dll
+        // planted on PATH or in the working directory never runs. Debug builds still fall back to
+        // the default search order (PATH etc.) for a development machine without native/win-x64.
         NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), static (name, _, _) =>
         {
             if (name != Lib)
                 return nint.Zero;
             var bundled = Path.Combine(AppContext.BaseDirectory, "libmpv-2.dll");
+#if DEBUG
             return NativeLibrary.TryLoad(bundled, out var handle) ? handle : nint.Zero;
+#else
+            return NativeLibrary.Load(bundled);
+#endif
         });
     }
 

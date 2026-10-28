@@ -36,8 +36,8 @@
          true superellipse squircles. A genuine squircle needs a Path/Geometry or a
          per-component clip, which would bypass this token layer and every Border that
          consumes it — the cascade is worth more than the curvature. -->
-    <CornerRadius x:Key="LwR1">8</CornerRadius>    <!-- M3 small: inputs, menu/flyout rows, thumbs, skeletons, small chrome -->
-    <CornerRadius x:Key="LwR2">12</CornerRadius>   <!-- M3 medium: cards, secondary containers, popovers/flyouts -->
+    <CornerRadius x:Key="LwR1">8</CornerRadius>    <!-- M3 small: card art, inputs, menu/flyout rows, thumbs, skeletons, small chrome -->
+    <CornerRadius x:Key="LwR2">12</CornerRadius>   <!-- M3 medium: tiles, secondary containers, popovers/flyouts -->
     <CornerRadius x:Key="LwR3">16</CornerRadius>   <!-- M3 large: modal inner surfaces, large popovers, brand marks -->
     <CornerRadius x:Key="LwR4">28</CornerRadius>   <!-- M3 extra-large: modal-weight cards (sign-in card, Up-Next card) -->
     <!-- LwRFull and LwRPill share the value 999 but are semantically distinct on purpose:

@@ -466,7 +466,7 @@ public sealed class UpdateService : IDisposable
         string partialPath, long downloaded, long? total, CancellationToken cancellationToken)
     {
         var started = Stopwatch.StartNew();
-        if (!await UpdatePackageVerifier.VerifyAsync(partPath, update.DebugSha256, cancellationToken).ConfigureAwait(false))
+        if (!await UpdatePackageVerifier.VerifyAsync(partPath, update.Version, update.DebugSha256, cancellationToken).ConfigureAwait(false))
         {
             // Error, not Detail: a package that reached this machine and cannot be trusted is worth a
             // line in a non-verbose app.log. The digest that failed to match is not recorded.
@@ -540,9 +540,18 @@ public sealed class UpdateService : IDisposable
             return false;
         }
         var path = Path.Combine(_stagingDirectory, assetName);
+        FileStream hold;
+        try { hold = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Diagnostics.AppLog.Error("updates",
+                $"event=revalidate outcome=failure reason=hold to_version={update.DisplayVersion} error={ex.GetType().Name}");
+            return DiscardStagedInstaller(update, assetName);
+        }
         try
         {
-            if (!ValidateStagedInstaller())
+            using var held = hold;
+            if (!ValidateStagedInstaller(held))
             {
                 Detail("event=launch outcome=failure reason=revalidation");
                 return false;
@@ -572,7 +581,10 @@ public sealed class UpdateService : IDisposable
         }
     }
 
-    private bool ValidateStagedInstaller()
+    /// <summary>Checks the staged installer's digest and signature again. With <paramref name="hold"/>,
+    /// a read-only handle that keeps the file from being replaced until the installer has started, the
+    /// digest is read through it; a refused installer is released and discarded.</summary>
+    private bool ValidateStagedInstaller(FileStream? hold = null)
     {
         if (_stagedUpdate is not { AssetName: { } assetName } update)
         {
@@ -585,17 +597,21 @@ public sealed class UpdateService : IDisposable
             // The two conditions are split only so the failure can name itself; the short-circuit
             // order is unchanged, so a missing/mismatched digest still skips the trust check.
             if (update.PackageSha256 is not { Length: > 0 } expectedHash
-                || !string.Equals(UpdatePackageVerifier.ComputeSha256Async(path, CancellationToken.None).GetAwaiter().GetResult(),
+                || !string.Equals(hold is null
+                        ? UpdatePackageVerifier.ComputeSha256Async(path, CancellationToken.None).GetAwaiter().GetResult()
+                        : HeldSha256(hold),
                     expectedHash, StringComparison.OrdinalIgnoreCase))
             {
                 Diagnostics.AppLog.Error("updates",
                     $"event=revalidate outcome=failure reason=hash to_version={update.DisplayVersion}");
+                hold?.Dispose();
                 return DiscardStagedInstaller(update, assetName);
             }
-            if (!UpdatePackageVerifier.VerifyAsync(path, update.DebugSha256, CancellationToken.None).GetAwaiter().GetResult())
+            if (!UpdatePackageVerifier.VerifyAsync(path, update.Version, update.DebugSha256, CancellationToken.None).GetAwaiter().GetResult())
             {
                 Diagnostics.AppLog.Error("updates",
                     $"event=revalidate outcome=failure reason=verification to_version={update.DisplayVersion}");
+                hold?.Dispose();
                 return DiscardStagedInstaller(update, assetName);
             }
             Detail($"event=revalidate outcome=success to_version={update.DisplayVersion}");
@@ -605,8 +621,15 @@ public sealed class UpdateService : IDisposable
         {
             Diagnostics.AppLog.Error("updates",
                 $"event=revalidate outcome=failure to_version={update.DisplayVersion} error={ex.GetType().Name}");
+            hold?.Dispose();
             return DiscardStagedInstaller(update, assetName);
         }
+    }
+
+    private static string HeldSha256(FileStream hold)
+    {
+        hold.Position = 0;
+        return Convert.ToHexString(SHA256.HashData(hold));
     }
 
     /// <summary>The shared body of every revalidation refusal: forget the package, remove it, and
@@ -662,7 +685,7 @@ public sealed class UpdateService : IDisposable
             if (!string.Equals(UpdatePackageVerifier.ComputeSha256Async(installerPath, CancellationToken.None)
                     .GetAwaiter().GetResult(), metadata.PackageSha256, StringComparison.OrdinalIgnoreCase))
             { Detail("event=restore outcome=failure reason=hash_mismatch"); DeletePendingAndInstaller(metadata.AssetName); return; }
-            if (!UpdatePackageVerifier.VerifyAsync(installerPath, metadata.DebugSha256, CancellationToken.None)
+            if (!UpdatePackageVerifier.VerifyAsync(installerPath, version, metadata.DebugSha256, CancellationToken.None)
                     .GetAwaiter().GetResult())
             { Detail("event=restore outcome=failure reason=verification"); DeletePendingAndInstaller(metadata.AssetName); return; }
             var stagedUpdate = new UpdateInfo(version, asset, page, metadata.AssetName, metadata.ExpectedSize,

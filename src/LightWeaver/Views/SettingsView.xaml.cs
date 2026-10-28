@@ -332,7 +332,6 @@ public partial class SettingsView : UserControl
                 Text = LibraryNames.Override(_libraryServer, library.Id, _libraryLanguage) ?? "",
                 Style = (Style)FindResource("LwTextField"), MinHeight = 34,
                 MaxLength = 200,
-                FlowDirection = L.IsRightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
             };
             field.SetValue(System.Windows.Automation.AutomationProperties.AutomationIdProperty,
                 "LibraryName_" + library.Id.ToString("N"));

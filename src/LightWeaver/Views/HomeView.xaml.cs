@@ -26,7 +26,6 @@ public partial class HomeView : UserControl
     private bool _refreshPending;          // a library change that arrived mid-refresh (see NotifyLibraryChanged)
     private readonly Dictionary<Guid, PendingAdvance> _pendingAdvances = [];
     private int _nextUpRowGeneration;
-    private int _favoritesRowGeneration;
 
     /// <summary>Raised when the user picks an item in any row.</summary>
     public event Action<MediaItem>? ItemSelected;
@@ -120,8 +119,10 @@ public partial class HomeView : UserControl
             ApplyOrder();
 
             var jf = _app.Jellyfin;
+            var profileKey = _app.ActiveSessionKey;
             // A disabled rail is NOT fetched (saves the round-trip). Latest still needs
             // the library ids even when the Libraries rail itself is switched off.
+            var requestedAtUtc = DateTime.UtcNow;
             var librariesTask = IsOn(HomeSectionId.Libraries) || IsOn(HomeSectionId.Latest)
                 ? jf.GetLibrariesAsync() : null;
             var resumeTask = IsOn(HomeSectionId.Resume) ? jf.GetResumeItemsAsync() : null;
@@ -129,18 +130,24 @@ public partial class HomeView : UserControl
             await Task.WhenAll(new Task?[] { librariesTask, resumeTask, nextUpTask }.OfType<Task>());
 
             _libraries = librariesTask?.Result;
-            if (resumeTask is not null) FillRow(ResumeSection, ResumeRow, resumeTask.Result);
-            if (nextUpTask is not null) FillRow(NextUpSection, NextUpRow, nextUpTask.Result);
+            if (resumeTask is not null)
+                FillRow(ResumeSection, ResumeRow,
+                    ReconcileRow(HomeSectionId.Resume, resumeTask.Result, requestedAtUtc, profileKey));
+            if (nextUpTask is not null)
+                FillRow(NextUpSection, NextUpRow,
+                    ReconcileRow(HomeSectionId.NextUp, nextUpTask.Result, requestedAtUtc, profileKey));
             if (IsOn(HomeSectionId.Libraries) && _libraries is not null)
                 FillRow(LibrariesSection, LibrariesRow, _libraries);
 
             SkeletonHost.Visibility = Visibility.Collapsed;
 
             // Below the fold: latest (needs the library ids), then favorites.
-            if (IsOn(HomeSectionId.Latest) && _libraries is not null)
-                FillRow(LatestSection, LatestRow, await jf.GetLatestAsync(_libraries.Select(l => l.Id)));
+            if (IsOn(HomeSectionId.Latest) && _libraries is { } libraries)
+                FillRow(LatestSection, LatestRow, await FetchRowAsync(HomeSectionId.Latest,
+                    () => jf.GetLatestAsync(libraries.Select(l => l.Id)), profileKey));
             if (IsOn(HomeSectionId.Favorites))
-                FillRow(FavoritesSection, FavoritesRow, await jf.GetFavoritesAsync());
+                FillRow(FavoritesSection, FavoritesRow,
+                    await FetchRowAsync(HomeSectionId.Favorites, () => jf.GetFavoritesAsync(), profileKey));
             var count = new[] { ResumeRow, NextUpRow, LatestRow, FavoritesRow, LibrariesRow }
                 .Sum(row => row.Items.Count);
             Diagnostics.AppLog.Detail("home",
@@ -149,7 +156,7 @@ public partial class HomeView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("home",
-                $"event=load outcome=failure mode=initial elapsed_ms={started.ElapsedMilliseconds}", ex);
+                $"event=load outcome=failure mode=initial elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
             SkeletonHost.Visibility = Visibility.Collapsed;
             LiveText.Bind(ErrorText, "Text", () => L.Format("HomeView.FailedToLoadHomeScreen.b18674b7", (ex.Message)));
             ErrorText.Visibility = Visibility.Visible;
@@ -171,7 +178,9 @@ public partial class HomeView : UserControl
 
     /// <summary>A server-side library change landed: re-fetch the watching-driven rows now rather
     /// than at the next reveal, so an item deleted on the server stops being offered here. Same
-    /// path as the on-reveal refresh.
+    /// path as the on-reveal refresh, plus Favorites: the reveal skips it because it changes
+    /// rarely, but a deleted favorite is exactly the change this is for, and the row would
+    /// otherwise keep offering it until the next full Home load.
     /// <para>One that arrives mid-refresh is REMEMBERED, not dropped. A server scan emits a batch
     /// every thirty seconds or so, which is the same order as a refresh takes on a slow LAN — so
     /// the batch that lands while the rows are in flight is a likely one, and its rows may have
@@ -186,7 +195,29 @@ public partial class HomeView : UserControl
             _refreshPending = true;
             return;
         }
-        _ = RefreshDynamicRowsAsync();
+        _ = RefreshDynamicRowsAsync(includeFavorites: true);
+    }
+
+    /// <summary>Drops items the server no longer has from every row. Home keeps no cache of its
+    /// own, so this is only the screen; the next refresh asks the server again anyway. A row fetch
+    /// already in flight goes through the removal ledger in <see cref="ReconcileRow"/>.</summary>
+    public void RemoveItems(IReadOnlySet<Guid> itemIds)
+    {
+        foreach (var pref in _layout)
+        {
+            var (section, row) = Ui(pref.Id);
+            if (row.ItemsSource is not ObservableCollection<MediaItem> items)
+                continue;
+            var removed = false;
+            for (var i = items.Count - 1; i >= 0; i--)
+                if (itemIds.Contains(items[i].Id))
+                {
+                    items.RemoveAt(i);
+                    removed = true;
+                }
+            if (removed && items.Count == 0)
+                section.Visibility = Visibility.Collapsed;
+        }
     }
 
     /// <summary>Re-fetches the rows that change from watching — Continue Watching, Next Up,
@@ -195,8 +226,9 @@ public partial class HomeView : UserControl
     /// episode, and server-side additions appear. Mirrors ItemDetailView: await the in-flight
     /// stop report first (capped) so the GET can't outrun the fire-and-forget stop POST.
     /// No skeletons and the page keeps its scroll offset — FillRow only swaps row items.
-    /// Favorites/Libraries are left as-is (they change rarely). Disabled rails are skipped.</summary>
-    private async Task RefreshDynamicRowsAsync()
+    /// Favorites/Libraries are left as-is on a reveal (they change rarely); a library change asks
+    /// for Favorites too. Disabled rails are skipped.</summary>
+    private async Task RefreshDynamicRowsAsync(bool includeFavorites = false)
     {
         _refreshing = true;
         var started = System.Diagnostics.Stopwatch.StartNew();
@@ -209,15 +241,23 @@ public partial class HomeView : UserControl
                 _app.PendingStopReport = null;
             }
             var jf = _app.Jellyfin;
+            var profileKey = _app.ActiveSessionKey;
             if (IsOn(HomeSectionId.Resume))
-                FillRow(ResumeSection, ResumeRow, await jf.GetResumeItemsAsync());
+                FillRow(ResumeSection, ResumeRow,
+                    await FetchRowAsync(HomeSectionId.Resume, () => jf.GetResumeItemsAsync(), profileKey));
             if (IsOn(HomeSectionId.NextUp))
-                FillRow(NextUpSection, NextUpRow, await jf.GetNextUpAsync());
+                FillRow(NextUpSection, NextUpRow,
+                    await FetchRowAsync(HomeSectionId.NextUp, () => jf.GetNextUpAsync(), profileKey));
             if (IsOn(HomeSectionId.Latest))
             {
                 _libraries ??= await jf.GetLibrariesAsync();
-                FillRow(LatestSection, LatestRow, await jf.GetLatestAsync(_libraries.Select(l => l.Id)));
+                var libraryIds = _libraries.Select(l => l.Id).ToList();
+                FillRow(LatestSection, LatestRow,
+                    await FetchRowAsync(HomeSectionId.Latest, () => jf.GetLatestAsync(libraryIds), profileKey));
             }
+            if (includeFavorites && IsOn(HomeSectionId.Favorites))
+                FillRow(FavoritesSection, FavoritesRow,
+                    await FetchRowAsync(HomeSectionId.Favorites, () => jf.GetFavoritesAsync(), profileKey));
             var count = ResumeRow.Items.Count + NextUpRow.Items.Count + LatestRow.Items.Count;
             Diagnostics.AppLog.Detail("home",
                 $"event=load outcome=success mode=refresh elapsed_ms={started.ElapsedMilliseconds} count={count}");
@@ -225,7 +265,7 @@ public partial class HomeView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("home",
-                $"event=load outcome=failure mode=refresh elapsed_ms={started.ElapsedMilliseconds}", ex);
+                $"event=load outcome=failure mode=refresh elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
             // Keep whatever the rows already show; the next reveal retries.
         }
         finally
@@ -235,8 +275,9 @@ public partial class HomeView : UserControl
 
         if (_refreshPending)
         {
+            // Only NotifyLibraryChanged books one, so the re-run is a library-change refresh.
             _refreshPending = false;
-            await RefreshDynamicRowsAsync();
+            await RefreshDynamicRowsAsync(includeFavorites: true);
         }
     }
 
@@ -256,6 +297,55 @@ public partial class HomeView : UserControl
         }
     }
 
+    /// <summary>Fetches one row and reconciles it with the user-data updates made while the request
+    /// was in flight (see <see cref="ReconcileRow"/>).</summary>
+    private async Task<(List<MediaItem> Items, List<(Guid SeriesId, int Slot)> Rolls)> FetchRowAsync(
+        HomeSectionId id, Func<Task<List<MediaItem>>> fetch, string? profileKey)
+    {
+        var requestedAtUtc = DateTime.UtcNow;
+        var items = await fetch();
+        return ReconcileRow(id, items, requestedAtUtc, profileKey);
+    }
+
+    /// <summary>A row fetched from the server, brought up to date before it replaces the one on
+    /// screen. A request that started before a toggle can land after it: the toggle's fan-out
+    /// already changed the old row, and the stale response would put the old state back — on a
+    /// library scan, whose change batches refresh Favorites about every 30 s, an un-favorited item
+    /// came straight back. The shell's user-data ledger (the store the library and detail views
+    /// apply to cached lists) holds every update with its time; the ones newer than the request's
+    /// start are applied, and an item they changed leaves a row it no longer belongs in, by the
+    /// same rules as <see cref="ApplyUserDataUpdate"/>. A Next Up episode watched meanwhile rolls
+    /// to the series' next episode the same way too, in the slot it leaves: those rolls are
+    /// returned, and the FillRow that installs the row queues them.</summary>
+    private (List<MediaItem> Items, List<(Guid SeriesId, int Slot)> Rolls) ReconcileRow(HomeSectionId id,
+        List<MediaItem> fetched, DateTime requestedAtUtc, string? profileKey)
+    {
+        // An item removed since the request started was already dropped from the row on screen;
+        // the removal ledger keeps the response from putting it back.
+        fetched = _app.DropRemovedItems(fetched, requestedAtUtc, profileKey);
+        // ApplyUserDataLedger returns the input instance wherever nothing applied.
+        var applied = _app.ApplyUserDataLedger(fetched, requestedAtUtc, profileKey);
+        var kept = new List<MediaItem>(applied.Count);
+        List<(Guid SeriesId, int Slot)> rolls = [];
+        for (var i = 0; i < applied.Count; i++)
+        {
+            if (ReferenceEquals(applied[i], fetched[i]) || BelongsInRow(id, applied[i]))
+                kept.Add(applied[i]);
+            else if (id == HomeSectionId.NextUp && applied[i].Played && applied[i].SeriesId is { } seriesId)
+                rolls.Add((seriesId, kept.Count));
+        }
+        return (kept, rolls);
+    }
+
+    private static bool BelongsInRow(HomeSectionId id, MediaItem item) => id switch
+    {
+        HomeSectionId.Resume => !item.Played && item.ResumePositionTicks != 0,
+        HomeSectionId.NextUp or HomeSectionId.Latest => !item.Played,
+        // Watched and favorite are independent: only an un-favorited item leaves.
+        HomeSectionId.Favorites => item.IsFavorite,
+        _ => true,
+    };
+
     private void FillRow(StackPanel section, ListBox row, List<MediaItem> items)
     {
         // ObservableCollection so ApplyUserDataUpdate's in-place swap re-renders the card
@@ -264,21 +354,29 @@ public partial class HomeView : UserControl
         section.Visibility = items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (ReferenceEquals(row, NextUpRow))
             _nextUpRowGeneration++;
-        else if (ReferenceEquals(row, FavoritesRow))
-            _favoritesRowGeneration++;
+    }
+
+    /// <summary>Installs a reconciled row, then queues its Next Up rolls against the generation
+    /// this fill produced. Queued any earlier, they guessed that generation, and an update that
+    /// replaced the row in the await before the fill moved it past the guess and dropped them.</summary>
+    private void FillRow(StackPanel section, ListBox row,
+        (List<MediaItem> Items, List<(Guid SeriesId, int Slot)> Rolls) reconciled)
+    {
+        FillRow(section, row, reconciled.Items);
+        foreach (var (seriesId, slot) in reconciled.Rolls)
+            QueueNextUpAdvance(seriesId, slot, _nextUpRowGeneration);
     }
 
     /// <summary>Swap a refreshed item into whichever rows hold it so card badges follow
     /// watched/favorite changes made elsewhere (detail view or the card's own action bar).
     /// Clears completed items from Continue Watching and Recently Added, and rolls Next Up
-    /// to the next episode for TV shows. Favorites follow the same completion rule as Next Up.
+    /// to the next episode for TV shows. Favorites follow the server's own rule: the row is the
+    /// favorited items, watched or not.
     /// MediaItem is immutable, so swap instances.</summary>
     public void ApplyUserDataUpdate(MediaItem fresh)
     {
         int? nextUpReplaceIndex = null;
-        int? favoritesReplaceIndex = null;
         int? nextUpRowGeneration = null;
-        int? favoritesRowGeneration = null;
         Guid? seriesToAdvance = null;
         // 1. Continue Watching: if played or resume ticks == 0, remove it
         if (ResumeRow.ItemsSource is ObservableCollection<MediaItem> resumeItems)
@@ -353,25 +451,21 @@ public partial class HomeView : UserControl
             }
         }
 
-        // 4. Favorites: a completed favorite follows Next Up's removal/advancement rule.
+        // 4. Favorites: favorite and watched are independent. The row is what the server lists
+        // for IsFavorite, and the server keeps a watched favorite favorited; removing it here
+        // (the old Next Up-style rule) only had it reappear on the next full Home load. So a
+        // watched favorite stays, with its badge, and only an un-favorited one leaves.
         if (FavoritesRow.ItemsSource is ObservableCollection<MediaItem> favItems)
         {
             for (var i = 0; i < favItems.Count; i++)
             {
                 if (favItems[i].Id == fresh.Id)
                 {
-                    if (fresh.Played)
+                    if (!fresh.IsFavorite)
                     {
-                        var replaceIndex = i;
                         favItems.RemoveAt(i);
                         if (favItems.Count == 0 && IsOn(HomeSectionId.Favorites))
                             FavoritesSection.Visibility = Visibility.Collapsed;
-                        if (fresh.SeriesId is { } sourceSeriesId)
-                        {
-                            seriesToAdvance ??= sourceSeriesId;
-                            favoritesReplaceIndex = replaceIndex;
-                            favoritesRowGeneration = ++_favoritesRowGeneration;
-                        }
                     }
                     else
                     {
@@ -381,14 +475,11 @@ public partial class HomeView : UserControl
                 }
             }
         }
-        if (seriesToAdvance is { } seriesId
-            && (nextUpReplaceIndex is not null || favoritesReplaceIndex is not null))
-            QueueNextUpAdvance(seriesId, nextUpReplaceIndex, favoritesReplaceIndex,
-                nextUpRowGeneration, favoritesRowGeneration);
+        if (seriesToAdvance is { } seriesId && nextUpReplaceIndex is { } replaceAt)
+            QueueNextUpAdvance(seriesId, replaceAt, nextUpRowGeneration);
     }
 
-    private void QueueNextUpAdvance(Guid seriesId, int? nextUpReplaceIndex,
-        int? favoritesReplaceIndex, int? nextUpRowGeneration, int? favoritesRowGeneration)
+    private void QueueNextUpAdvance(Guid seriesId, int nextUpReplaceIndex, int? nextUpRowGeneration)
     {
         var profileKey = _app.ActiveSessionKey;
         if (profileKey is null || _profileKey != profileKey)
@@ -397,15 +488,13 @@ public partial class HomeView : UserControl
         if (_pendingAdvances.TryGetValue(seriesId, out var pending)
             && pending.ProfileKey == profileKey)
         {
-            pending.Merge(nextUpReplaceIndex, favoritesReplaceIndex,
-                nextUpRowGeneration, favoritesRowGeneration);
+            pending.Merge(nextUpReplaceIndex, nextUpRowGeneration);
             return;
         }
         // A fetch belonging to a prior profile may still be unwinding. Replace its entry so
         // its finally cannot remove the current profile's pending advancement.
         _pendingAdvances.Remove(seriesId);
-        pending = new PendingAdvance(nextUpReplaceIndex, favoritesReplaceIndex,
-            nextUpRowGeneration, favoritesRowGeneration, profileKey);
+        pending = new PendingAdvance(nextUpReplaceIndex, nextUpRowGeneration, profileKey);
         _pendingAdvances.Add(seriesId, pending);
         AdvanceNextUpAsync(seriesId, pending);
     }
@@ -418,6 +507,7 @@ public partial class HomeView : UserControl
             while (IsCurrentAdvance(seriesId, pending, profileKey))
             {
                 var version = pending.Version;
+                var requestedAtUtc = DateTime.UtcNow;
                 var nextUpList = await _app.Jellyfin.GetNextUpAsync(24);
                 // A later completion can change both the target slot and the episode the
                 // server returns. Refetch rather than applying this superseded response.
@@ -426,35 +516,25 @@ public partial class HomeView : UserControl
                 if (version != pending.Version)
                     continue;
 
-                var nextEp = nextUpList.FirstOrDefault(e => e.SeriesId == seriesId);
+                var nextEp = _app.DropRemovedItems(nextUpList, requestedAtUtc, profileKey)
+                    .FirstOrDefault(e => e.SeriesId == seriesId);
                 if (nextEp is null)
                     return;
-                if (pending.NextUpReplaceIndex is not null
-                    && pending.NextUpRowGeneration == _nextUpRowGeneration
+                if (pending.NextUpRowGeneration == _nextUpRowGeneration
                     && NextUpRow.ItemsSource is ObservableCollection<MediaItem> nextUpItems
                     && !nextUpItems.Any(item => item.Id == nextEp.Id))
                 {
-                    var insertPos = Math.Min(pending.NextUpReplaceIndex.Value, nextUpItems.Count);
+                    var insertPos = Math.Min(pending.NextUpReplaceIndex, nextUpItems.Count);
                     nextUpItems.Insert(insertPos, nextEp);
                     if (IsOn(HomeSectionId.NextUp))
                         NextUpSection.Visibility = Visibility.Visible;
-                }
-                if (pending.FavoritesReplaceIndex is not null
-                    && pending.FavoritesRowGeneration == _favoritesRowGeneration
-                    && FavoritesRow.ItemsSource is ObservableCollection<MediaItem> favoritesItems
-                    && !favoritesItems.Any(item => item.Id == nextEp.Id))
-                {
-                    var insertPos = Math.Min(pending.FavoritesReplaceIndex.Value, favoritesItems.Count);
-                    favoritesItems.Insert(insertPos, nextEp);
-                    if (IsOn(HomeSectionId.Favorites))
-                        FavoritesSection.Visibility = Visibility.Visible;
                 }
                 return;
             }
         }
         catch (Exception ex)
         {
-            Diagnostics.AppLog.Detail("home", "event=nextup_advance outcome=failure", ex);
+            Diagnostics.AppLog.Detail("home", $"event=nextup_advance outcome=failure error={ex.GetType().Name}");
         }
         finally
         {
@@ -470,29 +550,18 @@ public partial class HomeView : UserControl
             && _pendingAdvances.TryGetValue(seriesId, out var current)
             && ReferenceEquals(current, pending);
 
-    private sealed class PendingAdvance(int? nextUpReplaceIndex, int? favoritesReplaceIndex,
-        int? nextUpRowGeneration, int? favoritesRowGeneration, string profileKey)
+    private sealed class PendingAdvance(int nextUpReplaceIndex, int? nextUpRowGeneration,
+        string profileKey)
     {
-        public int? NextUpReplaceIndex { get; private set; } = nextUpReplaceIndex;
-        public int? FavoritesReplaceIndex { get; private set; } = favoritesReplaceIndex;
+        public int NextUpReplaceIndex { get; private set; } = nextUpReplaceIndex;
         public int? NextUpRowGeneration { get; private set; } = nextUpRowGeneration;
-        public int? FavoritesRowGeneration { get; private set; } = favoritesRowGeneration;
         public string ProfileKey { get; } = profileKey;
         public int Version { get; private set; }
 
-        public void Merge(int? nextUpReplaceIndex, int? favoritesReplaceIndex,
-            int? nextUpRowGeneration, int? favoritesRowGeneration)
+        public void Merge(int nextUpReplaceIndex, int? nextUpRowGeneration)
         {
-            if (nextUpReplaceIndex is not null)
-            {
-                NextUpReplaceIndex = nextUpReplaceIndex;
-                NextUpRowGeneration = nextUpRowGeneration;
-            }
-            if (favoritesReplaceIndex is not null)
-            {
-                FavoritesReplaceIndex = favoritesReplaceIndex;
-                FavoritesRowGeneration = favoritesRowGeneration;
-            }
+            NextUpReplaceIndex = nextUpReplaceIndex;
+            NextUpRowGeneration = nextUpRowGeneration;
             Version++;
         }
     }
@@ -564,6 +633,8 @@ public partial class HomeView : UserControl
             HorizontalOffset = -220,
             StaysOpen = false,
             AllowsTransparency = true,
+            // Outside the tree, so it inherits no direction; the offset is in the button's.
+            FlowDirection = CustomizeButton.FlowDirection,
         };
         // Created in code, outside the visual tree: nothing would zoom it otherwise.
         Theme.ZoomPopups.SetFollow(_customizePopup, true);
@@ -862,17 +933,23 @@ public partial class HomeView : UserControl
         try
         {
             var jf = _app.Jellyfin;
+            var profileKey = _app.ActiveSessionKey;
             switch (id)
             {
                 case HomeSectionId.Resume:
-                    FillRow(ResumeSection, ResumeRow, await jf.GetResumeItemsAsync()); break;
+                    FillRow(ResumeSection, ResumeRow,
+                        await FetchRowAsync(id, () => jf.GetResumeItemsAsync(), profileKey)); break;
                 case HomeSectionId.NextUp:
-                    FillRow(NextUpSection, NextUpRow, await jf.GetNextUpAsync()); break;
+                    FillRow(NextUpSection, NextUpRow,
+                        await FetchRowAsync(id, () => jf.GetNextUpAsync(), profileKey)); break;
                 case HomeSectionId.Latest:
                     _libraries ??= await jf.GetLibrariesAsync();
-                    FillRow(LatestSection, LatestRow, await jf.GetLatestAsync(_libraries.Select(l => l.Id))); break;
+                    var libraryIds = _libraries.Select(l => l.Id).ToList();
+                    FillRow(LatestSection, LatestRow,
+                        await FetchRowAsync(id, () => jf.GetLatestAsync(libraryIds), profileKey)); break;
                 case HomeSectionId.Favorites:
-                    FillRow(FavoritesSection, FavoritesRow, await jf.GetFavoritesAsync()); break;
+                    FillRow(FavoritesSection, FavoritesRow,
+                        await FetchRowAsync(id, () => jf.GetFavoritesAsync(), profileKey)); break;
                 case HomeSectionId.Libraries:
                     _libraries ??= await jf.GetLibrariesAsync();
                     FillRow(LibrariesSection, LibrariesRow, _libraries); break;

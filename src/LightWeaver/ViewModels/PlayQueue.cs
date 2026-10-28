@@ -123,6 +123,17 @@ public sealed class PlayQueue
         return true;
     }
 
+    /// <summary>Removes every non-current entry whose item is in <paramref name="ids"/>.</summary>
+    public void RemoveAll(IReadOnlySet<Guid> ids)
+    {
+        var current = Current;
+        var removed = _items.RemoveAll(item => !ReferenceEquals(item, current) && ids.Contains(item.Id));
+        if (removed == 0)
+            return;
+        CurrentIndex = current is null ? -1 : _items.IndexOf(current);
+        Changed?.Invoke();
+    }
+
     /// <summary>Removes a non-current entry (the playing row can't be removed).</summary>
     public void RemoveAt(int index)
     {

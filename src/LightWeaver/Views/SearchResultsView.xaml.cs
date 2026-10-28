@@ -45,6 +45,25 @@ public partial class SearchResultsView : UserControl
             EmptyView.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>Drops items the server no longer has, in place: the grouped view follows the
+    /// collection, and a type section left empty goes with its last card. Without it, opening a
+    /// result deleted since the search answered 404 and went back to the same dead card.</summary>
+    public void RemoveItems(IReadOnlySet<Guid> itemIds)
+    {
+        var removed = 0;
+        for (var i = _items.Count - 1; i >= 0; i--)
+            if (itemIds.Contains(_items[i].Id))
+            {
+                _items.RemoveAt(i);
+                removed++;
+            }
+        if (removed == 0)
+            return;
+        Diagnostics.AppLog.Detail("search", $"event=items_removed count={removed} remaining={_items.Count}");
+        if (_items.Count == 0)
+            EmptyView.Show(() => L.Text("SearchResultsView.NoResults.33cf7927"), () => L.Text("SearchResultsView.TryADifferentSearchTermOrThe.fc5f1cbd"));
+    }
+
     private void OnSelection(object sender, SelectionChangedEventArgs e)
     {
         if (ItemsGrid.SelectedItem is MediaItem item)

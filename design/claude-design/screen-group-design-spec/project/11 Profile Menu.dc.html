@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>11</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Profile menu</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">From the avatar at the far right of the bar: current user and server, switch user, switch or add server, log out.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};padding:18px 24px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+              <div style="font-size:17px;font-weight:600">Continue Watching</div>
+              <div style="display:flex;gap:14px"><sc-for list="{{ f.ghost }}" as="g"><div style="width:296px;height:166px;flex:none;border-radius:{{ f.cardR }}px;background:{{ f.ph }}"></div></sc-for></div>
+              <div style="font-size:17px;font-weight:600;margin-top:22px">Recently Added</div>
+              <div style="display:flex;gap:14px"><sc-for list="{{ f.ghost2 }}" as="g"><div style="width:150px;height:225px;flex:none;border-radius:{{ f.cardR }}px;background:{{ f.ph }}"></div></sc-for></div>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="home" badge="2" avatar-open="{{ true }}" slot="avatar" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px">
+              <div style="position:relative;width:300px">
+                <div style="width:300px;border-radius:{{ f.popR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};backdrop-filter:{{ f.popBlur }};-webkit-backdrop-filter:{{ f.popBlur }};font-family:{{ f.font }};color:{{ f.text }};overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:12px;padding:14px 14px 12px;position:relative">
+                    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(140deg,#6b4d57,#3c3036);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#fff;flex:none">MK</div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                      <div style="font-size:14px;font-weight:600">Mara Kessler</div>
+                      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ f.text2 }}"><div style="width:7px;height:7px;border-radius:4px;background:{{ f.okC }}"></div>Home Server</div>
+                      <div style="font-size:11.5px;color:{{ f.text3 }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">media.home.lan:8096</div>
+                    </div>
+                    <div style="position:absolute;left:-10px;top:10px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                  </div>
+                  <div style="height:1px;background:{{ f.sep }}"></div>
+                  <div style="padding:{{ f.menuPad }}px">
+                    <dc-import name="Menu" p="{{ f }}" items="{{ f.items }}" width="100%" bare="{{ true }}" hint-size="100%,160px" style="display:block"></dc-import>
+                  </div>
+                </div>
+                <sc-if value="{{ f.sub }}">
+                  <div style="position:absolute;right:100%;margin-right:4px;top:{{ f.subTop }}px">
+                    <dc-import name="Menu" p="{{ f }}" items="{{ f.subItems }}" width="{{ 270 }}" hint-size="270px,220px"></dc-import>
+                  </div>
+                </sc-if>
+              </div>
+            </dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const mac = f.mac;
+    f.ghost = [0, 1, 2, 3, 4]; f.ghost2 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    f.okC = mac ? '#30D158' : '#6CCB5F';
+    f.items = [
+      { label: 'Switch user', icon: 'switch_account', sub: true, hi: f.sub === 'user' },
+      { label: 'Switch server', icon: 'dns', sub: true, hi: f.sub === 'server' },
+      '-',
+      { label: mac ? 'Settings…' : 'Settings', icon: 'settings', kbd: mac ? '⌘,' : 'Ctrl+,' },
+      { label: 'Log out', icon: 'logout' }
+    ];
+    f.subTop = f.sub === 'server' ? (mac ? 82 : 92) : (mac ? 54 : 60);
+    f.subItems = f.sub === 'server' ? [
+      { header: 'Saved servers' },
+      { label: 'Home Server', note: 'media.home.lan', check: true },
+      { label: 'Cabin NAS', note: '192.0.2.20', check: false, hi: true },
+      { label: 'Family server', note: 'Offline', check: false, disabled: true },
+      '-',
+      { label: 'Add server…', icon: 'add', check: false },
+      { label: 'Manage servers…', check: false }
+    ] : [
+      { header: 'Users on Home Server' },
+      { label: 'Mara Kessler', check: true },
+      { label: 'Jonah', check: false, hi: true },
+      { label: 'Kids', note: 'PIN', check: false },
+      '-',
+      { label: 'Other user…', check: false },
+      { label: 'Quick Connect…', check: false }
+    ];
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '11a', label: 'Open', frames: fr({}), notes: [
+        { n: 1, t: 'Current user, server name and address, with connection status. The avatar gets a focus ring while the menu is open.' },
+        { n: 'i', t: 'macOS: menu attached to the toolbar item (glass). Windows: MenuFlyout with a header area. Items follow the platform’s menu metrics.' },
+        { n: '⏻', t: 'Log out signs out of this server only, returns to Login with this server preselected, and keeps downloads.' }
+      ] },
+      { id: '11b', label: 'Switch server submenu', frames: fr({ sub: 'server' }), notes: [
+        { n: '1', t: 'Submenus open toward the window centre, since the menu sits at the right edge. Hover opens after the platform delay; → opens immediately with the keyboard.' },
+        { n: '2', t: 'Saved servers with address; unreachable ones are disabled and say Offline. Switching keeps each server’s own signed-in user. Add server… opens Login (12).' }
+      ] },
+      { id: '11c', label: 'Switch user submenu', frames: fr({ sub: 'user' }), notes: [
+        { n: '1', t: 'Users on the current server. Users with a PIN ask for it in a small sheet / ContentDialog. Other user… and Quick Connect… open the matching Login step.' }
+      ] },
+      { id: '11d', label: 'Narrow (960 × 600)', frames: fr({ sub: 'server' }, 960, 600), notes: [
+        { n: '1', t: 'Same menu; the submenu still fits to the left inside the window.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

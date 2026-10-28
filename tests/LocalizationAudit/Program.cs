@@ -15,7 +15,12 @@ var calls = 0;
 var xamlCalls = 0;
 var allowedBrandText = new HashSet<string>(StringComparer.Ordinal) { "LightWeaver" };
 
-foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "LightWeaver"), "*", SearchOption.AllDirectories)
+// The WPF app, the WinUI 3 app (v2) and LightWeaver.Core's own files share one catalog.
+// Core links most of its sources from src/LightWeaver; those are audited there once.
+foreach (var path in new[] { "LightWeaver", "LightWeaver.Core", "LightWeaver.WinUI" }
+    .Select(project => Path.Combine(root, "src", project))
+    .Where(Directory.Exists)
+    .SelectMany(dir => Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
     .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj")))
 {
     var relative = Path.GetRelativePath(root, path).Replace('\\', '/');
@@ -38,7 +43,7 @@ foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "LightWe
             if (call.Expression is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "L" } } member
                 || member.Name.Identifier.ValueText is not ("Text" or "Format")) continue;
             // The markup extension forwards the key parsed from XAML, audited below.
-            if (relative == "src/LightWeaver/Localization/TextExtension.cs") continue;
+            if (relative is "src/LightWeaver/Localization/TextExtension.cs" or "src/LightWeaver.WinUI/Localization/TextExtension.cs") continue;
             calls++;
             var location = relative + ":" + (call.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
             if (call.ArgumentList.Arguments.FirstOrDefault()?.Expression is not LiteralExpressionSyntax literal
@@ -78,12 +83,16 @@ foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "LightWe
                 if (value.StartsWith("{loc:Text ", StringComparison.Ordinal))
                 {
                     xamlCalls++;
-                    Record(value[10..].TrimEnd('}').Trim(), relative, relative);
+                    // WPF: {loc:Text Key}; WinUI markup extensions take no positional argument: {loc:Text Key=Key}.
+                    var markupKey = value[10..].TrimEnd('}').Trim();
+                    if (markupKey.StartsWith("Key=", StringComparison.Ordinal)) markupKey = markupKey[4..];
+                    Record(markupKey, relative, relative);
                     if (attribute.Name.LocalName is "AutomationId" or "Key" or "Name")
                         failures.Add(relative + " localization used as XAML identity " + attribute.Name);
                     continue;
                 }
                 var display = attribute.Name.LocalName is "Text" or "Content" or "Header" or "ToolTip" or "Title"
+                    or "Label" or "PlaceholderText" or "ToolTipService.ToolTip" or "AutomationProperties.Name"
                     || attribute.Name.LocalName == "Value" && element.Attribute("Property")?.Value is "Text" or "Content" or "Header" or "ToolTip";
                 if (display && value.Length > 0 && !value.StartsWith('{') && Regex.IsMatch(value, "[A-Za-z]") && !allowedBrandText.Contains(value))
                     failures.Add(relative + " hardcoded XAML UI text: " + value);

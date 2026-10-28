@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See more (design 03): a Home row as a full grid. Header: "Home ›" breadcrumb, title and
+     count, a segmented filter, the sort menu and the card-size option. Columns are added whenever
+     another card fits. -->
+<UserControl
+    x:Class="LightWeaver.WinUI.Pages.SectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    xmlns:loc="using:LightWeaver.WinUI.Localization"
+    xmlns:t="using:LightWeaver.WinUI.Theme"
+    AutomationProperties.AutomationId="SectionPage">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="24,12,24,16" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="2" VerticalAlignment="Bottom">
+                <Button Style="{StaticResource LwSubtleButton}" Padding="4,2" Margin="-4,0,0,0" HorizontalAlignment="Left" Foreground="{StaticResource LwText2Brush}"
+                        Click="OnHome" AutomationProperties.AutomationId="SectionBreadcrumbHome">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <TextBlock Text="{loc:Text Key=TopBar.Home}" FontSize="12" />
+                        <FontIcon Style="{StaticResource LwDirectionalIcon}" FontSize="12" Glyph="{x:Bind t:Icons.ChevronRightSmall}" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" CharacterSpacing="-10" AutomationProperties.HeadingLevel="Level1"
+                               AutomationProperties.AutomationId="SectionTitle" />
+                    <TextBlock x:Name="CountText" FontSize="13" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Bottom" Margin="0,0,0,5"
+                               AutomationProperties.AutomationId="SectionCount" />
+                </StackPanel>
+            </StackPanel>
+            <Border Grid.Column="1" Style="{StaticResource LwSegmentTrack}" VerticalAlignment="Bottom">
+                <StackPanel x:Name="FilterSegments" Orientation="Horizontal" AutomationProperties.AutomationId="SectionFilter" />
+            </Border>
+            <Button x:Name="SortButton" Grid.Column="2" Style="{StaticResource LwButton}" Padding="10,0,8,0" VerticalAlignment="Bottom" Click="OnSort"
+                    AutomationProperties.AutomationId="SectionSort">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Style="{StaticResource LwIcon}" Glyph="{x:Bind t:Icons.ArrowDownward}" />
+                    <TextBlock x:Name="SortText" FontSize="12.5" VerticalAlignment="Center" />
+                    <FontIcon Style="{StaticResource LwIcon}" Foreground="{StaticResource LwText2Brush}" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="SizeButton" Grid.Column="3" Style="{StaticResource LwButton}" Width="32" Padding="0" VerticalAlignment="Bottom" Click="OnSize"
+                    AutomationProperties.AutomationId="SectionCardSize">
+                <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.GridView}" />
+            </Button>
+        </Grid>
+
+        <ScrollViewer x:Name="Scroller" Grid.Row="1" Padding="24,0,24,24" HorizontalScrollMode="Disabled" AutomationProperties.AutomationId="SectionScroller">
+            <ItemsRepeater x:Name="Items" ElementPrepared="OnElementPrepared">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout x:Name="GridLayout" MinColumnSpacing="16" MinRowSpacing="22" ItemsStretch="Uniform" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate>
+                        <c:MediaCard />
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="SkeletonScroller" Grid.Row="1" Padding="24,0,24,24" Visibility="Collapsed" IsHitTestVisible="False" VerticalScrollBarVisibility="Hidden">
+            <ItemsRepeater x:Name="Skeleton">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout x:Name="SkeletonLayout" MinColumnSpacing="16" MinRowSpacing="22" ItemsStretch="Uniform" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate>
+                        <Border CornerRadius="{StaticResource LwCardRadius}" Background="{StaticResource LwPlaceholderBrush}" Margin="0,0,0,44" />
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+
+        <StackPanel x:Name="EmptyState" Grid.Row="1" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,90" Visibility="Collapsed">
+            <FontIcon FontFamily="{StaticResource LwIconFont}" FontSize="44" Foreground="{StaticResource LwText3Brush}" Glyph="{x:Bind t:Icons.FilterAltOff}" />
+            <TextBlock Text="{loc:Text Key=Section.Empty}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" AutomationProperties.AutomationId="SectionEmpty" />
+        </StackPanel>
+    </Grid>
+</UserControl>

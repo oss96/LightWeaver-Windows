@@ -52,5 +52,21 @@ internal static class LanguageBadge
         }
     }
 
+    /// <summary>The language of a track's tag by name, in the interface language ("eng" and "en" →
+    /// "English", "Englisch" in German), or "" when the tag names no known language.</summary>
+    public static string Name(string? lang)
+    {
+        if (For(lang) is not { Length: > 0 } code)
+            return "";
+        try
+        {
+            return CultureInfo.GetCultureInfo(code.ToLowerInvariant()).DisplayName;
+        }
+        catch (CultureNotFoundException)
+        {
+            return "";
+        }
+    }
+
     private static bool IsLetters(string s) => s.All(char.IsAsciiLetterLower);
 }

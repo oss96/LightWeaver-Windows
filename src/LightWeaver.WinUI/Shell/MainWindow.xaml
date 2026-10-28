@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="LightWeaver.WinUI.Shell.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:shell="using:LightWeaver.WinUI.Shell"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    Title="LightWeaver">
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="Root" KeyboardAcceleratorPlacementMode="Hidden">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <c:ZoomBox x:Name="BarZoom" MinHeight="48">
+            <shell:TopBar x:Name="Bar" VerticalAlignment="Center" />
+        </c:ZoomBox>
+        <c:ZoomBox x:Name="LayerZoom" Grid.Row="1">
+            <Border x:Name="Layer" Background="{StaticResource LwLayerBrush}" BorderBrush="{StaticResource LwLayerTopBrush}"
+                    BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <InfoBar x:Name="CachedBanner" Severity="Warning" IsOpen="False" IsClosable="False" Margin="24,12,24,0"
+                             AutomationProperties.AutomationId="CachedOfflineBanner" />
+                    <ContentControl x:Name="PageHost" Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                    IsTabStop="False" UseSystemFocusVisuals="False" />
+                    <ContentControl x:Name="HomeHost" Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                    IsTabStop="False" UseSystemFocusVisuals="False" Visibility="Collapsed" />
+                </Grid>
+            </Border>
+        </c:ZoomBox>
+
+        <c:ZoomBox x:Name="ToastZoom" Grid.Row="1">
+            <shell:ToastHost x:Name="Toasts" />
+        </c:ZoomBox>
+    </Grid>
+</Window>

@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  Proposal: Settings › Updates states and the update toast for the v2 in-app updater (designer skill,
+  2026-10-23). One suggestion, applied at once: parity with the WPF v1 updater.
+  System: DESIGN.md (one accent: LwAccentBrush fills the one primary button, LwAccentFgBrush for
+  progress; states LwErrorBrush), Tokens.xaml values, the drawn Updates pane in SettingsPane.dc.html
+  (value row "LightWeaver 1.4.2 / Last checked today at 09:14 / Up to date", foot "Check for updates"),
+  the Downloads row's 4 px progress track and the info toast of 14 Errors and Toasts (14c).
+  Current state: drawn from SettingsPage.cs; the app is not launched on the desktop host.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>v2 updater states. Proposal 2026-10-23</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .doc { padding: 48px 56px 80px; display: flex; flex-direction: column; gap: 36px; max-width: 1400px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  h3 { font: 600 13px ui-monospace, Menlo, monospace; color: #555; margin: 0 0 8px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: #333; max-width: 960px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 680px); gap: 24px; }
+
+  .pane { width: 680px; background: #202020; padding: 20px 24px 22px; border-radius: 6px;
+          font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; display: flex; flex-direction: column; gap: 4px; }
+  .card { min-height: 64px; padding: 12px 16px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(0,0,0,.1);
+          display: grid; grid-template-columns: 18px 1fr auto; gap: 16px; align-items: center; }
+  .icon { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 18px; width: 18px; }
+  .label { font-size: 14px; }
+  .desc { font-size: 12px; color: rgba(255,255,255,.78); margin-top: 2px; }
+  .state { display: flex; gap: 12px; align-items: center; justify-content: flex-end; }
+  .value { font-size: 13px; color: rgba(255,255,255,.78); max-width: 320px; text-align: end; }
+  .value.error { color: #FF99A4; }
+  .track { width: 160px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.545); overflow: hidden; }
+  .track i { display: block; height: 100%; background: #F08C9C; }
+  .combo { height: 32px; min-width: 220px; padding: 0 10px; border-radius: 4px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07);
+           display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+  .foot { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { height: 32px; padding: 0 12px; border-radius: 4px; display: grid; place-items: center; font-size: 13px;
+         background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); color: #fff; }
+  .btn.accent { background: #B83A52; border-color: transparent; }
+  .btn.off { opacity: .45; }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 3px; border-radius: 4px; }
+  .toastbed { width: 680px; height: 120px; border-radius: 6px; background: #202020; position: relative; }
+  .toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); min-height: 44px; padding: 0 6px 0 14px; border-radius: 8px;
+           background: rgba(44,44,44,.97); border: 1px solid rgba(255,255,255,.09); box-shadow: 0 8px 16px rgba(0,0,0,.26);
+           display: flex; gap: 10px; align-items: center; color: #fff; font: 13px "Segoe UI Variable Text", "Segoe UI", system-ui; white-space: nowrap; }
+  .toast .ti { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 18px; color: #F08C9C; }
+  .toast .act { height: 30px; padding: 0 12px; border-radius: 4px; background: rgba(255,255,255,.06); color: #F08C9C; font-weight: 600; display: grid; place-items: center; }
+  .toast .x { width: 28px; height: 28px; display: grid; place-items: center; font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 14px; color: rgba(255,255,255,.545); }
+  table { border-collapse: collapse; font-size: 13px; background: #f8f7f5; border: 1px solid rgba(0,0,0,.1); }
+  th { background: #1a1a1a; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
+  td { padding: 8px 12px; border-top: 1px solid rgba(0,0,0,.08); vertical-align: top; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 · design/proposals · 2026-10-23</div>
+    <h1>Settings › Updates: the updater's states</h1>
+    <p>v2 has no working updater: Settings › Updates only shows "Version X is available" after a
+    manual check, and the policy it saves is read by nothing. The WPF app checks at start and every
+    six hours, downloads and verifies the setup, installs on demand or on exit, and shows its state in
+    Settings and a banner. The handoff draws one Updates state (up to date, <code>SettingsPane.dc.html</code>);
+    the others are not drawn.</p>
+  </header>
+
+  <section>
+    <h2>Now</h2>
+    <div class="pane">
+      <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div></div>
+        <div class="state"><span class="value">Not checked yet</span></div></div>
+      <div class="card"><span class="icon">&#xE72C;</span><div><div class="label">Updates</div></div>
+        <div class="combo">Only when I check <span class="icon" style="font-size:12px">&#xE70D;</span></div></div>
+      <div class="foot"><div class="btn accent">Check for updates</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Suggestion: the drawn pane in every state <span class="impact">within the system</span></h2>
+    <ul>
+      <li><b>Version row.</b> As drawn: "LightWeaver 2.0.0", "Last checked …" under it once a check has
+      run, and the state as the row's value (13, <code>LwText2Brush</code>, at most 320 wide, wrapping).
+      An error reads in <code>LwErrorBrush</code>. A download adds the Downloads row's 4 px track
+      (<code>LwTrackBrush</code>, fill <code>LwAccentFgBrush</code>, 160 wide) before the percentage.</li>
+      <li><b>Foot.</b> One accent button, as the drawn foot has one: the action the state offers, with
+      Check for updates beside it as a plain button. When checking is all there is to do, Check for
+      updates is the accent button, as drawn.</li>
+      <li><b>Policy.</b> The chooser stays; its first choice reads "Notify me, install when I choose",
+      because it still checks at start and every six hours (it said "Only when I check").</li>
+      <li><b>Toast.</b> Outside Settings, the 14c info toast says once per version that an update was
+      found (notify-only policy) or is ready, with "Open" (Settings › Updates) or "Install now". No
+      banner and no badge: the handoff draws neither.</li>
+    </ul>
+    <div class="grid">
+      <div><h3>Up to date (as drawn)</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 09:14</div></div>
+          <div class="state"><span class="value">Up to date</span></div></div>
+        <div class="card"><span class="icon">&#xE72C;</span><div><div class="label">Updates</div></div><div class="combo">Notify me, install when I choose <span class="icon" style="font-size:12px">&#xE70D;</span></div></div>
+        <div class="foot"><div class="btn accent">Check for updates</div></div></div></div>
+
+      <div><h3>Checking</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 09:14</div></div>
+          <div class="state"><span class="value">Checking…</span></div></div>
+        <div class="foot"><div class="btn accent off">Check for updates</div></div></div></div>
+
+      <div><h3>Available (notify only)</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 15:14</div></div>
+          <div class="state"><span class="value">Version 2.1.0 is available</span></div></div>
+        <div class="foot new"><div class="btn accent">Download and install</div><div class="btn">Check for updates</div></div></div></div>
+
+      <div><h3>Downloading</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 15:14</div></div>
+          <div class="state new"><span class="track"><i style="width:42%"></i></span><span class="value">Downloading… 42 %</span></div></div>
+        <div class="foot"><div class="btn accent off">Download</div><div class="btn off">Check for updates</div></div></div></div>
+
+      <div><h3>Ready to install</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 15:14</div></div>
+          <div class="state"><span class="value">Version 2.1.0 is verified and ready to install.</span></div></div>
+        <div class="foot"><div class="btn accent">Install now</div><div class="btn">Check for updates</div></div></div></div>
+
+      <div><h3>Ready, automatic install</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 15:14</div></div>
+          <div class="state"><span class="value">Version 2.1.0 is ready — it will install when LightWeaver closes.</span></div></div>
+        <div class="foot"><div class="btn accent">Install now</div><div class="btn">Check for updates</div></div></div></div>
+
+      <div><h3>Error</h3><div class="pane">
+        <div class="card"><span class="icon">&#xF167;</span><div><div class="label">LightWeaver 2.0.0</div><div class="desc">Last checked 23/10/2026 15:14</div></div>
+          <div class="state"><span class="value error">LightWeaver could not reach the update server.</span></div></div>
+        <div class="foot"><div class="btn accent">Retry</div></div></div></div>
+
+      <div><h3>Toast (outside Settings)</h3><div class="toastbed">
+        <div class="toast"><span class="ti">&#xF167;</span>Version 2.1.0 is available<span class="act">Open</span><span class="x">&#xE711;</span></div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Behaviour</h2>
+    <table>
+      <tr><th>Policy</th><th>After a check finds 2.1.0</th><th>On a normal exit</th></tr>
+      <tr><td>Notify me, install when I choose</td><td>Available; toast with Open; Download and install downloads, verifies and closes the app into the setup</td><td>Nothing, unless Install now queued it</td></tr>
+      <tr><td>Download automatically, install when I choose</td><td>Downloads at once; Ready; toast with Install now</td><td>Nothing, unless Install now queued it</td></tr>
+      <tr><td>Download and install automatically</td><td>Downloads at once; Ready, "installs when LightWeaver closes"; toast with Install now</td><td>Silent install, the app is not started again; skipped when Windows is logging off or shutting down</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

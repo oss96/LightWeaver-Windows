@@ -2,38 +2,28 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text;
 using System.Windows.Media.Imaging;
 
 namespace LightWeaver.Imaging;
 
 /// <summary>
 /// Disk-backed image cache: %LOCALAPPDATA%\LightWeaver\imagecache\&lt;sha1&gt;.img, evicted
-/// LRU by last access time down to 500 MB. All IO and decoding run off the UI thread;
-/// decoded bitmaps are frozen so they can cross back to it.
+/// LRU by last access time down to 500 MB. The disk layout and eviction live in
+/// <see cref="ImageDiskCache"/>, shared with the WinUI app. All IO and decoding run off the UI
+/// thread; decoded bitmaps are frozen so they can cross back to it.
 /// </summary>
 public static class ImageCache
 {
-    private static readonly string CacheDir = Path.Combine(AppPaths.Root, "imagecache");
-
     /// <summary>Eviction cap (M19): a field so Settings can size it (M21). Seeded from
     /// AppSettings at startup; default matches the shipped 500 MB.</summary>
-    public static long MaxCacheBytes { get; set; } = 500L * 1024 * 1024;
+    public static long MaxCacheBytes
+    {
+        get => ImageDiskCache.MaxCacheBytes;
+        set => ImageDiskCache.MaxCacheBytes = value;
+    }
 
     /// <summary>Total bytes on disk right now (M21 readout).</summary>
-    public static long CurrentSizeBytes()
-    {
-        try
-        {
-            var dir = new DirectoryInfo(CacheDir);
-            return dir.Exists ? dir.GetFiles("*.img").Sum(f => f.Length) : 0;
-        }
-        catch
-        {
-            return 0;
-        }
-    }
+    public static long CurrentSizeBytes() => ImageDiskCache.CurrentSizeBytes();
 
     // ---- Summary counters (M3 verbose logging) ------------------------------------------
     //
@@ -126,14 +116,7 @@ public static class ImageCache
     public static void Clear()
     {
         FlushSummary("clear");
-        try
-        {
-            var dir = new DirectoryInfo(CacheDir);
-            if (dir.Exists)
-                foreach (var f in dir.GetFiles("*.img"))
-                    try { f.Delete(); } catch { /* in use — skip */ }
-        }
-        catch { /* best-effort */ }
+        ImageDiskCache.Clear();
         lock (MemLock)
         {
             MemCache.Clear();
@@ -167,6 +150,7 @@ public static class ImageCache
     })
     {
         Timeout = TimeSpan.FromSeconds(30),
+        MaxResponseContentBufferSize = ImageLimits.MaxImageBytes,
     };
 
     /// <summary>Resolves the Jellyfin auth header for a given absolute image URL.
@@ -206,8 +190,6 @@ public static class ImageCache
             return (long)b.PixelWidth * b.PixelHeight * 4;
         }
     }
-
-    private static int _evictionScheduled;
 
     /// <summary>Decoded (frozen) bitmap for the URL, or null if it can't be fetched.
     /// decodePixelWidth &gt; 0 decodes at that width to keep memory flat.</summary>
@@ -263,19 +245,12 @@ public static class ImageCache
     /// Also usable directly for raw assets like trickplay tiles.</summary>
     public static async Task<string?> GetFileAsync(string url)
     {
-        ScheduleEviction();
-        var path = Path.Combine(CacheDir, CacheFileName(url));
-        if (File.Exists(path))
+        if (ImageDiskCache.Find(url) is { } path)
         {
-            // LRU stamp — NTFS last-access updates are often disabled, so set it explicitly.
-            _ = Task.Run(() =>
-            {
-                try { File.SetLastAccessTimeUtc(path, DateTime.UtcNow); } catch { /* best-effort */ }
-            });
             Record(ref _diskHits);
             return path;
         }
-        var download = Inflight.GetOrAdd(url, u => DownloadAsync(u, path));
+        var download = Inflight.GetOrAdd(url, DownloadAsync);
         try
         {
             return await download.ConfigureAwait(false);
@@ -308,7 +283,7 @@ public static class ImageCache
         }
     }
 
-    private static async Task<string?> DownloadAsync(string url, string path)
+    private static async Task<string?> DownloadAsync(string url)
     {
         try
         {
@@ -324,11 +299,11 @@ public static class ImageCache
                 Record(ref _downloadFailures);
                 return null;
             }
-            Directory.CreateDirectory(CacheDir);
-            // temp + move: a torn write must never become a cache entry
-            var tmp = $"{path}.{Environment.CurrentManagedThreadId}.tmp";
-            await File.WriteAllBytesAsync(tmp, bytes).ConfigureAwait(false);
-            File.Move(tmp, path, overwrite: true);
+            if (await ImageDiskCache.StoreAsync(url, bytes).ConfigureAwait(false) is not { } path)
+            {
+                Record(ref _downloadFailures);
+                return null;
+            }
             Record(ref _downloads, bytes.Length);
             return path;
         }
@@ -344,12 +319,17 @@ public static class ImageCache
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var header = BitmapDecoder.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).Frames[0];
+            var width = ImageLimits.DecodeWidth(header.PixelWidth, decodePixelWidth);
+            if (ImageLimits.DecodedPixels(header.PixelWidth, header.PixelHeight, decodePixelWidth) > ImageLimits.MaxDecodedPixels)
+                throw new InvalidDataException("image too large to decode");
+            stream.Position = 0;
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.StreamSource = stream;
-            if (decodePixelWidth > 0)
-                bitmap.DecodePixelWidth = decodePixelWidth;
+            if (width > 0)
+                bitmap.DecodePixelWidth = width;
             bitmap.EndInit();
             bitmap.Freeze();
             return bitmap;
@@ -357,61 +337,7 @@ public static class ImageCache
         catch
         {
             // corrupt cache entry: drop it so the next request re-downloads
-            try { File.Delete(path); } catch { /* best-effort */ }
+            ImageDiskCache.Remove(path);
             return null;
         }
-    }
-
-    private static string CacheFileName(string url)
-        => Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(url))).ToLowerInvariant() + ".img";
-
-    /// <summary>Trims the cache back under the cap: once shortly after first use, then
-    /// periodically for the life of the process.
-    ///
-    /// <para>This used to be strictly once per session (B21), so the cap was enforced at most once
-    /// per app run against whatever the cache happened to hold 15 s after startup — a long browsing
-    /// session could then exceed it without bound for the rest of its life. The one-shot flag now
-    /// guards starting the loop rather than running the sweep.</para></summary>
-    private static void ScheduleEviction()
-    {
-        if (Interlocked.Exchange(ref _evictionScheduled, 1) != 0)
-            return;
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
-            while (true)
-            {
-                EvictOnce();
-                await Task.Delay(TimeSpan.FromMinutes(10)).ConfigureAwait(false);
-            }
-        });
-    }
-
-    /// <summary>One LRU sweep of the disk cache down to <see cref="MaxCacheBytes"/>.</summary>
-    private static void EvictOnce()
-    {
-        try
-        {
-            var dir = new DirectoryInfo(CacheDir);
-            if (!dir.Exists)
-                return;
-            var files = dir.GetFiles("*.img");
-            var total = files.Sum(f => f.Length);
-            if (total <= MaxCacheBytes)
-                return;
-            foreach (var file in files.OrderBy(f => f.LastAccessTimeUtc))
-            {
-                try
-                {
-                    var size = file.Length;
-                    file.Delete();
-                    total -= size;
-                }
-                catch { /* in use — skip */ }
-                if (total <= MaxCacheBytes)
-                    break;
-            }
-        }
-        catch { /* eviction is best-effort */ }
-    }
-}
+    }}

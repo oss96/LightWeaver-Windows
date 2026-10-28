@@ -192,6 +192,7 @@ public static class AppShortcuts
     {
         PlayerAction.VolumeUp or PlayerAction.VolumeDown or PlayerAction.ToggleMute
             or PlayerAction.CycleAudio or PlayerAction.CycleSubtitle or PlayerAction.CycleVideo
+            or PlayerAction.SubtitleEarlier or PlayerAction.SubtitleLater
             => ShortcutGroup.AudioSubtitles,
         PlayerAction.ToggleFullscreen or PlayerAction.OpenStream => ShortcutGroup.General,
         _ => ShortcutGroup.Playback,

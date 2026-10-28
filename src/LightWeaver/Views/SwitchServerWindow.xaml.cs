@@ -32,6 +32,8 @@ public partial class SwitchServerWindow : Window
     {
         InitializeComponent();
         LiveText.Watch(this);
+        // The content, not the Window: a right-to-left Window mirrors its HWND (UiDirection).
+        UiDirection.Follow((FrameworkElement)Content);
         // The dialog opens at the app's UI zoom (modal, so the zoom cannot change while it is
         // up): its content is scaled and the CLIENT area grows with it, so nothing inside is
         // clipped. Done once the frame is known, because Width/Height include the title bar.

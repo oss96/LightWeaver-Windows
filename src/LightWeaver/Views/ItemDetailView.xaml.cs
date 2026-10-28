@@ -44,6 +44,13 @@ public partial class ItemDetailView : UserControl
     /// <summary>Remove this item's completed download (M20); MainWindow confirms first.</summary>
     public event Action<MediaItem>? DownloadRemoveRequested;
 
+    /// <summary>The server answered 404 for this item: it was deleted after the card that opened
+    /// it was cached or listed. MainWindow evicts it everywhere and leaves this page.</summary>
+    public event Action<Guid>? ItemNotFound;
+
+    /// <summary>The item this page shows.</summary>
+    public Guid ItemId => _item.Id;
+
     private Guid _similarLoadedFor;
     private bool _similarFetching;
     private Guid _streamsLoadedFor;
@@ -145,7 +152,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=download-options elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=download-options elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
             return new(null, Cancelled: false);
         }
     }
@@ -218,7 +225,15 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=item elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=item elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
+            if (JellyfinService.IsNotFound(ex) && profileKey == _app.ActiveSessionKey && _item.Id == itemId)
+            {
+                // Not a transient failure: the item is gone. The stale copy is NOT renderable in
+                // any useful sense — every action on it would 404 too — so hand it to MainWindow
+                // and skip the sections below, which would only collect four more 404s.
+                ItemNotFound?.Invoke(itemId);
+                return;
+            }
             // stale copy is still renderable
         }
         finally
@@ -282,7 +297,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=versions elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=versions elapsed_ms={started.ElapsedMilliseconds} item={itemId:N} type={_item.Type} error={ex.GetType().Name}");
         }
         finally
         {
@@ -317,7 +332,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=streams elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=streams elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
         }
     }
 
@@ -336,7 +351,7 @@ public partial class ItemDetailView : UserControl
         var started = System.Diagnostics.Stopwatch.StartNew();
         Diagnostics.AppLog.Detail("detail",
             $"event=load outcome=start section=episodes item={_item.Id:N} type={_item.Type}");
-        var cacheKey = $"browse:{profileKey}:detail-episodes:{seriesId:N}:{seasonId:N}";
+        var cacheKey = SeasonCacheKey(profileKey, seriesId, seasonId);
         var cached = await Imaging.MetadataCache.ReadAsync<Imaging.BrowseCacheEntry<MediaItem>>(cacheKey);
         if (!IsCurrentSeasonLoad(itemId, profileKey, generation))
         {
@@ -344,9 +359,11 @@ public partial class ItemDetailView : UserControl
                 _episodesLoadingFor = Guid.Empty;
             return;
         }
-        if (cached is not null)
+        if (cached?.Items is not null)
         {
-            RenderSeason(ReconcileCachedUserData(cached.Items));
+            RenderSeason(ReconcileCachedUserData(_app.ApplyUserDataLedger(
+                _app.DropRemovedItems(cached.Items, cached.CachedAtUtc, profileKey),
+                cached.CachedAtUtc, profileKey)));
         }
 
         // Tier 3: the page around this list is already painted, so the skeleton waits out
@@ -380,12 +397,17 @@ public partial class ItemDetailView : UserControl
                 return;
             userDataRequestId = BeginUserDataRequest();
             var requestUserDataRevision = _activeUserDataRequests[userDataRequestId];
+            // The entry's stamp is the request's start, the age of the data it holds: the ledger
+            // then still re-applies a toggle made while the request was in flight.
+            var requestedAtUtc = DateTime.UtcNow;
             var episodes = await _app.Jellyfin.GetEpisodesAsync(seriesId, seasonId);
             if (!IsCurrentSeasonLoad(itemId, profileKey, generation))
                 return;
-            episodes = ReconcileNetworkUserData(episodes, requestUserDataRevision);
-            _ = Imaging.MetadataCache.StoreAsync(cacheKey,
-                new Imaging.BrowseCacheEntry<MediaItem>(episodes, episodes.Count, DateTime.UtcNow));
+            // An episode removed since the request started goes before it is stored or shown; the
+            // store checks again once it has landed (see AppViewModel.StoreBrowseListAsync).
+            episodes = ReconcileNetworkUserData(_app.DropRemovedItems(episodes, requestedAtUtc, profileKey),
+                requestUserDataRevision);
+            _ = _app.StoreBrowseListAsync(cacheKey, episodes, requestedAtUtc, profileKey);
             RenderSeason(episodes);
             _episodesLoadedFor = itemId;
             Diagnostics.AppLog.Detail("detail",
@@ -394,7 +416,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=episodes elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=episodes elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
         }
         finally
         {
@@ -444,13 +466,27 @@ public partial class ItemDetailView : UserControl
             SimilarSkeleton.Visibility = Visibility.Visible;
             SimilarSection.Visibility = Visibility.Visible;
         }, TaskScheduler.FromCurrentSynchronizationContext());
+        var userDataRequestId = 0;
         try
         {
             if (int.TryParse(Environment.GetEnvironmentVariable("LIGHTWEAVER_SLOW_LOAD_MS"), out var slowMs) && slowMs > 0)
                 await Task.Delay(slowMs);
-            var similar = await _app.Jellyfin.GetSimilarAsync(_item.Id);
+            // Same revision guard as the item and episode fetches: a card toggled on this page
+            // while the request is in flight must not be painted back to the server's older copy.
+            userDataRequestId = BeginUserDataRequest();
+            var requestUserDataRevision = _activeUserDataRequests[userDataRequestId];
+            var profileKey = _app.ActiveSessionKey;
+            var requestedAtUtc = DateTime.UtcNow;
+            var fetched = await _app.Jellyfin.GetSimilarAsync(_item.Id);
+            if (profileKey != _app.ActiveSessionKey)
+                return;
+            // A card removed while the request was in flight was already dropped from this row;
+            // the response predates that and would put it back.
+            var similar = ReconcileNetworkUserData(_app.DropRemovedItems(fetched, requestedAtUtc, profileKey),
+                requestUserDataRevision);
             _similarLoadedFor = _item.Id;
-            SimilarRow.ItemsSource = similar;
+            // Observable so ApplyUserDataUpdate can swap a card in place, as Home's rows do.
+            SimilarRow.ItemsSource = new System.Collections.ObjectModel.ObservableCollection<MediaItem>(similar);
             SimilarSection.Visibility = similar.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             Diagnostics.AppLog.Detail("detail",
                 $"event=load outcome=success section=similar elapsed_ms={started.ElapsedMilliseconds} count={similar.Count} item={_item.Id:N} type={_item.Type}");
@@ -458,10 +494,12 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=similar elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=similar elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
         }
         finally
         {
+            if (userDataRequestId != 0)
+                EndUserDataRequest(userDataRequestId);
             done = true;
             _similarFetching = false;
             SimilarSkeleton.Visibility = Visibility.Collapsed;
@@ -494,7 +532,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=load outcome=failure section=ratings elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type}", ex);
+                $"event=load outcome=failure section=ratings elapsed_ms={started.ElapsedMilliseconds} item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
         }
     }
 
@@ -888,7 +926,7 @@ public partial class ItemDetailView : UserControl
             PlayButton.Style = (Style)FindResource("LwButtonPrimary");
         }
 
-        if (_item.TrailerUrl is { Length: > 0 })
+        if (Jellyfin.WebLinks.TryParse(_item.TrailerUrl, out _))
         {
             LiveText.Bind(TrailerButton, "Content", () => GlyphLabel("IconTrailer", L.Text("ItemDetailView.Trailer.c9af45dc")));
             TrailerButton.Visibility = Visibility.Visible;
@@ -1261,7 +1299,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=interaction action=toggle-watched outcome=failure item={_item.Id:N} type={_item.Type}", ex);
+                $"event=interaction action=toggle-watched outcome=failure item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
             // toggle stays at the server state on failure
         }
         finally
@@ -1288,7 +1326,7 @@ public partial class ItemDetailView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("detail",
-                $"event=interaction action=toggle-favorite outcome=failure item={_item.Id:N} type={_item.Type}", ex);
+                $"event=interaction action=toggle-favorite outcome=failure item={_item.Id:N} type={_item.Type} error={ex.GetType().Name}");
             // toggle stays at the server state on failure
         }
         finally
@@ -1403,12 +1441,12 @@ public partial class ItemDetailView : UserControl
     /// reserved for library media, so the load-bearing HWND rule is untouched.</summary>
     private void OnTrailer(object sender, RoutedEventArgs e)
     {
-        if (_item.TrailerUrl is not { Length: > 0 } url)
+        if (!Jellyfin.WebLinks.TryParse(_item.TrailerUrl, out var url))
             return;
         Diagnostics.AppLog.Detail("detail", $"event=interaction action=open-trailer item={_item.Id:N} type={_item.Type}");
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
         }
         catch
         {
@@ -1433,14 +1471,56 @@ public partial class ItemDetailView : UserControl
     public void ApplyUserDataUpdate(MediaItem fresh)
     {
         _userDataOverrides[fresh.Id] = new UserDataOverride(++_userDataRevision, fresh);
-        if (_item.Id == fresh.Id)
+        // This page's own toggles render the fresh item and THEN fan it out, so the same
+        // instance arrives back here; rendering it again reloads the poster and backdrop for
+        // nothing.
+        if (_item.Id == fresh.Id && !ReferenceEquals(_item, fresh))
         {
             _item = fresh;
             Render();
         }
         if (EpisodesList.ItemsSource is List<MediaItem> episodes)
             RenderSeason(ReconcileCachedUserData(episodes));
+        // "More like this" is a row of cards like Home's: swap the instance in place so its
+        // watched/favorite badges follow a toggle made on the card or anywhere else.
+        if (SimilarRow.ItemsSource is System.Collections.ObjectModel.ObservableCollection<MediaItem> similar)
+            for (var i = 0; i < similar.Count; i++)
+                if (similar[i].Id == fresh.Id && !ReferenceEquals(similar[i], fresh))
+                    similar[i] = fresh;
     }
+
+    /// <summary>Drops items the server no longer has from the "More like this" row and the
+    /// inline episode list. The page's own item is MainWindow's business (it leaves the page).
+    /// The detail-episodes cache entry loses them too: the next visit paints it before its
+    /// refetch lands.</summary>
+    public void RemoveItems(IReadOnlySet<Guid> itemIds)
+    {
+        if (SimilarRow.ItemsSource is System.Collections.ObjectModel.ObservableCollection<MediaItem> similar)
+        {
+            var removed = false;
+            for (var i = similar.Count - 1; i >= 0; i--)
+                if (itemIds.Contains(similar[i].Id))
+                {
+                    similar.RemoveAt(i);
+                    removed = true;
+                }
+            if (removed && similar.Count == 0)
+                SimilarSection.Visibility = Visibility.Collapsed;
+        }
+        if (EpisodesList.ItemsSource is List<MediaItem> episodes
+            && episodes.Any(item => itemIds.Contains(item.Id)))
+        {
+            RenderSeason(episodes.Where(item => !itemIds.Contains(item.Id)).ToList());
+            if (_item.SeriesId is { } seriesId && (_item.SeasonId ?? _item.ParentId) is { } seasonId)
+            {
+                var cacheKey = SeasonCacheKey(_app.ActiveSessionKey, seriesId, seasonId);
+                _ = Task.Run(() => AppViewModel.RemoveFromBrowseListAsync(cacheKey, itemIds));
+            }
+        }
+    }
+
+    private static string SeasonCacheKey(string? profileKey, Guid seriesId, Guid seasonId)
+        => $"browse:{profileKey}:detail-episodes:{seriesId:N}:{seasonId:N}";
 
     private bool IsCurrentSeasonLoad(Guid itemId, string? profileKey, int generation)
         => _item.Id == itemId && profileKey == _app.ActiveSessionKey

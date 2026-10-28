@@ -40,6 +40,7 @@
                 HorizontalAlignment="Left" VerticalAlignment="Top"
                 Margin="28,24,0,0" Width="38" Height="38" FontSize="17"
                 Content="{StaticResource IconBack}" Click="OnBackClick" ToolTip="{loc:Text OverlayWindow.BackToBrowsing.cd1be2d3}"
+                loc:UiDirection.MirrorGlyph="True"
                 AutomationProperties.AutomationId="BackButton" />
         <StackPanel x:Name="TitlePanel"
                     HorizontalAlignment="Left" VerticalAlignment="Top"
@@ -117,15 +118,31 @@
                           ToolTip="{Binding RtxVsrTooltip}"
                           AutomationProperties.AutomationId="RtxVsrToggle" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                <TextBlock x:Name="SyncPlayButtonLabel" MaxWidth="160" FontSize="12" Margin="0,0,8,0"
-                           Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <ToggleButton x:Name="SyncPlayButton" Style="{StaticResource LwOsdGemToggle}" Width="36" Height="36" Padding="0"
-                        ClickMode="Press" IsChecked="{Binding IsOpen, ElementName=SyncPlayPopup, Mode=TwoWay}"
-                        Checked="OnSyncPlayChecked" ToolTip="{loc:Text OverlayWindow.SyncplayGroups.2955453c}" AutomationProperties.AutomationId="OverlaySyncPlayButton">
-                    <TextBlock Text="{StaticResource IconSyncPlay}" FontFamily="{StaticResource LwFontIcon}" FontSize="22" />
-                </ToggleButton>
-            </StackPanel>
+            <!-- The SyncPlay status and icon sit on a scrim pill: bare, the "Playing · 2" label and
+                 the people glyph were unreadable over bright video. LwScrimBrush is the 0.72 a
+                 storm-0 tint the card chips use over artwork; over pure white it leaves text-1 at
+                 7.2:1, where text-2 would be 4.0:1, hence the brighter label. The glyph goes up
+                 from the toggle's text-3 rest colour to text-2 through a style setter, so the
+                 template's hover and checked triggers still win over it. -->
+            <Border HorizontalAlignment="Right" Margin="0,8,0,0"
+                    Background="{StaticResource LwScrimBrush}"
+                    BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1"
+                    CornerRadius="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Converter={StaticResource LwRFullFromHeight}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="SyncPlayButtonLabel" MaxWidth="160" FontSize="12" Margin="14,0,8,0"
+                               Foreground="{StaticResource LwText1Brush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <ToggleButton x:Name="SyncPlayButton" Width="36" Height="36" Padding="0"
+                            ClickMode="Press" IsChecked="{Binding IsOpen, ElementName=SyncPlayPopup, Mode=TwoWay}"
+                            Checked="OnSyncPlayChecked" ToolTip="{loc:Text OverlayWindow.SyncplayGroups.2955453c}" AutomationProperties.AutomationId="OverlaySyncPlayButton">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton" BasedOn="{StaticResource LwOsdGemToggle}">
+                                <Setter Property="Foreground" Value="{StaticResource LwText2Brush}" />
+                            </Style>
+                        </ToggleButton.Style>
+                        <TextBlock Text="{StaticResource IconSyncPlay}" FontFamily="{StaticResource LwFontIcon}" FontSize="22" />
+                    </ToggleButton>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!-- Volume indicator (P10 M10). Transient readout on a volume or mute change, with
@@ -262,9 +279,15 @@
              yet. The CAPTION is what tells them apart, and it is also the readable signal for the
              suites — the dots carry no text and no automation peer. Loading additionally hides the
              transport bar (see TransportVisible); a stall deliberately does not. -->
-        <StackPanel IsHitTestVisible="False"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Visibility="{Binding HasPlaybackStatus, Converter={StaticResource BoolToVisibleConverter}}">
+        <!-- The card behind the dots and caption is the modal scrim (storm-0 at 0.72a): it keeps
+             both readable over a bright frame without adding light of its own over HDR video. -->
+        <Border IsHitTestVisible="False"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{StaticResource LwScrimBrush}"
+                BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1"
+                CornerRadius="{StaticResource LwR3}" Padding="{StaticResource LwPad6}"
+                Visibility="{Binding HasPlaybackStatus, Converter={StaticResource BoolToVisibleConverter}}">
+        <StackPanel>
             <Grid HorizontalAlignment="Center">
                 <!-- Larger than the browse default (5 px) because this one is read across a
                      room, but PeakOpacity is held at 0.55: this overlay composites over HDR
@@ -289,6 +312,7 @@
                 </TextBlock.Effect>
             </TextBlock>
         </StackPanel>
+        </Border>
 
         <!-- Bottom scrim: seek bar + time + transport controls -->
         <!-- Hidden while loading: a bar parked at 0:00 with a live-looking pause glyph is exactly
@@ -296,7 +320,10 @@
              from the UIA tree too — "the controls are absent" is then a fact a suite can assert,
              not an appearance. SetMiniMode / UpdateCompactControls touch the children rather than
              this Border, so they compose with it. -->
-        <Border x:Name="ControlsPanel" VerticalAlignment="Bottom" Padding="40,40,40,24"
+        <!-- Pinned LeftToRight under a right-to-left UI language: the seek bar, time code, volume
+             slider and transport keep tape direction, as media players do. OnQualityPopupOpened
+             measures against this panel for that reason. -->
+        <Border x:Name="ControlsPanel" VerticalAlignment="Bottom" Padding="40,40,40,24" FlowDirection="LeftToRight"
                 Visibility="{Binding TransportVisible, Converter={StaticResource BoolToVisibleConverter}}">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -381,11 +408,11 @@
                         </TextBlock>
                     </Button>
 
-                    <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpBack}"
+                    <Button x:Name="JumpBackButton" DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpBack}"
                             Margin="6,0,0,0" Click="OnJumpBack"
                             ToolTip="{loc:Text OverlayWindow.JumpBackLeftArrow.be72716d}"
                             AutomationProperties.AutomationId="JumpBackButton" />
-                    <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpForward}"
+                    <Button x:Name="JumpForwardButton" DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconJumpForward}"
                             Margin="4,0,0,0" Click="OnJumpForward"
                             ToolTip="{loc:Text OverlayWindow.JumpForwardRightArrow.4c1d1ce5}"
                             AutomationProperties.AutomationId="JumpForwardButton" />
@@ -409,18 +436,18 @@
                             IsEnabled="{Binding CanGoNext}"
                             AutomationProperties.AutomationId="NextButton" />
 
-                    <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconPrevChapter}"
+                    <Button x:Name="PrevChapterButton" DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconPrevChapter}"
                             Margin="6,0,0,0" Click="OnPrevChapter"
                             ToolTip="{loc:Text OverlayWindow.PreviousChapter.0e775e85}"
                             Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibleConverter}}"
                             AutomationProperties.AutomationId="PrevChapterButton" />
-                    <Button DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconNextChapter}"
+                    <Button x:Name="NextChapterButton" DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}" Content="{StaticResource IconNextChapter}"
                             Margin="4,0,0,0" Click="OnNextChapter"
                             ToolTip="{loc:Text OverlayWindow.NextChapter.8cc8223b}"
                             Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibleConverter}}"
                             AutomationProperties.AutomationId="NextChapterButton" />
 
-                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center"
+                    <StackPanel x:Name="VolumeCluster" DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center"
                                 Margin="14,0,0,0">
                         <!-- Mute toggle (M13): mpv's real mute flag, glyph follows IsMuted;
                              independent of the volume slider so unmute restores the level. -->
@@ -455,21 +482,23 @@
                                 Width="96" Minimum="0" Maximum="100"
                                 Value="{Binding Volume, Mode=TwoWay}"
                                 VerticalAlignment="Center" Margin="6,0,0,0" ToolTip="{loc:Text OverlayWindow.Volume.a82a60d2}" />
-                        <!-- Output device switcher: hidden unless there is a real choice
-                             (>= 2 devices). Lives with the volume cluster (output routing),
-                             glyph distinct from the mute speaker. -->
-                        <Button x:Name="AudioDeviceButton" Style="{StaticResource LwOsdButton}"
-                                Content="{StaticResource IconAudioDevice}" Margin="6,0,0,0"
-                                Click="OnAudioDeviceButton" ToolTip="{loc:Text OverlayWindow.AudioOutputDevice.2967a1a2}"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding HasAudioDeviceChoices, Converter={StaticResource BoolToVisibleConverter}}"
-                                AutomationProperties.AutomationId="AudioDeviceButton" />
                     </StackPanel>
+                    <!-- Output device switcher: hidden unless there is a real choice
+                         (>= 2 devices). Sits beside the volume cluster (output routing),
+                         glyph distinct from the mute speaker. A row child of its own rather
+                         than the cluster's last member, so the row fit can fold it into the
+                         overflow tray without taking the slider with it. -->
+                    <Button x:Name="AudioDeviceButton" DockPanel.Dock="Left" Style="{StaticResource LwOsdButton}"
+                            Content="{StaticResource IconAudioDevice}" Margin="6,0,0,0"
+                            Click="OnAudioDeviceButton" ToolTip="{loc:Text OverlayWindow.AudioOutputDevice.2967a1a2}"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding HasAudioDeviceChoices, Converter={StaticResource BoolToVisibleConverter}}"
+                            AutomationProperties.AutomationId="AudioDeviceButton" />
 
                     <!-- Fullscreen (2026-08-05). Declared FIRST among the right-docked children on
                          purpose: a DockPanel allocates in declaration order, so this both sits
-                         rightmost (where video players put it) and is the last thing to be
-                         squeezed when the row runs out of width at the 700x480 minimum. F11 and a
+                         rightmost (where video players put it) and is never folded into the
+                         overflow tray when the row runs out of width. F11 and a
                          double-click on the video already did this; the button makes it visible.
                          The glyph flips through OverlayWindow.SetFullscreen, driven by
                          MainWindow.ToggleFullscreen, so it cannot disagree with the real state. -->
@@ -482,6 +511,31 @@
                             Content="{StaticResource IconMiniRestore}" Margin="6,0,0,0" Visibility="Collapsed"
                             Click="OnMiniRestore" ToolTip="{loc:Text OverlayWindow.LeaveMiniPlayerCtrlM.1e2857d5}"
                             AutomationProperties.AutomationId="MiniRestoreButton" />
+                    <!-- Overflow tray: the controls the row fit (OverlayWindow.UpdateTrackButtons)
+                         folded out of a row too narrow for them, moved here as the SAME elements,
+                         so each keeps its AutomationId, handlers and the flyout anchored to it.
+                         An in-tree panel rather than a Popup for that last reason: a flyout opened
+                         from a control inside a StaysOpen=False popup takes the mouse capture,
+                         closes the popup and is left anchored to a control that is gone.
+                         The zero-size Canvas sits exactly at the overflow button's right edge
+                         (the next right-docked child), and the tray hangs above the row from it,
+                         growing leftwards. Inside ControlsPanel, so it fades, hides and blocks the
+                         click-to-pause with the bar. Visibility of the tray and the button is
+                         code-owned, like the track buttons below. -->
+                    <Canvas x:Name="OverflowTrayHost" DockPanel.Dock="Right" Width="0" Height="0"
+                            VerticalAlignment="Top">
+                        <Border x:Name="OverflowTray" Canvas.Right="0" Canvas.Bottom="8"
+                                Style="{StaticResource LwOsdFlyout}" Padding="0,6,6,6"
+                                Visibility="Collapsed">
+                            <!-- Left padding 0: every hosted control brings its own left margin. -->
+                            <WrapPanel x:Name="OverflowPanel" Orientation="Horizontal" />
+                        </Border>
+                    </Canvas>
+                    <Button x:Name="OverflowButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
+                            Content="{StaticResource IconMore}" Margin="6,0,0,0" Visibility="Collapsed"
+                            Click="OnOverflowButton" ToolTip="{loc:Text OverlayWindow.MoreControls.abd7db60}"
+                            AutomationProperties.Name="{loc:Text OverlayWindow.MoreControls.abd7db60}"
+                            AutomationProperties.AutomationId="OverflowButton" />
                     <Button x:Name="MiniPlayerButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdButton}"
                             Content="{StaticResource IconMiniPlayer}" Margin="6,0,0,0"
                             Click="OnMiniPlayer" ToolTip="{loc:Text OverlayWindow.MiniPlayerCtrlM.8002b3ca}"
@@ -508,8 +562,8 @@
                                        AutomationProperties.AutomationId="QueueBadge" />
                         </StackPanel>
                     </Button>
-                    <!-- Quality sits beside the track pickers and stays in the fit test's width:
-                         it is not one of the four code-owned track buttons below. -->
+                    <!-- Quality sits beside the track pickers. It is one of the controls the row
+                         fit can fold into the overflow tray, but late: see FoldGroups. -->
                     <Button x:Name="QualityButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
                             Content="{loc:Text OverlayWindow.Quality.9751e9f5}" Margin="6,0,0,0" ClickMode="Press"
                             Click="OnQualityButton" ToolTip="{loc:Text OverlayWindow.PlaybackQuality.a736be69}"
@@ -524,15 +578,19 @@
                          user a click and a read to find out which types even have a choice.
                          Both shapes now ship, and OverlayWindow.UpdateTrackButtons picks between
                          them from a MEASUREMENT rather than a width threshold: it adds up the
-                         visible row and shows the trio only when the trio actually fits.
+                         visible row and shows the trio only when the trio actually fits. The
+                         merged pill was still squeezed to zero in a queue row at the minimum
+                         (2026-10-08), so the same fit now also folds whole groups of other
+                         controls into the overflow tray until the row fits - the merged pill
+                         itself is never folded.
                          The four buttons below are therefore CODE-OWNED (local SetValue, no
                          Visibility binding) - exactly one shape is on screen at a time.
                          Declaration order is reversed on screen (DockPanel.Dock=Right allocates
                          from the right), so Subs/Audio/Video here reads Video Audio Subs there,
                          and the group occupies the merged pill's slot.
-                         The fit test EXCLUDES all four of these buttons from the width it sums:
-                         a measurement that included them would depend on the decision it is
-                         about to make, and the two states would oscillate at the boundary. -->
+                         The fit test sums NATURAL widths, never what the row currently shows:
+                         a measurement that depended on the decision it is about to make would
+                         oscillate at the boundary. -->
                     <Button x:Name="SubtitleTracksButton" DockPanel.Dock="Right" Style="{StaticResource LwOsdPillButton}"
                             Content="{loc:Text OverlayWindow.Subs.49239a86}" Margin="6,0,0,0" Visibility="Collapsed"
                             Click="OnSubtitleTracksButton" ToolTip="{loc:Text OverlayWindow.SubtitleTracksS.038c1184}"
@@ -579,7 +637,7 @@
                  "Force transcode" as "Force transcod" and cut the status line mid-word, with no
                  ellipsis and no wrap. MaxHeight 340 is the space above the transport row at the
                  700x480 MINIMUM window. At that width the panel no longer fits right-aligned to
-                 its button, so OnQualityPopupOpened clamps it inside the overlay. -->
+                 its button, so OsdFlyoutPlacement clamps it inside the overlay. -->
             <Border Style="{StaticResource LwOsdFlyout}" Padding="14,10" Width="480" MaxHeight="340">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <!-- No AutomationId on this panel: a WPF Panel creates no automation peer, so
@@ -668,7 +726,9 @@
                 </ListBox>
             </Border>
         </Popup>
-        <!-- Queue popup: click a row to jump, X removes (the playing row can't be removed) -->
+        <!-- Queue popup: click a row to jump, X removes (the playing row can't be removed).
+             OsdFlyoutPlacement hangs it above the seek bar rather than from the badge, so a tall
+             queue in a short window scrolls instead of covering the timeline. -->
         <Popup x:Name="QueuePopup" theme:ZoomPopups.Follow="True" StaysOpen="False" Placement="Top" AllowsTransparency="True"
                PlacementTarget="{Binding ElementName=QueueButton}">
             <Border Style="{StaticResource LwOsdFlyout}" MinWidth="280" MaxHeight="420">
@@ -685,6 +745,7 @@
                             <DockPanel Margin="2,3" LastChildFill="True" MinWidth="250">
                                 <Border DockPanel.Dock="Left" Width="20">
                                     <TextBlock Text="{StaticResource IconCheck}" FontFamily="{StaticResource LwFontIcon}" FontSize="16"
+                                               Foreground="{StaticResource LwText1Brush}"
                                                Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibleConverter}}" />
                                 </Border>
                                 <Button DockPanel.Dock="Right" Content="{StaticResource IconClose}"
@@ -694,11 +755,23 @@
                                         Click="OnQueueRowRemove" Tag="{Binding}"
                                         ToolTip="{loc:Text OverlayWindow.RemoveFromQueue.6eb7df26}"
                                         Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibleConverter}}" />
-                                <TextBlock DockPanel.Dock="Left" Text="{Binding Position}" Opacity="0.5"
+                                <!-- Text colours are explicit. LwOsdFlyoutItem replaces the theme's
+                                     ListBoxItem style, so these used to inherit whatever the window
+                                     resolved to, and the number was half of that. text-2 is 7.9:1 on
+                                     the storm-3 backplate; the playing row and its check are text-1 (14.3:1). -->
+                                <TextBlock DockPanel.Dock="Left" Text="{Binding Position}"
+                                           Foreground="{StaticResource LwText2Brush}"
                                            Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding LiveDisplay}" VerticalAlignment="Center"
+                                <TextBlock x:Name="QueueRowTitle" Text="{Binding LiveDisplay}" VerticalAlignment="Center"
+                                           Foreground="{StaticResource LwText2Brush}"
                                            TextTrimming="CharacterEllipsis" />
                             </DockPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                    <Setter TargetName="QueueRowTitle" Property="Foreground" Value="{StaticResource LwText1Brush}" />
+                                    <Setter TargetName="QueueRowTitle" Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
@@ -787,6 +860,9 @@
         <!-- Near-transparent Background + Padding: a background-less TextBlock only
              hit-tests its GLYPH PIXELS, and this arrow's center is empty - presses fell
              through to the video and became drag-to-move/Windows-snap (seen live). -->
+        <!-- The background-less LeftToRight wrapper keeps the grip at the bottom-right under a
+             mirrored root, where the native HTBOTTOMRIGHT loop and the restore button are. -->
+        <Grid FlowDirection="LeftToRight">
         <TextBlock x:Name="MiniResizeGrip" Text="{StaticResource IconResizeGrip}"
                    FontFamily="{StaticResource LwFontIcon}" FontSize="16"
                    Background="#01000000"
@@ -808,6 +884,7 @@
                 </Style>
             </TextBlock.Style>
         </TextBlock>
+        </Grid>
 
         <!-- Keyboard-shortcuts panel (P10 M9), player host. Last child so it sits over the
              controls; the browse layer has its own instance in MainWindow. -->

@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- LightWeaver v2: the WinUI 3 shell over LightWeaver.Core. Spike W1 (spikes/W1-winui3-composition
+       on its branch) proved the stack: mpv's composition swapchain in a SwapChainPanel keeps HDR and
+       RTX, and WinUI with the FastUi levers responds faster than the WPF app. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <RootNamespace>LightWeaver.WinUI</RootNamespace>
+    <AssemblyName>LightWeaver</AssemblyName>
+    <Product>LightWeaver</Product>
+    <AssemblyTitle>LightWeaver</AssemblyTitle>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWinUI>true</UseWinUI>
+    <!-- Unpackaged, with the Windows App SDK runtime next to the exe: no runtime installer. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Without it dotnet publish leaves out LightWeaver.pri, the resource index that carries the
+         compiled XAML, and the published app cannot load a page. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\LightWeaver.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Only the Windows App SDK parts the shell uses. The Microsoft.WindowsAppSDK meta-package
+         also pulls in AI, ML, Search and Widgets (onnxruntime, DirectML and more, about 60 MB). -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.3.12" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.5.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LightWeaver.Core\LightWeaver.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The shipped libmpv (not in git), same lookup as the WPF app. -->
+    <None Include="..\..\native\win-x64\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\native\win-x64\libmpv-2.dll')" />
+    <!-- The window's title-bar, taskbar and Alt-Tab icon (AppWindow.SetIcon reads it from disk). -->
+    <None Update="Assets\LightWeaver.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

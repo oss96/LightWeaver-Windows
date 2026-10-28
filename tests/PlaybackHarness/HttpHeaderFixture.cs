@@ -22,7 +22,7 @@ internal static class HttpHeaderFixture
                 if (!service.ReconnectAsync(new SavedCredentials(server.Origin, "TEST", "synthetic-mpv-token-a",
                         server.UserId)).GetAwaiter().GetResult())
                     throw new InvalidOperationException("The synthetic mpv session could not reconnect.");
-                using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+                using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                     new AppSettings { HardwareDecoding = false });
                 CheckLoad("/header-first", service.AuthorizationHeader);
                 CheckLoad("/header-replaced", service.AuthorizationHeader.Replace("synthetic-mpv-token-a",

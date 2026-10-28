@@ -1,15 +1,17 @@
 {
-    "language":  "de",
-    "strings":  {
-                    "hello":  "Hallo",
-                    "count":  "Anzahl {0:N0}",
-                    "stale":  "Alter Text",
-                    "invalid":  "Wert {1}"
-                },
-    "sourceHashes":  {
-                         "invalid":  "b464699c5db2fb6337aaad7b64a3273823073ae4b6429d5de36cb9f292a91a38",
-                         "stale":  "baa2dbe4761fe966bf6d7562d5060c4f019586829a75a84e19bc453ad8422d1a",
-                         "count":  "fb85a1aa6ee11b766d37493d1d7c5bfe7e5ab7654fbe8d51658d5b2f5b974845",
-                         "hello":  "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969"
-                     }
+  "language": "de",
+  "strings": {
+    "hello": "Hallo",
+    "count": "Anzahl {0:N0}",
+    "stale": "Alter Text",
+    "invalid": "Wert {1}",
+    "cached": "Offline - zwischengespeicherte Ergebnisse vom {0:g}."
+  },
+  "sourceHashes": {
+    "invalid": "b464699c5db2fb6337aaad7b64a3273823073ae4b6429d5de36cb9f292a91a38",
+    "stale": "baa2dbe4761fe966bf6d7562d5060c4f019586829a75a84e19bc453ad8422d1a",
+    "count": "fb85a1aa6ee11b766d37493d1d7c5bfe7e5ab7654fbe8d51658d5b2f5b974845",
+    "hello": "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969",
+    "cached": "aa569f6af09a156ee4070f9d6146af97e5761ff0f09b8e4ddffbd8a3f7e5fba9"
+  }
 }

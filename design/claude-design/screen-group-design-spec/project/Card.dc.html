@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div onMouseEnter="{{ enter }}" onMouseLeave="{{ leave }}" style="width:{{ wcss }};flex:none;display:flex;flex-direction:column;gap:7px;font-family:{{ p.font }};cursor:default;min-width:0">
+  <div style="position:relative;aspect-ratio:{{ ar }};border-radius:{{ r }};background:{{ p.ph }};overflow:hidden;box-shadow:{{ ring }}">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 9.5px/1 {{ p.mono }};color:{{ p.text3 }};letter-spacing:.06em;text-transform:uppercase">{{ label }}</div>
+    <sc-if value="{{ hovered }}"><div style="position:absolute;inset:0;background:rgba(255,255,255,0.05)"></div></sc-if>
+    <sc-if value="{{ hasBadge }}"><div style="position:absolute;top:6px;right:6px;min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:10px;background:{{ p.accent }};color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center">{{ badge }}</div></sc-if>
+    <sc-if value="{{ watchedMark }}"><div style="position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:10px;background:rgba(0,0,0,0.55);color:#fff;display:flex;align-items:center;justify-content:center"><span style="font-family:{{ p.icon }};font-size:14px;line-height:1;font-weight:normal">check</span></div></sc-if>
+    <sc-if value="{{ hasProgress }}">
+      <div style="position:absolute;left:8px;right:8px;bottom:7px;height:4px;border-radius:2px;background:rgba(255,255,255,0.22);overflow:hidden"><div style="width:{{ pct }};height:100%;background:{{ p.accentFg }}"></div></div>
+    </sc-if>
+    <sc-if value="{{ hovered }}">
+      <div style="position:absolute;right:6px;bottom:{{ actBottom }}px;display:flex;gap:2px;padding:2px;border-radius:{{ pillR }}px;background:rgba(18,18,20,0.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:{{ p.ovBorder }}">
+        <div title="Mark watched" style="width:28px;height:26px;border-radius:{{ btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ checkColor }}" style-hover="background:rgba(255,255,255,0.14)"><span style="font-family:{{ p.icon }};font-size:17px;line-height:1;font-weight:normal;font-variation-settings:{{ p.iv }}">check</span></div>
+        <div title="More" style="width:28px;height:26px;border-radius:{{ btnR }}px;display:flex;align-items:center;justify-content:center;color:#fff;background:{{ ctxBg }}" style-hover="background:rgba(255,255,255,0.14)"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-weight:normal">more_horiz</span></div>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ hasTitle }}">
+    <div style="display:flex;flex-direction:column;gap:2px;padding:0 2px;min-width:0">
+      <div style="font-size:13px;font-weight:500;color:{{ p.text }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ title }}</div>
+      <div style="font-size:11.5px;color:{{ p.text2 }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sub }}</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:180,&quot;height&quot;:320},&quot;p&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;poster&quot;,&quot;wide&quot;,&quot;person&quot;,&quot;square&quot;],&quot;default&quot;:&quot;poster&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Title&quot;},&quot;hover&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false}}">
+class Component extends DCLogic {
+  state = { h: false };
+  renderVals() {
+    const P = this.props, p = P.p;
+    if (!p) return {};
+    const kind = P.kind || 'poster';
+    const ar = { poster: '2 / 3', wide: '16 / 9', person: '3 / 4', square: '1 / 1' }[kind];
+    const hovered = this.state.h || !!P.hover;
+    const w = P.w;
+    return {
+      p, ar, hovered, label: P.label || kind,
+      wcss: typeof w === 'number' ? w + 'px' : (w || '100%'),
+      r: p.cardR + 'px',
+      ring: hovered && p.win ? 'inset 0 0 0 1px rgba(255,255,255,0.16)' : 'none',
+      hasProgress: P.progress != null, pct: Math.round((P.progress || 0) * 100) + '%',
+      actBottom: P.progress != null ? 18 : 6,
+      watchedMark: !!P.watched && !hovered, hasBadge: !!P.badge && !hovered, badge: P.badge,
+      checkColor: P.watched ? p.accentFg : '#fff', ctxBg: P.ctxOpen ? 'rgba(255,255,255,0.18)' : 'transparent',
+      pillR: p.mac ? 15 : 6, btnR: p.mac ? 13 : 4,
+      hasTitle: !!P.title, title: P.title, sub: P.sub || '',
+      enter: () => this.setState({ h: true }), leave: () => this.setState({ h: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

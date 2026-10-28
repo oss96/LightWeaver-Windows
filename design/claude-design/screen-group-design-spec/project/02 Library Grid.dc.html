@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>02</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Library grid</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">Opened from the Libraries morph. Poster grid with watched and genre filters, sort, poster size, and an A–Z rail on the trailing edge.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:8px;padding:16px 48px 16px 24px;flex-wrap:wrap;row-gap:10px">
+                <div style="display:flex;align-items:baseline;gap:10px;margin-right:auto">
+                  <div style="font-size:26px;font-weight:700;letter-spacing:-0.01em">Movies</div>
+                  <div style="font-size:13px;color:{{ f.text2 }}">{{ f.count }}</div>
+                  <sc-if value="{{ f.loading }}"><div style="width:13px;height:13px;border-radius:50%;border:2px solid {{ f.spinTrack }};border-top-color:{{ f.spinHead }};align-self:center"></div></sc-if>
+                </div>
+                <sc-if value="{{ f.chip }}">
+                  <div style="display:flex;align-items:center;gap:4px;height:26px;padding:0 4px 0 10px;border-radius:{{ f.segR }}px;background:{{ f.accentSoft }};color:{{ f.text }};font-size:12px">Drama, Thriller<div style="width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.12)"><span style="font-family:{{ f.icon }};font-size:14px;line-height:1;font-weight:normal">close</span></div></div>
+                </sc-if>
+                <div style="position:relative;display:flex;padding:2px;border-radius:{{ f.segR }}px;background:{{ f.segBg }};border:{{ f.btnBorder }}">
+                  <sc-for list="{{ f.seg }}" as="s">
+                    <div style="position:relative;height:{{ f.segH }}px;padding:0 12px;display:flex;align-items:center;border-radius:{{ f.segItemR }}px;background:{{ s.bg }};color:{{ s.color }};font-size:12.5px;font-weight:500" style-hover="background:{{ s.hbg }}">{{ s.l }}<sc-if value="{{ s.ind }}"><div style="position:absolute;bottom:1px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ f.accentFg }}"></div></sc-if></div>
+                  </sc-for>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div></sc-if>
+                </div>
+                <div style="position:relative;height:{{ f.btnH }}px;display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;border-radius:{{ f.btnR }}px;background:{{ f.genreBg }};border:{{ f.btnBorder }};font-size:12.5px" style-hover="background:{{ f.btnHover }}">Genre<span style="color:{{ f.text2 }}">{{ f.genre }}</span><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.text2 }}">{{ f.menuIcon }}</span>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">3</div></sc-if>
+                </div>
+                <div style="position:relative;height:{{ f.btnH }}px;display:flex;align-items:center;gap:6px;padding:0 8px 0 10px;border-radius:{{ f.btnR }}px;background:{{ f.sortBg }};border:{{ f.btnBorder }};font-size:12.5px" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">{{ f.sortDirIcon }}</span>{{ f.sort }}<span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.text2 }}">{{ f.menuIcon }}</span>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div></sc-if>
+                </div>
+                <div style="position:relative;width:{{ f.btnH }}px;height:{{ f.btnH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.btnR }}px;background:{{ f.dispBg }};border:{{ f.btnBorder }}" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;font-variation-settings:{{ f.iv }}">grid_view</span>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">4</div></sc-if>
+                </div>
+              </div>
+              <div style="flex:1;min-height:0;position:relative">
+                <sc-if value="{{ f.grid }}">
+                  <div style="position:absolute;inset:0 48px 0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax({{ f.cardMin }}px,1fr));gap:22px 16px;align-content:start">
+                    <sc-for list="{{ f.cards }}" as="c"><dc-import name="Card" p="{{ f }}" kind="poster" title="{{ c.title }}" sub="{{ c.sub }}" hover="{{ c.hover }}" watched="{{ c.watched }}" ctx-open="{{ c.ctx }}" hint-size="100%,260px"></dc-import></sc-for>
+                  </div>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;left:{{ f.hoverPinX }}px;top:206px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center;font-family:system-ui">6</div></sc-if>
+                </sc-if>
+                <sc-if value="{{ f.loading }}">
+                  <div style="position:absolute;inset:0 48px 0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px 16px;align-content:start">
+                    <sc-for list="{{ f.skel }}" as="c">
+                      <div style="display:flex;flex-direction:column;gap:8px"><div style="aspect-ratio:2/3;border-radius:{{ f.cardR }}px;background:{{ f.surface }}"></div><div style="height:10px;width:70%;border-radius:3px;background:{{ f.surface }}"></div><div style="height:8px;width:30%;border-radius:3px;background:{{ f.surface }}"></div></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.empty }}">
+                  <div style="position:absolute;inset:0 48px 0 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding-bottom:80px">
+                    <span style="font-family:{{ f.icon }};font-size:44px;line-height:1;font-weight:normal;color:{{ f.text3 }};font-variation-settings:'wght' 300">filter_alt_off</span>
+                    <div style="font-size:17px;font-weight:600;margin-top:4px">No movies match these filters</div>
+                    <div style="font-size:13px;color:{{ f.text2 }}">Unplayed · Drama, Thriller</div>
+                    <div style="display:flex;gap:8px;margin-top:8px">
+                      <div style="height:{{ f.btnH }}px;padding:0 16px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13px;font-weight:500" style-hover="background:{{ f.accentHover }}">Clear filters</div>
+                    </div>
+                  </div>
+                </sc-if>
+                <div style="position:absolute;right:8px;top:0;bottom:14px;width:28px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;opacity:{{ f.railOp }}">
+                  <sc-for list="{{ f.rail }}" as="l">
+                    <div style="min-width:20px;height:{{ f.railItemH }}px;padding:0 3px;box-sizing:border-box;border-radius:{{ f.railR }}px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;background:{{ l.bg }};color:{{ l.color }}" style-hover="background:{{ f.hover }};color:{{ f.text }}">{{ l.l }}</div>
+                  </sc-for>
+                  <sc-if value="{{ f.pins }}"><div style="position:absolute;top:30px;left:-22px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">5</div></sc-if>
+                </div>
+                <sc-if value="{{ f.railTip }}">
+                  <div style="position:absolute;right:46px;top:{{ f.railTipY }}px;width:44px;height:44px;border-radius:{{ f.cardR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700">M</div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ f.sortOpen }}"><div style="position:absolute;right:88px;top:56px;z-index:10"><dc-import name="Menu" p="{{ f }}" items="{{ f.sortItems }}" width="{{ 210 }}" hint-size="210px,300px"></dc-import></div></sc-if>
+              <sc-if value="{{ f.genreOpen }}"><div style="position:absolute;right:{{ f.genreRight }}px;top:56px;z-index:10"><dc-import name="Menu" p="{{ f }}" items="{{ f.genreItems }}" width="{{ 210 }}" hint-size="210px,360px"></dc-import></div></sc-if>
+              <sc-if value="{{ f.dispOpen }}">
+                <div style="position:absolute;right:40px;top:58px;z-index:10;width:280px;padding:16px;box-sizing:border-box;border-radius:{{ f.popR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};backdrop-filter:{{ f.popBlur }};-webkit-backdrop-filter:{{ f.popBlur }};display:flex;flex-direction:column;gap:14px">
+                  <div style="font-size:13px;font-weight:600">Display</div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Poster size</span><span style="color:{{ f.text2 }}">Large</span></div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="font-family:{{ f.icon }};font-size:14px;line-height:1;font-weight:normal;color:{{ f.text2 }}">photo</span>
+                      <div style="flex:1;position:relative;height:20px">
+                        <div style="position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:{{ f.track }}"></div>
+                        <div style="position:absolute;left:0;width:75%;top:8px;height:4px;border-radius:2px;background:{{ f.sliderFill }}"></div>
+                        <sc-if value="{{ f.mac }}"><div style="position:absolute;left:calc(75% - 13px);top:2px;width:26px;height:16px;border-radius:8px;background:#f4f4f6;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></div></sc-if>
+                        <sc-if value="{{ f.win }}"><div style="position:absolute;left:calc(75% - 10px);top:0;width:20px;height:20px;border-radius:10px;background:#454545;border:1px solid rgba(255,255,255,0.09);box-sizing:border-box;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:6px;background:{{ f.accentFg }}"></div></div></sc-if>
+                      </div>
+                      <span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal;color:{{ f.text2 }}">photo</span>
+                    </div>
+                  </div>
+                  <div style="height:1px;background:{{ f.sep }}"></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:12.5px"><span>Show titles</span>
+                    <sc-if value="{{ f.mac }}"><div style="width:38px;height:22px;border-radius:11px;background:{{ f.accent }};position:relative"><div style="position:absolute;right:2px;top:2px;width:26px;height:18px;border-radius:9px;background:#fff"></div></div></sc-if>
+                    <sc-if value="{{ f.win }}"><div style="width:40px;height:20px;border-radius:10px;background:{{ f.accentFg }};position:relative"><div style="position:absolute;right:4px;top:4px;width:12px;height:12px;border-radius:6px;background:#000"></div></div></sc-if>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:12.5px"><span>Show watched badge</span>
+                    <sc-if value="{{ f.mac }}"><div style="width:38px;height:22px;border-radius:11px;background:{{ f.toggleOff }};position:relative"><div style="position:absolute;left:2px;top:2px;width:26px;height:18px;border-radius:9px;background:#fff"></div></div></sc-if>
+                    <sc-if value="{{ f.win }}"><div style="width:40px;height:20px;border-radius:10px;border:1px solid rgba(255,255,255,0.6);box-sizing:border-box;position:relative"><div style="position:absolute;left:4px;top:4px;width:10px;height:10px;border-radius:5px;background:rgba(255,255,255,0.8)"></div></div></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="libraries" active-lib="{{ 0 }}" badge="2" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const L = window.LW;
+    const watchedSel = f.watched || 'All';
+    f.seg = ['All', 'Unplayed', 'Played'].map(l => ({ l, bg: l === watchedSel ? f.segSel : 'transparent', hbg: l === watchedSel ? f.segSel : f.hover, color: l === watchedSel ? f.text : f.text2, ind: f.win && l === watchedSel }));
+    f.segH = f.mac ? 24 : 28; f.segItemR = f.mac ? 999 : 3;
+    const az = f.h < 700 ? L.azCompact : L.az, act = f.azActive || 'All';
+    f.rail = az.map(l => ({ l, bg: l === act ? f.accentSoft : 'transparent', color: l === act ? f.accentFg : (l === '•' ? f.text3 : f.text2) }));
+    f.railItemH = f.h < 700 ? 15 : 20; f.railR = f.mac ? 10 : 4; f.railOp = f.empty ? 0.35 : 1;
+    f.spinTrack = f.mac ? 'rgba(255,255,255,0.18)' : 'transparent'; f.spinHead = f.mac ? 'rgba(255,255,255,0.7)' : f.accentFg;
+    f.sliderFill = f.mac ? f.accent : f.accentFg;
+    f.cardMin = f.big ? 206 : 150;
+    const n = f.big ? 15 : (f.w < 1000 ? 18 : 24);
+    const start = f.azActive === 'M' ? 10 : 0;
+    f.cards = L.movieCards(n, start).map((c, i) => Object.assign(c, { hover: f.hoverIdx === i, watched: i % 5 === 2, ctx: false }));
+    const cols = Math.floor((f.w - 72 + 16) / (f.cardMin + 16));
+    const cw = (f.w - 72 - (cols - 1) * 16) / cols;
+    f.hoverPinX = 24 + (f.hoverIdx || 0) * (cw + 16) + cw - 10;
+    f.skel = Array(n).fill(0);
+    f.sortDirIcon = f.desc === false ? 'arrow_upward' : 'arrow_downward';
+    f.sort = f.sort || 'Date added'; f.genre = f.genre || 'All';
+    f.count = f.count ?? '1,284 movies';
+    f.genreBg = f.genreOpen ? f.btnHover : f.btnBg; f.sortBg = f.sortOpen ? f.btnHover : f.btnBg; f.dispBg = f.dispOpen ? f.btnHover : f.btnBg;
+    f.genreRight = 260;
+    const R = f.win;
+    f.sortItems = [{ header: 'Sort by' }].concat(['Name', 'Date added', 'Release date', 'Rating', 'Runtime'].map(l => R ? { label: l, radio: l === f.sort } : { label: l, check: l === f.sort })).concat(['-', { header: 'Order' },
+      R ? { label: 'Ascending', radio: false } : { label: 'Ascending', check: false },
+      R ? { label: 'Descending', radio: true, hi: true } : { label: 'Descending', check: true, hi: true }]);
+    f.genreItems = [{ label: 'All genres', box: false }, '-'].concat(['Action', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Romance', 'Sci-Fi', 'Thriller'].map(g => ({ label: g, box: g === 'Drama' || g === 'Thriller', hi: g === 'Romance', note: { Action: '212', Animation: '64', Comedy: '301', Crime: '118', Documentary: '45', Drama: '402', Romance: '97', 'Sci-Fi': '133', Thriller: '188' }[g] })));
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '2a', label: 'Default — hover on a card', frames: fr({ grid: true, pins: true, hoverIdx: 2 }), notes: [
+        { n: 1, t: 'Sort: Name, Date added, Release date, Rating, Runtime, plus Ascending / Descending. The arrow in the button shows direction.' },
+        { n: 2, t: 'Watched filter: All, Unplayed, Played. macOS segmented control; Windows Toolkit Segmented.' },
+        { n: 3, t: 'Genre filter, multi-select. Selected genres show in the button and as a removable chip.' },
+        { n: 4, t: 'Display options: poster size and title visibility. Size is remembered per library.' },
+        { n: 5, t: 'A–Z rail on the trailing edge, top to bottom: All, #, A–Z. Click or drag to jump. Letters with no items are dimmed. Shown only when sorted by Name.' },
+        { n: 6, t: 'Hover: ✓ toggles watched, ⋯ opens the item context menu (see 03). Neither is drawn without hover.' }
+      ] },
+      { id: '2b', label: 'Sort menu open · jumped to M', frames: fr({ grid: true, sortOpen: true, azActive: 'M', railTip: true, railTipY: 268 }), notes: [
+        { n: '1', t: 'macOS: pull-down menu with checkmarks. Windows: MenuFlyout with RadioMenuFlyoutItems. Two groups: key and order.' },
+        { n: '2', t: 'Choosing an item applies immediately and keeps the menu open for the second choice on Windows (radio items); macOS closes, as menus do.' },
+        { n: '3', t: 'Rail: hovering or dragging over it shows the letter in a small bubble; release jumps. Bubble appears instantly.' }
+      ] },
+      { id: '2c', label: 'Display options — large posters', frames: fr({ grid: true, dispOpen: true, big: true }), notes: [
+        { n: '1', t: 'macOS: NSPopover-style popover anchored to the button. Windows: Flyout. Esc or click outside closes.' },
+        { n: '2', t: 'Slider snaps to 4 sizes. The grid reflows live while dragging, no animation.' }
+      ] },
+      { id: '2d', label: 'Genre filter open · Unplayed', frames: fr({ grid: true, genreOpen: true, watched: 'Unplayed', genre: 'Drama, Thriller', chip: true, count: '146 of 1,284' }), notes: [
+        { n: '1', t: 'Multi-select menu with counts. Toggling does not close the menu; results update behind it.' },
+        { n: '2', t: 'The count in the header becomes "146 of 1,284" whenever a filter is active.' }
+      ] },
+      { id: '2e', label: 'Loading', frames: fr({ loading: true, count: '' }), notes: [
+        { n: '1', t: 'Skeletons only appear if loading takes longer than 150 ms, so fast loads never flash. No shimmer.' },
+        { n: '2', t: 'Small spinner next to the title. macOS: small indeterminate spinner. Windows: ProgressRing.' }
+      ] },
+      { id: '2f', label: 'Empty — filters match nothing', frames: fr({ empty: true, watched: 'Unplayed', genre: 'Drama, Thriller', chip: true, count: '0 of 1,284' }), notes: [
+        { n: '1', t: 'Empty state names the active filters and offers one action. The rail dims and is inactive.' },
+        { n: '2', t: 'A library that is genuinely empty shows "This library is empty" with a link to the server dashboard instead.' }
+      ] },
+      { id: '2g', label: 'Narrow (960 × 600)', frames: fr({ grid: true }, 960, 600), notes: [
+        { n: '1', t: 'Toolbar wraps under the title when it no longer fits on one line.' },
+        { n: '2', t: 'Below 700 px window height the rail compresses: every other letter becomes a dot; hovering a dot still resolves to its letter.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

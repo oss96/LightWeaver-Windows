@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Detail page (movie, series, season and episode sketches). Left: the preview, which is the
+     inline player before playback ("preselection mode"): backdrop, a centred Play and the
+     player's bottom bar, where the start time, version, audio, subtitles and quality are set
+     without playing. Right: the info panel for a movie, seasons for a series, episodes for a
+     season or an episode. Below: "More like this →" and "Cast and crew →". -->
+<UserControl
+    x:Class="LightWeaver.WinUI.Pages.DetailPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    xmlns:loc="using:LightWeaver.WinUI.Localization"
+    xmlns:t="using:LightWeaver.WinUI.Theme"
+    AutomationProperties.AutomationId="DetailPage">
+
+    <Grid>
+    <ScrollViewer x:Name="Scroller" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                  AutomationProperties.AutomationId="DetailScroller">
+        <Grid x:Name="Body" Padding="16,12,16,18" ColumnSpacing="14" RowSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="SideColumn" Width="360" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="TopRow" Height="520" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Preview: the player before playback. -->
+            <Grid x:Name="Preview" CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwPanelBrush}"
+                  BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1">
+                <Image x:Name="Backdrop" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border IsHitTestVisible="False">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0" Color="#A6000000" />
+                            <GradientStop Offset="0.35" Color="#1A000000" />
+                            <GradientStop Offset="0.65" Color="#1A000000" />
+                            <GradientStop Offset="1" Color="#C0000000" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                </Border>
+
+                <StackPanel x:Name="PreviewInfo" Margin="22,18,22,0" Spacing="4" VerticalAlignment="Top" HorizontalAlignment="Left" MaxWidth="640">
+                    <TextBlock x:Name="NextLabel" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource LwAccentFgBrush}"
+                               AutomationProperties.AutomationId="DetailNextLabel" />
+                    <TextBlock x:Name="PreviewTitle" FontSize="22" FontWeight="SemiBold" Foreground="White" TextTrimming="CharacterEllipsis"
+                               AutomationProperties.AutomationId="DetailPreviewTitle" />
+                    <TextBlock x:Name="PreviewSubtitle" FontSize="13" Foreground="#D9FFFFFF" TextTrimming="CharacterEllipsis"
+                               AutomationProperties.AutomationId="DetailPreviewSubtitle" />
+                </StackPanel>
+
+                <Button x:Name="PreviewPlay" Width="76" Height="76" CornerRadius="38" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Style="{StaticResource LwSubtleButton}" Background="#8C000000" Foreground="White" Click="OnPlay"
+                        AutomationProperties.AutomationId="DetailPreviewPlay">
+                    <FontIcon Style="{StaticResource LwIcon}" FontSize="34" Glyph="{x:Bind t:Icons.Play}" />
+                </Button>
+
+                <!-- The player's own bar (Player/PlayerView.xaml, Transport) in preselection mode: the same
+                     layout, buttons and look, so starting playback swaps nothing. The seek bar sets
+                     where Play starts; version, audio, subtitles and quality set what it plays. -->
+                <Border x:Name="Bar" VerticalAlignment="Bottom" Background="#94000000" Padding="16,6,16,10">
+                    <Grid RowSpacing="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid ColumnSpacing="12" FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="StartText" FontSize="12" Foreground="#E0FFFFFF" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="DetailStartTime" />
+                            <Grid x:Name="StartArea" Grid.Column="1" Height="28" Background="Transparent">
+                                <Grid Height="4" VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <Border CornerRadius="2" Background="#38FFFFFF" />
+                                    <Border x:Name="StartPlayed" CornerRadius="2" Background="{StaticResource LwAccentFgBrush}" HorizontalAlignment="Left" Width="0" />
+                                </Grid>
+                                <Slider x:Name="StartSlider" Minimum="0" StepFrequency="1" SmallChange="10" LargeChange="60" Opacity="0.01"
+                                        IsThumbToolTipEnabled="False" VerticalAlignment="Center" ValueChanged="OnStartChanged"
+                                        AutomationProperties.AutomationId="DetailStart" />
+                            </Grid>
+                            <TextBlock x:Name="DurationText" Grid.Column="2" FontSize="12" Foreground="#E0FFFFFF" VerticalAlignment="Center" Margin="4,0"
+                                       AutomationProperties.AutomationId="DetailDuration" />
+                        </Grid>
+                        <c:BarRow Grid.Row="1" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <Button x:Name="BarPlay" Style="{StaticResource LwSubtleButton}" Width="40" Height="38" Foreground="White" Click="OnPlay"
+                                        AutomationProperties.AutomationId="DetailBarPlay">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="20" Glyph="{x:Bind t:Icons.Play}" />
+                                </Button>
+                                <Button x:Name="JumpBackButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnJumpBack"
+                                        AutomationProperties.AutomationId="DetailJumpBack">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.SkipBack10}" />
+                                </Button>
+                                <Button x:Name="JumpForwardButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnJumpForward"
+                                        AutomationProperties.AutomationId="DetailJumpForward">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.SkipForward30}" />
+                                </Button>
+                            </StackPanel>
+                            <c:WrapPanel HorizontalSpacing="2" VerticalSpacing="2">
+                                <Button x:Name="VersionButton" Style="{StaticResource LwSubtleButton}" Width="160" Height="38" Padding="8,0" Foreground="White" Opacity="0" IsHitTestVisible="False" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" Click="OnVersion" AutomationProperties.AutomationId="DetailVersion" AutomationProperties.AccessibilityView="Raw">
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="VersionText" FontSize="12.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <FontIcon Grid.Column="1" Style="{StaticResource LwIcon}" FontSize="10" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                                    </Grid>
+                                </Button>
+                                <Button x:Name="AudioButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnAudio"
+                                        AutomationProperties.AutomationId="DetailAudio">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.AudioTrack}" />
+                                </Button>
+                                <Button x:Name="SubtitleButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnSubtitles"
+                                        AutomationProperties.AutomationId="DetailSubtitles">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.Subtitles}" />
+                                </Button>
+                                <Button x:Name="QualityButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnQuality"
+                                        AutomationProperties.AutomationId="DetailQuality">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.Settings}" />
+                                </Button>
+                                <Button x:Name="InfoButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnInfo"
+                                        AutomationProperties.AutomationId="DetailInfo">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.Info}" />
+                                </Button>
+                                <Button x:Name="AutoFullscreenButton" Style="{StaticResource LwSubtleButton}" Height="38" Padding="8,0" Foreground="White"
+                                        Click="OnAutoFullscreen" AutomationProperties.AutomationId="DetailAutoFullscreen">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock x:Name="AutoFullscreenText" FontSize="12.5" VerticalAlignment="Center" />
+                                        <FontIcon x:Name="AutoFullscreenCheck" Style="{StaticResource LwIcon}" FontSize="12" Glyph="{x:Bind t:Icons.Check}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="FullscreenButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnPlayFullscreen"
+                                        AutomationProperties.AutomationId="DetailFullscreen">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.FullScreen}" />
+                                </Button>
+                            </c:WrapPanel>
+                        </c:BarRow>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Right: info panel (movie) or the season or episode grid. -->
+            <Grid x:Name="Side" Grid.Column="1" CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwPanelBrush}"
+                  BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1">
+                <ScrollViewer x:Name="SideScroller" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="DetailSide">
+                    <StackPanel x:Name="SidePanel" Padding="18,16,18,18" Spacing="10">
+                        <HyperlinkButton x:Name="ParentLink" Padding="0" FontSize="12.5" Visibility="Collapsed" Click="OnParent"
+                                         Foreground="{StaticResource LwAccentFgBrush}" AutomationProperties.AutomationId="DetailParent" />
+                        <TextBlock x:Name="TitleText" FontSize="22" FontWeight="SemiBold" TextWrapping="WrapWholeWords" MaxLines="3"
+                                   TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1"
+                                   AutomationProperties.AutomationId="DetailTitle" />
+                        <TextBlock x:Name="SubtitleLine" FontSize="12.5" Foreground="{StaticResource LwText2Brush}" Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="DetailSubtitle" />
+                        <c:WrapPanel x:Name="Chips" HorizontalSpacing="6" VerticalSpacing="6" />
+                        <!-- OMDb scores: invisible probe chips hold the line's place until the scores fill it. -->
+                        <Grid x:Name="Ratings" Visibility="Collapsed">
+                            <c:WrapPanel x:Name="RatingProbe" HorizontalSpacing="6" VerticalSpacing="6" Opacity="0" IsHitTestVisible="False" />
+                            <c:WrapPanel x:Name="RatingChips" HorizontalSpacing="6" VerticalSpacing="6" />
+                        </Grid>
+                        <!-- Every action keeps one width from the first measure: each label is as wide as the
+                             wider of its two texts (the other sits invisible beside it), and the trailer
+                             button keeps its slot, invisible, until the title has a trailer. -->
+                        <c:WrapPanel x:Name="InfoActions" HorizontalSpacing="6" VerticalSpacing="6">
+                            <Button x:Name="InfoPlay" Style="{StaticResource LwAccentButton}" Padding="12,0,14,0" Click="OnPlay"
+                                    AutomationProperties.AutomationId="DetailPlay">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Style="{StaticResource LwIcon}" FontSize="14" Glyph="{x:Bind t:Icons.Play}" />
+                                    <Grid VerticalAlignment="Center">
+                                        <TextBlock x:Name="InfoPlayText" FontSize="13" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="InfoPlaySpare" FontSize="13" FontWeight="SemiBold" Opacity="0" AutomationProperties.AccessibilityView="Raw" />
+                                    </Grid>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="WatchedButton" Style="{StaticResource LwButton}" Padding="10,0,12,0" Click="OnToggleWatched"
+                                    AutomationProperties.AutomationId="DetailWatched">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="WatchedIcon" Style="{StaticResource LwIcon}" FontSize="14" Glyph="{x:Bind t:Icons.Check}" />
+                                    <Grid VerticalAlignment="Center">
+                                        <TextBlock x:Name="WatchedText" FontSize="13" />
+                                        <TextBlock x:Name="WatchedSpare" FontSize="13" Opacity="0" AutomationProperties.AccessibilityView="Raw" />
+                                    </Grid>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="FavoriteButton" Style="{StaticResource LwButton}" Padding="10,0,12,0" Click="OnToggleFavorite"
+                                    AutomationProperties.AutomationId="DetailFavorite">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="FavoriteIcon" Style="{StaticResource LwIcon}" FontSize="14" Glyph="{x:Bind t:Icons.Heart}" />
+                                    <Grid VerticalAlignment="Center">
+                                        <TextBlock x:Name="FavoriteText" FontSize="13" />
+                                        <TextBlock x:Name="FavoriteSpare" FontSize="13" Opacity="0" AutomationProperties.AccessibilityView="Raw" />
+                                    </Grid>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="DownloadButton" Style="{StaticResource LwButton}" Width="32" Padding="0" Click="OnDownload"
+                                    AutomationProperties.AutomationId="DetailDownload">
+                                <FontIcon x:Name="DownloadIcon" Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Download}" />
+                            </Button>
+                            <Button x:Name="UpNextButton" Style="{StaticResource LwButton}" Width="32" Padding="0" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="DetailUpNextLead">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Timer}" />
+                            </Button>
+                            <Button x:Name="TrailerButton" Style="{StaticResource LwButton}" Width="32" Padding="0" Click="OnTrailer" Opacity="0"
+                                    IsHitTestVisible="False" IsTabStop="False" AutomationProperties.AccessibilityView="Raw"
+                                    AutomationProperties.AutomationId="DetailTrailer">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Videocam}" />
+                            </Button>
+                        </c:WrapPanel>
+
+                        <StackPanel x:Name="TechBlock" Spacing="8" Visibility="Collapsed" Margin="0,4,0,0">
+                            <c:WrapPanel x:Name="TechChips" HorizontalSpacing="6" VerticalSpacing="6" AutomationProperties.AutomationId="DetailTechChips" />
+                            <Grid ColumnSpacing="12" RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Video}" />
+                                <TextBlock x:Name="VideoLine" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailVideoLine" />
+                                <TextBlock Grid.Row="1" FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Audio}" />
+                                <TextBlock x:Name="AudioLine" Grid.Row="1" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailAudioLine" />
+                                <TextBlock Grid.Row="2" FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Subtitles}" />
+                                <TextBlock x:Name="SubtitleLine2" Grid.Row="2" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailSubtitleLine" />
+                            </Grid>
+                        </StackPanel>
+
+                        <TextBlock x:Name="GenresText" FontSize="12" Foreground="{StaticResource LwText2Brush}" TextWrapping="WrapWholeWords"
+                                   AutomationProperties.AutomationId="DetailGenres" />
+                        <TextBlock x:Name="Overview" FontSize="13" LineHeight="20" TextWrapping="WrapWholeWords" Foreground="{StaticResource LwTextBrush}"
+                                   TextReadingOrder="DetectFromContent" TextAlignment="DetectFromContent"
+                                   AutomationProperties.AutomationId="DetailOverview" />
+
+                        <TextBlock x:Name="GridHeading" FontSize="15" FontWeight="SemiBold" Margin="0,8,0,0" Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="DetailGridHeading" />
+                        <Grid x:Name="ChildGrid" ColumnSpacing="12" RowSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Bottom: More like this and Cast and crew. -->
+            <Grid x:Name="Rows" Grid.Row="1" Grid.ColumnSpan="2" ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+        <TextBlock x:Name="RemovedMessage" Visibility="Collapsed"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="WrapWholeWords" Margin="24"
+                   Foreground="{StaticResource LwText2Brush}" FontSize="13" AutomationProperties.AutomationId="DetailRemovedMessage" />
+    </Grid>
+</UserControl>

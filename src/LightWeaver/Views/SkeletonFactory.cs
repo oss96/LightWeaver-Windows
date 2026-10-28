@@ -93,7 +93,7 @@ public static class SkeletonFactory
     public static StackPanel Rows(FrameworkElement resources, int rows, string automationId)
     {
         var style = (Style)resources.FindResource("LwSkeletonBlock");
-        // LwR3, matching DetailEpisodeRow's own corner - NOT the LwR2 the card skeletons use.
+        // LwR3, matching DetailEpisodeRow's own corner - NOT the LwR1 the card skeletons use.
         var radius = (CornerRadius)resources.FindResource("LwR3");
         var host = new StackPanel();
         var marker = LiveText.Bind(new TextBlock { Foreground = System.Windows.Media.Brushes.Transparent, Height = 0 }, "Text", () => L.Text("SkeletonFactory.Loading.ce31f455"));

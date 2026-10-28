@@ -74,7 +74,7 @@ internal static class SyncPlayBindingFixture
     {
         Test("TryReadPosition answers off the UI thread, and answers false where it cannot answer", () =>
         {
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                 new AppSettings { HardwareDecoding = false });
 
             // Nothing loaded: mpv publishes time-pos as unavailable, which is not a position of 0.
@@ -160,7 +160,7 @@ internal static class SyncPlayBindingFixture
     {
         Test("PlaybackRestarted fires per load and per seek, carrying the load's generation", () =>
         {
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                 new AppSettings { HardwareDecoding = false });
             var clock = Stopwatch.StartNew();
             var restarts = new List<(int Generation, long Ms)>();
@@ -253,11 +253,11 @@ internal static class SyncPlayBindingFixture
     {
         Test("binding rejects expired report identity and refreshes a restored loaded item", () =>
         {
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                 new AppSettings { HardwareDecoding = false });
             var reporter = new Reporter();
             var groupPresent = true;
-            using var binding = new SyncPlayPlayerBinding(player, Dispatcher.CurrentDispatcher, reporter,
+            using var binding = new SyncPlayPlayerBinding(player, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), reporter,
                 () => groupPresent
                     ? (new SyncPlayState(DateTime.UtcNow, reporter.ReportContext?.PlaylistItemId), TimeSpan.Zero)
                     : null);
@@ -321,10 +321,10 @@ internal static class SyncPlayBindingFixture
 
         Test("binding seeks, readies, schedules, rejects stale loads, resets and disposes", () =>
         {
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                 new AppSettings { HardwareDecoding = false });
             var reporter = new Reporter();
-            using var binding = new SyncPlayPlayerBinding(player, Dispatcher.CurrentDispatcher, reporter,
+            using var binding = new SyncPlayPlayerBinding(player, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), reporter,
                 () => (new SyncPlayState(DateTime.UtcNow, reporter.ReportContext?.PlaylistItemId), TimeSpan.Zero));
             var gen = player.LoadFile(clip);
             binding.ArmForLoad(gen, startPaused: true);
@@ -431,11 +431,11 @@ internal static class SyncPlayBindingFixture
 
         Test("deferred actions use the loaded position and preserve load readiness", () =>
         {
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher,
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher),
                 new AppSettings { HardwareDecoding = false });
             var reporter = new Reporter();
             var now = DateTime.UtcNow;
-            using var binding = new SyncPlayPlayerBinding(player, Dispatcher.CurrentDispatcher, reporter,
+            using var binding = new SyncPlayPlayerBinding(player, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), reporter,
                 () => (new SyncPlayState(DateTime.UtcNow, reporter.ReportContext?.PlaylistItemId), TimeSpan.Zero), () => now);
             var gen = player.LoadFile(clip);
             binding.ArmForLoad(gen, true);

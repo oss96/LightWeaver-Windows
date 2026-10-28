@@ -1,6 +1,6 @@
-using System.Windows.Threading;
 using Jellyfin.Sdk;
 using Jellyfin.Sdk.Generated.Models;
+using LightWeaver.Threading;
 
 namespace LightWeaver.Jellyfin;
 
@@ -17,7 +17,7 @@ public sealed class PlaybackReporter
 
     private readonly Func<JellyfinApiClient> _clientProvider;
     private readonly Func<(double PositionSeconds, bool IsPaused)> _snapshot;
-    private readonly DispatcherTimer _timer;
+    private readonly IUiTimer _timer;
 
     private Guid _itemId;
     private string? _playSessionId;
@@ -32,8 +32,7 @@ public sealed class PlaybackReporter
     {
         _clientProvider = clientProvider;
         _snapshot = playbackSnapshot;
-        _timer = new DispatcherTimer { Interval = Interval };
-        _timer.Tick += async (_, _) => await ReportProgressAsync();
+        _timer = UiDispatcher.Current.CreateTimer(Interval, async () => await ReportProgressAsync());
     }
 
     public bool IsActive => _playSessionId is not null;

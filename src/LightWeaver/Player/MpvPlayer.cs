@@ -1,5 +1,5 @@
 using LightWeaver.Localization;
-using System.Windows.Threading;
+using LightWeaver.Threading;
 using LightWeaver.Player.Native;
 using LightWeaver.Settings;
 using System.Globalization;
@@ -23,9 +23,10 @@ public sealed record MpvTrack(int Id, string Type, string? Title, string? Lang, 
     {
         get
         {
-            var name = Title ?? Lang ?? L.Format("MpvPlayer.Track.1ff5dd9a", (Id));
-            if (Title is not null && Lang is not null)
-                name = L.Format("MpvPlayer.Value.9db73e6e", (Title), (Lang));
+            var language = LanguageBadge.Name(Lang) is { Length: > 0 } named ? named : Lang;
+            var name = Title ?? language ?? L.Format("MpvPlayer.Track.1ff5dd9a", (Id));
+            if (Title is not null && language is not null)
+                name = L.Format("MpvPlayer.Value.9db73e6e", (Title), (language));
             if (Type == "video")
             {
                 var detail = string.Join(" ", new[]
@@ -45,9 +46,9 @@ public sealed record MpvTrack(int Id, string Type, string? Title, string? Lang, 
 /// High-level mpv playback API over the raw <see cref="LibMpv"/> bindings.
 ///
 /// Threading: a dedicated background thread blocks in mpv_wait_event and forwards
-/// state to the UI thread via the Dispatcher; all events raise on the UI thread.
+/// state to the UI thread via the UI dispatcher; all events raise on the UI thread.
 /// Position updates are coalesced (latest value only) so high-frequency time-pos
-/// changes can't flood the Dispatcher queue.
+/// changes can't flood the UI queue.
 ///
 /// Shutdown: Dispose sends "quit", joins the event thread (which exits on
 /// MPV_EVENT_SHUTDOWN), then calls mpv_terminate_destroy — never while another
@@ -72,9 +73,12 @@ public sealed class MpvPlayer : IDisposable
     private const ulong ObsOsdMarginBottom = 14;
     private const ulong ObsOsdHeight = 15;
     private const ulong ObsCurrentAo = 16;
+    private const ulong ObsOsdWidth = 17;
+    private const ulong ObsVideoDisplayWidth = 18;
+    private const ulong ObsVideoDisplayHeight = 19;
 
     private readonly nint _ctx;
-    private readonly Dispatcher _dispatcher;
+    private readonly IUiDispatcher _dispatcher;
     private readonly Thread _eventThread;
     private volatile bool _disposed;
 
@@ -222,17 +226,23 @@ public sealed class MpvPlayer : IDisposable
     public IReadOnlyList<MpvChapter> Chapters { get; private set; } = [];
     public event Action? ChaptersChanged;
 
-    private MpvPlayer(nint ctx, Dispatcher dispatcher)
+    private MpvPlayer(nint ctx, IUiDispatcher dispatcher, DisplayTarget? display)
     {
         _ctx = ctx;
         _dispatcher = dispatcher;
+        Display = display;
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv-events" };
     }
 
     /// <summary>Creates and initializes an mpv instance rendering into the given child HWND.</summary>
     /// <exception cref="MpvException">mpv rejected an option or failed to initialize.</exception>
     /// <exception cref="DllNotFoundException">libmpv-2.dll not found next to the exe or on PATH.</exception>
-    public static MpvPlayer Create(nint wid, Dispatcher uiDispatcher, AppSettings? settings = null)
+    public static MpvPlayer Create(nint wid, IUiDispatcher uiDispatcher, AppSettings? settings = null)
+        => Create(new MpvVideoTarget.Window(wid), uiDispatcher, settings);
+
+    /// <summary>Creates and initializes an mpv instance drawing into a child window or a
+    /// composition swapchain (see <see cref="SwapChainChanged"/>).</summary>
+    public static MpvPlayer Create(MpvVideoTarget target, IUiDispatcher uiDispatcher, AppSettings? settings = null)
     {
         settings ??= new AppSettings();
         var ctx = LibMpv.mpv_create();
@@ -247,6 +257,11 @@ public sealed class MpvPlayer : IDisposable
             if (Math.Abs(settings.SubtitleScale - 1.0) > 0.001)
                 SetOption(ctx, "sub-scale", settings.SubtitleScale.ToString(CultureInfo.InvariantCulture));
             SetOption(ctx, "osc", "no");
+            // Media URLs come from servers: no yt-dlp hook may resolve them through an external
+            // program. load-scripts stays at mpv's default: turning it off changed how the track
+            // flyout over the video behaves (lw-jellyfin12, 2026-10-17), and a user script needs
+            // write access to the user's own mpv folder, which is code running as the user already.
+            SetOption(ctx, "ytdl", "no");
             SetOption(ctx, "input-default-bindings", "no");
             SetOption(ctx, "input-vo-keyboard", "no");
             SetOption(ctx, "volume-max", "200");
@@ -296,12 +311,16 @@ public sealed class MpvPlayer : IDisposable
             SetOption(ctx, "sub-use-margins", "yes");
             SetOption(ctx, "sub-ass-force-margins", "yes");
 
-            // Diagnostics: LIGHTWEAVER_MPV_LOG=<path> writes mpv's full log to a file.
+            // Diagnostics: LIGHTWEAVER_MPV_LOG=<path> writes mpv's full log to a file. Debug builds
+            // only: mpv's log-file records at debug level whatever msg-level says, and that includes
+            // the http-header-fields change that carries the session token.
+#if DEBUG
             if (Environment.GetEnvironmentVariable("LIGHTWEAVER_MPV_LOG") is { Length: > 0 } logFile)
             {
                 SetOption(ctx, "log-file", logFile);
                 SetOption(ctx, "msg-level", "all=v");
             }
+#endif
 
             // Diagnostics: LIGHTWEAVER_MPV_MUTE=1 starts muted (automated test runs).
             if (Environment.GetEnvironmentVariable("LIGHTWEAVER_MPV_MUTE") == "1")
@@ -326,10 +345,25 @@ public sealed class MpvPlayer : IDisposable
             if (Environment.GetEnvironmentVariable("LIGHTWEAVER_MPV_NO_VIDEO") == "1")
                 SetOption(ctx, "vo", "null");
 
-            unsafe
+            switch (target)
             {
-                long widValue = wid;
-                Check(LibMpv.mpv_set_option(ctx, "wid", MpvFormat.Int64, &widValue), "set wid");
+                case MpvVideoTarget.Window window:
+                    unsafe
+                    {
+                        long widValue = window.Handle;
+                        Check(LibMpv.mpv_set_option(ctx, "wid", MpvFormat.Int64, &widValue), "set wid");
+                    }
+                    break;
+                case MpvVideoTarget.Composition composition:
+                    // mpv creates the swapchain with CreateSwapChainForComposition and exposes it
+                    // as display-swapchain; there is no window, so the display probe comes from the host.
+                    SetOption(ctx, "gpu-api", "d3d11");
+                    SetOption(ctx, "gpu-context", "d3d11");
+                    SetOption(ctx, "d3d11-output-mode", "composition");
+                    SetOption(ctx, "d3d11-composition-size", CompositionSize(composition.Width, composition.Height));
+                    foreach (var (name, value) in composition.Display.MpvOptions())
+                        SetOption(ctx, name, value);
+                    break;
             }
 
             Check(LibMpv.mpv_initialize(ctx), "mpv_initialize");
@@ -357,6 +391,8 @@ public sealed class MpvPlayer : IDisposable
             Check(LibMpv.mpv_observe_property(ctx, ObsCurrentAo, "current-ao", MpvFormat.String), "observe current-ao");
             Check(LibMpv.mpv_observe_property(ctx, ObsVideoWidth, "video-params/w", MpvFormat.Int64), "observe video width");
             Check(LibMpv.mpv_observe_property(ctx, ObsVideoHeight, "video-params/h", MpvFormat.Int64), "observe video height");
+            Check(LibMpv.mpv_observe_property(ctx, ObsVideoDisplayWidth, "video-params/dw", MpvFormat.Int64), "observe video display width");
+            Check(LibMpv.mpv_observe_property(ctx, ObsVideoDisplayHeight, "video-params/dh", MpvFormat.Int64), "observe video display height");
             // osd-dimensions/{mt,mb,h}: the letterbox geometry mpv itself computes — the black
             // bands between the render surface and the picture actually drawn in it, plus that
             // surface's height, all in mpv-side pixels.
@@ -372,6 +408,7 @@ public sealed class MpvPlayer : IDisposable
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdMarginTop, "osd-dimensions/mt", MpvFormat.Int64), "observe osd margin top");
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdMarginBottom, "osd-dimensions/mb", MpvFormat.Int64), "observe osd margin bottom");
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdHeight, "osd-dimensions/h", MpvFormat.Int64), "observe osd height");
+            Check(LibMpv.mpv_observe_property(ctx, ObsOsdWidth, "osd-dimensions/w", MpvFormat.Int64), "observe osd width");
         }
         catch
         {
@@ -379,7 +416,7 @@ public sealed class MpvPlayer : IDisposable
             throw;
         }
 
-        var player = new MpvPlayer(ctx, uiDispatcher);
+        var player = new MpvPlayer(ctx, uiDispatcher, (target as MpvVideoTarget.Composition)?.Display);
         player._eventThread.Start();
         // Style/audio prefs are ordinary properties — applied after init so the same
         // code paths serve startup and live settings changes.
@@ -388,44 +425,47 @@ public sealed class MpvPlayer : IDisposable
         return player;
     }
 
-    /// <summary>Updates the read-ahead budget for the current player and subsequent files.</summary>
-    public void ApplyVideoBuffer(AppSettings settings)
+    /// <summary>Updates the read-ahead budget for the current player and subsequent files; throws
+    /// <see cref="MpvException"/> when mpv rejects it, else returns true.</summary>
+    public bool ApplyVideoBuffer(AppSettings settings)
     {
         CheckAlive();
         var bytes = (settings.VideoBufferMiB * 1024L * 1024).ToString(CultureInfo.InvariantCulture);
         Check(LibMpv.mpv_set_property_string(_ctx, "demuxer-max-bytes", bytes), "set video buffer");
         Check(LibMpv.mpv_set_property_string(_ctx, "cache-secs", "3600"), "set read-ahead duration");
+        return true;
     }
 
     private static readonly System.Text.RegularExpressions.Regex HexColor =
         new(@"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
 
     /// <summary>Applies the persisted subtitle style (text subs; sub-scale stays the
-    /// image-sub lever). Empty strings fall back to mpv's defaults.</summary>
-    public void ApplySubtitleStyle(AppSettings settings)
+    /// image-sub lever). Empty strings fall back to mpv's defaults. False when mpv rejected a part.</summary>
+    public bool ApplySubtitleStyle(AppSettings settings)
     {
         CheckAlive();
-        LibMpv.mpv_set_property_string(_ctx, "sub-font",
-            settings.SubtitleFontFamily is { Length: > 0 } font ? font : "sans-serif");
+        var ok = LibMpv.mpv_set_property_string(_ctx, "sub-font",
+            settings.SubtitleFontFamily is { Length: > 0 } font ? font : "sans-serif") >= 0;
         if (settings.SubtitleFontSize is > 0 and <= 300)
-            LibMpv.mpv_set_property_string(_ctx, "sub-font-size",
-                settings.SubtitleFontSize.ToString(CultureInfo.InvariantCulture));
-        LibMpv.mpv_set_property_string(_ctx, "sub-color",
-            HexColor.IsMatch(settings.SubtitleTextColor) ? settings.SubtitleTextColor : "#FFFFFF");
-        LibMpv.mpv_set_property_string(_ctx, "sub-border-color",
-            HexColor.IsMatch(settings.SubtitleBorderColor) ? settings.SubtitleBorderColor : "#000000");
+            ok &= LibMpv.mpv_set_property_string(_ctx, "sub-font-size",
+                settings.SubtitleFontSize.ToString(CultureInfo.InvariantCulture)) >= 0;
+        ok &= LibMpv.mpv_set_property_string(_ctx, "sub-color",
+            HexColor.IsMatch(settings.SubtitleTextColor) ? settings.SubtitleTextColor : "#FFFFFF") >= 0;
+        ok &= LibMpv.mpv_set_property_string(_ctx, "sub-border-color",
+            HexColor.IsMatch(settings.SubtitleBorderColor) ? settings.SubtitleBorderColor : "#000000") >= 0;
         if (settings.SubtitleBorderSize is >= 0 and <= 20)
-            LibMpv.mpv_set_property_string(_ctx, "sub-border-size",
-                settings.SubtitleBorderSize.ToString(CultureInfo.InvariantCulture));
+            ok &= LibMpv.mpv_set_property_string(_ctx, "sub-border-size",
+                settings.SubtitleBorderSize.ToString(CultureInfo.InvariantCulture)) >= 0;
         if (Math.Abs(settings.SubtitleShadowOffset) <= 20)
-            LibMpv.mpv_set_property_string(_ctx, "sub-shadow-offset",
-                settings.SubtitleShadowOffset.ToString(CultureInfo.InvariantCulture));
+            ok &= LibMpv.mpv_set_property_string(_ctx, "sub-shadow-offset",
+                settings.SubtitleShadowOffset.ToString(CultureInfo.InvariantCulture)) >= 0;
+        return ok;
     }
 
     /// <summary>Applies output device, passthrough and normalization. Passthrough and
     /// dynaudnorm are mutually exclusive (bitstreaming bypasses filters) — passthrough
-    /// wins if both are somehow set.</summary>
-    public void ApplyAudioOptions(AppSettings settings)
+    /// wins if both are somehow set. False when mpv rejected a part.</summary>
+    public bool ApplyAudioOptions(AppSettings settings)
     {
         CheckAlive();
         var device = settings.AudioDevice is { Length: > 0 } dev ? dev : "auto";
@@ -442,7 +482,7 @@ public sealed class MpvPlayer : IDisposable
             SayDetail($"event=audio_device outcome=fallback reason=device_absent device_hash={Diagnostics.AppLog.ShortHash(device)}");
             device = "auto";
         }
-        LibMpv.mpv_set_property_string(_ctx, "audio-device", device);
+        var ok = LibMpv.mpv_set_property_string(_ctx, "audio-device", device) >= 0;
         var passthrough = settings.AudioPassthrough;
         // A settings change is a fresh request: re-arm the recovery so picking a device that
         // CAN bitstream is honoured without a relaunch, and so a failure on one file does not
@@ -452,8 +492,8 @@ public sealed class MpvPlayer : IDisposable
         // Same reasoning for the audio-sync repair: a settings change is a fresh request, so one
         // failed resync earlier in the session must not leave the check standing down for good.
         _audioSyncGaveUp = false;
-        LibMpv.mpv_set_property_string(_ctx, "audio-spdif",
-            passthrough ? "ac3,eac3,dts,dts-hd,truehd" : "");
+        ok &= LibMpv.mpv_set_property_string(_ctx, "audio-spdif",
+            passthrough ? "ac3,eac3,dts,dts-hd,truehd" : "") >= 0;
         var wantNormalization = !passthrough && settings.VolumeNormalization;
         var err = wantNormalization
             ? LibMpv.Command(_ctx, "af", "set", "dynaudnorm")
@@ -474,6 +514,7 @@ public sealed class MpvPlayer : IDisposable
         if (Diagnostics.AppLog.Verbose)
             Detail($"event=audio_options device={DeviceCategory(device)} device_hash={Diagnostics.AppLog.ShortHash(device)} "
                 + $"passthrough={(passthrough ? "on" : "off")} normalization={(wantNormalization ? "on" : "off")}");
+        return ok && err >= 0;
     }
 
     // ---- Failed-passthrough recovery ----
@@ -495,17 +536,17 @@ public sealed class MpvPlayer : IDisposable
     private string? _currentAo;
     private bool _passthroughRequested;
     private bool _passthroughGaveUp;
-    private DispatcherTimer? _aoWatchdog;
+    private IUiTimer? _aoWatchdog;
 
     // Audio-restart-point drift (B39) — a SEPARATE watchdog from the passthrough one above, on a
     // different signal and a different timescale. See the section in front of ArmAudioSyncCheck.
-    private DispatcherTimer? _audioSyncWatchdog;
+    private IUiTimer? _audioSyncWatchdog;
     private bool _audioSyncRepairing;   // suppresses the AUDIO_RECONFIG our own repair causes
     private bool _audioSyncGaveUp;      // one repair attempt per load generation
 
     // A restart that never completes (B41) — a THIRD watchdog, on the state the other two exclude:
     // the clock frozen with an output present. See the section in front of ArmPlaybackStallCheck.
-    private DispatcherTimer? _playbackStallWatchdog;
+    private IUiTimer? _playbackStallWatchdog;
     private bool _playbackStallRepairing;  // a repair and its verify are in flight
     private bool _playbackStallGaveUp;     // both repair stages spent for this load generation
 
@@ -566,15 +607,14 @@ public sealed class MpvPlayer : IDisposable
         var generation = LoadGeneration;
         UiLog($"AoWatchdog arm trigger={trigger} gen={generation}");
         _aoWatchdog?.Stop();
-        _aoWatchdog = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
-        _aoWatchdog.Tick += (_, _) =>
+        _aoWatchdog = _dispatcher.CreateTimer(TimeSpan.FromMilliseconds(1200), () =>
         {
             _aoWatchdog?.Stop();
             if (generation == LoadGeneration)
                 EvaluateAudioOutput(trigger);
             else
                 UiLog($"AoWatchdog stale gen={generation} now={LoadGeneration}");
-        };
+        });
         _aoWatchdog.Start();
     }
 
@@ -752,15 +792,14 @@ public sealed class MpvPlayer : IDisposable
         UiLog(string.Format(CultureInfo.InvariantCulture,
             "AudioSyncWatchdog arm trigger={0} gen={1} timePos={2:F3}", trigger, generation, timePosAtArm));
         _audioSyncWatchdog?.Stop();
-        _audioSyncWatchdog = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AudioSyncCheckDelayMs) };
-        _audioSyncWatchdog.Tick += (_, _) =>
+        _audioSyncWatchdog = _dispatcher.CreateTimer(TimeSpan.FromMilliseconds(AudioSyncCheckDelayMs), () =>
         {
             _audioSyncWatchdog?.Stop();
             if (generation == LoadGeneration)
                 EvaluateAudioSync(trigger, timePosAtArm);
             else
                 UiLog($"AudioSyncWatchdog stale gen={generation} now={LoadGeneration}");
-        };
+        });
         _audioSyncWatchdog.Start();
     }
 
@@ -823,10 +862,10 @@ public sealed class MpvPlayer : IDisposable
         // latches afterwards if it did not work. The generation is re-read here for the same reason
         // the arming timer re-reads it — a load started in between makes the answer meaningless.
         var generation = LoadGeneration;
-        var verify = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AudioSyncCheckDelayMs) };
-        verify.Tick += (_, _) =>
+        IUiTimer? verify = null;
+        verify = _dispatcher.CreateTimer(TimeSpan.FromMilliseconds(AudioSyncCheckDelayMs), () =>
         {
-            verify.Stop();
+            verify!.Stop();
             if (_disposed || _ctx == nint.Zero)
                 return;
             if (generation != LoadGeneration)
@@ -865,7 +904,7 @@ public sealed class MpvPlayer : IDisposable
             }
             SayDetail($"event=audio_sync outcome=recovered trigger={Token(trigger)} "
                 + $"conclusive={(inconclusive ? "no" : "yes")}");
-        };
+        });
         verify.Start();
     }
 
@@ -990,15 +1029,14 @@ public sealed class MpvPlayer : IDisposable
         UiLog(string.Format(CultureInfo.InvariantCulture,
             "PlaybackStallWatchdog arm trigger={0} gen={1} timePos={2:F3}", trigger, generation, timePosAtArm));
         _playbackStallWatchdog?.Stop();
-        _playbackStallWatchdog = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(PlaybackStallCheckMs) };
-        _playbackStallWatchdog.Tick += (_, _) =>
+        _playbackStallWatchdog = _dispatcher.CreateTimer(TimeSpan.FromMilliseconds(PlaybackStallCheckMs), () =>
         {
             _playbackStallWatchdog?.Stop();
             if (generation == LoadGeneration)
                 EvaluatePlaybackStall(trigger, timePosAtArm);
             else
                 UiLog($"PlaybackStallWatchdog stale gen={generation} now={LoadGeneration}");
-        };
+        });
         _playbackStallWatchdog.Start();
     }
 
@@ -1078,10 +1116,10 @@ public sealed class MpvPlayer : IDisposable
             timePosAtRepair += TestStallFreezeOffsetSeconds;
 #endif
         var generation = LoadGeneration;
-        var verify = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(PlaybackStallVerifyMs) };
-        verify.Tick += (_, _) =>
+        IUiTimer? verify = null;
+        verify = _dispatcher.CreateTimer(TimeSpan.FromMilliseconds(PlaybackStallVerifyMs), () =>
         {
-            verify.Stop();
+            verify!.Stop();
             if (_disposed || _ctx == nint.Zero)
                 return;
             if (generation != LoadGeneration)
@@ -1124,7 +1162,7 @@ public sealed class MpvPlayer : IDisposable
             UiLog("PlaybackStallWatchdog verify stage=2 result=failed");
             SayDetail($"event=playback_stall outcome=failed trigger={Token(trigger)}");
             PlaybackStalled?.Invoke(PlaybackStallFailureMessage);
-        };
+        });
         verify.Start();
     }
 
@@ -1421,29 +1459,32 @@ public sealed class MpvPlayer : IDisposable
             Math.Clamp(percent, 0, 150).ToString(CultureInfo.InvariantCulture));
     }
 
-    /// <summary>Live-toggles hardware decoding.</summary>
-    public void SetHardwareDecoding(bool enabled)
+    /// <summary>Live-toggles hardware decoding; false when mpv rejected it.</summary>
+    public bool SetHardwareDecoding(bool enabled)
     {
         CheckAlive();
-        LibMpv.mpv_set_property_string(_ctx, "hwdec", enabled ? "d3d11va" : "no");
+        var ok = LibMpv.mpv_set_property_string(_ctx, "hwdec", enabled ? "d3d11va" : "no") >= 0;
         // A settings action, so once per toggle. hwdec is the first thing a decode failure is read
         // against, and until now the app could switch it with nothing written down anywhere.
         if (Diagnostics.AppLog.Verbose)
             Detail($"event=hwdec state={(enabled ? "on" : "off")} mode={(enabled ? "d3d11va" : "no")}");
+        return ok;
     }
 
     /// <summary>Adds an external subtitle track (call after FileLoaded; mpv drops it on
-    /// the next loadfile). The track then shows up via track-list observation.</summary>
-    public void AddExternalSubtitle(string url, string? title, string? lang)
+    /// the next loadfile). The track then shows up via track-list observation;
+    /// <paramref name="select"/> also makes it the shown subtitle once it is added.</summary>
+    public void AddExternalSubtitle(string url, string? title, string? lang, bool select = false)
     {
         CheckAlive();
+        var flag = select ? "select" : "auto";
         // sub-add <url> [<flags> [<title> [<lang>]]] — trailing args can't be empty strings.
         var result = (title, lang) switch
         {
-            ({ Length: > 0 }, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, "auto", title, lang),
-            ({ Length: > 0 }, _) => LibMpv.Command(_ctx, "sub-add", url, "auto", title),
-            (_, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, "auto", L.Text("MpvPlayer.External.8bf7fc85"), lang),
-            _ => LibMpv.Command(_ctx, "sub-add", url, "auto"),
+            ({ Length: > 0 }, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, flag, title, lang),
+            ({ Length: > 0 }, _) => LibMpv.Command(_ctx, "sub-add", url, flag, title),
+            (_, { Length: > 0 }) => LibMpv.Command(_ctx, "sub-add", url, flag, L.Text("MpvPlayer.External.8bf7fc85"), lang),
+            _ => LibMpv.Command(_ctx, "sub-add", url, flag),
         };
         // Structural: the URL is a stream URL on the user's server and carries the item behind it.
         // Which subtitle failed is answered by the [detail]/[player] records that bracket this one.
@@ -1613,6 +1654,81 @@ public sealed class MpvPlayer : IDisposable
         }
     }
 
+    /// <summary>The subtitle timing offset in seconds; positive shows them later.</summary>
+    public double SubtitleDelay
+    {
+        get => double.TryParse(GetPropertyString("sub-delay"), NumberStyles.Float, CultureInfo.InvariantCulture, out var delay) ? delay : 0;
+        set
+        {
+            CheckAlive();
+            LibMpv.mpv_set_property_string(_ctx, "sub-delay", Math.Round(value, 2).ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
+    // ---- Composition output (the WinUI 3 app) ----
+
+    private nint _lastSwapChain;
+
+    /// <summary>The display the composition output targets; null in window mode.</summary>
+    public DisplayTarget? Display { get; private set; }
+
+    /// <summary>mpv made a new composition swapchain (first frame, a display change, a rebuilt video
+    /// output). Raised on the UI thread with one reference already added for the handler, which
+    /// releases it after attaching the swapchain to its panel.</summary>
+    public event Action<nint>? SwapChainChanged;
+
+    /// <summary>The panel's size in pixels; mpv resizes the same swapchain.</summary>
+    public void SetCompositionSize(int width, int height)
+    {
+        if (Display is null || _disposed) return;
+        LibMpv.mpv_set_property_string(_ctx, "d3d11-composition-size", CompositionSize(width, height));
+    }
+
+    /// <summary>The window moved to another display or HDR was switched. The swapchain format is
+    /// fixed at creation, so the video output is rebuilt by cycling the video track; the new
+    /// swapchain arrives through <see cref="SwapChainChanged"/>.</summary>
+    public void Retarget(DisplayTarget display)
+    {
+        if (Display is null || _disposed || display == Display) return;
+        Display = display;
+        foreach (var (name, value) in display.MpvOptions())
+            LibMpv.mpv_set_property_string(_ctx, name, value);
+        if (GetPropertyString("vid") is not { } vid || vid == "no") return;
+        LibMpv.mpv_set_property_string(_ctx, "vid", "no");
+        LibMpv.mpv_set_property_string(_ctx, "vid", vid);
+        Detail("event=composition_retarget hdr=" + (display.Hdr ? "on" : "off"));
+    }
+
+    private static string CompositionSize(int width, int height)
+        => FormattableString.Invariant($"{Math.Max(1, width)}x{Math.Max(1, height)}");
+
+    /// <summary>display-swapchain is not observable, so it is re-read after every video reconfig.
+    /// The pointer is AddRef'd here, on the event thread, before it crosses to the UI thread.</summary>
+    private void PublishSwapChain()
+    {
+        if (Display is null) return;
+        var text = LibMpv.mpv_get_property_string(_ctx, "display-swapchain");
+        if (text == nint.Zero) return;
+        long value;
+        try
+        {
+            if (!long.TryParse(Marshal.PtrToStringUTF8(text), NumberStyles.Integer, CultureInfo.InvariantCulture, out value)) return;
+        }
+        finally
+        {
+            LibMpv.mpv_free(text);
+        }
+        var swapChain = (nint)value;
+        if (swapChain == nint.Zero || swapChain == _lastSwapChain) return;
+        _lastSwapChain = swapChain;
+        Marshal.AddRef(swapChain);
+        _dispatcher.Post(() =>
+        {
+            if (_disposed || SwapChainChanged is not { } handler) Marshal.Release(swapChain);
+            else handler(swapChain);
+        });
+    }
+
     /// <summary>Reads a property as a string (e.g. "hwdec-current"). Null if unavailable.</summary>
     public string? GetPropertyString(string name)
     {
@@ -1678,6 +1794,16 @@ public sealed class MpvPlayer : IDisposable
     public int VideoWidth { get; private set; }
     public int VideoHeight { get; private set; }
 
+    /// <summary>Video size with the pixel aspect applied (video-params/dw, dh), so an anamorphic
+    /// 720x576 16:9 source reads 1024x576. 0 = no video / between files.</summary>
+    public int VideoDisplayWidth { get; private set; }
+    public int VideoDisplayHeight { get; private set; }
+
+    /// <summary>The picture's shape on screen: the display size, else the source size; null
+    /// without video.</summary>
+    public double? VideoAspect => VideoDisplayWidth > 0 && VideoDisplayHeight > 0 ? (double)VideoDisplayWidth / VideoDisplayHeight
+        : VideoWidth > 0 && VideoHeight > 0 ? (double)VideoWidth / VideoHeight : null;
+
     /// <summary>
     /// Letterbox geometry as mpv reports it (osd-dimensions): the height of mpv's render
     /// surface and the black bands above/below the drawn picture. 0 = no video / between files.
@@ -1700,6 +1826,12 @@ public sealed class MpvPlayer : IDisposable
     /// <summary>Raised on the UI thread when the osd-dimensions geometry above changes —
     /// a window resize, a video reconfig, a filter change, or a new file.</summary>
     public event Action? OsdGeometryChanged;
+
+    /// <summary>The width of mpv's render surface in mpv pixels (osd-dimensions/w); 0 = no video.</summary>
+    public int OsdWidth { get; private set; }
+
+    /// <summary>Raised on the UI thread when <see cref="OsdWidth"/> changes.</summary>
+    public event Action? OsdWidthChanged;
 
     /// <summary>The source is natively HDR (PQ/HLG) — independent of the RTX chain.</summary>
     public bool IsHdrContent => _videoGamma is "pq" or "hlg";
@@ -1824,7 +1956,12 @@ public sealed class MpvPlayer : IDisposable
                     unsafe { HandlePropertyChange(ev.ReplyUserdata, *(MpvEventProperty*)ev.Data); }
                     break;
 
+                case MpvEventId.VideoReconfig:
+                    PublishSwapChain();
+                    break;
+
                 case MpvEventId.FileLoaded:
+                    PublishSwapChain();
                     // Event identity comes from START_FILE, never the newest request. A second
                     // load can be requested while this event is waiting on the UI dispatcher.
                     var loadedGeneration = Volatile.Read(ref _eventGeneration);
@@ -2080,7 +2217,7 @@ public sealed class MpvPlayer : IDisposable
             await Task.Delay(scheduleDelayMs);
             if (_disposed)
                 return;
-            _ = _dispatcher.BeginInvoke(() =>
+            _dispatcher.Post(() =>
             {
                 if (_disposed)
                     return;
@@ -2165,6 +2302,16 @@ public sealed class MpvPlayer : IDisposable
                         VideoStateChanged?.Invoke();
                     }
                 });
+            else if (userdata is ObsVideoDisplayWidth or ObsVideoDisplayHeight)
+                Post(() =>
+                {
+                    if (VideoDisplayWidth != 0 || VideoDisplayHeight != 0)
+                    {
+                        VideoDisplayWidth = 0;
+                        VideoDisplayHeight = 0;
+                        VideoStateChanged?.Invoke();
+                    }
+                });
             // Between files mpv drops osd-dimensions too — zero the affected leaf so nothing
             // keeps reporting the previous file's band (the video-params handler above resets
             // for the same reason).
@@ -2174,6 +2321,8 @@ public sealed class MpvPlayer : IDisposable
                 PostOsdGeometry(mb: 0);
             else if (userdata == ObsOsdHeight)
                 PostOsdGeometry(h: 0);
+            else if (userdata == ObsOsdWidth)
+                PostOsdWidth(0);
             return;
         }
 
@@ -2251,6 +2400,14 @@ public sealed class MpvPlayer : IDisposable
                 var vh = (int)*(long*)prop.Data;
                 Post(() => { if (vh != VideoHeight) { VideoHeight = vh; VideoStateChanged?.Invoke(); } });
                 break;
+            case ObsVideoDisplayWidth when prop.Format == MpvFormat.Int64:
+                var dw = (int)*(long*)prop.Data;
+                Post(() => { if (dw != VideoDisplayWidth) { VideoDisplayWidth = dw; VideoStateChanged?.Invoke(); } });
+                break;
+            case ObsVideoDisplayHeight when prop.Format == MpvFormat.Int64:
+                var dh = (int)*(long*)prop.Data;
+                Post(() => { if (dh != VideoDisplayHeight) { VideoDisplayHeight = dh; VideoStateChanged?.Invoke(); } });
+                break;
             case ObsOsdMarginTop when prop.Format == MpvFormat.Int64:
                 PostOsdGeometry(mt: (int)*(long*)prop.Data);
                 break;
@@ -2259,6 +2416,9 @@ public sealed class MpvPlayer : IDisposable
                 break;
             case ObsOsdHeight when prop.Format == MpvFormat.Int64:
                 PostOsdGeometry(h: (int)*(long*)prop.Data);
+                break;
+            case ObsOsdWidth when prop.Format == MpvFormat.Int64:
+                PostOsdWidth((int)*(long*)prop.Data);
                 break;
             // current-ao arrives as Format.None (not an empty string) whenever there is no
             // audio output — which is precisely the state worth reacting to, so this case is
@@ -2333,6 +2493,13 @@ public sealed class MpvPlayer : IDisposable
     /// already-fixed bug from breaking exactly that (the gamma observation used to mutate shared
     /// RTX state and raise LogMessage straight from the event thread).
     /// </summary>
+    private void PostOsdWidth(int width) => Post(() =>
+    {
+        if (width == OsdWidth) return;
+        OsdWidth = width;
+        OsdWidthChanged?.Invoke();
+    });
+
     private void PostOsdGeometry(int? mt = null, int? mb = null, int? h = null)
     {
         lock (_osdLock)
@@ -2347,7 +2514,7 @@ public sealed class MpvPlayer : IDisposable
                 return;
             _osdDispatchQueued = true;
         }
-        _dispatcher.BeginInvoke(() =>
+        _dispatcher.Post(() =>
         {
             int pendingMt, pendingMb, pendingH;
             lock (_osdLock)
@@ -2406,7 +2573,7 @@ public sealed class MpvPlayer : IDisposable
                 return;
             _posDispatchQueued = true;
         }
-        _dispatcher.BeginInvoke(() =>
+        _dispatcher.Post(() =>
         {
             double latest;
             int latestGeneration;
@@ -2422,7 +2589,7 @@ public sealed class MpvPlayer : IDisposable
     }
 
     private void Post(Action action)
-        => _dispatcher.BeginInvoke(() => { if (!_disposed) action(); });
+        => _dispatcher.Post(() => { if (!_disposed) action(); });
 
     private void SetFlagProperty(string name, bool value)
     {

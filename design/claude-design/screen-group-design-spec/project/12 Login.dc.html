@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>12</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Login</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">Server address first, with saved servers below. Then Quick Connect (shows a code) or username and password.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-top:20px;box-sizing:border-box">
+              <div style="width:400px;display:flex;flex-direction:column;gap:20px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:{{ f.accentFg }};letter-spacing:0.02em">LightWeaver</div>
+                  <div style="font-size:26px;font-weight:700;letter-spacing:-0.01em">{{ f.heading }}</div>
+                  <sc-if value="{{ f.hasSub }}"><div style="font-size:13px;color:{{ f.text2 }};line-height:1.45">{{ f.subline }}</div></sc-if>
+                </div>
+                <sc-if value="{{ f.isServer }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12.5px;font-weight:500;color:{{ f.text2 }}">Server address</div>
+                    <div style="height:36px;display:flex;align-items:center;padding:0 10px;box-sizing:border-box;border-radius:{{ f.inR }}px;background:{{ f.inBg }};border:{{ f.inBorder }};border-bottom:{{ f.inBottom }};box-shadow:{{ f.inRing }};font-size:13.5px;position:relative">
+                      <span style="color:{{ f.inColor }}">{{ f.addr }}</span><div style="width:1.5px;height:16px;background:{{ f.accentFg }};margin-left:1px"></div>
+                      <div style="position:absolute;right:-28px;top:9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                    </div>
+                    <sc-if value="{{ f.err }}"><div style="display:flex;gap:6px;font-size:12.5px;color:{{ f.errC }};line-height:1.4"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1.2;font-weight:normal;font-variation-settings:'FILL' 1">error</span><span>Couldn’t reach media.home.lan:8096. Check the address and that the server is running.</span></div></sc-if>
+                    <sc-if value="{{ f.noErr }}"><div style="font-size:12px;color:{{ f.text3 }}">For example https://media.example.com or 192.0.2.10:8096</div></sc-if>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+                      <div style="height:{{ f.bH }}px;padding:0 20px;display:flex;align-items:center;gap:8px;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13.5px;font-weight:600" style-hover="background:{{ f.accentHover }}">
+                        <sc-if value="{{ f.err }}">Try again</sc-if><sc-if value="{{ f.noErr }}">Connect</sc-if>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;position:relative">
+                    <div style="font-size:12.5px;font-weight:500;color:{{ f.text2 }}">Saved servers</div>
+                    <div style="border-radius:{{ f.boxR }}px;background:{{ f.boxBg }};border:{{ f.boxBorder }};overflow:hidden">
+                      <sc-for list="{{ f.saved }}" as="s">
+                        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-top:{{ s.bt }}" style-hover="background:rgba(255,255,255,0.04)">
+                          <div style="width:34px;height:34px;border-radius:{{ f.iconR }}px;background:{{ f.surface2 }};display:flex;align-items:center;justify-content:center;color:{{ f.text2 }}"><span style="font-family:{{ f.icon }};font-size:19px;line-height:1;font-weight:normal">dns</span></div>
+                          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:13.5px;font-weight:500">{{ s.name }}</div><div style="font-size:12px;color:{{ f.text2 }}">{{ s.addr }}</div></div>
+                          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ f.text3 }}"><div style="width:7px;height:7px;border-radius:4px;background:{{ s.dot }}"></div>{{ s.status }}</div>
+                          <span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text3 }}">chevron_right</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="position:absolute;right:-28px;top:34px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.isAuth }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:{{ f.boxR }}px;background:{{ f.boxBg }};border:{{ f.boxBorder }}">
+                    <span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">dns</span>
+                    <div style="flex:1;font-size:13px">Home Server <span style="color:{{ f.text3 }}">· media.home.lan</span></div>
+                    <div style="font-size:12.5px;color:{{ f.accentFg }};padding:2px 6px;border-radius:4px" style-hover="background:{{ f.hover }}">Change</div>
+                  </div>
+                  <div style="display:flex;padding:2px;border-radius:{{ f.segR }}px;background:{{ f.segBg }};border:{{ f.btnBorder }};position:relative">
+                    <sc-for list="{{ f.seg }}" as="s"><div style="flex:1;position:relative;height:{{ f.segH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.segItemR }}px;background:{{ s.bg }};color:{{ s.color }};font-size:12.5px;font-weight:500" style-hover="background:{{ s.hbg }}">{{ s.l }}<sc-if value="{{ s.ind }}"><div style="position:absolute;bottom:1px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ f.accentFg }}"></div></sc-if></div></sc-for>
+                    <div style="position:absolute;right:-28px;top:4px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                  </div>
+                  <sc-if value="{{ f.isQC }}">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 16px;border-radius:{{ f.boxR }}px;background:{{ f.boxBg }};border:{{ f.boxBorder }};position:relative">
+                      <div style="font-size:12.5px;color:{{ f.text2 }}">Your code</div>
+                      <div style="display:flex;gap:6px">
+                        <sc-for list="{{ f.code }}" as="c"><div style="width:{{ c.w }}px;height:56px;border-radius:{{ f.inR }}px;background:{{ c.bg }};display:flex;align-items:center;justify-content:center;font:600 30px/1 {{ f.mono }};color:{{ f.text }}">{{ c.d }}</div></sc-for>
+                      </div>
+                      <div style="font-size:12.5px;color:{{ f.text2 }};text-align:center;line-height:1.5;max-width:320px">On a device where you’re signed in, open Quick Connect and enter this code.</div>
+                      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:{{ f.text3 }}"><div style="width:11px;height:11px;border-radius:50%;border:2px solid {{ f.spinTrack }};border-top-color:{{ f.spinHead }}"></div>Waiting for approval · expires in 4:32</div>
+                      <div style="height:28px;padding:0 12px;display:flex;align-items:center;gap:6px;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:12.5px" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal">content_copy</span>Copy code</div>
+                      <div style="position:absolute;right:-28px;top:52px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.isPW }}">
+                    <div style="display:flex;flex-direction:column;gap:14px;position:relative">
+                      <div style="display:flex;gap:10px">
+                        <sc-for list="{{ f.users }}" as="u">
+                          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:64px;padding:6px 0;border-radius:{{ f.boxR }}px;background:{{ u.bg }}" style-hover="background:{{ f.hover }}">
+                            <div style="width:40px;height:40px;border-radius:50%;background:{{ u.av }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;box-shadow:{{ u.ring }}">{{ u.i }}</div>
+                            <div style="font-size:11.5px;color:{{ f.text2 }}">{{ u.n }}</div>
+                          </div>
+                        </sc-for>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:6px">
+                        <div style="font-size:12.5px;font-weight:500;color:{{ f.text2 }}">Username</div>
+                        <div style="height:34px;display:flex;align-items:center;padding:0 10px;box-sizing:border-box;border-radius:{{ f.inR }}px;background:{{ f.fieldBg }};border:{{ f.fieldBorder }};border-bottom:{{ f.fieldBottom }};font-size:13.5px">Jonah</div>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:6px">
+                        <div style="font-size:12.5px;font-weight:500;color:{{ f.text2 }}">Password</div>
+                        <div style="height:34px;display:flex;align-items:center;padding:0 6px 0 10px;box-sizing:border-box;border-radius:{{ f.inR }}px;background:{{ f.inBg }};border:{{ f.inBorder }};border-bottom:{{ f.inBottom }};box-shadow:{{ f.inRing }};font-size:15px;letter-spacing:2px"><span style="flex:1">●●●●●●●●●</span><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal;color:{{ f.text2 }};letter-spacing:0">visibility</span></div>
+                      </div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px"><div style="width:{{ f.cb }}px;height:{{ f.cb }}px;border-radius:4px;background:{{ f.cbBg }};display:flex;align-items:center;justify-content:center;color:{{ f.cbCheck }}"><span style="font-family:{{ f.icon }};font-size:13px;line-height:1;font-weight:normal;font-variation-settings:'wght' 700">check</span></div>Stay signed in</div>
+                        <div style="height:{{ f.bH }}px;padding:0 22px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13.5px;font-weight:600" style-hover="background:{{ f.accentHover }}">Sign in</div>
+                      </div>
+                      <div style="position:absolute;right:-28px;top:20px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                    </div>
+                  </sc-if>
+                </sc-if>
+              </div>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" minimal="{{ true }}" title="" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const mac = f.mac;
+    f.isServer = f.k === 'server' || f.k === 'err'; f.isAuth = f.k === 'qc' || f.k === 'pw';
+    f.isQC = f.k === 'qc'; f.isPW = f.k === 'pw'; f.err = f.k === 'err'; f.noErr = !f.err;
+    f.heading = f.isServer ? 'Connect to a server' : 'Sign in';
+    f.subline = f.isServer ? 'Enter the address of your Jellyfin server, or pick one you’ve used before.' : '';
+    f.hasSub = !!f.subline;
+    f.errC = mac ? '#FF6961' : '#FF99A4';
+    f.inR = mac ? 8 : 4; f.bH = mac ? 32 : 32; f.iconR = mac ? 8 : 4;
+    f.inBg = mac ? f.fieldBg : '#1c1c1c';
+    f.inBorder = f.err ? (mac ? '1px solid ' + f.errC : '1px solid rgba(255,255,255,0.07)') : f.fieldBorder;
+    f.inBottom = mac ? f.inBorder : '2px solid ' + (f.err ? f.errC : f.accentFg);
+    f.inRing = mac ? (f.err ? '0 0 0 3px rgba(255,105,97,0.35)' : f.focus) : 'none';
+    f.addr = f.err ? 'media.home.lan:8096' : 'https://jelly';
+    f.inColor = f.text;
+    f.saved = [['Home Server', 'media.home.lan:8096 · Mara', 'Online', mac ? '#30D158' : '#6CCB5F'], ['Cabin NAS', '192.0.2.20:8096 · Mara', 'Online', mac ? '#30D158' : '#6CCB5F'], ['Family server', 'jelly.example.net · Mara', 'Offline', 'rgba(255,255,255,0.3)']]
+      .map(([name, addr, status, dot], i) => ({ name, addr, status, dot, bt: i ? '1px solid ' + f.sep : 'none' }));
+    const sel = f.isQC ? 'Quick Connect' : 'Password';
+    f.seg = ['Quick Connect', 'Password'].map(l => ({ l, bg: l === sel ? f.segSel : 'transparent', hbg: l === sel ? f.segSel : f.hover, color: l === sel ? f.text : f.text2, ind: f.win && l === sel }));
+    f.segH = mac ? 26 : 30; f.segItemR = mac ? 999 : 3;
+    f.code = ['4', '8', '2', ' ', '9', '1', '3'].map(d => ({ d, w: d === ' ' ? 10 : 42, bg: d === ' ' ? 'transparent' : f.surface2 }));
+    f.spinTrack = mac ? 'rgba(255,255,255,0.18)' : 'transparent'; f.spinHead = mac ? 'rgba(255,255,255,0.7)' : f.accentFg;
+    f.users = [['Mara', 'MK', 'linear-gradient(140deg,#6b4d57,#3c3036)'], ['Jonah', 'JO', '#3d5568'], ['Kids', 'KI', '#5a5a3c']].map(([n, i, av]) => ({ n, i, av, bg: n === 'Jonah' ? f.hover : 'transparent', ring: n === 'Jonah' ? '0 0 0 2px ' + f.accentFg : 'none' }));
+    f.cb = mac ? 15 : 20; f.cbBg = mac ? f.accent : f.accentFg; f.cbCheck = mac ? '#fff' : '#000';
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '12a', label: 'Server address', frames: fr({ k: 'server' }), notes: [
+        { n: 1, t: 'Accepts a host, IP or full URL; https is tried first, then http, then port 8096. Return connects.' },
+        { n: 2, t: 'Saved servers connect with one click and go straight to the remembered user. Right-click / ⋯ removes one. The list is hidden on first launch.' }
+      ] },
+      { id: '12b', label: 'Server unreachable', frames: fr({ k: 'err' }), notes: [
+        { n: '1', t: 'Error stays inline under the field; the field keeps the typed address. No alert dialog.' }
+      ] },
+      { id: '12c', label: 'Quick Connect — code', frames: fr({ k: 'qc' }), notes: [
+        { n: 1, t: 'Quick Connect is the default when the server has it enabled; otherwise only Password is offered and the switch is hidden.' },
+        { n: 2, t: 'Code in large monospaced digits, grouped 3+3. Approval signs in without further input. When the code expires a new one replaces it in place.' }
+      ] },
+      { id: '12d', label: 'Username and password', frames: fr({ k: 'pw' }), notes: [
+        { n: '1', t: 'Users with public profiles on the server are shown as avatars; choosing one fills Username and focuses Password.' },
+        { n: 2, t: 'Wrong password: inline error under the field, field cleared, focus stays. Return submits.' }
+      ] },
+      { id: '12e', label: 'Narrow (960 × 600)', frames: fr({ k: 'server' }, 960, 600), notes: [
+        { n: '1', t: 'The 400 px column stays centred; at 600 px height the saved-servers list scrolls inside its box after three entries.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

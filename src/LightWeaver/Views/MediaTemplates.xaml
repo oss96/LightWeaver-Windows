@@ -143,7 +143,10 @@
          since it clips to the rectangular bounds (M5/M6). Radius is the exact half-height of the
          3 px bar; Border/Decorator returns finalSize from ArrangeOverride, so the clip is the
          real slot and the Image trap from M6 does not apply here. -->
+    <!-- LeftToRight under a right-to-left UI language: played progress follows the player's
+         pinned seek bar, not the reading direction. -->
     <Style x:Key="LwCardProgress" TargetType="Border">
+        <Setter Property="FlowDirection" Value="LeftToRight" />
         <Setter Property="Height" Value="3" />
         <Setter Property="VerticalAlignment" Value="Bottom" />
         <Setter Property="CornerRadius" Value="1.5" />
@@ -166,12 +169,12 @@
                  ClipToBounds="True", which clips to the RECTANGULAR bounds and rounds nothing —
                  so the artwork kept square corners over the rounded card and the radius only
                  ever showed on the hairline. theme:RoundedClip.Radius on the content Grid does
-                 the real round-clip (11 = LwR2 12 minus the 1 px hairline, concentric) and also
+                 the real round-clip (7 = LwR1 8 minus the 1 px hairline, concentric) and also
                  subsumes ClipToBounds' rectangular job of containing UniformToFill overflow. -->
-            <Border CornerRadius="{StaticResource LwR2}" Height="228"
+            <Border CornerRadius="{StaticResource LwR1}" Height="228"
                     Background="{StaticResource LwStorm2Brush}"
                     BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
-                <Grid theme:RoundedClip.Radius="11">
+                <Grid theme:RoundedClip.Radius="7">
                     <TextBlock Text="{StaticResource IconMovies}" FontFamily="{StaticResource LwFontIcon}"
                                FontSize="44" Foreground="{StaticResource LwText4Brush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -242,7 +245,7 @@
          glyph's LwGlowHover bleeds past the card edge by design — a clip would cut it. -->
     <DataTemplate x:Key="LibraryCardTemplate" DataType="{x:Type jf:MediaItem}">
         <StackPanel Width="152" Margin="0,0,16,0">
-            <Border CornerRadius="{StaticResource LwR2}" Height="228"
+            <Border CornerRadius="{StaticResource LwR1}" Height="228"
                     Background="{StaticResource LwStorm2Brush}"
                     BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
                 <TextBlock Text="{Binding CollectionType, Converter={StaticResource CollectionTypeToIconConverter}}"
@@ -262,10 +265,10 @@
     <DataTemplate x:Key="EpisodeCardTemplate" DataType="{x:Type jf:MediaItem}">
         <StackPanel Width="292" Margin="0,0,16,0">
             <!-- Round-clipped like the poster card — see the comment there. -->
-            <Border CornerRadius="{StaticResource LwR2}" Height="164"
+            <Border CornerRadius="{StaticResource LwR1}" Height="164"
                     Background="{StaticResource LwStorm2Brush}"
                     BorderBrush="{StaticResource LwHairlineBrush}" BorderThickness="1">
-                <Grid theme:RoundedClip.Radius="11">
+                <Grid theme:RoundedClip.Radius="7">
                     <TextBlock Text="{StaticResource IconMovies}" FontFamily="{StaticResource LwFontIcon}"
                                FontSize="44" Foreground="{StaticResource LwText4Brush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />

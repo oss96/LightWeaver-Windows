@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>05</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Advanced search</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">Opened with the button inside the search field. A filter column on the leading side; results update as filters change. Combines with whatever is typed in the field.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden;display:flex">
+              <sc-if value="{{ f.docked }}">
+                <div style="width:300px;flex:none;border-right:1px solid {{ f.sep }};background:{{ f.panelBg }};position:relative">
+                  <div style="position:absolute;inset:0;overflow:hidden;padding:16px 18px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="font-size:15px;font-weight:600;flex:1">Filters</div>
+                      <div style="position:relative;height:26px;padding:0 10px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;font-size:12.5px;color:{{ f.accentFg }}" style-hover="background:{{ f.hover }}">Reset<div style="position:absolute;right:-12px;top:-10px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div></div>
+                      <div style="width:26px;height:26px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text2 }}" style-hover="background:{{ f.hover }}"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal">close</span></div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="font-size:12px;font-weight:600;color:{{ f.text2 }}">Type</div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px">
+                        <sc-for list="{{ f.types }}" as="t">
+                          <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                            <div style="width:{{ f.cb }}px;height:{{ f.cb }}px;box-sizing:border-box;border-radius:{{ f.cbR }}px;background:{{ t.bg }};border:{{ t.border }};display:flex;align-items:center;justify-content:center;color:{{ f.cbCheck }}"><sc-if value="{{ t.on }}"><span style="font-family:{{ f.icon }};font-size:13px;line-height:1;font-weight:normal;font-variation-settings:'wght' 700">check</span></sc-if></div>{{ t.l }}
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="font-size:12px;font-weight:600;color:{{ f.text2 }}">Genre</div>
+                      <div style="min-height:{{ f.fieldH }}px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:3px;box-sizing:border-box;border-radius:{{ f.fieldR }}px;background:{{ f.fieldBg }};border:{{ f.fieldBorder }};border-bottom:{{ f.fieldBottom }}">
+                        <sc-for list="{{ f.genres }}" as="g">
+                          <div style="height:22px;display:flex;align-items:center;gap:2px;padding:0 3px 0 8px;border-radius:{{ f.tokR }}px;background:{{ f.accentSoft }};font-size:12px">{{ g }}<span style="font-family:{{ f.icon }};font-size:13px;line-height:1;font-weight:normal;color:{{ f.text2 }}">close</span></div>
+                        </sc-for>
+                        <div style="font-size:12.5px;color:{{ f.text3 }};padding:0 6px">Add genre…</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:{{ f.text2 }}"><span>Year</span><span style="font-weight:400">1995 – 2012</span></div>
+                      <div style="position:relative;height:20px;margin:0 6px">
+                        <div style="position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:{{ f.track }}"></div>
+                        <div style="position:absolute;left:58%;right:20%;top:8px;height:4px;background:{{ f.fillC }}"></div>
+                        <div style="position:absolute;left:58%;top:0;margin-left:-10px;width:20px;height:20px;border-radius:10px;background:{{ f.knobBg }};border:{{ f.knobBorder }};box-sizing:border-box;box-shadow:{{ f.knobShadow }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ f.win }}"><div style="width:12px;height:12px;border-radius:6px;background:{{ f.accentFg }}"></div></sc-if></div>
+                        <div style="position:absolute;left:80%;top:0;margin-left:-10px;width:20px;height:20px;border-radius:10px;background:{{ f.knobBg }};border:{{ f.knobBorder }};box-sizing:border-box;box-shadow:{{ f.knobShadow }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ f.win }}"><div style="width:12px;height:12px;border-radius:6px;background:{{ f.accentFg }}"></div></sc-if></div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div style="flex:1;height:{{ f.fieldH }}px;display:flex;align-items:center;padding:0 8px;box-sizing:border-box;border-radius:{{ f.fieldR }}px;background:{{ f.fieldBg }};border:{{ f.fieldBorder }};border-bottom:{{ f.fieldBottom }};font-size:13px">1995</div>
+                        <span style="color:{{ f.text3 }}">–</span>
+                        <div style="flex:1;height:{{ f.fieldH }}px;display:flex;align-items:center;padding:0 8px;box-sizing:border-box;border-radius:{{ f.fieldR }}px;background:{{ f.fieldBg }};border:{{ f.fieldBorder }};border-bottom:{{ f.fieldBottom }};font-size:13px">2012</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="font-size:12px;font-weight:600;color:{{ f.text2 }}">Watched</div>
+                      <div style="display:flex;padding:2px;border-radius:{{ f.segR }}px;background:{{ f.segBg }};border:{{ f.btnBorder }}">
+                        <sc-for list="{{ f.seg }}" as="s">
+                          <div style="flex:1;position:relative;height:{{ f.segH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.segItemR }}px;background:{{ s.bg }};color:{{ s.color }};font-size:12.5px;font-weight:500" style-hover="background:{{ s.hbg }}">{{ s.l }}<sc-if value="{{ s.ind }}"><div style="position:absolute;bottom:1px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ f.accentFg }}"></div></sc-if></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:{{ f.text2 }}"><span>Minimum rating</span><span style="font-weight:400">★ 7.0</span></div>
+                      <div style="position:relative;height:20px;margin:0 6px">
+                        <div style="position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:{{ f.track }}"></div>
+                        <div style="position:absolute;left:0;width:70%;top:8px;height:4px;border-radius:2px;background:{{ f.fillC }}"></div>
+                        <div style="position:absolute;left:70%;top:0;margin-left:-10px;width:20px;height:20px;border-radius:10px;background:{{ f.knobBg }};border:{{ f.knobBorder }};box-sizing:border-box;box-shadow:{{ f.knobShadow }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ f.win }}"><div style="width:12px;height:12px;border-radius:6px;background:{{ f.accentFg }}"></div></sc-if></div>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="font-size:12px;font-weight:600;color:{{ f.text2 }}">Sort</div>
+                      <div style="display:flex;gap:8px">
+                        <div style="flex:1;height:{{ f.btnH }}px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 10px;border-radius:{{ f.popupR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:13px" style-hover="background:{{ f.btnHover }}">Release date<span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.text2 }}">{{ f.popupIcon }}</span></div>
+                        <div style="display:flex;padding:2px;border-radius:{{ f.segR }}px;background:{{ f.segBg }};border:{{ f.btnBorder }}">
+                          <div style="width:30px;height:{{ f.segH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.segItemR }}px;color:{{ f.text2 }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">arrow_upward</span></div>
+                          <div style="width:30px;height:{{ f.segH }}px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.segItemR }}px;background:{{ f.segSel }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">arrow_downward</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+                <div style="display:flex;align-items:center;gap:10px;padding:16px 24px 14px;flex-wrap:wrap">
+                  <sc-if value="{{ f.drawer }}"><div style="height:{{ f.btnH }}px;padding:0 10px;display:flex;align-items:center;gap:6px;border-radius:{{ f.btnR }}px;background:{{ f.accentSoft }};color:{{ f.text }};font-size:12.5px"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">tune</span>Filters · 5</div></sc-if>
+                  <div style="font-size:22px;font-weight:700">Advanced search</div>
+                  <div style="font-size:13px;color:{{ f.text2 }}">{{ f.count }}</div>
+                  <sc-if value="{{ f.updating }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ f.text3 }}"><div style="width:11px;height:11px;border-radius:50%;border:2px solid {{ f.spinTrack }};border-top-color:{{ f.spinHead }}"></div>Updating</div></sc-if>
+                </div>
+                <div style="display:flex;gap:6px;padding:0 24px 16px;flex-wrap:wrap">
+                  <sc-for list="{{ f.tokens }}" as="t"><div style="height:24px;display:flex;align-items:center;gap:3px;padding:0 4px 0 10px;border-radius:{{ f.tokR2 }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:12px">{{ t }}<span style="font-family:{{ f.icon }};font-size:13px;line-height:1;font-weight:normal;color:{{ f.text2 }}">close</span></div></sc-for>
+                </div>
+                <div style="flex:1;min-height:0;position:relative">
+                  <sc-if value="{{ f.hasResults }}">
+                    <div style="position:absolute;inset:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:20px 14px;align-content:start;opacity:{{ f.dim }}">
+                      <sc-for list="{{ f.cards }}" as="c"><dc-import name="Card" p="{{ f }}" kind="poster" title="{{ c.title }}" sub="{{ c.sub }}" watched="{{ c.watched }}" hint-size="100%,250px"></dc-import></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.isEmpty }}">
+                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding-bottom:90px;text-align:center">
+                      <span style="font-family:{{ f.icon }};font-size:44px;line-height:1;font-weight:normal;color:{{ f.text3 }};font-variation-settings:'wght' 300">filter_alt_off</span>
+                      <div style="font-size:17px;font-weight:600">Nothing matches all filters</div>
+                      <div style="font-size:13px;color:{{ f.text2 }}">Removing “Rating ★ 9.0+” would show 41 titles.</div>
+                      <div style="display:flex;gap:8px;margin-top:8px">
+                        <div style="height:{{ f.btnH }}px;padding:0 14px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:13px" style-hover="background:{{ f.btnHover }}">Remove rating filter</div>
+                        <div style="height:{{ f.btnH }}px;padding:0 14px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13px" style-hover="background:{{ f.accentHover }}">Reset all</div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="home" badge="2" search="{{ f.q }}" adv-open="{{ true }}" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const L = window.LW, mac = f.mac;
+    f.panelBg = mac ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.02)';
+    f.cb = mac ? 15 : 20; f.cbR = mac ? 4 : 4; f.cbCheck = mac ? '#fff' : '#000';
+    f.types = [['Movies', true], ['Shows', true], ['Episodes', false], ['Collections', false]].map(([l, on]) => ({ l, on, bg: on ? (mac ? f.accent : f.accentFg) : (mac ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'), border: on ? '1px solid transparent' : (mac ? '0.5px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.6)') }));
+    f.genres = ['Drama', 'Thriller'];
+    f.tokR = mac ? 11 : 4; f.tokR2 = mac ? 12 : 12;
+    f.fillC = mac ? f.accent : f.accentFg;
+    f.knobBg = mac ? '#f4f4f6' : '#454545'; f.knobBorder = mac ? 'none' : '1px solid rgba(255,255,255,0.09)'; f.knobShadow = mac ? '0 1px 3px rgba(0,0,0,0.45)' : 'none';
+    const sel = 'Unplayed';
+    f.seg = ['All', 'Unplayed', 'Played'].map(l => ({ l, bg: l === sel ? f.segSel : 'transparent', hbg: l === sel ? f.segSel : f.hover, color: l === sel ? f.text : f.text2, ind: f.win && l === sel }));
+    f.segH = mac ? 24 : 28; f.segItemR = mac ? 999 : 3;
+    f.popupR = mac ? 999 : 4; f.popupIcon = mac ? 'unfold_more' : 'expand_more';
+    f.spinTrack = mac ? 'rgba(255,255,255,0.18)' : 'transparent'; f.spinHead = mac ? 'rgba(255,255,255,0.7)' : f.accentFg;
+    f.tokens = f.isEmpty ? ['Movies, Shows', 'Drama, Thriller', '1995–2012', 'Unplayed', '★ 9.0+'] : ['Movies, Shows', 'Drama, Thriller', '1995–2012', 'Unplayed', '★ 7.0+'];
+    f.hasResults = !f.isEmpty;
+    f.cards = L.movieCards(f.w < 1000 ? 12 : 21, 4).map((c, i) => Object.assign(c, { sub: String([2009, 1998, 2004, 2011, 1996, 2001, 2007][i % 7]) + ' · ★ ' + (7 + (i * 3 % 9) / 10).toFixed(1) }));
+    f.dim = f.updating ? 0.6 : 1;
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '5a', label: 'Filters set — results', frames: fr({ docked: true, q: '', count: '84 results' }), notes: [
+        { n: 1, t: 'Reset returns every filter to its default and keeps the panel open. Disabled while all filters are default.' },
+        { n: 'i', t: 'Filters: Type (checkboxes), Genre (token field, multi), Year range (two-thumb slider plus fields), Watched (segmented), Minimum rating (slider), Sort (pop-up + order).' },
+        { n: '↻', t: 'Results update on every change after 150 ms. The grid stays put and dims slightly while the request is in flight; no skeleton swap.' },
+        { n: '×', t: 'Active filters repeat as removable tokens above the results, so the panel can be closed without losing track.' },
+        { n: 'Esc', t: 'The tune button in the search field stays highlighted while the panel is open; clicking it or the × closes the panel. Esc closes it when focus is inside.' }
+      ] },
+      { id: '5b', label: 'Updating after a change', frames: fr({ docked: true, q: 'night', count: '12 results', updating: true }), notes: [
+        { n: '1', t: 'Typed text and filters combine: "night" + filters. The count and tokens update when the response lands.' }
+      ] },
+      { id: '5c', label: 'No matches', frames: fr({ docked: true, q: '', count: '0 results', isEmpty: true }), notes: [
+        { n: '1', t: 'When the combination is empty, the state names the filter that would help most and offers to remove it.' }
+      ] },
+      { id: '5d', label: 'Narrow (960 × 600) — panel collapsed', frames: fr({ docked: false, drawer: true, q: '', count: '84 results' }, 960, 600), notes: [
+        { n: '1', t: 'Below 1100 px the panel is not docked. A "Filters · 5" button opens it as an overlay pane on the leading edge (light dismiss, Esc closes).' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

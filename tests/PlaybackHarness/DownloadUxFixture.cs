@@ -24,10 +24,16 @@ internal static class DownloadUxFixture
 {
     private static int _failures;
     private static int _checks;
-    private static DownloadItem Sample(string title = "Example episode") => new()
+    private static DownloadItem Sample(string title = "Example episode")
     {
-        ItemId = Guid.NewGuid(), ServerUrl = "http://127.0.0.1", Title = title,
-        FilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".mkv"),
+        var id = Guid.NewGuid();
+        return Sample(id, title);
+    }
+
+    private static DownloadItem Sample(Guid id, string title) => new()
+    {
+        ItemId = id, ServerUrl = "http://127.0.0.1", Title = title,
+        FilePath = Path.Combine(Path.GetTempPath(), $"{id:N}_sample.mkv"),
         Subtitle = "Example series · S1E2", RuntimeTicks = TimeSpan.FromMinutes(45).Ticks,
         AddedTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
     };

@@ -1,5 +1,8 @@
 # Claude Design prompt — LightWeaver design system
 
+> Legacy: the prompt that produced the "woven light" design of the WPF shell (`src/LightWeaver`).
+> The current design is [`DESIGN.md`](../DESIGN.md).
+
 Design a complete design system and key-screen mockups for **LightWeaver**, a native
 Windows desktop media client for Jellyfin (WPF, Fluent-era Windows 11 app). Deliver it as a
 single self-contained HTML design-spec page (tokens + component specs + full-screen

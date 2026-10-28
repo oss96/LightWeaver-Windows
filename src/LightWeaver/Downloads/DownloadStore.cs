@@ -16,6 +16,14 @@ public sealed class DownloadStore
 
     private static readonly string IndexPath = Path.Combine(DefaultDirectory, "index.json");
 
+    /// <summary>The file extension for a server-reported container ("mov,mp4,m4a" gives "mov"):
+    /// letters and digits only, else "mkv", so a container can never name a path.</summary>
+    public static string FileExtension(string? container)
+    {
+        var first = container?.Split(',')[0].Trim() ?? "";
+        return first.Length is > 0 and <= 10 && first.All(char.IsAsciiLetterOrDigit) ? first : "mkv";
+    }
+
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,

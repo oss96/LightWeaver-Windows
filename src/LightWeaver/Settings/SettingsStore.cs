@@ -86,6 +86,10 @@ public static class SettingsStore
             $"event=load outcome=success settings_version={loaded.SettingsVersion}"));
         if (loaded.SettingsVersion < CurrentSettingsVersion)
             Migrate(loaded);
+        // An older version wrote the OMDB key in plain text. Seal it now rather than leaving it
+        // readable until some unrelated setting happens to change.
+        if (loaded.ReadPlainTextOmdbKey)
+            Save(loaded);
         return loaded;
     }
 

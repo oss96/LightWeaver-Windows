@@ -127,6 +127,11 @@ internal static class SyncPlayTwoClientWorker
         // Before anything can touch AppPaths: its root is resolved once, on first use, and the
         // device id, the credential store and the logs all live under it.
         Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT", args[3]);
+        if (!string.Equals(AppPaths.Root, Path.GetFullPath(args[3]), StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine($"worker: app data resolves to {AppPaths.Root}, not {args[3]}; only Debug builds honour the override");
+            return 2;
+        }
         // Video on, so a capture shows which clip is playing, unless the controller was told the
         // guest cannot render it.
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_VIDEO",

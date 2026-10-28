@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="max-width:1280px;padding:56px 64px 80px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:48px">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:13px;color:#666">LightWeaver · Jellyfin desktop client · macOS 26 and Windows 11</div>
+    <div style="font-size:52px;font-weight:700;letter-spacing:-0.02em">Remaining screens</div>
+    <div style="font-size:16px;color:#444;max-width:820px;line-height:1.55">Each page below shows one screen group with macOS (left) and Windows (right) at 1440 × 900, plus a 960-wide version. Orange pins on the mockups match the notes beside them. The bar, morph, menus, settings and card hovers are live.</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+    <sc-for list="{{ pages }}" as="pg" hint-placeholder-count="14">
+      <a href="{{ pg.href }}" style="display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:10px;background:#f4f3f0;border:1px solid rgba(0,0,0,0.07);color:#1a1a1a;text-decoration:none" style-hover="background:#ffffff;border-color:rgba(138,28,48,0.35)">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px ui-monospace,Menlo,monospace;color:#8a1c30">{{ pg.n }}</span><span style="font-size:16px;font-weight:600">{{ pg.t }}</span></div>
+        <div style="font-size:13px;color:#555;line-height:1.45">{{ pg.d }}</div>
+      </a>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div style="font-size:28px;font-weight:700">Shared rules</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px">
+      <sc-for list="{{ rules }}" as="r">
+        <div style="padding:16px 18px;border-radius:10px;background:#f4f3f0;border:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:14px;font-weight:600">{{ r.h }}</div>
+          <div style="font-size:13.5px;color:#444;line-height:1.5">{{ r.t }}</div>
+          <sc-if value="{{ r.sw }}">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+              <sc-for list="{{ r.sw }}" as="s"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start"><div style="width:64px;height:36px;border-radius:6px;background:{{ s.c }};border:1px solid rgba(0,0,0,0.1)"></div><div style="font:11px ui-monospace,Menlo,monospace;color:#555">{{ s.l }}</div></div></sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:28px;font-weight:700">Component sheet</div>
+    <div style="font-size:14px;color:#555;max-width:820px;line-height:1.5">Stock control per element. "Custom" means there is no stock control; it is built from platform materials and metrics. Icons in the mockups are stand-ins; the names here are the ones to ship.</div>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid rgba(0,0,0,0.1);background:#f8f7f5">
+      <div style="display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1fr);background:#1a1a1a;color:#fff;font-size:12.5px;font-weight:600">
+        <div style="padding:10px 14px">Element</div><div style="padding:10px 14px">macOS 26 · SwiftUI</div><div style="padding:10px 14px">Windows 11 · WinUI 3</div>
+      </div>
+      <sc-for list="{{ comps }}" as="c">
+        <sc-if value="{{ c.sec }}"><div style="padding:14px 14px 6px;font-size:12px;font-weight:700;color:#8a1c30;letter-spacing:0.04em;text-transform:uppercase;background:#efeeea;border-top:1px solid rgba(0,0,0,0.07)">{{ c.sec }}</div></sc-if>
+        <sc-if value="{{ c.el }}">
+          <div style="display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1fr);border-top:1px solid rgba(0,0,0,0.07);font-size:13px;line-height:1.45">
+            <div style="padding:9px 14px;font-weight:600">{{ c.el }}</div>
+            <div style="padding:9px 14px;color:#333">{{ c.m }}</div>
+            <div style="padding:9px 14px;color:#333">{{ c.w }}</div>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const pages = [
+      ['01', 'Nav morph', 'Collapsed, Libraries, Playlists, 9-library overflow (grow, then scroll).', '01 Nav Morph.dc.html'],
+      ['02', 'Library grid', 'Sort, watched and genre filters, poster size, A–Z rail, loading, empty.', '02 Library Grid.dc.html'],
+      ['03', 'See more', 'Continue Watching and Next Up as full grids; item context menu.', '03 See More.dc.html'],
+      ['04', 'Search', 'Recent searches, live grouped results with counts, no results.', '04 Search.dc.html'],
+      ['05', 'Advanced search', 'Filter column, Reset, live results, no matches, narrow overlay.', '05 Advanced Search.dc.html'],
+      ['06', 'Playlists', 'All playlists, playlist page, remove with Undo, drag reorder.', '06 Playlists.dc.html'],
+      ['07', 'Person', 'Photo, bio, filmography grouped by role.', '07 Person.dc.html'],
+      ['08', 'Downloads', 'Active, queued, failed, completed, quality, storage, offline.', '08 Downloads.dc.html'],
+      ['09', 'SyncPlay', 'Create / join, in-group state, join and leave announcements.', '09 SyncPlay.dc.html'],
+      ['10', 'Settings', 'macOS Settings window and Windows page; all sections, live.', '10 Settings.dc.html'],
+      ['11', 'Profile menu', 'User and server, switch user, switch or add server, log out.', '11 Profile Menu.dc.html'],
+      ['12', 'Login', 'Server address, saved servers, Quick Connect, password.', '12 Login.dc.html'],
+      ['13', 'Player', 'Transition, transport, trickplay, flyouts, skip intro, Up Next, idle.', '13 Player.dc.html'],
+      ['14', 'Errors and toasts', 'Server unreachable, playback failed, toast style.', '14 Errors and Toasts.dc.html']
+    ].map(([n, t, d, href]) => ({ n, t, d, href }));
+    const rules = [
+      { h: 'Accent', t: 'One garnet accent, used as the system tint. macOS: AccentColor asset #A3233B; tinted text and glyphs use the lighter #F07085. Windows: SystemAccentColor #B83A52 with the dark-theme light variant #F08C9C for indicators, toggles and links. Nothing else is custom.', sw: [{ c: '#A3233B', l: 'mac tint' }, { c: '#F07085', l: 'mac on dark' }, { c: '#B83A52', l: 'win accent' }, { c: '#F08C9C', l: 'win light 2' }] },
+      { h: 'Dark only, platform surfaces', t: 'macOS: window background, Liquid Glass for toolbar groups, menus and popovers. Windows: Mica backdrop, a content layer under the bar, card fill for groups, acrylic for flyouts.' },
+      { h: 'Speed', t: 'Hover and press states change in ≤ 80 ms, no glows. Popovers and flyouts use the system open animation. Nothing over 200 ms except the nav morph width (240 ms). Skeletons only after 150 ms.' },
+      { h: 'Over video', t: 'Only dim surfaces: 55–72% black glass, white text at 70–88%, no white fills, no large accent fills. Menus and flyouts over video are drawn inside the window (in-window overlays on macOS, ShouldConstrainToRootBounds on Windows), never as separate windows.' },
+      { h: 'Window sizes', t: 'Minimum 900 × 600. Layouts are fluid to 4K: grids add columns, rows clip at the trailing edge, the search field absorbs bar width.' },
+      { h: 'Esc and focus', t: 'Esc closes the innermost layer: menu → flyout → nav morph → search results → player (returns to detail preview). Every popover returns focus to its button.' }
+    ];
+    const S = (sec) => ({ sec });
+    const C = (el, m, w) => ({ el, m, w });
+    const comps = [
+      S('Window and bar'),
+      C('Window, title bar', 'WindowGroup with unified toolbar; .toolbar(removing: .title); toolbar items in glass groups', 'Window with ExtendsContentIntoTitleBar + SetTitleBar; MicaBackdrop; system caption buttons'),
+      C('Back / Forward', 'ToolbarItemGroup(placement: .navigation), Buttons · chevron.left / chevron.right', 'Subtle Buttons in the title bar · Back / Forward glyphs'),
+      C('Home | Libraries | Playlists', 'ControlGroup in toolbar, label style titleAndIcon; morph = GlassEffectContainer + matchedGeometryEffect', 'Custom item row in a card (AppBarButton metrics, LabelPosition bottom), selection pill; width via implicit Composition animation'),
+      C('Morph overflow', 'ScrollView(.horizontal) inside the group with edge fade and chevron Buttons', 'ScrollViewer (horizontal, hidden bars) + RepeatButton chevrons'),
+      C('Search field', '.searchable(placement: .toolbar) + trailing Button · magnifyingglass, slider.horizontal.3', 'AutoSuggestBox with QueryIcon + inline Button · Search, Filter'),
+      C('Downloads | SyncPlay | Settings', 'ToolbarItemGroup Buttons, titleAndIcon; Settings = SettingsLink · arrow.down.circle, person.2, gearshape', 'AppBarButtons in a card, LabelPosition bottom · Download, People, Settings; InfoBadge for counts'),
+      C('Profile avatar', 'Menu with image label (toolbar)', 'PersonPicture inside a Button with MenuFlyout'),
+      S('Browse'),
+      C('Card', 'Custom view; .onHover; .contextMenu · checkmark, ellipsis', 'Custom UserControl; PointerEntered/Exited; ContextFlyout (MenuFlyout) · CheckMark, More'),
+      C('Horizontal row', 'ScrollView(.horizontal) + LazyHStack, scrollTargetBehavior(.viewAligned)', 'ItemsView / ScrollViewer horizontal with StackLayout'),
+      C('Poster grid', 'LazyVGrid(columns: [.adaptive(minimum:)])', 'ItemsView with UniformGridLayout'),
+      C('Sort', 'Menu (pull-down) with inline Pickers → checkmarks', 'DropDownButton + MenuFlyout with RadioMenuFlyoutItem groups'),
+      C('Watched filter', 'Picker(.segmented)', 'Segmented (Windows Community Toolkit)'),
+      C('Genre filter', 'Menu with Toggle items', 'DropDownButton + MenuFlyout with ToggleMenuFlyoutItem'),
+      C('Display options', '.popover with Slider + Toggle(.switch)', 'Flyout with Slider + ToggleSwitch'),
+      C('A–Z rail', 'Custom (VStack of Buttons, drag gesture)', 'Custom (StackPanel of Buttons, pointer capture)'),
+      C('Loading', 'ProgressView() small; redacted placeholders', 'ProgressRing; custom skeleton'),
+      C('Empty state', 'ContentUnavailableView', 'Custom StackPanel (icon, title, Button)'),
+      S('Search'),
+      C('Recent searches', '.searchSuggestions with remove Buttons', 'AutoSuggestBox suggestion list with item template'),
+      C('Category chips', 'Toggle(.button) row', 'ToggleButton row'),
+      C('Type, genre, year, rating', 'Toggle(.checkbox); NSTokenField (representable); two Sliders + TextFields; Slider', 'CheckBox; TokenizingTextBox (Toolkit); RangeSelector (Toolkit) + NumberBox; Slider'),
+      C('Sort pop-up', 'Picker(.menu)', 'ComboBox'),
+      S('Lists, downloads, social'),
+      C('Playlist items', 'List with .onMove / .onDelete, swipe disabled', 'ListView with CanReorderItems, AllowDrop'),
+      C('Download progress', 'ProgressView(value:) linear', 'ProgressBar'),
+      C('Offline banner', 'Custom inline banner · wifi.slash', 'InfoBar (Severity.Warning)'),
+      C('SyncPlay', '.popover from toolbar item', 'Flyout from AppBarButton'),
+      C('Toast', 'Custom overlay capsule (glass)', 'Custom Popup with Flyout surface (acrylic), in-window'),
+      S('Settings, profile, login'),
+      C('Settings container', 'Settings scene, NavigationSplitView sidebar, Form(.grouped)', 'NavigationView (PaneDisplayMode Left) + SettingsCard / SettingsExpander (Toolkit)'),
+      C('Switch, pop-up, stepper', 'Toggle(.switch); Picker(.menu); Stepper with TextField', 'ToggleSwitch; ComboBox; NumberBox (inline spin buttons)'),
+      C('Swatches, segmented', 'ColorPicker swatches (custom row); Picker(.segmented)', 'Custom swatch row; Segmented (Toolkit)'),
+      C('Shortcut recorder', 'Custom (key event monitor)', 'Custom (KeyboardAccelerator capture)'),
+      C('Log view', 'ScrollView + Text(monospaced), textSelection(.enabled)', 'TextBox IsReadOnly, Cascadia Mono'),
+      C('Profile menu', 'Menu with header view and submenus', 'MenuFlyout with header and MenuFlyoutSubItem'),
+      C('Login fields', 'TextField, SecureField (.roundedBorder), Picker(.segmented)', 'TextBox, PasswordBox (reveal), Segmented'),
+      S('Player'),
+      C('Video surface', 'mpv render into CAMetalLayer-backed NSView; SwiftUI overlay above', 'mpv into SwapChainPanel; XAML overlay above'),
+      C('Transport bar', 'Custom HStack on dark glass (.glassEffect(.clear) tinted black)', 'Custom Grid on dark AcrylicBrush (in-app)'),
+      C('Seek bar, trickplay', 'Custom (chapters, buffer, hover preview)', 'Custom (Slider template not sufficient)'),
+      C('Flyouts over video', 'Custom in-window overlays — not NSMenu/NSPopover, which are separate windows', 'Flyout / MenuFlyout with ShouldConstrainToRootBounds = true, dark theme override'),
+      C('Skip intro, Up Next', 'Custom Buttons on dark glass', 'Custom Buttons on dark acrylic'),
+      C('Player icons', 'play.fill, pause.fill, gobackward.10, goforward.30, forward.end.fill, speaker.wave.2.fill, captions.bubble, list.bullet, info.circle, arrow.up.left.and.arrow.down.right', 'Play, Pause, Rewind, FastForward, Next, Volume, ClosedCaption, BulletedList, Info, FullScreen (Segoe Fluent Icons)')
+    ];
+    return { pages, rules, comps };
+  }
+}
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ using LightWeaver.Jellyfin;
 namespace LightWeaver.Downloads;
 
 public sealed record DownloadTrack(int Index, int TypeOrdinal, string Display,
-    string? Language, string? Title, string? Codec, bool IsExternal, bool IsText, bool IsDefault)
+    string? Language, string? Title, string? Codec, bool IsExternal, bool IsText, bool IsDefault, bool IsForced = false)
 {
     public override string ToString() => Display;
 }
@@ -21,7 +21,7 @@ public sealed record DownloadSelection(DownloadOption Quality, DownloadTrack? Au
 }
 
 public sealed record DownloadSubtitleFile(int StreamIndex, string Codec, string FilePath,
-    string? Title, string? Language, bool IsDefault);
+    string? Title, string? Language, bool IsDefault, bool IsForced = false);
 
 public static class DownloadLanguages
 {
@@ -70,20 +70,16 @@ public static class DownloadLanguages
         var identity = string.Join("|", quality.MediaSourceId, quality.Resolution,
             quality.MaxWidth, quality.VideoBitRate, selection.Audio?.Index.ToString() ?? "all",
             selection.AllSubtitles ? "all" : selection.Subtitle?.Index.ToString() ?? "none",
-            string.Join(",", subtitles.Select(t => $"{t.Index}:{t.Codec}:{t.IsExternal}")));
+            string.Join(",", subtitles.Select(t => $"{t.Index}:{t.Codec}:{t.IsExternal}:{t.IsForced}")));
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..12]
             .ToLowerInvariant();
-        var extension = quality.IsOriginal ? quality.Container ?? "mkv" : "mp4";
-        extension = extension.Split(',')[0];
-        extension = new string(extension.Where(char.IsAsciiLetterOrDigit).Take(12).ToArray());
-        if (extension.Length == 0)
-            extension = "mkv";
+        var extension = DownloadPaths.Extension(quality.IsOriginal ? quality.Container : "mp4");
         var path = Path.Combine(Path.GetDirectoryName(item.FilePath)!,
             $"{Path.GetFileNameWithoutExtension(item.FilePath)}-{fingerprint}.{extension}");
         var sidecars = subtitles.Where(t => t.IsExternal || !quality.IsOriginal).Select(t =>
             new DownloadSubtitleFile(t.Index, t.Codec ?? "vtt",
                 $"{Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path))}.sub-{t.Index}.{SubtitleExtension(t.Codec)}",
-                t.Title ?? t.Display, t.Language, t.IsDefault)).ToArray();
+                t.Title ?? t.Display, t.Language, t.IsDefault, t.IsForced)).ToArray();
         var selectedSidecar = !selection.AllSubtitles && selection.Subtitle is { } selected
             && sidecars.Any(s => s.StreamIndex == selected.Index) ? selected.Index : (int?)null;
         return item with
@@ -142,20 +138,21 @@ public static class DownloadLanguages
 
     private static DownloadTrack? Match(DownloadTrack desired, IReadOnlyList<DownloadTrack> tracks)
     {
-        var candidates = tracks.Where(t => Player.Languages.Matches(t.Language, desired.Language)
-            || string.Equals(t.Language, desired.Language, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var candidates = tracks.Where(t => t.IsForced == desired.IsForced && t.IsExternal == desired.IsExternal
+            && (Player.Languages.Matches(t.Language, desired.Language)
+                || string.Equals(t.Language, desired.Language, StringComparison.OrdinalIgnoreCase))).ToArray();
         if (string.IsNullOrWhiteSpace(desired.Language))
-            return candidates.FirstOrDefault(t => string.Equals(t.Title, desired.Title,
+            candidates = candidates.Where(t => string.Equals(t.Title, desired.Title,
                 StringComparison.OrdinalIgnoreCase) && string.Equals(t.Codec, desired.Codec,
-                StringComparison.OrdinalIgnoreCase) && t.IsExternal == desired.IsExternal
-                && (!string.IsNullOrWhiteSpace(desired.Title) || t.TypeOrdinal == desired.TypeOrdinal));
-        if (!string.IsNullOrWhiteSpace(desired.Title))
+                StringComparison.OrdinalIgnoreCase)).ToArray();
+        else if (!string.IsNullOrWhiteSpace(desired.Title))
             candidates = candidates.Where(t => string.Equals(t.Title, desired.Title,
                 StringComparison.OrdinalIgnoreCase)).ToArray();
-        return candidates.OrderByDescending(t => string.Equals(t.Title, desired.Title,
-                StringComparison.OrdinalIgnoreCase))
-            .ThenByDescending(t => string.Equals(t.Codec, desired.Codec, StringComparison.OrdinalIgnoreCase))
-            .ThenByDescending(t => t.IsDefault).FirstOrDefault();
+        var sameTitle = candidates.Where(t => string.Equals(t.Title, desired.Title, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (sameTitle.Length > 0) candidates = sameTitle;
+        var sameCodec = candidates.Where(t => string.Equals(t.Codec, desired.Codec, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (sameCodec.Length > 0) candidates = sameCodec;
+        return candidates.Length == 1 ? candidates[0] : null;
     }
 
     private static bool CanExtractText(DownloadTrack track)

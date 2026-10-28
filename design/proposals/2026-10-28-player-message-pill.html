@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Proposal · Messages over the video read as messages</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; background: #f4f1ec; color: #222; }
+  header { max-width: 1440px; margin: 0 auto; padding: 40px 48px 0; }
+  header h1 { font-size: 22px; margin: 0 0 8px; }
+  header p { margin: 0 0 6px; font-size: 14px; line-height: 1.5; max-width: 900px; color: #444; }
+  .canvas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; padding: 32px 48px 48px; max-width: 1440px; margin: 0 auto; }
+  .cell { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.04); }
+  .cell-label { padding: 16px 20px; border-bottom: 1px solid #eee; }
+  .cell-label h3 { margin: 0 0 4px; font-size: 15px; }
+  .cell-label p { margin: 0; font-size: 13px; line-height: 1.45; color: #555; }
+  .impact { display: inline-block; margin-top: 8px; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #efe9e1; color: #5a4a3a; }
+  .cell-body { padding: 16px; display: grid; gap: 12px; background: #1b1b1d; }
+  .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; }
+  .frame.dark { background: radial-gradient(ellipse at 70% 60%, #2a3446 0%, #10141c 55%, #07080b 100%); }
+  .frame.bright { background: linear-gradient(180deg, #d9e6f2 0%, #b7cde0 45%, #e9dcc4 70%, #c9b28d 100%); }
+  .frame .caption { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: rgba(255,255,255,.55); }
+  .frame.bright .caption { color: rgba(0,0,0,.45); }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 56px; background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0)); display: flex; align-items: center; gap: 12px; padding: 0 16px; color: #fff; }
+  .bar .back { width: 28px; height: 28px; border-radius: 4px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-family: "Segoe Fluent Icons"; font-size: 14px; }
+  .bar .t1 { font-size: 13px; font-weight: 600; }
+  .bar .t2 { font-size: 11.5px; color: rgba(255,255,255,.7); }
+  .pills { position: absolute; left: 16px; top: 72px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .glyph { font-family: "Segoe Fluent Icons"; font-size: 16px; color: #F08C9C; line-height: 1; }
+
+  /* Current: PlayerView.ShowAnnouncement */
+  .p-now { background: rgba(0,0,0,.549); border-radius: 12px; padding: 4px 10px 5px; font-size: 12.5px; color: rgba(255,255,255,.78); }
+
+  /* A: player glass, as flyouts over video */
+  .p-a { background: rgba(18,18,20,.722); border: 1px solid rgba(255,255,255,.09); border-radius: 8px; padding: 7px 12px 8px; font-size: 13px; color: rgba(255,255,255,.784);
+         box-shadow: 0 8px 16px rgba(0,0,0,.28), 0 0 2px rgba(0,0,0,.22); }
+
+  /* B: compact toast over video */
+  .p-b { display: flex; align-items: center; gap: 10px; min-height: 36px; background: rgba(18,18,20,.722); border: 1px solid rgba(255,255,255,.09); border-radius: 8px; padding: 0 14px 1px 12px;
+         font-size: 13px; color: rgba(255,255,255,.88); box-shadow: 0 8px 16px rgba(0,0,0,.28), 0 0 2px rgba(0,0,0,.22); }
+
+  /* C: Skip-pill stroke with an accent edge */
+  .p-c { position: relative; background: rgba(0,0,0,.659); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; padding: 7px 12px 8px 15px; font-size: 13px; color: rgba(255,255,255,.88); overflow: hidden; }
+  .p-c::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #F08C9C; }
+
+  .rec { max-width: 1440px; margin: 0 auto; padding: 0 48px 48px; font-size: 14px; line-height: 1.5; color: #333; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Messages over the video read as messages</h1>
+  <p>While the full player is shown, toasts (for example "This part of the video is still downloading.") appear as the player's announcement, top left under the bar
+     (<code>PlayerView.ShowAnnouncement</code>). Today that is a borderless 55&nbsp;% black pill with 78&nbsp;% white text, which reads as an on-screen label rather than a message,
+     and nearly disappears over dark scenes. The user asked for a border so it reads as a message.</p>
+  <p>Each option is drawn over a dark and a bright frame. Values are the real tokens: <code>LwPlayerGlassBrush</code> #B8121214, <code>LwPlayerGlassBorderBrush</code> #17FFFFFF,
+     <code>LwGroupRadius</code> 8, <code>LwText2Brush</code> #C8FFFFFF, the toast's info glyph (InfoSolid, #F08C9C). "Current" is drawn from the code's values; no live screenshot was taken.</p>
+</header>
+
+<div class="canvas">
+
+  <section class="cell">
+    <div class="cell-label">
+      <h3>Current</h3>
+      <p>#8C000000 fill, no stroke, radius 12, 12.5 px text at 78 % white. Reads like a subtitle or status label, not a message.</p>
+    </div>
+    <div class="cell-body">
+      <div class="frame dark"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-now">This part of the video is still downloading.</div></div><span class="caption">dark scene</span></div>
+      <div class="frame bright"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-now">This part of the video is still downloading.</div></div><span class="caption">bright scene</span></div>
+    </div>
+  </section>
+
+  <section class="cell">
+    <div class="cell-label">
+      <h3>A · Player glass with its stroke</h3>
+      <p>The message takes the same surface as flyouts and menus over the video: player glass, a 1 px <code>LwPlayerGlassBorderBrush</code> stroke, <code>LwGroupRadius</code>,
+         the toast shadow, 13 px text. The edge separates it from both dark and bright frames.</p>
+      <span class="impact">Within the system: existing tokens, the over-video glass rule</span>
+    </div>
+    <div class="cell-body">
+      <div class="frame dark"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-a">This part of the video is still downloading.</div></div><span class="caption">dark scene</span></div>
+      <div class="frame bright"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-a">This part of the video is still downloading.</div></div><span class="caption">bright scene</span></div>
+    </div>
+  </section>
+
+  <section class="cell">
+    <div class="cell-label">
+      <h3>B · A compact toast over the video (recommended)</h3>
+      <p>A plus the toast's info glyph, so it is recognisably the same message as the app's toasts (14c), only on player glass and without the dismiss button, since it is not
+         interactive and leaves after 3 s. Text at 88 % white, the top of the over-video range.</p>
+      <span class="impact">New component variant: toast over video (the announcement becomes it)</span>
+    </div>
+    <div class="cell-body">
+      <div class="frame dark"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-b"><span class="glyph">&#xF167;</span>This part of the video is still downloading.</div></div><span class="caption">dark scene</span></div>
+      <div class="frame bright"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-b"><span class="glyph">&#xF167;</span>This part of the video is still downloading.</div></div><span class="caption">bright scene</span></div>
+    </div>
+  </section>
+
+  <section class="cell">
+    <div class="cell-label">
+      <h3>C · Stronger stroke with an accent edge</h3>
+      <p>The Skip intro pill's heavier 20 % stroke and radius 6, with a 3 px garnet edge on the leading side. The most visible of the three, but a second stroke weight and an
+         accent mark the system does not use for messages elsewhere.</p>
+      <span class="impact">New token: a 20 % stroke over video; rule change: accent edge on messages</span>
+    </div>
+    <div class="cell-body">
+      <div class="frame dark"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-c">This part of the video is still downloading.</div></div><span class="caption">dark scene</span></div>
+      <div class="frame bright"><div class="bar"><div class="back">&#xE72B;</div><div><div class="t1">Lantern House</div><div class="t2">S1 · E4 — The Lamp Room</div></div></div>
+        <div class="pills"><div class="p-c">This part of the video is still downloading.</div></div><span class="caption">bright scene</span></div>
+    </div>
+  </section>
+
+</div>
+
+<p class="rec"><strong>Recommendation: B.</strong> The stroke gives the edge the user asked for, and the glyph makes it read as the same kind of message as the app's toasts, while staying
+inside the over-video rules (dim glass, white text at 70–88 %, no large accent fill). A is the minimal fix if the glyph is unwanted; C is louder than anything else on the player.</p>
+</body>
+</html>

@@ -36,7 +36,7 @@ namespace LightWeaver.Diagnostics;
 /// output would otherwise print it into a file whose whole purpose is to be sent to someone else.
 /// This is also why the verbose mpv file is written here rather than by mpv's own <c>log-file</c>
 /// option, which cannot be filtered — that option stays reachable only through
-/// <c>LIGHTWEAVER_MPV_LOG</c> for tests.</para>
+/// <c>LIGHTWEAVER_MPV_LOG</c> for tests, and only in Debug builds.</para>
 ///
 /// <para><b>Logging entry points may not throw or block real work.</b> Their write paths catch
 /// <see cref="Exception"/> rather than a filtered set: this is the one place in the codebase where

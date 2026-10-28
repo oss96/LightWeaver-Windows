@@ -56,6 +56,7 @@ public partial class OverlayWindow : Window
     private readonly PlayerViewModel _viewModel;
     private readonly SyncPlayFlyoutTrigger _syncPlayTrigger;
     private readonly SyncPlayFlyoutTrigger _qualityTrigger;
+    private readonly OsdFlyoutPlacement _flyoutPlacement;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _volumePillTimer;
     private bool _controlsVisible = true;
@@ -104,11 +105,23 @@ public partial class OverlayWindow : Window
     public OverlayWindow(PlayerViewModel viewModel)
     {
         InitializeComponent();
+        _rowOrder = [.. ControlsRow.Children.OfType<FrameworkElement>()];
         LiveText.Watch(this);
+        // The root rather than the window, whose bounds SetBoundsFromOwner places in screen space.
+        UiDirection.Follow(OverlayRoot);
         _syncPlayTrigger = new(SyncPlayPopup, SyncPlayButton);
         _syncPlayTrigger.Attach();
         _qualityTrigger = new(QualityPopup, QualityButton);
         _qualityTrigger.Attach();
+        // The OSD flyouts stay inside the overlay, and on it when it moves or resizes. The queue
+        // hangs above the seek bar rather than from its badge, so it never covers the timeline.
+        _flyoutPlacement = new(this, OverlayRoot, () => Flyouts, UiLog);
+        _flyoutPlacement.Attach(InfoPopup);
+        _flyoutPlacement.Attach(QualityPopup, preferRightEdge: true);
+        _flyoutPlacement.Attach(SpeedPopup);
+        _flyoutPlacement.Attach(QueuePopup, above: SeekSlider);
+        _flyoutPlacement.Attach(TracksPopup);
+        _flyoutPlacement.Attach(AudioDevicePopup);
         _viewModel = viewModel;
         DataContext = viewModel;
 
@@ -191,7 +204,7 @@ public partial class OverlayWindow : Window
         UpdateSyncPlayControls();
         LiveText.Observe(this, (_, _) =>
         {
-            _videoPillWidth = _audioPillWidth = _subsPillWidth = 0;
+            _videoPillWidth = _audioPillWidth = _subsPillWidth = _tracksPillWidth = 0;
             UpdateSyncPlayControls();
             RequestTrackButtonUpdate();
             _viewModel.RefreshLiveStats();
@@ -205,7 +218,7 @@ public partial class OverlayWindow : Window
         };
         IsVisibleChanged += (_, _) =>
         {
-            if (!IsVisible) { CloseSyncPlayFlyout(); QualityPopup.IsOpen = false; }
+            if (!IsVisible) { CloseSyncPlayFlyout(); QualityPopup.IsOpen = false; CloseOverflow(); }
         };
         Closed += (_, _) =>
         {
@@ -217,13 +230,10 @@ public partial class OverlayWindow : Window
 
         // Keep the subtitle lift in sync with the bar geometry and playback start
         // (the overlay is shown per playback; controls may already be visible then).
-        // Quality is the one flyout whose HorizontalOffset is computed when it opens (it is
-        // clamped into the overlay), so a resize leaves it pointing at a stale position; close it.
         // The root rather than the window: a zoom step changes the layout size without resizing
         // the window, and everything below measures in layout units.
         OverlayRoot.SizeChanged += (_, _) =>
         {
-            QualityPopup.IsOpen = false;
             UpdateSubtitlePosition();
             UpdateCompactControls();
             RequestTrackButtonUpdate();
@@ -456,6 +466,14 @@ public partial class OverlayWindow : Window
             return;
         }
 
+        // An open overflow tray is dismissed by a press on the video the way a flyout is, and for
+        // the time editor's reason that press does nothing else.
+        if (OverflowOpen)
+        {
+            CloseOverflow();
+            return;
+        }
+
         // Mini mode: the chrome-less window moves by dragging the video; pause and
         // fullscreen stay on the slim controls only.
         if (_miniMode)
@@ -519,6 +537,8 @@ public partial class OverlayWindow : Window
     {
         CloseSyncPlayFlyout();
         QualityPopup.IsOpen = false;
+        // The tray is not a ControlsRow child, so the collapse below does not reach it.
+        CloseOverflow();
         Diagnostics.AppLog.Detail("overlay", $"event=state mini={on}");
         _miniMode = on;
         OverlayRoot.LayoutTransform = on ? System.Windows.Media.Transform.Identity : Theme.UiZoom.Transform;
@@ -547,9 +567,10 @@ public partial class OverlayWindow : Window
         // UpdateVolumePillScale for why it is the exception.
         UpdateVolumePillScale(on);
         UpdateSubtitlePosition();
-        // The four track buttons carry a LOCAL Visibility, which the InvalidateProperty above
-        // restores — but it restores whatever was decided at the width the row had BEFORE mini
-        // mode, and the window has been resized twice since. Re-decide from the restored row.
+        // The four track buttons and the overflow button carry a LOCAL Visibility, which the
+        // InvalidateProperty above restores — but it restores whatever was decided at the width
+        // the row had BEFORE mini mode, and the window has been resized twice since. Re-decide
+        // from the restored row.
         if (!on)
             RequestTrackButtonUpdate();
     }
@@ -738,11 +759,7 @@ public partial class OverlayWindow : Window
 
     private void OnQualityPopupOpened(object sender, EventArgs e)
     {
-        // Prefer the button's right edge, then keep the picker inside the overlay at narrow widths.
-        var anchor = QualityButton.TranslatePoint(new Point(), OverlayRoot).X;
-        var width = ((FrameworkElement)QualityPopup.Child).Width;
-        var left = Math.Clamp(anchor + QualityButton.ActualWidth - width, 0, Math.Max(0, OverlayRoot.ActualWidth - width));
-        QualityPopup.HorizontalOffset = left - anchor;
+        // Placed by _flyoutPlacement: right-aligned to the button, clamped inside the overlay.
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             if (QualityPopup.IsOpen) QualityTierControl.Focus();
@@ -909,11 +926,47 @@ public partial class OverlayWindow : Window
     /// Null until the first measured decision, so the first one is logged.</summary>
     private bool? _trackSplit;
 
+    /// <summary>The row fit's answer: 0 = the trio, 1 = the merged pill with nothing folded,
+    /// 1 + n = the first n <see cref="FoldGroups"/> in the overflow tray. Null until the first
+    /// measured decision.</summary>
+    private int? _rowLevel;
+
     private bool _trackButtonsPending;
 
     private double _videoPillWidth;
     private double _audioPillWidth;
     private double _subsPillWidth;
+    private double _tracksPillWidth;
+
+    /// <summary>Extra room a level that brings controls BACK into the row has to find. The fit
+    /// reads natural widths only, so it cannot feed back on itself; this keeps a resize dragged
+    /// along a boundary from folding and unfolding a group on every pixel, and absorbs the
+    /// rounding difference between two measurements of the same row.</summary>
+    private const double RowFitHysteresis = 12;
+
+    /// <summary>
+    /// The controls the row fit may fold into the overflow tray, group by group in the order
+    /// they go. Keyboard-reachable and rarely-clicked first: shortcuts ('?') and mini-player
+    /// (Ctrl+M), then Info and Speed (status and a setting, not transport), the output device,
+    /// the chapter pair ([ and ], and only on chaptered files), the jump pair (the arrow keys,
+    /// but the most clicked of these), and last the two pickers with no key at all. Never
+    /// folded: play/pause, next/previous, mute and volume, the track pills and fullscreen.
+    /// A group folds whole, so a pair is never split across the row and the tray.
+    /// </summary>
+    private FrameworkElement[][] FoldGroups =>
+    [
+        [ShortcutsButton, MiniPlayerButton],
+        [InfoButton, SpeedButton],
+        [AudioDeviceButton],
+        [PrevChapterButton, NextChapterButton],
+        [JumpBackButton, JumpForwardButton],
+        [QualityButton],
+        [QueueButton],
+    ];
+
+    /// <summary>ControlsRow's children as declared, taken before anything is folded: a folded
+    /// control returns to its own slot, and a DockPanel's layout IS its child order.</summary>
+    private readonly FrameworkElement[] _rowOrder;
 
     /// <summary>Queues a track-button re-fit at Loaded priority — below layout, so every
     /// ActualWidth the fit test reads is the one the user is looking at. Repeated requests
@@ -931,62 +984,134 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
-    /// Chooses between the Video/Audio/Subs trio and the merged Tracks pill by MEASURING the
-    /// row rather than by a width threshold. A threshold would have to be re-guessed for every
-    /// combination of optional controls (queue pair, chapter pair, next/prev pair, audio-device
-    /// button) and would be wrong for most of them.
+    /// Fits the transport row by MEASURING it rather than by width thresholds. A threshold would
+    /// have to be re-guessed for every combination of optional controls (queue pill, chapter
+    /// pair, next/prev pair, audio-device button, quality, track choices) and would be wrong for
+    /// most of them: the merged Tracks pill that P10 M11 introduced to make the minimum window
+    /// fit was itself squeezed to zero width in a queue row at 700x480 (guest, 2026-10-08).
     ///
-    /// The width it sums EXCLUDES all four track buttons and adds back only the pills that
-    /// would be on screen in split mode. That is what makes the decision state-independent:
-    /// a sum that counted the current buttons would answer a different question in each of the
-    /// two states and the pair would oscillate at the boundary.
+    /// The answer is the first level of a ladder that fits: the Video/Audio/Subs trio with
+    /// nothing folded, then the merged pill, then one more of <see cref="FoldGroups"/> in the
+    /// overflow tray per level, the overflow button taking its own room as soon as the tray
+    /// holds anything. Nothing folds past the last level; at the 684-unit minimum layout that
+    /// level leaves a few hundred units spare.
+    ///
+    /// Every width it sums is a NATURAL width - what the control asks for when shown, measured
+    /// unconstrained wherever it currently lives, row or tray - and the room is the bar's inner
+    /// width, not the row's. Neither depends on the decision, so the answer is a function of the
+    /// width and of which controls the view model shows, and the levels cannot oscillate at a
+    /// boundary. Only a return to a lower level pays <see cref="RowFitHysteresis"/>.
     /// </summary>
     private void UpdateTrackButtons()
     {
         // Mini mode collapses the whole row by hand; SetMiniMode(false) calls back in.
-        if (_miniMode || ControlsRow.ActualWidth <= 0)
+        if (_miniMode)
+            return;
+        // The bar's inner width rather than ControlsRow.ActualWidth: a row whose children ask for
+        // more than its slot is ARRANGED at their size and clipped, so its own width grows with
+        // the very overflow this is here to remove.
+        var room = ControlsPanel.ActualWidth - ControlsPanel.Padding.Left - ControlsPanel.Padding.Right;
+        if (room <= 0)
             return;
 
+        var fold = FoldGroups;
+        var foldable = fold.SelectMany(g => g).ToHashSet();
         double used = 0;
-        foreach (UIElement child in ControlsRow.Children)
+        foreach (var element in _rowOrder)
         {
-            if (child is not FrameworkElement element || element.Visibility != Visibility.Visible
-                || IsTrackButton(element))
-                continue;
-            used += element.ActualWidth + element.Margin.Left + element.Margin.Right;
+            if (!IsTrackButton(element) && !foldable.Contains(element) && !ReferenceEquals(element, OverflowButton))
+                used += NaturalWidth(element);
         }
+        var groups = fold.Select(g => g.Sum(NaturalWidth)).ToArray();
 
-        var need = used + 6;   // slack, so a hairline fit does not flip on a rounding difference
+        double trio = 0;
         if (_viewModel.HasVideoChoices)
-            need += PillWidth(VideoTracksButton, ref _videoPillWidth);
+            trio += PillWidth(VideoTracksButton, ref _videoPillWidth);
         if (_viewModel.HasAudioChoices)
-            need += PillWidth(AudioTracksButton, ref _audioPillWidth);
+            trio += PillWidth(AudioTracksButton, ref _audioPillWidth);
         if (_viewModel.HasSubtitleChoices)
-            need += PillWidth(SubtitleTracksButton, ref _subsPillWidth);
+            trio += PillWidth(SubtitleTracksButton, ref _subsPillWidth);
+        var merged = _viewModel.HasTrackChoices ? PillWidth(TracksButton, ref _tracksPillWidth) : 0;
+        // Not cached: its width follows UpdateCompactControls' glyph spacing.
+        var overflow = ShownWidth(OverflowButton);
+
+        // The row at a level, track pills aside, with 6 of slack so a hairline fit does not
+        // flip on a rounding difference.
+        double RowAt(int level)
+        {
+            var width = used + 6;
+            var folded = false;
+            for (var i = 0; i < groups.Length; i++)
+            {
+                if (i < level - 1)
+                    folded |= groups[i] > 0;
+                else
+                    width += groups[i];
+            }
+            return folded ? width + overflow : width;
+        }
 
         // !HasVersionChoices: the trio of pills opens one section each, and none of them is
         // VERSIONS — splitting an item that has alternates would hide the merged pill and leave
         // the version picker unreachable. Alternates are rare, so this costs the wide-window
         // layout on a handful of items rather than adding a fourth pill to the row.
-        var split = _viewModel.HasTrackChoices && !_viewModel.HasVersionChoices
-            && need <= ControlsRow.ActualWidth;
-        if (_trackSplit != split)
+        var canSplit = _viewModel.HasTrackChoices && !_viewModel.HasVersionChoices;
+        var level = groups.Length + 1;
+        for (var candidate = canSplit ? 0 : 1; candidate <= groups.Length; candidate++)
         {
-            _trackSplit = split;
+            var need = RowAt(candidate) + (candidate == 0 ? trio : merged);
+            if (_rowLevel is { } current && candidate < current)
+                need += RowFitHysteresis;
+            if (need <= room)
+            {
+                level = candidate;
+                break;
+            }
+        }
+        // A group with nothing on screen (a file without chapters, one audio device) folds
+        // nothing, so a level that ends on one is really the level below it. Settling there keeps
+        // the state honest: a group that appears later is then fitted, not folded on arrival.
+        while (level > 1 && groups[level - 2] <= 0)
+            level--;
+        var split = canSplit && level == 0;
+        var folds = Math.Max(0, level - 1);
+        used = RowAt(level) - 6;
+
+        if (_trackSplit != split || _rowLevel != level)
+        {
             Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
-                $"event=state track-buttons split={split} used={used:F0} row={ControlsRow.ActualWidth:F0}"));
+                $"event=state track-buttons split={split} used={used:F0} row={room:F0} folded={folds}"));
             // choices is appended LAST: the suites match on split=(True|False) and read the
             // fields by name, so a new field at the end cannot disturb them. It answers the one
             // question the other three cannot — "no buttons at all" and "no room for the trio"
-            // are both split=False, and only this tells them apart.
+            // are both split=False, and only this tells them apart. folded (how many FoldGroups
+            // are in the overflow tray) came later, so it goes after it.
             UiLog(FormattableString.Invariant(
-                $"TrackButtons split={split} used={used:F0} row={ControlsRow.ActualWidth:F0} choices={_viewModel.HasTrackChoices}"));
+                $"TrackButtons split={split} used={used:F0} row={room:F0} choices={_viewModel.HasTrackChoices} folded={folds}"));
             // The flyout is anchored to a pill that is about to collapse. A Popup does not follow
             // a PlacementTarget that leaves the screen, so it would sit over the wrong control
             // (and the merged-pill flyout would offer sections its new owner never asked for).
-            if (TracksPopup.IsOpen)
+            if (_trackSplit != split && TracksPopup.IsOpen)
                 TracksPopup.IsOpen = false;
+            _trackSplit = split;
         }
+        if (_rowLevel != level)
+        {
+            _rowLevel = level;
+            // An open flyout whose button stays in the row, or comes back into it from the tray,
+            // follows it once the next layout pass moves it: OsdFlyoutPlacement watches the
+            // buttons of open flyouts. One whose button folds into the tray is closed.
+            PlaceFolded([.. fold.Take(folds).SelectMany(g => g)]);
+        }
+        OverflowButton.Visibility = folds > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (folds == 0)
+            CloseOverflow();
+        // The tray grows leftwards from the overflow button; past the overlay's left edge it
+        // wraps instead of running off the window. Measured against ControlsPanel, which spans the
+        // overlay and is pinned LeftToRight like the row, not against OverlayRoot: the root follows
+        // the UI language, and under a right-to-left one a point translated into it counts from the
+        // right edge, which at 700x480 left the tray about 50 wide, one control per line.
+        OverflowTray.MaxWidth = Math.Max(0, OverflowTrayHost.TranslatePoint(new Point(), ControlsPanel).X - 8);
 
         VideoTracksButton.Visibility = split && _viewModel.HasVideoChoices
             ? Visibility.Visible : Visibility.Collapsed;
@@ -1002,21 +1127,120 @@ public partial class OverlayWindow : Window
         => ReferenceEquals(element, TracksButton) || ReferenceEquals(element, VideoTracksButton)
            || ReferenceEquals(element, AudioTracksButton) || ReferenceEquals(element, SubtitleTracksButton);
 
-    /// <summary>Width a pill WOULD take, margins included. A collapsed element measures to
-    /// zero by definition, so it is shown for the length of this call — no render pass can
-    /// run in between — and the answer is cached: the content and the style are fixed.</summary>
+    /// <summary>Width a control takes in the row, margins included, measured unconstrained so a
+    /// control the row is squeezing reports what it asks for rather than what it got. One its own
+    /// Visibility hides (a view-model binding) takes nothing; one in the closed overflow tray
+    /// still measures, because only its parent is collapsed.</summary>
+    private static double NaturalWidth(FrameworkElement element)
+    {
+        if (element.Visibility != Visibility.Visible)
+            return 0;
+        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return element.DesiredSize.Width;   // DesiredSize already carries the margins
+    }
+
+    /// <summary>Width a code-owned control WOULD take, margins included. A collapsed element
+    /// measures to zero by definition, so it is shown for the length of this call — no render
+    /// pass can run in between.</summary>
+    private static double ShownWidth(FrameworkElement element)
+    {
+        var was = element.Visibility;
+        element.Visibility = Visibility.Visible;
+        var width = NaturalWidth(element);
+        element.Visibility = was;
+        return width;
+    }
+
+    /// <summary><see cref="ShownWidth"/> for a track pill, cached: the content and the style
+    /// are fixed until the UI language changes.</summary>
     private static double PillWidth(FrameworkElement pill, ref double cached)
     {
         if (cached > 0)
             return cached;
-        var was = pill.Visibility;
-        pill.Visibility = Visibility.Visible;
-        pill.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var width = pill.DesiredSize.Width;   // DesiredSize already carries the margins
-        pill.Visibility = was;
+        var width = ShownWidth(pill);
         if (width > 0)
             cached = width;
         return width;
+    }
+
+    /// <summary>Moves every control of the folded groups into the overflow tray and every other
+    /// foldable control back into the row, each to its declared place: the row keeps the
+    /// declaration order a DockPanel lays out by, the tray the order the row shows on screen.
+    /// <para>A flyout anchored to a control that folds into the tray is closed: the tray is
+    /// usually shut, so its button leaves the screen. One anchored to a control that comes back
+    /// into the row stays open, and <see cref="OsdFlyoutPlacement"/> moves it onto the button in
+    /// the next layout pass. Closing those too dismissed a flyout opened from the tray whenever
+    /// the player grew enough to unfold its group, such as Info opened from the tray at 700x480
+    /// and the player then widened to 1100.</para></summary>
+    private void PlaceFolded(HashSet<FrameworkElement> folded)
+    {
+        var moved = new List<FrameworkElement>();
+        foreach (var element in FoldGroups.SelectMany(g => g))
+        {
+            if (ReferenceEquals(element.Parent, OverflowPanel) == folded.Contains(element))
+                continue;
+            ((System.Windows.Controls.Panel)element.Parent).Children.Remove(element);
+            moved.Add(element);
+        }
+        if (moved.Count == 0)
+            return;
+        foreach (var flyout in Flyouts)
+        {
+            if (flyout.IsOpen && flyout.PlacementTarget is FrameworkElement target && moved.Contains(target)
+                && folded.Contains(target))
+            {
+                flyout.IsOpen = false;
+                UiLog($"FlyoutClosed name={flyout.Name} reason=folded");
+            }
+        }
+        // Left-docked controls read in declaration order, right-docked ones in reverse.
+        FrameworkElement[] onScreen =
+        [
+            .. _rowOrder.Where(e => System.Windows.Controls.DockPanel.GetDock(e) != System.Windows.Controls.Dock.Right),
+            .. _rowOrder.Where(e => System.Windows.Controls.DockPanel.GetDock(e) == System.Windows.Controls.Dock.Right).Reverse(),
+        ];
+        foreach (var element in moved)
+        {
+            if (folded.Contains(element))
+                InsertInOrder(OverflowPanel, onScreen, element);
+            else
+                InsertInOrder(ControlsRow, _rowOrder, element);
+        }
+    }
+
+    /// <summary>Inserts <paramref name="element"/> after every element that precedes it in
+    /// <paramref name="order"/> and is already in <paramref name="panel"/>, so the panel stays
+    /// in that order whatever order the inserts arrive in.</summary>
+    private static void InsertInOrder(System.Windows.Controls.Panel panel, FrameworkElement[] order, FrameworkElement element)
+        => panel.Children.Insert(order.TakeWhile(e => !ReferenceEquals(e, element))
+            .Count(e => ReferenceEquals(e.Parent, panel)), element);
+
+    private bool OverflowOpen => OverflowTray.Visibility == Visibility.Visible;
+
+    private void OnOverflowButton(object sender, RoutedEventArgs e)
+    {
+        var open = !OverflowOpen;
+        Diagnostics.AppLog.Detail("overlay", $"event=interaction action=toggle-overflow open={open}");
+        UiLog($"OverflowClick open={open}");
+        if (open)
+            OverflowTray.Visibility = Visibility.Visible;
+        else
+            CloseOverflow();
+    }
+
+    /// <summary>Closes the overflow tray, and any flyout hanging off a control inside it: that
+    /// control leaves the screen with the tray.</summary>
+    private void CloseOverflow()
+    {
+        if (!OverflowOpen)
+            return;
+        OverflowTray.Visibility = Visibility.Collapsed;
+        foreach (var flyout in Flyouts)
+        {
+            if (flyout.IsOpen && flyout.PlacementTarget is FrameworkElement target
+                && ReferenceEquals(target.Parent, OverflowPanel))
+                flyout.IsOpen = false;
+        }
     }
 
     private bool? _compact;
@@ -1032,6 +1256,8 @@ public partial class OverlayWindow : Window
     /// Both levers give space back without hiding or relocating anything: the bar's generous
     /// 40 DIP side padding is a large-window luxury, and the volume slider only needs enough
     /// travel to be draggable. Measured after: the whole row fits at the minimum with slack.
+    /// It stopped fitting once Quality and a queue shared the row (2026-10-08); what these
+    /// levers cannot give back, UpdateTrackButtons now folds into the overflow tray.
     /// </summary>
     private void UpdateCompactControls()
     {
@@ -1048,9 +1274,12 @@ public partial class OverlayWindow : Window
             : new Thickness(40, 40, 40, 24);
         VolumeSlider.Width = compactQuality ? 40 : compact ? 56 : 96;
         // Reclaim the new pill's width from glyph-button spacing while retaining every control.
+        // The tray's glyph buttons too: a control's width must not depend on where it is, or the
+        // row fit would measure one width and get another back.
         var iconStyle = (Style)FindResource("LwOsdButton");
-        foreach (var button in ControlsRow.Children.OfType<System.Windows.Controls.Button>().Where(b => b.Style == iconStyle)
-            .Concat([MuteButton, AudioDeviceButton]))
+        foreach (var button in ControlsRow.Children.OfType<System.Windows.Controls.Button>()
+            .Concat(OverflowPanel.Children.OfType<System.Windows.Controls.Button>()).Where(b => b.Style == iconStyle)
+            .Append(MuteButton))
         {
             if (compactQuality) button.MinWidth = 32;
             else button.ClearValue(MinWidthProperty);
@@ -1492,6 +1721,14 @@ public partial class OverlayWindow : Window
             }
             return;
         }
+        // The overflow tray is not a flyout: keys still reach playback while it is up. Escape is
+        // the exception, as above - closing what is open beats leaving fullscreen behind it.
+        if (OverflowOpen && e.Key == Key.Escape)
+        {
+            CloseOverflow();
+            e.Handled = true;
+            return;
+        }
         Diagnostics.AppLog.Detail("input",
             $"event=bridge source=overlay key={e.Key} modifiers={FormatModifiers(Keyboard.Modifiers)}");
         KeyPressed?.Invoke(e);
@@ -1588,30 +1825,15 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private bool _thumbDragActive;
-
-    /// <summary>Set when a drag is CANCELLED (<c>DragCompletedEventArgs.Canceled</c>), and cleared
-    /// by the next press. It exists because the button is still physically down at that moment:
-    /// the eventual mouse-up still reaches <see cref="OnSeekClick"/>, which sees no active thumb
-    /// drag and would commit the seek the user just walked away from. Clearing the flags is not
-    /// enough on its own.
-    /// <para>"Cleared by the next press" is usually a later press, but not always. If
-    /// <see cref="Theme.SliderDrag"/> unwinds a drag whose capture failed, it does so from a
-    /// handler the style installed during <c>InitializeComponent</c> — i.e. BEFORE the
-    /// <c>OnSeekMouseDown</c> handler this constructor adds — so the flag is set and cleared
-    /// within the SAME press, and the click then commits as an ordinary track click, exactly as it
-    /// did before click-to-drag existed. Harmless, but it leaves an
-    /// <c>outcome=abandon source=drag</c> line immediately followed by
-    /// <c>outcome=commit source=track</c> for one click, which reads like a defect if you meet it
-    /// in a log without knowing this.</para>
-    /// <para><b>What it does not cover.</b> Losing activation (Alt+Tab mid-gesture) reaches
-    /// <see cref="AbandonSeekGesture"/> through <c>Deactivated</c> without necessarily releasing
-    /// mouse capture, so the later mouse-up is an ordinary uncancelled release and still commits.
-    /// That is pre-existing and is deliberately left alone here: the flag cannot simply be set in
-    /// <see cref="AbandonSeekGesture"/> too, because that method also runs on every normal
-    /// release. Closing it properly needs a state machine, not a second flag, and is filed
-    /// separately.</para></summary>
-    private bool _seekGestureAbandoned;
+    /// <summary>The seek bar's press-to-release gesture. Every slider event below is fed through
+    /// it and acts only on what it returns, so a gesture commits exactly once or not at all; see
+    /// <see cref="SeekGesture"/> for the event orderings that made two flags insufficient.
+    /// <para>One ordering worth knowing when reading a log: if <see cref="Theme.SliderDrag"/>
+    /// unwinds a drag whose capture failed, it does so from a handler the style installed during
+    /// <c>InitializeComponent</c> — BEFORE the <c>OnSeekMouseDown</c> handler this constructor adds
+    /// — so one press logs <c>outcome=abandon source=drag</c> and then, on release,
+    /// <c>outcome=commit source=track</c>, exactly as a click did before click-to-drag existed.</para></summary>
+    private readonly SeekGesture _seekGesture = new();
 
     private void OnSeekMouseDown(object sender, MouseButtonEventArgs e)
     {
@@ -1619,80 +1841,123 @@ public partial class OverlayWindow : Window
         // value to the click point. Freeze position feedback NOW — otherwise mpv's
         // next time-pos update overwrites the clicked value before mouse-up commits
         // it, and the click randomly seeks to where playback already is.
-        UiLog(FormattableString.Invariant($"SeekMouseDown value={SeekSlider.Value:F1}"));
-        _seekGestureAbandoned = false;
-        _viewModel.IsSeeking = true;
+        _seekGesture.Press();
+        // A plain press has no thumb capture (SliderDrag unwound one that failed), so a release
+        // outside the slider never reached OnSeekClick and left the gesture Pressed, with the bar
+        // frozen like B8. Capturing routes that release to OnSeekClick, which lets go of it.
+        // Not here, though: on the knob this preview runs before the thumb's own bubbling
+        // MouseLeftButtonDown, which is where the thumb captures. A slider capture taken now was
+        // either stolen by the thumb, whose LostMouseCapture then logged an abandon on every knob
+        // drag, or kept the mouse-down from the thumb so the knob never dragged.
+        if (_seekGesture.WantsSliderCapture)
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(CapturePlainSeekPress));
+        UiLog(FormattableString.Invariant(
+            $"SeekMouseDown value={SeekSlider.Value:F1} gesture={_seekGesture.Current}"));
+        ApplySeekOutcome(SeekGesture.Outcome.None, "track");
+    }
+
+    /// <summary>The second half of <see cref="OnSeekMouseDown"/>, posted so it runs after the press
+    /// has finished routing: the bubbling pass belongs to the same input dispatch, so by now a knob
+    /// press has its thumb capture and its <c>DragStarted</c>, and only a press nothing owns is left.
+    /// Everything is re-checked because the release, a teardown or another element's capture may
+    /// have come first.</summary>
+    private void CapturePlainSeekPress()
+    {
+        if (!_seekGesture.WantsSliderCapture)
+            return;
+        // Still a plain press, but the moment to capture has passed. A release over the bar would
+        // already have run OnSeekClick, so a button that is up means it came up off the bar (a
+        // stalled UI thread queues down, move and up together): end it as the capture would have,
+        // with OnSeekClick's commit. Another element holding the mouse will keep the release from
+        // the slider, so that gesture is torn down rather than left Pressed with the bar frozen.
+        // The slider's own capture is not elsewhere: under a stall an earlier press's posted
+        // capture can run after this press began and take the mouse for it, and tearing that
+        // down would end this press's gesture with its own capture.
+        if (Mouse.LeftButton != MouseButtonState.Pressed)
+        {
+            ApplySeekOutcome(_seekGesture.Release(), "track");
+            return;
+        }
+        if (Mouse.Captured is { } captured)
+        {
+            if (captured != SeekSlider && !(captured is DependencyObject d && SeekSlider.IsAncestorOf(d)))
+                ApplySeekOutcome(_seekGesture.TearDown(), "slider", "captured-elsewhere");
+            return;
+        }
+        SeekSlider.CaptureMouse();
+        UiLog($"SeekSliderCapture captured={SeekSlider.IsMouseCaptured}");
     }
 
     private void OnSeekDragStarted(object sender, DragStartedEventArgs e)
     {
         UiLog("SeekDragStarted");
-        _thumbDragActive = true;
-        _viewModel.IsSeeking = true;
+        _seekGesture.DragStarted();
+        ApplySeekOutcome(SeekGesture.Outcome.None, "drag");
     }
 
     private void OnSeekDragCompleted(object sender, DragCompletedEventArgs e)
     {
-        _thumbDragActive = false;
-        _viewModel.IsSeeking = false;
-
-        // A cancelled drag is an ABANDONED gesture and must not seek. Thumb.CancelDrag() raises
-        // this event with Canceled=true when the drag is torn down rather than released - losing
-        // mouse capture, or the window losing activation to an Alt+Tab mid-press. That path used
-        // to be unreachable from a track click, because a track click never started a drag; since
-        // LwSlider gained SliderDrag.ClickToDrag every track press is a drag, so without this
-        // guard an interrupted press would commit a seek the user walked away from.
+        // Canceled=true is Thumb.CancelDrag(): the drag was torn down rather than released —
+        // capture lost, SliderDrag unwinding a press whose capture failed, or AbandonSeekGesture
+        // releasing the capture itself. Since LwSlider gained SliderDrag.ClickToDrag every track
+        // press is a drag, so this is also how most interrupted clicks end.
         //
-        // It logs its own abandon line rather than leaving that to AbandonSeekGesture, because
-        // AbandonSeekGesture will NOT run for this: CancelDrag() is raised synchronously from
-        // inside the Thumb's own LostMouseCapture handling, so this method clears both flags
-        // before LostMouseCapture finishes bubbling to the slider, and AbandonSeekGesture then
-        // returns at its own guard. Without a line here the whole gesture leaves no trace in
-        // app.log at all - neither abandon nor commit - and B8 is precisely the bug that is hard
-        // to see from outside.
-        // Only e.Canceled is checked here, and the flag below is set ONLY here - deliberately, in
-        // both directions. AbandonSeekGesture does not set it and this method does not test it,
-        // because AbandonSeekGesture also runs on a perfectly ordinary release:
-        // Thumb.OnMouseLeftButtonUp calls ReleaseMouseCapture() BEFORE it raises DragCompleted,
-        // and the LostMouseCapture that follows bubbles to OnSeekLostCapture. Every successful
-        // drag therefore logs an abandon line immediately before its commit. Set the flag there,
-        // or test it here, and normal drags stop committing at all.
-        if (e.Canceled)
-        {
-            _seekGestureAbandoned = true;
-            Diagnostics.AppLog.Detail("overlay",
-                "event=seek outcome=abandon source=drag cause=cancelled");
-            UiLog(FormattableString.Invariant($"SeekDragCanceled value={SeekSlider.Value:F1}"));
-            return;
-        }
-
-        Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
-            $"event=seek outcome=commit source=drag target_seconds={SeekSlider.Value:F1}"));
-        UiLog(FormattableString.Invariant($"SeekDragCompleted value={SeekSlider.Value:F1}"));
-        _viewModel.Seek(SeekSlider.Value);
+        // A genuine capture loss logs its abandon line here, as source=drag, and not from
+        // OnSeekLostCapture: the Thumb's own LostMouseCapture class handler raises this event
+        // synchronously, before the capture loss has bubbled up to the slider, which then finds
+        // the gesture already torn down. An UNcancelled completion after a teardown — the thumb
+        // kept its capture through an Alt+Tab and the user has only now let go — commits nothing.
+        var outcome = _seekGesture.DragCompleted(e.Canceled);
+        UiLog(FormattableString.Invariant(
+            $"SeekDragCompleted value={SeekSlider.Value:F1} canceled={e.Canceled} outcome={outcome}"));
+        ApplySeekOutcome(outcome, "drag", "cancelled");
     }
 
-    private void OnSeekLostCapture(object sender, MouseEventArgs e) => AbandonSeekGesture("lost-capture");
+    /// <summary>Also raised in the middle of every successful drag: <c>Thumb.OnMouseLeftButtonUp</c>
+    /// calls <c>ReleaseMouseCapture()</c> before it raises <c>DragCompleted</c>.
+    /// <see cref="SeekGesture.LostCapture"/> recognises that one by the preview-up that came first,
+    /// so only a capture lost mid-gesture is an abandon.</summary>
+    private void OnSeekLostCapture(object sender, MouseEventArgs e)
+        => ApplySeekOutcome(_seekGesture.LostCapture(), "slider", "lost-capture");
 
-    /// <summary>The gesture ended abnormally — capture lost, or the window deactivated under it
-    /// (Alt+Tab, a window-management gesture, anything that takes over the input loop). Without
-    /// this `IsSeeking` stayed true forever: position feedback is suppressed while it is set, so
-    /// the seek bar and the time display froze until the slider was clicked again (B8).
-    /// Two triggers because they are not the same event — a cancelled mode releases capture,
-    /// while losing activation need not — and only the flag is released: an interrupted gesture
-    /// is deliberately not committed as a seek.</summary>
+    /// <summary>The window deactivated under the gesture (Alt+Tab, a window-management gesture,
+    /// anything that takes over the input loop). Without this `IsSeeking` stayed true forever:
+    /// position feedback is suppressed while it is set, so the seek bar and the time display froze
+    /// until the slider was clicked again (B8). An interrupted gesture is deliberately not
+    /// committed as a seek — not now, and not when the button finally comes up.
+    /// <para>Losing activation need not release the thumb's mouse capture, so this releases it.
+    /// Left alone, the thumb went on dragging the value from input aimed at another app, and its
+    /// eventual mouse-up raised an ordinary uncancelled <c>DragCompleted</c>. <c>CancelDrag()</c>
+    /// raises the cancelled one now instead, which the torn-down gesture absorbs without a second
+    /// abandon line; the gesture would refuse the uncancelled one too, so this is the tidy half of
+    /// the fix rather than the load-bearing one.</para></summary>
     private void AbandonSeekGesture(string cause)
     {
-        if (!_viewModel.IsSeeking && !_thumbDragActive)
-            return;
-        Diagnostics.AppLog.Detail("overlay",
-            $"event=seek outcome=abandon source=slider cause={cause}");
-        UiLog(FormattableString.Invariant(
-            $"SeekAbandoned cause={cause} value={SeekSlider.Value:F1} thumbDrag={_thumbDragActive}"));
-        // NOT _seekGestureAbandoned: this method runs on every ordinary release too (see
-        // OnSeekDragCompleted), so latching here would suppress the commit of every normal drag.
-        _thumbDragActive = false;
-        _viewModel.IsSeeking = false;
+        ApplySeekOutcome(_seekGesture.TearDown(), "slider", cause);
+        if (Theme.SliderDrag.FindThumb(SeekSlider) is { IsDragging: true, IsMouseCaptured: true } thumb)
+            thumb.CancelDrag();
+    }
+
+    /// <summary>Acts on one <see cref="SeekGesture"/> step: mirrors its activity into
+    /// <c>IsSeeking</c> first, then seeks or writes the abandon line. <paramref name="cause"/> is
+    /// read only for an abandon.</summary>
+    private void ApplySeekOutcome(SeekGesture.Outcome outcome, string source, string cause = "")
+    {
+        _viewModel.IsSeeking = _seekGesture.IsActive;
+        switch (outcome)
+        {
+            case SeekGesture.Outcome.Commit:
+                Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
+                    $"event=seek outcome=commit source={source} target_seconds={SeekSlider.Value:F1}"));
+                _viewModel.Seek(SeekSlider.Value);
+                break;
+            case SeekGesture.Outcome.Abandon:
+                Diagnostics.AppLog.Detail("overlay",
+                    $"event=seek outcome=abandon source={source} cause={cause}");
+                UiLog(FormattableString.Invariant(
+                    $"SeekAbandoned source={source} cause={cause} value={SeekSlider.Value:F1}"));
+                break;
+        }
     }
 
     // ---- Seek preview (trickplay thumb / time tooltip) ----
@@ -1744,14 +2009,14 @@ public partial class OverlayWindow : Window
         SeekPreviewPopup.HorizontalOffset = x - rootWidth / 2;
         SeekPreviewPopup.VerticalOffset = -(rootHeight + 10);
 
-        if (trickplay is null)
+        if (trickplay is not Jellyfin.TrickplayProvider provider)
             return;
-        var thumbIndex = trickplay.ThumbIndex(seconds);
+        var thumbIndex = provider.ThumbIndex(seconds);
         if (thumbIndex == _previewThumbIndex)
             return;
         _previewThumbIndex = thumbIndex;
         var generation = ++_previewGeneration;
-        var preview = await trickplay.GetPreviewAsync(seconds);
+        var preview = await provider.GetPreviewAsync(seconds);
         // Sheet fetch may outlive the hover or lose to a newer position.
         if (generation != _previewGeneration || preview is null)
             return;
@@ -1770,19 +2035,16 @@ public partial class OverlayWindow : Window
 
     private void OnSeekClick(object sender, MouseButtonEventArgs e)
     {
+        // Commits a plain track click. A thumb drag commits in DragCompleted instead (its mouse-up
+        // arrives here first), and a torn-down gesture commits nowhere at all, although the button
+        // the user was holding when it was torn down still comes up here.
+        var gesture = _seekGesture.Current;
+        var outcome = _seekGesture.Release();
+        if (SeekSlider.IsMouseCaptured)
+            SeekSlider.ReleaseMouseCapture();
         UiLog(FormattableString.Invariant(
-            $"SeekClick value={SeekSlider.Value:F1} thumbDrag={_thumbDragActive} abandoned={_seekGestureAbandoned}"));
-        // Commit a track click as a seek. A thumb drag commits in DragCompleted instead (its
-        // mouse-up arrives here first, so skip while dragging), and a CANCELLED gesture commits
-        // nowhere at all - _seekGestureAbandoned is still set when the user finally lets go of a
-        // button they were holding when the drag was torn down under them.
-        if (!_thumbDragActive && !_seekGestureAbandoned)
-        {
-            Diagnostics.AppLog.Detail("overlay", FormattableString.Invariant(
-                $"event=seek outcome=commit source=track target_seconds={SeekSlider.Value:F1}"));
-            _viewModel.Seek(SeekSlider.Value);
-            _viewModel.IsSeeking = false;
-        }
+            $"SeekClick value={SeekSlider.Value:F1} gesture={gesture} outcome={outcome}"));
+        ApplySeekOutcome(outcome, "track");
     }
 
     // ---- Inline time edit: click the time to type a position (2026-08-07) ----
@@ -1951,8 +2213,9 @@ public partial class OverlayWindow : Window
         // now read the single `Flyouts` list so they cannot drift apart again.
         // _timeEditActive joins the flyout check for the same reason: the idle delay is 2.5 s, which
         // is shorter than typing a timestamp, so without it the OSD fades out from under the field.
+        // An open overflow tray holds the OSD the way a flyout does.
         if (!_controlsVisible || ControlsPanel.IsMouseOver || BackButton.IsMouseOver
-            || GemPillPanel.IsMouseOver || AnyFlyoutOpen || _timeEditActive || _viewModel.IsLoading)
+            || GemPillPanel.IsMouseOver || AnyFlyoutOpen || OverflowOpen || _timeEditActive || _viewModel.IsLoading)
             return;
         _controlsVisible = false;
         Cursor = Cursors.None;

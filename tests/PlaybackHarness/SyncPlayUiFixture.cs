@@ -24,12 +24,24 @@ internal static class SyncPlayUiFixture
     private static int _failures;
     private static int _assertions;
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "lightweaver-tests");
+    private static string? _uiLog;
 
     public static int Run()
     {
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_MUTE", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_AUDIO", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_UPDATE_DEFER_START", "1");
+        // The overlay's UI log says which closer dismissed a flyout (FlyoutClosed reason=...) and
+        // where the row fit put its button (TrackButtons folded=). OverlayWindow reads the
+        // variable once, so it is set before the first window exists.
+        _uiLog = Environment.GetEnvironmentVariable("LIGHTWEAVER_UI_LOG");
+        if (string.IsNullOrEmpty(_uiLog))
+        {
+            Directory.CreateDirectory(Output);
+            _uiLog = Path.Combine(Output, "syncplay-ui-overlay.log");
+            File.Delete(_uiLog);
+            Environment.SetEnvironmentVariable("LIGHTWEAVER_UI_LOG", _uiLog);
+        }
         var app = UiFixtureApplication.Create();
         MainWindow? main = null;
         SyncPlayFlyout? dialog = null;
@@ -316,6 +328,10 @@ internal static class SyncPlayUiFixture
             var queuePopup = Element<Popup>(overlay, "QueuePopup");
             if (Window.GetWindow(queuePopup.PlacementTarget) != overlay || !queuePopup.IsOpen)
                 throw new InvalidOperationException("Queue popup is not owned by the tested overlay");
+            var queueBottom = queuePopup.Child.PointToScreen(new Point(0, ((FrameworkElement)queuePopup.Child).ActualHeight)).Y;
+            Check(InsideOverlay(overlay, queuePopup)
+                && queueBottom <= Element<FrameworkElement>(overlay, "SeekSlider").PointToScreen(new Point()).Y + 2,
+                "queue flyout stays inside the playback window and above the seek bar");
             queue.SelectedIndex = 1;
             Check(requested == entry, "queue selection routes group playlist identity");
             overlay.SetMiniMode(true);
@@ -355,8 +371,9 @@ internal static class SyncPlayUiFixture
         void CountBridged(KeyEventArgs _) => bridged++;
         try
         {
-            // Track choices put the track pills in the row too: the DockPanel squeezes the
-            // last-declared right-docked children first, and those are the track pills.
+            // Track choices put the track pills in the row too. A DockPanel squeezes its
+            // last-declared right-docked children first, and those are the track pills, so the
+            // row fit has to fold other controls into the overflow tray before that happens.
             SetTrackChoices(vm, true);
             SetQueue(vm, []);
             var movie = Squeezed(overlay);
@@ -366,17 +383,81 @@ internal static class SyncPlayUiFixture
             SetQueue(vm, [new(0, "Current episode", true, Guid.NewGuid()), new(1, "Next episode", false, nextEntry)]);
             vm.SetQualityState(null, false, 20, visible: false);
             var withoutQuality = Squeezed(overlay);
+            Check(withoutQuality.Length == 0, "a queue row with tracks squeezes nothing at 700x480" + Describe(withoutQuality));
             vm.SetQualityState(null, false, 20);
             var withQuality = Squeezed(overlay);
-            Check(!withQuality.Contains("QualityButton") && withQuality.All(withoutQuality.Contains),
-                "quality squeezes nothing out of a queue row at 700x480" + Describe(withQuality)
-                + (withoutQuality.Length == 0 ? "" : $" (already squeezed without quality: {string.Join(", ", withoutQuality)})"));
+            Check(withQuality.Length == 0, "a queue row with quality and tracks squeezes nothing at 700x480" + Describe(withQuality));
+            var tracks = Element<Button>(overlay, "TracksButton");
+            Check(tracks.IsVisible && tracks.ActualWidth > 40 && Element<Button>(overlay, "QueueButton").IsVisible,
+                "the merged tracks pill and the queue keep readable room in the narrow queue row");
+            CheckOverflowTray(overlay);
+            // Widening brings every folded group back; narrowing folds them again.
+            overlay.SetBoundsFromOwner(overlay.Left, overlay.Top, 1100, 480);
+            Pump();
+            Check(!Element<Button>(overlay, "OverflowButton").IsVisible && Field<Panel>(overlay, "OverflowPanel").Children.Count == 0
+                && Squeezed(overlay).Length == 0, "a 1100-wide player unfolds every control back into the row");
+            overlay.SetBoundsFromOwner(overlay.Left, overlay.Top, 700, 480);
+            Pump();
+            var refolded = Squeezed(overlay);
+            Check(refolded.Length == 0, "narrowing back to 700x480 folds again and squeezes nothing" + Describe(refolded));
             Check(button.IsVisible && button.ActualWidth > 50, "narrow player exposes a readable dedicated quality button");
             Click(overlay, "InfoButton");
             var info = Element<Popup>(overlay, "InfoPopup");
             Check(info.IsOpen && !popup.IsOpen && FindById(info.Child, "QualityDefault") is null,
                 "Info opens diagnostics without quality controls");
             Capture(info.Child, "info-diagnostics");
+            Check(InsideOverlay(overlay, info), "info flyout stays inside the playback window at 700x480");
+            // A popup does not follow its button on its own: the overlay re-places it on a resize.
+            var infoButton = Element<FrameworkElement>(overlay, "InfoButton");
+            var tray = Field<FrameworkElement>(overlay, "OverflowTray");
+            string FlyoutState() => string.Join(' ',
+                $"info.IsOpen={info.IsOpen}",
+                $"infoButton.Parent={(infoButton.Parent as FrameworkElement)?.Name}",
+                $"infoButton.IsVisible={infoButton.IsVisible}",
+                $"rowLevel={Field<object>(overlay, "_rowLevel")}",
+                FormattableString.Invariant($"overlay={overlay.ActualWidth:F0}x{overlay.ActualHeight:F0}"),
+                FormattableString.Invariant($"owner={overlay.Owner.ActualWidth:F0}x{overlay.Owner.ActualHeight:F0}"),
+                $"trayOpen={tray.IsVisible}");
+            // The overlay was sized to 700x480 by hand above, where the row fit can have folded Info
+            // into the overflow tray, and Click reaches a folded control through the tray. So the
+            // flyout may hang off a button in the tray here, and the grow brings that button back
+            // into the row. Either way the flyout stays open and follows its button.
+            Console.WriteLine($"INFO: grow leg starts with {FlyoutState()}");
+            var mark = UiLogMark();
+            overlay.Owner.Width = 1100;
+            Pump();
+            Pump();
+            CheckLogged(info.IsOpen, "an open info flyout stays open when the player grows", mark, FlyoutState);
+            CheckLogged(infoButton.Parent is DockPanel { Name: "ControlsRow" },
+                "growing the player to 1100 puts the Info button in the row", mark, FlyoutState);
+            CheckLogged(InsideOverlay(overlay, info), "an open info flyout stays inside the player when it grows",
+                mark, FlyoutState);
+            CheckLogged(Spans(info, infoButton), "an open info flyout follows its button when the player grows",
+                mark, FlyoutState);
+            Console.WriteLine($"INFO: shrink leg starts with {FlyoutState()}");
+            mark = UiLogMark();
+            overlay.Owner.Width = 700;
+            Pump();
+            Pump();
+            // A 700-wide player leaves the overlay about 684 wide, where the row fit may fold Info
+            // and Speed (FoldGroups[1], so from level 3) into the overflow tray. The fit closes a
+            // flyout whose button it moves, so there the flyout must close rather than follow.
+            if (Field<object>(overlay, "_rowLevel") is int level && level >= 3)
+            {
+                CheckLogged(infoButton.Parent is Panel { Name: "OverflowPanel" },
+                    "shrinking to 700x480 folds the Info button into the overflow tray", mark, FlyoutState);
+                CheckLogged(!info.IsOpen, "an open info flyout closes when shrinking to 700x480 folds its button",
+                    mark, FlyoutState);
+            }
+            else
+            {
+                CheckLogged(info.IsOpen, "an open info flyout stays open when the player shrinks to 700x480",
+                    mark, FlyoutState);
+                CheckLogged(InsideOverlay(overlay, info), "an open info flyout stays inside the player when it shrinks to 700x480",
+                    mark, FlyoutState);
+                CheckLogged(Spans(info, infoButton), "an open info flyout follows its button when the player shrinks to 700x480",
+                    mark, FlyoutState);
+            }
             Click(overlay, "QualityButton");
             Check(popup.IsOpen && !info.IsOpen && popup.PlacementTarget == button,
                 "Quality opens its own anchored flyout and dismisses Info");
@@ -446,6 +527,9 @@ internal static class SyncPlayUiFixture
     {
         var button = Element<ButtonBase>(root, id);
         AssertOwned(root, button);
+        // A control the narrow row folded into the overflow tray is reached the way a user does.
+        if (!button.IsVisible && button.Parent is Panel { Name: "OverflowPanel" })
+            Click(root, "OverflowButton");
         if (!button.IsVisible || !button.IsEnabled) throw new InvalidOperationException($"Button unavailable: {id}");
         // Invoke the named control's automation peer; no focus or coordinate injection.
         var peer = UIElementAutomationPeer.CreatePeerForElement(button);
@@ -487,6 +571,29 @@ internal static class SyncPlayUiFixture
     }
     private static string Describe(string[] squeezed)
         => squeezed.Length == 0 ? "" : $" (squeezed: {string.Join(", ", squeezed)})";
+    // Folded controls stay reachable: the overflow button opens the tray, every control in it
+    // is laid out whole inside the overlay, and the same button closes it again.
+    private static void CheckOverflowTray(OverlayWindow overlay)
+    {
+        var tray = Field<Panel>(overlay, "OverflowPanel");
+        Check(tray.Children.Count > 0 && Element<Button>(overlay, "OverflowButton").IsVisible,
+            "the narrow queue row folds controls into the overflow tray behind a visible overflow button");
+        Click(overlay, "OverflowButton");
+        var root = Field<FrameworkElement>(overlay, "OverlayRoot");
+        var folded = tray.Children.OfType<FrameworkElement>().Where(c => c.Visibility == Visibility.Visible).ToArray();
+        var cut = folded.Where(c => !c.IsVisible || c.ActualWidth < 1 || !Inside(c, root)).Select(c => c.Name).ToArray();
+        Check(folded.Length > 0 && cut.Length == 0, "every folded control is shown whole inside the overlay when the tray opens"
+            + (cut.Length == 0 ? "" : $" (not: {string.Join(", ", cut)})"));
+        Capture(overlay, "overflow-open");
+        Click(overlay, "OverflowButton");
+        Check(!Field<FrameworkElement>(overlay, "OverflowTray").IsVisible, "the overflow button closes the tray again");
+    }
+    private static bool Inside(FrameworkElement element, FrameworkElement root)
+    {
+        var bounds = element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
+        return bounds.Left >= -0.5 && bounds.Top >= -0.5
+            && bounds.Right <= root.ActualWidth + 0.5 && bounds.Bottom <= root.ActualHeight + 0.5;
+    }
     // The scrim's bottom-left padding: opaque, owned by the overlay, and no control's hit area.
     private static void ClickControlsBackground(OverlayWindow overlay)
     {
@@ -586,6 +693,35 @@ internal static class SyncPlayUiFixture
         if (!condition) _failures++;
         Console.WriteLine($"{(condition ? "PASS" : "FAIL")}: {description}");
     }
+    /// <summary><see cref="Check"/>, and on a failure the state <paramref name="state"/> reports
+    /// and the overlay's flyout and row-fit log lines since <paramref name="mark"/>: which closer
+    /// ran (FlyoutClosed reason=...), which re-places ran, and where the fold level went.</summary>
+    private static void CheckLogged(bool condition, string description, long mark, Func<string> state)
+    {
+        Check(condition, description);
+        if (condition)
+            return;
+        Console.WriteLine($"  state: {state()}");
+        var lines = UiLogSince(mark);
+        if (lines.Length == 0)
+            Console.WriteLine($"  log: no flyout or row-fit lines in {_uiLog}");
+        foreach (var line in lines)
+            Console.WriteLine($"  log: {line}");
+    }
+    private static readonly string[] FlyoutLogKeys =
+        ["FlyoutClosed", "FlyoutReplaced", "TrackButtons", "InfoPopupOpened", "OverflowClick"];
+    private static long UiLogMark()
+        => _uiLog is not null && File.Exists(_uiLog) ? new FileInfo(_uiLog).Length : 0;
+    private static string[] UiLogSince(long mark)
+    {
+        if (_uiLog is null || !File.Exists(_uiLog))
+            return [];
+        using var stream = new FileStream(_uiLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        stream.Seek(Math.Min(mark, stream.Length), SeekOrigin.Begin);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(line => FlyoutLogKeys.Any(line.Contains)).ToArray();
+    }
     private static void Pump()
     {
         var frame = new DispatcherFrame();
@@ -593,6 +729,28 @@ internal static class SyncPlayUiFixture
         timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
         timer.Start();
         Dispatcher.PushFrame(frame);
+    }
+    // Both read the flyout's screen position, which a closed popup's child no longer has:
+    // PointToScreen throws without a PresentationSource. A closed flyout is a failed check here,
+    // not an aborted fixture.
+    private static bool OnScreen(Visual visual) => PresentationSource.FromVisual(visual) is not null;
+    private static bool InsideOverlay(OverlayWindow overlay, Popup popup)
+    {
+        if (!popup.IsOpen || popup.Child is not FrameworkElement panel || !OnScreen(panel) || !OnScreen(overlay))
+            return false;
+        var topLeft = panel.PointToScreen(new Point());
+        var bottomRight = panel.PointToScreen(new Point(panel.ActualWidth, panel.ActualHeight));
+        var overlayTopLeft = overlay.PointToScreen(new Point());
+        var overlayBottomRight = overlay.PointToScreen(new Point(overlay.ActualWidth, overlay.ActualHeight));
+        return topLeft.X >= overlayTopLeft.X - 2 && topLeft.Y >= overlayTopLeft.Y - 2
+            && bottomRight.X <= overlayBottomRight.X + 2 && bottomRight.Y <= overlayBottomRight.Y + 2;
+    }
+    private static bool Spans(Popup popup, FrameworkElement trigger)
+    {
+        if (!popup.IsOpen || popup.Child is not FrameworkElement panel || !OnScreen(panel) || !OnScreen(trigger))
+            return false;
+        return panel.PointToScreen(new Point()).X <= trigger.PointToScreen(new Point()).X + 2
+            && panel.PointToScreen(new Point(panel.ActualWidth, 0)).X >= trigger.PointToScreen(new Point(trigger.ActualWidth, 0)).X - 2;
     }
     private static bool RightAligned(Popup popup, FrameworkElement trigger)
         => popup.Child is Visual visual && PresentationSource.FromVisual(visual) is HwndSource source

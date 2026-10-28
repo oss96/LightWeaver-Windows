@@ -93,6 +93,11 @@ public static class SyncPlayScheduler
     /// sample would chase its own tail.</summary>
     public static readonly TimeSpan MinDriftInterval = TimeSpan.FromMilliseconds(1500);
 
+    /// <summary>Ceiling on an unpause's pre-roll. The server sets <c>When</c> to now +
+    /// max(highestPing * 2, 500 ms) and clamps pings to 10 s, so 30 s is beyond any honest value;
+    /// a farther <c>When</c> would otherwise overflow the unpause timer.</summary>
+    public static readonly TimeSpan MaxPreRoll = TimeSpan.FromSeconds(30);
+
     /// <summary>Resolves one <c>SyncPlayCommand</c>.</summary>
     /// <param name="command">The command as it arrived.</param>
     /// <param name="state">The local side. See <see cref="SyncPlayState"/>.</param>
@@ -138,7 +143,9 @@ public static class SyncPlayScheduler
             return SyncPlayAction.Noop;
 
         var serverNow = localNowUtc + offset;
-        var localWhen = whenServer - offset;
+        var untilWhen = whenServer - serverNow;
+        var localWhen = localNowUtc + (untilWhen > MaxPreRoll ? MaxPreRoll
+            : untilWhen < TimeSpan.Zero ? TimeSpan.Zero : untilWhen);
         var target = TargetTicks(command, kind, whenServer, serverNow, currentPositionSeconds);
         var needsSeek = command.PositionTicks is not null
             && Math.Abs(target - Ticks(currentPositionSeconds)) > SeekThreshold.Ticks;

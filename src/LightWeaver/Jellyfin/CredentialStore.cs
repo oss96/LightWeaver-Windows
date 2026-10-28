@@ -159,6 +159,17 @@ public static class CredentialStore
         SaveProfiles(new CredentialProfiles(list, list.Count > 0 ? 0 : -1));
     }
 
+    /// <summary>Removes every matching profile; the active one stays active when it is kept.</summary>
+    public static void RemoveWhere(Predicate<SavedCredentials> match)
+    {
+        var store = LoadProfiles();
+        var kept = store.Profiles.FindAll(p => !match(p));
+        if (kept.Count == store.Profiles.Count)
+            return;
+        var active = store.Active is { } current ? kept.IndexOf(current) : -1;
+        SaveProfiles(new CredentialProfiles(kept, kept.Count == 0 ? -1 : Math.Max(0, active)));
+    }
+
     public static void Clear()
     {
         try

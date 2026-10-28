@@ -108,8 +108,8 @@ public static class SliderDrag
 
     /// <summary>The template's track, by the name <c>Slider</c> itself requires. Resolved per press
     /// rather than cached: the style is shared by five sliders and a re-template would strand a
-    /// cached reference.</summary>
-    private static Thumb? FindThumb(Slider slider)
+    /// cached reference. Internal because the seek bar's gesture teardown needs the same thumb.</summary>
+    internal static Thumb? FindThumb(Slider slider)
     {
         slider.ApplyTemplate();
         return (slider.Template?.FindName("PART_Track", slider) as Track)?.Thumb;

@@ -1,0 +1,546 @@
+<!doctype html>
+<!--
+  Proposal: where "play a link" (stream from URL) lives in LightWeaver v2 (designer skill,
+  2026-10-22). Three suggestions, from inside the system to stretching it.
+  System: DESIGN.md (screen-group design spec), Tokens.xaml values, Chrome.dc.html (top bar),
+  04 Search (4a popup), 11 Profile Menu, 13 Player, 14b failure panel.
+  Current state: drawn from TopBar.xaml and MainWindow.Files.cs. The app is not launched on the
+  desktop host, and no screenshot of a real library is used; titles and art are the design files'
+  placeholders, addresses are example.com.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Play a link: where it lives. Proposal 2026-10-22</title>
+<style>
+  :root {
+    --win: #202020; --layer: rgba(58,58,58,.30); --layerTop: rgba(255,255,255,.06);
+    --popup: rgba(44,44,44,.97); --popupBorder: rgba(255,255,255,.09); --pane: #2c2c2c;
+    --hover: rgba(255,255,255,.06); --glass: rgba(255,255,255,.03); --stroke: rgba(255,255,255,.07);
+    --sep: rgba(255,255,255,.08); --text: #fff; --text2: rgba(255,255,255,.784); --text3: rgba(255,255,255,.545);
+    --field: rgba(255,255,255,.06); --fieldFocus: #1c1c1c; --fieldBottom: rgba(255,255,255,.545);
+    --accent: #B83A52; --accentFg: #F08C9C; --accentSoft: rgba(184,58,82,.26);
+    --error: #FF99A4; --overlay: rgba(28,28,28,.66); --button: rgba(255,255,255,.06);
+    --ph: repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 6px, rgba(255,255,255,.015) 6px 12px), #2a2a2a;
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --icons: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .doc { padding: 48px 56px 96px; display: flex; flex-direction: column; gap: 40px; max-width: 1480px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 10px; }
+  h2 { font-size: 22px; margin: 0 0 4px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: #333; max-width: 980px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  .tag { font: 600 11px ui-monospace, Menlo, monospace; padding: 3px 7px; background: #1a1a1a; color: #fff; border-radius: 4px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  .label { font: 500 12px ui-monospace, Menlo, monospace; color: #555; margin: 8px 0 0; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  .row { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; }
+  table { border-collapse: collapse; font-size: 13px; background: #f8f7f5; border: 1px solid rgba(0,0,0,.1); max-width: 1120px; }
+  th { background: #1a1a1a; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
+  td { padding: 8px 12px; border-top: 1px solid rgba(0,0,0,.08); vertical-align: top; line-height: 1.45; }
+  .pin { display: inline-block; min-width: 18px; height: 18px; border-radius: 9px; background: #FF8A1F; color: #000; font: 700 10px/18px system-ui; text-align: center; padding: 0 4px; }
+  .rec { background: #fff; border: 1px solid rgba(138,28,48,.35); border-radius: 8px; padding: 18px 22px; max-width: 1120px; }
+
+  /* App frames: token values from Tokens.xaml */
+  .win { position: relative; width: 1120px; height: 600px; background: var(--win); border: 1px solid rgba(255,255,255,.10); border-radius: 8px;
+         overflow: hidden; font-family: var(--font); color: var(--text); box-shadow: 0 32px 64px rgba(0,0,0,.25); }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 56px; display: flex; align-items: center; gap: 10px; padding-left: 8px; z-index: 3; }
+  .layer { position: absolute; left: 0; right: 0; bottom: 0; top: 56px; background: var(--layer); border-top: 1px solid var(--layerTop); overflow: hidden; }
+  .i { font-family: var(--icons); font-weight: normal; line-height: 1; font-style: normal; }
+  .hist { display: flex; gap: 2px; flex: none; }
+  .hist div { width: 36px; height: 32px; border-radius: 4px; display: grid; place-items: center; font-size: 16px; }
+  .group { flex: none; height: 46px; padding: 2px; display: flex; border-radius: 8px; background: var(--glass); border: 1px solid var(--stroke); }
+  .item { position: relative; width: 64px; height: 100%; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+  .item .i { font-size: 17px; }
+  .item span:last-child { font-size: 10.5px; font-weight: 500; white-space: nowrap; }
+  .item.sel { background: var(--hover); }
+  .item.sel::after { content: ""; position: absolute; bottom: 2px; left: 50%; margin-left: -8px; width: 16px; height: 3px; border-radius: 2px; background: var(--accentFg); }
+  .search { position: relative; flex: 1 1 360px; min-width: 160px; max-width: 560px; margin: 0 auto; }
+  .field { height: 34px; border-radius: 4px; background: var(--field); border: 1px solid var(--stroke); border-bottom: 1px solid var(--fieldBottom);
+           display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; font-size: 13px; }
+  .field.focus { background: var(--fieldFocus); border-bottom: 2px solid var(--accentFg); }
+  .field .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .field .ph { color: var(--text3); }
+  .field .caret { display: inline-block; width: 1.5px; height: 15px; background: var(--accentFg); vertical-align: -3px; margin-left: 1px; }
+  .fbtn { width: 28px; height: 26px; border-radius: 4px; display: grid; place-items: center; color: var(--text2); font-size: 15px; flex: none; }
+  .fclear { width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; color: var(--text2); font-size: 12px; flex: none; }
+  .avatar { flex: none; position: relative; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(140deg,#6b4d57,#3c3036);
+            display: grid; place-items: center; font-size: 12px; font-weight: 600; margin-right: 8px; }
+  .avatar.open { box-shadow: 0 0 0 2px var(--accentFg); }
+  .caption { display: flex; align-self: stretch; flex: none; }
+  .caption div { width: 46px; display: grid; place-items: center; font-size: 10px; }
+  .page { padding: 18px 0 0 24px; display: flex; flex-direction: column; gap: 26px; }
+  .rowh { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .rowh .i { font-size: 14px; color: var(--text2); }
+  .cards { display: flex; gap: 14px; }
+  .card { flex: none; }
+  .art { border-radius: 8px; background: var(--ph); display: grid; place-items: center; color: var(--text3); font-size: 11px; }
+  .ct { font-size: 13px; margin-top: 8px; white-space: nowrap; }
+  .cs { font-size: 11.5px; color: var(--text2); margin-top: 2px; white-space: nowrap; }
+  .pbar { height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; margin: -11px 10px 8px; position: relative; }
+  .pbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accentFg); border-radius: 2px; }
+
+  /* Popups and menus */
+  .pop { background: var(--popup); border: 1px solid var(--popupBorder); border-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,.26); font-family: var(--font); color: var(--text); }
+  .sugg { position: absolute; top: 38px; left: 0; min-width: 380px; width: 100%; padding: 6px; z-index: 5; }
+  .srow { height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 4px; font-size: 13px; }
+  .srow.hi { background: var(--hover); }
+  .srow .i { font-size: 16px; color: var(--text2); flex: none; }
+  .srow .what { flex: none; font-weight: 600; }
+  .srow .url { flex: 1; min-width: 0; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; unicode-bidi: isolate; }
+  .srow.off { color: var(--text3); }
+  .srow.off .what { font-weight: 400; }
+  .shint { padding: 4px 10px 6px; font-size: 11.5px; color: var(--text3); }
+  .ssep { height: 1px; background: var(--sep); margin: 6px 4px; }
+  .serr { padding: 2px 10px 6px 36px; font-size: 12px; color: var(--error); line-height: 1.4; }
+  .menu { position: absolute; top: 40px; right: -40px; width: 300px; z-index: 6; overflow: hidden; font-weight: 400; text-align: start; }
+  .mhead { display: flex; gap: 12px; align-items: center; padding: 14px 14px 12px; }
+  .mhead .av { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(140deg,#6b4d57,#3c3036); display: grid; place-items: center; font-size: 15px; font-weight: 600; flex: none; }
+  .mhead .n { font-size: 14px; font-weight: 600; }
+  .mhead .s { font-size: 12px; color: var(--text2); display: flex; gap: 6px; align-items: center; }
+  .mhead .s i { width: 7px; height: 7px; border-radius: 4px; background: #6CCB5F; display: inline-block; }
+  .mhead .a { font-size: 11.5px; color: var(--text3); }
+  .mbody { padding: 4px; }
+  .mi { height: 30px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 4px; font-size: 13px; }
+  .mi .i { width: 16px; font-size: 15px; color: var(--text); text-align: center; flex: none; }
+  .mi .t { flex: 1; white-space: nowrap; }
+  .mi .k { color: var(--text3); font-size: 12px; white-space: nowrap; }
+  .mi.hi { background: var(--hover); }
+  .mi.new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: -1px; }
+  .msep { height: 1px; background: var(--sep); margin: 4px -4px; }
+
+  /* ContentDialog (LwDialog) */
+  .smoke { position: absolute; inset: 0; background: rgba(0,0,0,.30); z-index: 8; display: grid; place-items: center; }
+  .dlg { width: 460px; background: var(--pane); border: 1px solid var(--popupBorder); border-radius: 8px; box-shadow: 0 32px 64px rgba(0,0,0,.37); overflow: hidden; font-family: var(--font); color: var(--text); }
+  .dlg .body { padding: 24px 24px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .dlg .title { font-size: 20px; font-weight: 600; }
+  .tb { height: 32px; border-radius: 4px; background: var(--fieldFocus); border: 1px solid var(--stroke); border-bottom: 2px solid var(--accentFg);
+        display: flex; align-items: center; padding: 0 10px; font-size: 13px; direction: ltr; }
+  .tb.idle { background: var(--field); border-bottom: 1px solid var(--fieldBottom); }
+  .tb .selt { background: rgba(184,58,82,.85); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb .ph { color: var(--text3); }
+  .err { font-size: 12px; color: var(--error); line-height: 1.4; }
+  .note { font-size: 12px; color: var(--text3); }
+  .cmds { background: #202020; border-top: 1px solid rgba(255,255,255,.05); padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn { height: 32px; border-radius: 4px; display: grid; place-items: center; font-size: 13px; background: var(--button); border: 1px solid var(--stroke); }
+  .btn.acc { background: var(--accent); border-color: transparent; color: #fff; }
+  .btn.dis { background: rgba(255,255,255,.04); color: var(--text3); border-color: transparent; }
+
+  /* Drop overlay (suggestion C) */
+  .drop { position: absolute; inset: 0; background: var(--overlay); display: grid; place-items: center; z-index: 4; }
+  .dropcard { width: 360px; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .dropcard .i { font-size: 36px; color: var(--text2); margin-bottom: 6px; }
+  .dropcard .h { font-size: 15px; font-weight: 600; }
+  .dropcard .u { font-size: 13px; color: var(--text2); direction: ltr; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cursor { position: absolute; z-index: 9; font-size: 11px; background: #fff; color: #000; padding: 3px 6px; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,.35); font-family: var(--font); }
+  .toast { position: absolute; right: 24px; bottom: 24px; width: 340px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; font-size: 13px; z-index: 7; }
+
+  /* Player (13, 14b) */
+  .player { position: relative; width: 640px; height: 360px; background: #000; border-radius: 8px; overflow: hidden; font-family: var(--font); color: #fff; }
+  .player .vid { position: absolute; inset: 0; background: linear-gradient(135deg, #3a4a5c 0%, #5d6b4e 45%, #2b2f38 100%); }
+  .ptop { position: absolute; left: 0; right: 0; top: 0; height: 110px; background: linear-gradient(rgba(0,0,0,.70), rgba(0,0,0,0)); display: flex; gap: 10px; padding: 14px 16px; align-items: flex-start; }
+  .ptop .b { width: 38px; height: 38px; border-radius: 4px; display: grid; place-items: center; font-size: 17px; }
+  .ptop .tt { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .ptop .st { font-size: 12.5px; color: rgba(255,255,255,.78); direction: ltr; text-align: left; }
+  .ring { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 3px solid rgba(255,255,255,.14); border-top-color: var(--accentFg); }
+  .pfail { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 460px; padding: 20px 24px; background: rgba(0,0,0,.72); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+  .pfail .h { display: flex; gap: 10px; align-items: center; font-size: 17px; font-weight: 600; }
+  .pfail .h .i { color: var(--error); font-size: 20px; }
+  .pfail .m { font-size: 13px; line-height: 20px; color: rgba(255,255,255,.88); }
+  .pfail .bs { display: flex; gap: 8px; margin-top: 6px; }
+  .pfail .bs div { height: 32px; padding: 0 14px; border-radius: 4px; display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .pbtm { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; background: rgba(0,0,0,.58); padding: 8px 16px; }
+  .seek { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; height: 24px; font-size: 12px; color: rgba(255,255,255,.88); }
+  .track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); position: relative; }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; width: 22%; border-radius: 2px; background: var(--accentFg); }
+  .live { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,.14); }
+
+  [dir=rtl] .srow .url { text-align: right; }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 2px; }
+  .pcol { width: 640px; }
+  .stage { background: var(--win); border-radius: 8px; padding: 16px 16px 20px; min-height: 150px; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 · design/proposals · 2026-10-22</div>
+    <h1>Play a link: where it lives</h1>
+    <p>Owner: "the stream via url is gone." It is not gone from the code, only from sight. v2 still
+    opens the WPF dialog on <b>Ctrl+L</b> (<code>MainWindow.Files.cs</code>, <code>OpenStreamAsync</code>),
+    but nothing on screen leads to it, Settings › Keys leaves it out (<code>SettingsPage.cs</code>
+    filters <code>PlayerAction.OpenStream</code>), and a link dragged onto the window is ignored
+    (the drop handler takes files only). In the WPF shell it was a nav-rail entry,
+    "Stream from URL", above Settings, which opened a page of its own.</p>
+    <table>
+      <tr><th style="width:240px">What it is</th><th>Detail</th></tr>
+      <tr><td>What the WPF feature took</td><td>A full <code>http://</code> or <code>https://</code> address with a host and no user name or password (<code>StreamAddress.TryParse</code>). A direct media file (mp4, mkv, webm) or a live or adaptive stream mpv opens on its own (HLS <code>.m3u8</code>, DASH <code>.mpd</code>, plain HTTP live streams). Web pages were refused in the copy ("rather than a webpage"). No history is kept, and queries and fragments stay out of titles and logs. Local files went through the separate Ctrl+O, a dropped file, or a path on the command line.</td></tr>
+      <tr><td>Jellyfin links</td><td>No special handling. A Jellyfin stream URL plays only if it carries its own <code>ApiKey</code> (the ⋯ menu's "Copy stream URL" makes one). It then plays as an anonymous link: no resume, no progress reports, no metadata.</td></tr>
+      <tr><td>yt-dlp</td><td>Never part of the feature. Before 2026-10-17 libmpv's default <code>ytdl=yes</code> could resolve a page link through a yt-dlp found on <code>PATH</code>. Since then <code>ytdl=no</code> (<code>MpvPlayer.cs</code>), so YouTube-style page links fail. None of the suggestions assumes yt-dlp.</td></tr>
+      <tr><td>Playlists</td><td>Whatever mpv expands itself (an HLS master playlist, a remote <code>.m3u</code>). It never fills LightWeaver's queue. <code>PlayUrl</code> clears it.</td></tr>
+      <tr><td>What the player needs</td><td><code>PlaybackController.PlayUrl(url, title?)</code> needs a URL string and, optionally, a title. No auth header, no server item. It refuses while in a SyncPlay group ("Leave the group to open a local file or stream."). Without a title it uses the last path segment, or the host when the path is empty.</td></tr>
+    </table>
+  </header>
+
+  <!-- ============================== NOW ============================== -->
+  <section>
+    <h2><span class="tag">0</span>Now</h2>
+    <div class="win" id="now">
+      <div class="bar" data-bar='{}'></div>
+      <div class="layer" data-home></div>
+    </div>
+    <p class="label">v2 Home at 1120 × 600, drawn from TopBar.xaml. Bar: history, Home / Libraries / Playlists, search, Downloads / SyncPlay / Settings, profile. Nothing on the screen plays a link, and the profile menu (11) has no entry for it either. Only Ctrl+L opens the dialog.</p>
+  </section>
+
+  <!-- ============================== A ============================== -->
+  <section>
+    <h2><span class="tag">A</span>Profile menu: "Play a link…" and "Open file…" <span class="impact">within the system: Menu items + LwDialog</span></h2>
+    <div class="row">
+      <div class="win">
+        <div class="bar" data-bar='{"avatarOpen":true,"menu":true}'></div>
+        <div class="layer" data-home></div>
+      </div>
+    </div>
+    <p class="label">A1 · Profile menu open. Two new items (dashed outline) above Settings, each showing its shortcut the way Settings shows Ctrl+,.</p>
+
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="win" style="width:740px;height:420px">
+          <div class="bar" data-bar='{"compact":true}'></div>
+          <div class="layer" data-home></div>
+          <div class="smoke"><div class="dlg">
+            <div class="body">
+              <div class="title">Play a link</div>
+              <div class="tb"><span class="selt">https://media.example.com/films/harbor-lights.mp4</span></div>
+            </div>
+            <div class="cmds"><div class="btn acc">Play</div><div class="btn">Cancel</div></div>
+          </div></div>
+        </div>
+        <p class="label">A2 · Opened with a link on the clipboard: it is filled in and selected, so Enter plays it.</p>
+      </div>
+      <div class="col">
+        <div class="win" style="width:560px;height:340px">
+          <div class="layer" style="top:0"></div>
+          <div class="smoke"><div class="dlg" style="width:460px">
+            <div class="body">
+              <div class="title">Play a link</div>
+              <div class="tb idle"><span class="ph">https://</span></div>
+            </div>
+            <div class="cmds"><div class="btn dis">Play</div><div class="btn">Cancel</div></div>
+          </div></div>
+        </div>
+        <p class="label">A3 · Empty: Play is disabled until there is text.</p>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="win" style="width:560px;height:340px">
+          <div class="layer" style="top:0"></div>
+          <div class="smoke"><div class="dlg">
+            <div class="body">
+              <div class="title">Play a link</div>
+              <div class="tb"><span>rtsp://camera.example.net/live</span></div>
+              <div class="err">Use a full http:// or https:// link to the video or stream, not to a web page.</div>
+            </div>
+            <div class="cmds"><div class="btn acc">Play</div><div class="btn">Cancel</div></div>
+          </div></div>
+        </div>
+        <p class="label">A4 · Invalid, after Play: one error line under the field. The dialog stays open.</p>
+      </div>
+      <div class="col">
+        <div class="win" style="width:560px;height:340px">
+          <div class="layer" style="top:0"></div>
+          <div class="smoke"><div class="dlg">
+            <div class="body">
+              <div class="title">Link abspielen</div>
+              <div class="tb"><span>https://user:pw@media.example.com/a.mp4</span></div>
+              <div class="err">Eine vollständige HTTP- oder HTTPS-URL eingeben. URLs mit Benutzername oder Passwort werden nicht unterstützt.</div>
+            </div>
+            <div class="cmds"><div class="btn acc">Abspielen</div><div class="btn">Abbrechen</div></div>
+          </div></div>
+        </div>
+        <p class="label">A5 · German, a link with a password: the existing German error wraps to two lines and fits.</p>
+      </div>
+    </div>
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="pop" dir="rtl" style="position:relative;width:300px;padding:4px">
+          <div class="mi"><span class="i">&#xE748;</span><span class="t">تبديل المستخدم</span><span class="k i" style="font-size:10px">&#xE76B;</span></div>
+          <div class="mi"><span class="i">&#xE968;</span><span class="t">تبديل الخادم</span><span class="k i" style="font-size:10px">&#xE76B;</span></div>
+          <div class="msep"></div>
+          <div class="mi new"><span class="i">&#xE71B;</span><span class="t">تشغيل رابط…</span><span class="k" dir="ltr">Ctrl+L</span></div>
+          <div class="mi new"><span class="i">&#xE8E5;</span><span class="t">فتح ملف محلي…</span><span class="k" dir="ltr">Ctrl+O</span></div>
+          <div class="msep"></div>
+          <div class="mi"><span class="i">&#xE713;</span><span class="t">الإعدادات</span><span class="k" dir="ltr">Ctrl+,</span></div>
+          <div class="mi"><span class="i">&#xF3B1;</span><span class="t">تسجيل الخروج</span></div>
+        </div>
+        <p class="label">A6 · Arabic: the stock MenuFlyout mirrors. Shortcut text stays left to right.</p>
+      </div>
+      <div class="col" style="max-width:620px">
+        <ul>
+          <li><b>What changes.</b> Two <code>MenuFlyoutItem</code>s in the profile menu, between the
+          switch submenus and Settings: "Play a link…" (<code>Icons.Link</code> U+E71B, Ctrl+L) and
+          "Open file…" (U+E8E5, Ctrl+O). Both use the existing shortcut text style. The dialog loses its two paragraphs and keeps the
+          field, the inline error and Play / Cancel. A link on the clipboard is filled in and selected.
+          Play stays disabled while the field is empty. Ctrl+L and Ctrl+O join Settings › Keys › Navigation.</li>
+          <li><b>Why.</b> It is the smallest change: the dialog exists, the menu exists, and the menu
+          already holds the one other app-wide command (Settings). It is visible without adding
+          anything to the bar.</li>
+          <li><b>Cost.</b> A modal for a single field, two clicks before the paste, and the profile
+          menu (drawn in 11 as user and server) also takes app commands.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== B ============================== -->
+  <section>
+    <h2><span class="tag">B</span>The search field takes links <span class="impact">new component variant: link row in the 4a popup · rule change: the search field plays links</span></h2>
+    <div class="win">
+      <div class="bar" data-bar='{"q":"https://media.example.com/live/channel-4/index.m3u8","focused":true,"popup":"link"}'></div>
+      <div class="layer" data-home></div>
+    </div>
+    <p class="label">B1 · A link pasted into the search field. No search runs, and the page underneath stays as it was. The popup holds one row, already selected. Enter or a click plays it.</p>
+
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="win" style="width:740px;height:300px">
+          <div class="bar" data-bar='{"compact":true,"focused":true,"placeholder":"Search or paste a link","popup":"recent"}'></div>
+          <div class="layer" data-home></div>
+        </div>
+        <p class="label">B2 · Ctrl+L (or Ctrl+F): focus, existing text selected. The placeholder names the second use. Recent searches as in 4a.</p>
+      </div>
+      <div class="col">
+        <div class="win" style="width:560px;height:300px">
+          <div class="bar" data-bar='{"compact":true,"tiny":true,"q":"rtsp://camera.example.net/live","focused":true,"popup":"bad"}'></div>
+          <div class="layer" data-home></div>
+        </div>
+        <p class="label">B3 · Looks like a link but will not play: the row is disabled and says why. Enter does nothing.</p>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="stage"><div class="search" style="width:420px;flex:none;margin:0">
+          <div class="field focus" style="font-family:var(--font);color:#fff"><span class="q">https://media.example.com/live/channel-4/index.m3u8<span class="caret"></span></span><span class="fclear i">&#xE711;</span><span class="fbtn i">&#xE71C;</span><span class="fbtn i">&#xE721;</span></div>
+          <div class="pop sugg" style="position:relative;top:4px">
+            <div class="srow hi"><span class="i">&#xE71B;</span><span class="what">Link abspielen</span><span class="url">media.example.com/live/channel-4/index.m3u8</span></div>
+            <div class="ssep"></div><div class="shint">Eingabe zum Abspielen · Esc zum Abbrechen</div>
+          </div>
+        </div></div>
+        <p class="label">B4 · German. "Link abspielen" is 14 characters, and the address trims at its end.</p>
+      </div>
+      <div class="col" dir="rtl">
+        <div class="stage"><div class="search" style="width:420px;flex:none;margin:0">
+          <div class="field focus" style="font-family:var(--font);color:#fff;padding:0 10px 0 4px"><span class="q" style="direction:ltr;text-align:left">https://media.example.com/live/channel-4/index.m3u8<span class="caret"></span></span><span class="fclear i">&#xE711;</span><span class="fbtn i">&#xE71C;</span><span class="fbtn i">&#xE721;</span></div>
+          <div class="pop sugg" style="position:relative;top:4px">
+            <div class="srow hi"><span class="i">&#xE71B;</span><span class="what">تشغيل الرابط</span><span class="url">media.example.com/live/channel-4/index.m3u8</span></div>
+            <div class="ssep"></div><div class="shint">Enter للتشغيل · Esc للإلغاء</div>
+          </div>
+        </div></div>
+        <p class="label" dir="ltr" style="text-align:left">B5 · Arabic. The row mirrors, but the link stays a left-to-right run, as typed text in the field does.</p>
+      </div>
+    </div>
+    <ul>
+      <li><b>What changes.</b> When the field's trimmed text parses with <code>StreamAddress</code>, the
+      search request is skipped and the 4a popup shows one row: the link glyph, "Play link", and the
+      host and path in <code>LwText2Brush</code>, without the scheme, query or fragment. The row is
+      36 high, radius 4 and selected, as in 4a. Text with a scheme other than http(s), or with a user
+      name or password, gets the same row disabled plus one 12 px <code>LwErrorBrush</code> line. Text
+      with no scheme stays a search. Ctrl+L focuses the field and selects its text, as in a browser.
+      The placeholder becomes "Search or paste a link" (de "Suchen oder Link einfügen", ar "ابحث أو الصق
+      رابطًا"), which is shorter than today's string in all three languages.</li>
+      <li><b>Why.</b> The search field is the one text box that is always on screen, and paste-and-Enter
+      is the fastest route there is: no menu, no dialog. The popup and its keyboard handling already
+      exist (Up/Down, Enter, Esc), so a link is just one more kind of row.</li>
+      <li><b>Cost.</b> The field now has two jobs. The placeholder changes from the drawn string, and
+      someone who never reads it will not find the feature.</li>
+    </ul>
+  </section>
+
+  <!-- ============================== C ============================== -->
+  <section>
+    <h2><span class="tag">C</span>The window takes links: drop or paste anywhere <span class="impact">new component: drop overlay · rule change: links and files can be dropped or pasted on every page</span></h2>
+    <div class="win">
+      <div class="bar" data-bar='{}'></div>
+      <div class="layer" data-home>
+      </div>
+      <div class="drop" style="top:56px">
+        <div class="pop dropcard">
+          <span class="i">&#xE71B;</span>
+          <div class="h">Drop to play</div>
+          <div class="u">media.example.com/films/harbor-lights.mp4</div>
+        </div>
+      </div>
+      <div class="cursor" style="left:700px;top:420px">+ Link</div>
+    </div>
+    <p class="label">C1 · A link dragged from a browser over any page. The content layer dims with <code>LwOverlayBrush</code>, the bar stays sharp, and one card names what will play. A dropped file shows its file name.</p>
+    <div class="row" style="margin-top:22px">
+      <div class="col">
+        <div class="win" style="width:740px;height:360px">
+          <div class="bar" data-bar='{"compact":true}'></div>
+          <div class="layer" data-home></div>
+          <div class="pop toast"><span class="i" style="color:var(--accentFg);font-size:16px">&#xF167;</span><span style="flex:1">Leave the group to open a local file or stream.</span><span class="i" style="font-size:11px;color:var(--text2)">&#xE711;</span></div>
+        </div>
+        <p class="label">C2 · Ctrl+V outside a text field with a link on the clipboard plays it at once. In a SyncPlay group the existing toast explains why nothing plays.</p>
+      </div>
+      <div class="col" style="max-width:340px">
+        <ul>
+          <li><b>What changes.</b> Drag-over accepts <code>WebLink</code>, <code>Uri</code> and plain text
+          that parses as a link, besides files. A new overlay, a <code>LwPopupBrush</code> card on
+          <code>LwOverlayBrush</code>, appears instantly and leaves on drop or drag-out. Ctrl+V on any page
+          except Login, with focus outside a text field, plays a link from the clipboard. Drag-over
+          with anything else shows no overlay and the system's no-drop cursor.</li>
+          <li><b>Why.</b> The link is usually already in a browser or on the clipboard, so this needs no
+          typing and no target to aim at. It also covers the file drop that exists today.</li>
+          <li><b>Cost.</b> Nothing on screen invites it. Use it with A or B, not instead of them.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== SHARED ============================== -->
+  <section>
+    <h2><span class="tag">All</span>The player, whichever entry wins <span class="impact">within the system: 13 top area, 14b failure panel; new copy</span></h2>
+    <div class="row">
+      <div class="col pcol">
+        <div class="player">
+          <div class="ptop"><div class="b i">&#xE72B;</div><div><div class="tt">channel-4</div><div class="st">media.example.com</div></div></div>
+          <div class="ring"></div>
+        </div>
+        <p class="label">P1 · Loading. The player opens at once (no artwork to grow from). Title and host show from the first frame.</p>
+      </div>
+      <div class="col pcol">
+        <div class="player">
+          <div class="vid"></div>
+          <div class="ptop"><div class="b i">&#xE72B;</div><div><div class="tt">Harbor Lights</div><div class="st">media.example.com</div></div></div>
+          <div class="pbtm"><div class="seek"><span>0:12:40</span><div class="track"><i></i></div><span>−1:31:02</span></div></div>
+        </div>
+        <p class="label">P2 · Playing, with metadata. mpv's <code>media-title</code> (a container title tag, an HLS or ICY name) replaces the guessed title once mpv reports it.</p>
+      </div>
+      <div class="col pcol">
+        <div class="player">
+          <div class="vid" style="background:linear-gradient(135deg,#2b2f38,#45384a 60%,#1e2026)"></div>
+          <div class="ptop"><div class="b i">&#xE72B;</div><div><div class="tt">channel-4</div><div class="st">media.example.com</div></div></div>
+          <div class="pbtm"><div class="seek"><span class="live">LIVE</span><div class="track" style="background:rgba(255,255,255,.12)"></div><span></span></div></div>
+        </div>
+        <p class="label">P3 · No metadata, a live stream. Generic file names (<code>index</code>, <code>master</code>, <code>playlist</code>, <code>manifest</code>, <code>stream</code>, <code>live</code>) are skipped for the folder above them, and the host is the subtitle.</p>
+      </div>
+      <div class="col pcol">
+        <div class="player">
+          <div class="pfail">
+            <div class="h"><span class="i">&#xEB90;</span>Playback failed</div>
+            <div class="m">This link couldn’t be played. It may lead to a web page instead of the video, need a sign-in, or be offline.</div>
+            <div class="bs"><div style="background:var(--accent)"><span class="i" style="font-size:14px">&#xE72C;</span>Retry</div><div style="color:rgba(255,255,255,.78)">Details</div></div>
+          </div>
+          <div class="ptop"><div class="b i">&#xE72B;</div><div><div class="tt">harbor-lights</div><div class="st">media.example.com</div></div></div>
+        </div>
+        <p class="label">P4 · Failed. The 14b panel with a message for links. Today it says "The downloaded file couldn’t be played", because a link counts as a local file.</p>
+      </div>
+    </div>
+    <h3>Title when the link has no metadata</h3>
+    <table>
+      <tr><th>Link</th><th>Title</th><th>Subtitle</th></tr>
+      <tr><td><code>https://media.example.com/films/harbor-lights.mp4</code></td><td>harbor-lights</td><td>media.example.com</td></tr>
+      <tr><td><code>https://media.example.com/live/channel-4/index.m3u8</code></td><td>channel-4</td><td>media.example.com</td></tr>
+      <tr><td><code>https://cdn.example.org/master.m3u8?token=…</code></td><td>cdn.example.org</td><td>(none, the title is the host)</td></tr>
+      <tr><td>mpv reports a <code>media-title</code> that differs from the file name</td><td>that title</td><td>media.example.com</td></tr>
+    </table>
+    <h3>States</h3>
+    <table>
+      <tr><th style="width:250px">State</th><th>A · menu + dialog</th><th>B · search field</th><th>C · drop / paste</th></tr>
+      <tr><td>Empty</td><td>Play disabled</td><td>Normal search field, recent searches</td><td>Nothing to drop or paste, nothing happens</td></tr>
+      <tr><td>Not a link (no scheme)</td><td>Error line on Play</td><td>A normal search</td><td>No overlay, no-drop cursor; paste ignored</td></tr>
+      <tr><td>Wrong scheme, user name or password</td><td>Error line on Play</td><td>Disabled row with the reason</td><td>No overlay; paste ignored</td></tr>
+      <tr><td>Loading</td><td colspan="3">Player opens at once with the guessed title and host, and a ring until the first frame (P1).</td></tr>
+      <tr><td>Fails to play</td><td colspan="3">14b panel with the link message, Retry and Details. Back returns to the page the link was opened from (P4).</td></tr>
+      <tr><td>In a SyncPlay group</td><td colspan="3">Nothing plays; the existing toast says to leave the group.</td></tr>
+      <tr><td>Full player showing</td><td>Menu not reachable; Ctrl+L ignored, as today</td><td>Bar hidden; Ctrl+L ignored</td><td>Drop replaces the playing title, as a dropped file does in WPF</td></tr>
+    </table>
+    <h3>Needed whichever suggestion is picked</h3>
+    <ul>
+      <li>A link failure gets its own cause and message (P4), and Info's play method says "Link", not "Downloaded file" (<code>PlayUrl</code> sets <code>Player.LocalFile</code> today).</li>
+      <li>The title follows the table above, and mpv's <code>media-title</code> replaces it when the stream has one.</li>
+      <li>Ctrl+L shows in Settings › Keys.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Candidates left out</h2>
+    <ul>
+      <li><b>Keyboard shortcut and a dialog, alone.</b> That is v2 today, which is why the feature
+      looks gone. A and B both keep the shortcut.</li>
+      <li><b>Downloads page.</b> Downloads lists what is stored on this device. A link is neither
+      stored nor a download, and the page would need a control that 08 does not draw.</li>
+      <li><b>The player's own menu.</b> The player is only on screen while something plays, so it
+      cannot start the first link. Its right group is full (13).</li>
+      <li><b>A new top-bar button.</b> The bar is out of width at the 900 DIP minimum (the search
+      field already gives up 40 DIP), and a button for a rarely used action is clutter.</li>
+    </ul>
+  </section>
+
+  <section class="rec">
+    <h2 style="margin-bottom:8px">Recommendation: B, with A's menu item pointing at it</h2>
+    <p>B is the fastest route (paste, Enter) and adds nothing to any screen. To make it findable,
+    take one item from A, "Play a link… Ctrl+L" in the profile menu, and have it focus the search
+    field (B2) instead of opening a dialog. The dialog then goes away. C can come later as an
+    extra for people who drag from a browser.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  const titles = ['The Long Quiet', 'Lantern House', 'Harbor Lights', 'The Dispatch', 'Northbound', 'Tidewater'];
+  const subs = ['1 h 12 min left', 'S2 · E4 · 24 min left', '48 min left', 'S1 · E6 · 31 min left', '1 h 02 min left', 'S3 · E1 · 40 min left'];
+  const posters = ['Paper Moons', 'Iron Orchard', 'Glass Season', 'Salt & Cedar', 'The Ninth Hour', 'Low Tide', 'Kestrel', 'Midnight Ferry'];
+  const years = [2019, 2004, 2022, 1998, 2015, 2021, 2011, 2008];
+  const progress = [62, 18, 85, 40, 7, 50];
+  const home = '<div class="page"><div><div class="rowh">Continue Watching<span class="i">&#xE72A;</span></div><div class="cards">' +
+    titles.map((t, i) => '<div class="card"><div class="art" style="width:296px;height:166px">backdrop</div><div class="pbar"><i style="width:' + progress[i] + '%"></i></div><div class="ct">' + t + '</div><div class="cs">' + subs[i] + '</div></div>').join('') +
+    '</div></div><div><div class="rowh">Recently Added<span class="i">&#xE72A;</span></div><div class="cards">' +
+    posters.map((t, i) => '<div class="card"><div class="art" style="width:150px;height:225px">poster</div><div class="ct">' + t + '</div><div class="cs">' + years[i] + '</div></div>').join('') +
+    '</div></div></div>';
+  document.querySelectorAll('[data-home]').forEach(el => { el.innerHTML = home + el.innerHTML; });
+
+  const item = (glyph, label, sel) => '<div class="item' + (sel ? ' sel' : '') + '"><span class="i">' + glyph + '</span><span>' + label + '</span></div>';
+  const popups = {
+    link: '<div class="pop sugg"><div class="srow hi"><span class="i">&#xE71B;</span><span class="what">Play link</span><span class="url">media.example.com/live/channel-4/index.m3u8</span></div><div class="ssep"></div><div class="shint">Enter to play · Esc to cancel</div></div>',
+    bad: '<div class="pop sugg"><div class="srow off"><span class="i">&#xE71B;</span><span class="what">Play link</span><span class="url">camera.example.net/live</span></div><div class="serr">Only http:// and https:// links play here.</div></div>',
+    recent: '<div class="pop sugg"><div style="display:flex;align-items:center;padding:6px 8px 6px 10px"><div style="font-size:12px;font-weight:600;color:var(--text3)">Recent searches</div><div style="flex:1"></div><div style="font-size:12px;color:var(--accentFg);padding:2px 6px">Clear all</div></div>' +
+      ['harbor lights', 'tomas adler', 'lantern house s2'].map(q => '<div class="srow"><span class="i">&#xE121;</span><span style="flex:1">' + q + '</span></div>').join('') +
+      '<div class="ssep"></div><div class="shint">Up/Down to select · Enter to search · Delete removes selected</div></div>'
+  };
+  const menu = '<div class="pop menu"><div class="mhead"><div class="av">MK</div><div style="min-width:0"><div class="n">Mara Kessler</div><div class="s"><i></i>Home Server</div><div class="a">jellyfin.example.com</div></div></div>' +
+    '<div style="height:1px;background:var(--sep)"></div><div class="mbody">' +
+    '<div class="mi"><span class="i">&#xE748;</span><span class="t">Switch user</span><span class="k i" style="font-size:10px">&#xE76C;</span></div>' +
+    '<div class="mi"><span class="i">&#xE968;</span><span class="t">Switch server</span><span class="k i" style="font-size:10px">&#xE76C;</span></div>' +
+    '<div class="msep"></div>' +
+    '<div class="mi new hi"><span class="i">&#xE71B;</span><span class="t">Play a link…</span><span class="k">Ctrl+L</span></div>' +
+    '<div class="mi new"><span class="i">&#xE8E5;</span><span class="t">Open file…</span><span class="k">Ctrl+O</span></div>' +
+    '<div class="msep"></div>' +
+    '<div class="mi"><span class="i">&#xE713;</span><span class="t">Settings</span><span class="k">Ctrl+,</span></div>' +
+    '<div class="mi"><span class="i">&#xF3B1;</span><span class="t">Log out</span></div></div></div>';
+
+  document.querySelectorAll('[data-bar]').forEach(el => {
+    const o = JSON.parse(el.getAttribute('data-bar') || '{}');
+    const text = o.q ? '<span>' + o.q + '</span>' : '<span class="ph">' + (o.placeholder || 'Search movies, shows, people') + '</span>';
+    const field = '<div class="field' + (o.focused ? ' focus' : '') + '"><span class="q">' + (o.focused && !o.q ? '<span class="caret"></span>' : '') + text + (o.focused && o.q ? '<span class="caret"></span>' : '') + '</span>' +
+      (o.q ? '<span class="fclear i">&#xE711;</span>' : '') + '<span class="fbtn i">&#xE71C;</span><span class="fbtn i">&#xE721;</span></div>';
+    const nav = o.tiny ? '' : '<div class="group">' + item('&#xE80F;', 'Home', true) + item('&#xE8F1;', 'Libraries') + item('&#xE8FD;', 'Playlists') + '</div>';
+    const right = o.compact ? '' : '<div class="group">' + item('&#xE896;', 'Downloads') + item('&#xE716;', 'SyncPlay') + item('&#xE713;', 'Settings') + '</div>';
+    el.innerHTML =
+      '<div class="hist"><div class="i">&#xE72B;</div><div class="i" style="color:var(--text3)">&#xE72A;</div></div>' + nav +
+      '<div class="search">' + field + (o.popup ? popups[o.popup] : '') + '</div>' + right +
+      '<div class="avatar' + (o.avatarOpen ? ' open' : '') + '">MK' + (o.menu ? menu : '') + '</div>' +
+      '<div class="caption"><div class="i">&#xE921;</div><div class="i">&#xE922;</div><div class="i">&#xE8BB;</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

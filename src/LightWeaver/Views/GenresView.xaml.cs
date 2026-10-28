@@ -52,7 +52,7 @@ public partial class GenresView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("genres",
-                $"event=load outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={_library.Id:N} type={_library.Type}", ex);
+                $"event=load outcome=failure elapsed_ms={started.ElapsedMilliseconds} item={_library.Id:N} type={_library.Type} error={ex.GetType().Name}");
             LiveText.Bind(StatusText, "Text", () => L.Format("GenresView.FailedToLoad.a24e7310", (ex.Message)));
             StatusText.Visibility = Visibility.Visible;
         }

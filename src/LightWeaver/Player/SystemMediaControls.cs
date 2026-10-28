@@ -1,6 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Windows.Threading;
+using LightWeaver.Threading;
 using Windows.Media;
 using Windows.Storage;
 using Windows.Storage.Streams;
@@ -37,7 +37,8 @@ public sealed class SystemMediaControls
     private static extern int RoGetActivationFactory(nint classId, ref Guid iid, out nint factory);
 
     private readonly SystemMediaTransportControls _smtc;
-    private readonly Dispatcher _dispatcher;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly Func<string, Task<string?>> _thumbnailFile;
 
     public event Action? PlayPressed;
     public event Action? PausePressed;
@@ -45,10 +46,11 @@ public sealed class SystemMediaControls
     public event Action? NextPressed;
     public event Action? PreviousPressed;
 
-    private SystemMediaControls(SystemMediaTransportControls smtc, Dispatcher dispatcher)
+    private SystemMediaControls(SystemMediaTransportControls smtc, IUiDispatcher dispatcher, Func<string, Task<string?>> thumbnailFile)
     {
         _smtc = smtc;
         _dispatcher = dispatcher;
+        _thumbnailFile = thumbnailFile;
         _smtc.IsPlayEnabled = true;
         _smtc.IsPauseEnabled = true;
         _smtc.IsStopEnabled = true;
@@ -59,8 +61,9 @@ public sealed class SystemMediaControls
     }
 
     /// <summary>Null when SMTC is unavailable (server OS, broken WinRT) — the app
-    /// must work without it.</summary>
-    public static SystemMediaControls? TryCreate(nint hwnd, Dispatcher dispatcher)
+    /// must work without it. <paramref name="thumbnailFile"/> turns an artwork URL into a local
+    /// file, since SMTC can't send our auth header to the server.</summary>
+    public static SystemMediaControls? TryCreate(nint hwnd, IUiDispatcher dispatcher, Func<string, Task<string?>> thumbnailFile)
     {
         try
         {
@@ -82,7 +85,7 @@ public sealed class SystemMediaControls
             var abi = interop.GetForWindow(hwnd, ref iid);
             var smtc = WinRT.MarshalInterface<SystemMediaTransportControls>.FromAbi(abi);
             Marshal.Release(abi);
-            return new SystemMediaControls(smtc, dispatcher);
+            return new SystemMediaControls(smtc, dispatcher, thumbnailFile);
         }
         catch
         {
@@ -103,7 +106,7 @@ public sealed class SystemMediaControls
             _ => null,
         };
         if (handler is not null)
-            _dispatcher.BeginInvoke(handler);
+            _dispatcher.Post(handler);
     }
 
     /// <summary>Playing / paused / stopped session state (drives media-key routing).</summary>
@@ -118,8 +121,7 @@ public sealed class SystemMediaControls
         _smtc.IsPreviousEnabled = previous;
     });
 
-    /// <summary>Fills the media card: title/subtitle + thumbnail (a local file from
-    /// the image disk cache — SMTC can't send our auth header to the server).</summary>
+    /// <summary>Fills the media card: title/subtitle + thumbnail (a local file).</summary>
     public async Task UpdateDisplayAsync(string title, string? subtitle, string? thumbUrl)
     {
         try
@@ -130,7 +132,7 @@ public sealed class SystemMediaControls
             updater.VideoProperties.Subtitle = subtitle ?? "";
             updater.Thumbnail = null;
             if (thumbUrl is { Length: > 0 }
-                && await Imaging.ImageCache.GetFileAsync(thumbUrl).ConfigureAwait(false) is { } path
+                && await _thumbnailFile(thumbUrl).ConfigureAwait(false) is { } path
                 && File.Exists(path))
             {
                 var file = await StorageFile.GetFileFromPathAsync(path);

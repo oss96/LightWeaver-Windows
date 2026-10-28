@@ -44,6 +44,7 @@ internal static class LiveSessionFixture
             await CheckFailedReconnectAsync(Check).ConfigureAwait(false);
             await CheckFolderInvalidationAsync(Check).ConfigureAwait(false);
             await CheckFolderIndexSurvivalAsync(Check).ConfigureAwait(false);
+            await CheckConcurrentRemovalsAsync(Check).ConfigureAwait(false);
             await CheckTransportAsync(Check).ConfigureAwait(false);
             await CheckSyncPlayTransportAsync(Check).ConfigureAwait(false);
             await CheckRejectedTokenAsync(Check).ConfigureAwait(false);
@@ -643,6 +644,46 @@ internal static class LiveSessionFixture
         check(await BrowseFolderCache.ReadAsync(BrowseFolderCache.Key(other, first))
                 .ConfigureAwait(false) is { Items: [{ Name: "theirs" }] },
             "the blanket invalidation stops at the profile it was given");
+    }
+
+    // Removals are read-modify-writes of one file. Two that each read [A,B,C] used to write back
+    // [B,C] and [A,C], and whichever landed last brought the other's deleted item back on the next
+    // start. Under the entry's write gate every removal lands, however many race.
+    private static async Task CheckConcurrentRemovalsAsync(Action<bool, string> check)
+    {
+        var profile = $"{Guid.NewGuid():N}@http://fixture.invalid";
+        var ids = Enumerable.Range(0, 40).Select(_ => Guid.NewGuid()).ToList();
+        var items = ids.Select(id => new MediaItem { Id = id, Name = "item" }).ToList();
+        var gone = ids.Take(20).ToHashSet();
+
+        var orderedKey = $"browse:{profile}:seasons:{Guid.NewGuid():N}";
+        await LightWeaver.Imaging.MetadataCache.StoreAsync(orderedKey,
+            new LightWeaver.Imaging.BrowseCacheEntry<MediaItem>(items, items.Count, DateTime.UtcNow)).ConfigureAwait(false);
+        await Task.WhenAll(gone.Select(id => Task.Run(() =>
+            AppViewModel.RemoveFromBrowseListAsync(orderedKey, new HashSet<Guid> { id })))).ConfigureAwait(false);
+        var ordered = await LightWeaver.Imaging.MetadataCache
+            .ReadAsync<LightWeaver.Imaging.BrowseCacheEntry<MediaItem>>(orderedKey).ConfigureAwait(false);
+        check(ordered is { Items.Count: 20, TotalCount: 20 } && ordered.Items.All(item => !gone.Contains(item.Id)),
+            "twenty concurrent removals from one ordered browse list all land");
+        LightWeaver.Imaging.MetadataCache.Remove(orderedKey);
+
+        var folderKey = BrowseFolderCache.Key(profile, Guid.NewGuid());
+        await BrowseFolderCache.StoreAsync(folderKey, new FolderCacheEntry<MediaItem>(items, 100,
+            Complete: false, Truncated: false, DateTime.UtcNow, BrowseFolderCache.CurrentSchema)).ConfigureAwait(false);
+        await Task.WhenAll(gone.Select(id => Task.Run(() =>
+            BrowseFolderCache.RemoveItemsAsync(folderKey, new HashSet<Guid> { id })))).ConfigureAwait(false);
+        var folder = await BrowseFolderCache.ReadAsync(folderKey).ConfigureAwait(false);
+        check(folder is { Items.Count: 20, TotalCount: 80 } && folder.Items.All(item => !gone.Contains(item.Id)),
+            "twenty concurrent removals from one folder entry all land, its count lowered by each");
+
+        // A store filters inside the gate against what the writer knows was removed.
+        var stored = await BrowseFolderCache.StoreAsync(folderKey, new FolderCacheEntry<MediaItem>(items, 40,
+                Complete: true, Truncated: false, DateTime.UtcNow, BrowseFolderCache.CurrentSchema),
+            list => list.Where(item => gone.Contains(item.Id)).Select(item => item.Id).ToHashSet()).ConfigureAwait(false);
+        check(stored is { Items.Count: 20, TotalCount: 20 }
+                && await BrowseFolderCache.ReadAsync(folderKey).ConfigureAwait(false) is { Items.Count: 20 },
+            "a folder store leaves out the items its writer knows were removed");
+        await BrowseFolderCache.InvalidateProfileAsync(profile).ConfigureAwait(false);
     }
 
     // The index is a DIRECTORY, not a projection — but it lives in the cache the 30-day age sweep

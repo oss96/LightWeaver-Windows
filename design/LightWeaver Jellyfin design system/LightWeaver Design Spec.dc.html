@@ -17,8 +17,10 @@
   a { color: #8ECEEB; text-decoration: none; }
   a:hover { color: #DDF1FA; }
   ::selection { background: rgba(142,206,235,0.25); }
-  @keyframes lwBreathe { 0%, 100% { opacity: 0.30; transform: scale(0.94); } 50% { opacity: 0.95; transform: scale(1.05); } }
-  @keyframes lwPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+  @keyframes lwPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+  @keyframes lwDot { 0%, 70%, 100% { opacity: 0.26; transform: scale(0.78); } 35% { opacity: 0.95; transform: scale(1.18); } }
+  @keyframes lwDotOsd { 0%, 70%, 100% { opacity: 0.22; transform: scale(0.78); } 35% { opacity: 0.55; transform: scale(1.18); } }
+  @keyframes lwFlow { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 </style>
 </helmet>
 <div style="max-width: 1180px; margin: 0 auto; padding: 0 36px 160px; font-size: 15px; line-height: 1.55;">
@@ -28,7 +30,7 @@
     <div style="position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(45deg, rgba(142,206,235,0.055) 0px, rgba(142,206,235,0.055) 1px, transparent 1px, transparent 15px), repeating-linear-gradient(-45deg, rgba(142,206,235,0.055) 0px, rgba(142,206,235,0.055) 1px, transparent 1px, transparent 15px); mask-image: radial-gradient(75% 90% at 68% 30%, black, transparent 72%); -webkit-mask-image: radial-gradient(75% 90% at 68% 30%, black, transparent 72%);"></div>
     <div style="position: absolute; right: 8%; top: 14%; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(142,206,235,0.10), transparent 65%); pointer-events: none;"></div>
     <div style="position: relative;">
-      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #79809A; text-transform: uppercase;">Design specification · v1.0 · July 2026</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #79809A; text-transform: uppercase;">Design specification · v1.1 · October 2026</div>
       <h1 style="font-family: 'Marcellus', serif; font-weight: 400; font-size: 84px; line-height: 1.04; letter-spacing: 0.03em; margin: 26px 0 0; color: #E9EDF7; text-shadow: 0 0 60px rgba(142,206,235,0.22);">LightWeaver</h1>
       <p style="max-width: 620px; margin: 26px 0 0; font-size: 18px; line-height: 1.6; color: #AAB2C8;">A native Windows media client for Jellyfin. The chrome is a storm-quiet darkness; the media — posters, backdrops, video — is the light being woven through it. Every interactive state is expressed as light: diffuse, restrained, alive.</p>
       <div style="display: flex; gap: 12px; margin-top: 34px; flex-wrap: wrap;">
@@ -183,10 +185,10 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
         <div style="background: #121522; border: 1px solid rgba(168,186,230,0.10); border-radius: 8px; height: 66px; box-shadow: 0 2px 8px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-1 · cards</div>
         <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.12); border-radius: 8px; height: 66px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-2 · menus</div>
-        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.12); border-radius: 8px; height: 66px; box-shadow: 0 16px 48px rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-3 · modals</div>
-        <div style="background: #121522; border: 1px solid rgba(221,241,250,0.5); border-radius: 8px; height: 66px; box-shadow: 0 0 12px rgba(142,206,235,0.30); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-focus</div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.12); border-radius: 8px; height: 66px; box-shadow: 0 12px 28px rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #79809A;">--e-3 · modals</div>
+        <div style="background: #121522; border: 1px solid rgba(221,241,250,0.5); border-radius: 8px; height: 66px; box-shadow: 0 0 12px rgba(142,206,235,0.35); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-focus</div>
         <div style="background: #121522; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; height: 66px; box-shadow: 0 0 18px rgba(142,206,235,0.22); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-hover</div>
-        <div style="background: #121522; border: 1px solid rgba(209,69,96,0.35); border-radius: 8px; height: 66px; box-shadow: 0 0 20px rgba(209,69,96,0.32); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-garnet</div>
+        <div style="background: #121522; border: 1px solid rgba(209,69,96,0.35); border-radius: 8px; height: 66px; box-shadow: 0 0 20px rgba(209,69,96,0.34); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #AAB2C8;">--glow-garnet</div>
       </div>
     </div>
   </div>
@@ -202,7 +204,7 @@
         <span style="color: #AAB2C8; font-size: 13.5px;">{{ m.use }}</span>
       </div>
     </sc-for>
-    <p style="color: #79809A; font-size: 13.5px; max-width: 720px; margin: 16px 0 0;">Asymmetric glow: light arrives fast (240 ms) and decays slowly (420 ms), like an infused gem losing charge. No spring/overshoot easings anywhere. Translations are small (≤ 8 px) and paired with opacity.</p>
+    <p style="color: #79809A; font-size: 13.5px; max-width: 720px; margin: 16px 0 0;">Glow and state changes are instant; motion is kept for things that arrive and leave. No spring/overshoot easings anywhere. Translations are paired with opacity and stay ≤ 8 px, except the 24 px rise of modal-weight cards and the segmented thumb, which slides without a fade. Rows without a token name are timings that live in code beside their one consumer.</p>
   </div>
 </div>
 <div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
@@ -261,15 +263,15 @@
   <!-- Toggle + segmented -->
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 64px 0 0;">
     <div>
-      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toggle switch — 40×22 · knob 16 · travel 120 ms</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toggle switch — 40×22 · knob 16 · switches at once</div>
       <div style="display: flex; gap: 28px; flex-wrap: wrap;">
         <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(168,186,230,0.18); position: relative; box-sizing: border-box;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #79809A;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">OFF</span></div>
-        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.30); border: 1px solid rgba(221,241,250,0.45); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.25);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #DDF1FA; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · INFUSED</span></div>
-        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(142,206,235,0.38); border: 1px solid rgba(221,241,250,0.6); position: relative; box-sizing: border-box; box-shadow: 0 0 18px rgba(142,206,235,0.38);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 10px rgba(221,241,250,0.8);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · HOVER</span></div>
-        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(221,241,250,0.55); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.30);"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #AAB2C8;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">OFF · FOCUSED</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(166,35,57,0.30); border: 1px solid rgba(209,69,96,0.45); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(209,69,96,0.28);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #EDB5C0; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · GARNET</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: rgba(166,35,57,0.38); border: 1px solid rgba(209,69,96,0.6); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(209,69,96,0.28);"><div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">ON · HOVER</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #222741; border: 1px solid rgba(221,241,250,0.55); position: relative; box-sizing: border-box; box-shadow: 0 0 12px rgba(142,206,235,0.35);"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #AAB2C8;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">OFF · FOCUSED</span></div>
         <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><div style="width: 40px; height: 22px; border-radius: 999px; background: #10131E; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #2C3146;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">DISABLED</span></div>
       </div>
-      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">On-state is infused stormlight, not a gem — settings toggles stay quieter than actions. Knob eases 120 ms; glow follows at 240 ms.</p>
+      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">On-state is garnet, the one interactive accent: a 0.30 α track with a garnet bloom and a pale garnet knob; keyboard focus keeps the stormlight ring. Knob, track and glow switch at once.</p>
     </div>
     <div>
       <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Segmented control — container r 8 · pad 3 · segment h 30 r 6</div>
@@ -353,7 +355,7 @@
       </div>
       <div style="max-width: 380px; color: #AAB2C8; font-size: 13.5px; line-height: 1.65;">
         <p style="margin: 0 0 12px;"><strong style="color: #E9EDF7;">Active item</strong> — stormlight wash (0.08 α), lit glyph, 2 px light bar with bloom. Never a garnet fill: the gem marks actions, the light marks <em>where you are</em>.</p>
-        <p style="margin: 0 0 12px;"><strong style="color: #E9EDF7;">Collapse</strong> — below 1160 px window width the rail collapses to 64 px (icons only, labels in tooltips). Drift 240 ms.</p>
+        <p style="margin: 0 0 12px;"><strong style="color: #E9EDF7;">Collapse</strong> — below 1160 px window width the rail collapses to 64 px (icons only, labels in tooltips). The width switches at once.</p>
         <p style="margin: 0;"><strong style="color: #E9EDF7;">Icons</strong> — 20 px grid, 1.6 px stroke, square caps; geometric with a calligraphic bias. One weight across the app.</p>
       </div>
     </div>
@@ -373,9 +375,9 @@
       </div>
     </div>
     <div>
-      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Modal dialog — w 440 · r 12 · --e-3 · scrim #07080D at 0.72 α</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Modal dialog — w 440 · r 28 · --e-3 · scrim #07080D at 0.72 α</div>
       <div style="background: rgba(7,8,13,0.72); border-radius: 12px; padding: 44px; display: flex; justify-content: center;">
-        <div style="width: 380px; background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 12px; padding: 26px 26px 22px; box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 60px rgba(142,206,235,0.05);">
+        <div style="width: 380px; background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 28px; padding: 26px 26px 22px; box-shadow: 0 12px 28px rgba(0,0,0,0.65);">
           <div style="font-family: 'Marcellus', serif; font-size: 21px; letter-spacing: 0.02em;">Sign out of Weaveholme?</div>
           <p style="color: #AAB2C8; font-size: 14px; margin: 12px 0 24px; line-height: 1.6;">Playback positions sync to the server. Downloads on this device will be kept.</p>
           <div style="display: flex; justify-content: flex-end; gap: 10px;">
@@ -384,21 +386,21 @@
           </div>
         </div>
       </div>
-      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Entry: fade + 8 px rise, 480 ms drift. Scrim is a solid tint — no full-screen blur (WPF cost); an optional 12 px blur may apply to the modal's own backplate only.</p>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Entry: fade + 24 px rise, 480 ms drift (CubicEase out); it closes without motion. Scrim is a solid tint — no full-screen blur (WPF cost); an optional 12 px blur may apply to the modal's own backplate only.</p>
     </div>
     <div>
-      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toast — w ≤ 360 · r 8 · bottom-right · 5 s</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Toast — w ≤ 360 · r 12 · bottom-right · 6 s</div>
       <div style="display: flex; flex-direction: column; gap: 14px;">
-        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 13px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start;">
-          <div style="width: 8px; height: 8px; border-radius: 50%; background: #46C795; box-shadow: 0 0 10px rgba(70,199,149,0.6); margin-top: 6px; flex-shrink: 0;"></div>
-          <div><div style="font-size: 14px; font-weight: 600;">Connected to Weaveholme</div><div style="font-size: 12.5px; color: #79809A; font-family: 'JetBrains Mono', monospace; margin-top: 3px;">10.4.2 · direct play available</div></div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 12px; padding: 12px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start; max-width: 360px; box-sizing: border-box;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #E8705C; box-shadow: 0 0 16px rgba(201,58,46,0.25); margin-top: 6px; flex-shrink: 0;"></div>
+          <div style="font-size: 14px;">Stream URL copied.</div>
         </div>
-        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.14); border-radius: 8px; padding: 13px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start;">
-          <div style="width: 8px; height: 8px; border-radius: 50%; background: #E9B25C; box-shadow: 0 0 10px rgba(233,178,92,0.6); margin-top: 6px; flex-shrink: 0;"></div>
-          <div><div style="font-size: 14px; font-weight: 600;">Transcoding fallback</div><div style="font-size: 12.5px; color: #AAB2C8; margin-top: 3px;">HEVC Main10 unsupported by this GPU driver.</div></div>
+        <div style="background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 12px; padding: 12px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; gap: 12px; align-items: flex-start; max-width: 360px; box-sizing: border-box;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #E8705C; box-shadow: 0 0 16px rgba(201,58,46,0.25); margin-top: 6px; flex-shrink: 0;"></div>
+          <div style="font-size: 14px;">Could not update watched state.</div>
         </div>
       </div>
-      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">Semantic gem dot with bloom — never a colored bar or filled surface. Slides up 8 px + fade, drift easing.</p>
+      <p style="color: #79809A; font-size: 13px; margin: 14px 0 0;">A gem dot with bloom — never a colored bar or filled surface. One line of 14 px text-1, wrapping inside 360. The app shows every toast with the ember dot today, so the dot marks a toast, not its severity. It appears and leaves without motion, holds 6 s, and a click dismisses it. Browse layer only.</p>
     </div>
   </div>
 </div><div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
@@ -414,29 +416,28 @@
           <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">2024 · 2 seasons</div>
           <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">REST</div>
         </div>
-        <div style="width: 152px;">
-          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(221,241,250,0.35); background: radial-gradient(120% 90% at 28% 16%, oklch(0.5 0.07 250 / 0.95), transparent 55%), linear-gradient(160deg, oklch(0.37 0.06 250), oklch(0.17 0.045 284)); position: relative; box-shadow: 0 0 22px rgba(142,206,235,0.22), 0 10px 28px rgba(0,0,0,0.5); transform: translateY(-3px); box-sizing: border-box;">
-            <div style="position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(180deg, transparent 45%, rgba(7,8,13,0.85)); display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box;">
-              <div style="display: flex; align-items: center; gap: 9px;"><div style="width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #D14560, #A62339 72%); box-shadow: 0 0 14px rgba(209,69,96,0.5); display: flex; align-items: center; justify-content: center;"><svg width="11" height="12" viewBox="0 0 11 12" fill="#FFFFFF"><path d="M1 1 L10 6 L1 11 Z"></path></svg></div><span style="font-size: 12px; color: #E9EDF7; font-weight: 600;">Resume</span></div>
-            </div>
-            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
+        <div style="width: 152px; transform: scale(1.03); transform-origin: 50% 45%;">
+          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: radial-gradient(120% 90% at 28% 16%, oklch(0.44 0.06 250 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); position: relative; box-sizing: border-box;">
+            <div style="position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08); display: flex; align-items: center; justify-content: center;"><svg width="13" height="14" viewBox="0 0 11 12" fill="#E9EDF7"><path d="M1 1 L10 6 L1 11 Z"></path></svg></div>
+            <div style="position: absolute; right: 6px; bottom: 9px; display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08);"><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">✓</span><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">⋯</span></div>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: #07080D;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div>
           </div>
-          <div style="font-size: 14px; font-weight: 600; margin-top: 9px; color: #FFFFFF;">Hollowmere</div>
-          <div style="font-size: 12.5px; color: #AAB2C8; margin-top: 1px;">2024 · 2 seasons</div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">HOVER · LIFT −3 · GLOW · QUICK RESUME</div>
-        </div>
-        <div style="width: 152px;">
-          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(221,241,250,0.6); background: radial-gradient(120% 90% at 28% 16%, oklch(0.44 0.06 250 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); box-shadow: 0 0 14px rgba(142,206,235,0.32); box-sizing: border-box;"></div>
           <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">Hollowmere</div>
           <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">2024 · 2 seasons</div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">FOCUSED (KEYBOARD)</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">HOVER · SCALE 1.03 · PLAY + ACTION BAR</div>
+        </div>
+        <div style="width: 152px;">
+          <div style="height: 228px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: radial-gradient(120% 90% at 28% 16%, oklch(0.44 0.06 250 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); position: relative; opacity: 0.85; box-sizing: border-box;"><div style="position: absolute; right: 6px; bottom: 9px; display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08);"><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">✓</span><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">⋯</span></div></div>
+          <div style="font-size: 14px; font-weight: 600; margin-top: 9px; opacity: 0.85;">Hollowmere</div>
+          <div style="font-size: 12.5px; color: #79809A; margin-top: 1px; opacity: 0.85;">2024 · 2 seasons</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">FOCUSED (KEYBOARD) · 0.85 · BAR, NO RING</div>
         </div>
       </div>
       <div>
         <div style="width: 292px;">
           <div style="height: 164px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: radial-gradient(120% 90% at 28% 16%, oklch(0.52 0.075 42 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 42), oklch(0.15 0.04 76)); position: relative; box-sizing: border-box;">
             <div style="position: absolute; left: 12px; bottom: 12px; right: 12px;"><div style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(233,237,247,0.75); text-shadow: 0 1px 6px rgba(7,8,13,0.9);">31 min left</div></div>
-            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: #07080D;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div>
           </div>
           <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">Hollowmere</div>
           <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">S2 E4 · The Weir</div>
@@ -445,13 +446,13 @@
       </div>
       <div style="flex: 1; min-width: 320px;">
         <div style="display: flex; gap: 14px; background: #121522; border: 1px solid rgba(168,186,230,0.08); border-radius: 10px; padding: 10px; align-items: center;">
-          <div style="width: 148px; height: 84px; border-radius: 6px; flex-shrink: 0; background: radial-gradient(120% 90% at 28% 16%, oklch(0.52 0.075 178 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 178), oklch(0.15 0.04 212)); position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 6px 6px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div></div>
+          <div style="width: 132px; height: 74px; border-radius: 8px; flex-shrink: 0; background: radial-gradient(120% 90% at 28% 16%, oklch(0.52 0.075 178 / 0.9), transparent 55%), linear-gradient(160deg, oklch(0.33 0.055 178), oklch(0.15 0.04 212)); position: relative;"><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: #07080D;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div></div>
           <div style="min-width: 0;">
             <div style="display: flex; align-items: baseline; gap: 9px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">3</span><span style="font-size: 14.5px; font-weight: 600;">Saltglass</span><span style="font-size: 12px; color: #4A5068; margin-left: auto; font-family: 'JetBrains Mono', monospace;">57 min</span></div>
             <div style="font-size: 13px; color: #AAB2C8; margin-top: 4px; line-height: 1.5;">What the divers bring up should not have kept its shape. Bram stops sleeping.</div>
           </div>
         </div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">EPISODE ROW · H 104 · THUMB 148×84 · HOVER = STORMLIGHT WASH + PLAY GLYPH OVER THUMB</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">EPISODE ROW · THUMB 132×74 · R 8 · HOVERING THE THUMB REVEALS PLAY</div>
       </div>
     </div>
   </div>
@@ -459,76 +460,90 @@
   <!-- Badges + progress -->
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin: 64px 0 0;">
     <div>
-      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Gem pills — h 22 · pad 3 10 · r 999 · mono 10.5 caps ls 0.08</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Gem pills — status h 20 · pad 0 9 · mono 10 · RTX toggles h 24 · pad 0 11 · mono 10.5</div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX HDR</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX VSR</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(233,178,92,0.09); border: 1px solid rgba(233,178,92,0.35); color: #EFC685; text-shadow: 0 0 8px rgba(233,178,92,0.45); box-sizing: border-box;">HDR10</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">ATMOS 7.1</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(209,69,96,0.10); border: 1px solid rgba(209,69,96,0.4); color: #EE93A6; text-shadow: 0 0 8px rgba(209,69,96,0.5); box-sizing: border-box;">NEW</span>
-        <span style="height: 22px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(70,199,149,0.09); border: 1px solid rgba(70,199,149,0.35); color: #7CD9B4; text-shadow: 0 0 8px rgba(70,199,149,0.45); box-sizing: border-box;"><svg width="9" height="8" viewBox="0 0 9 8" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4 L3.5 6.5 L8 1"></path></svg>WATCHED</span>
+        <span style="height: 24px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: rgba(209,69,96,0.10); border: 1px solid rgba(209,69,96,0.45); color: #F0C2CB; box-shadow: 0 0 8px rgba(209,69,96,0.5); box-sizing: border-box;">RTX VSR</span>
+        <span style="height: 24px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: transparent; border: 1px solid rgba(168,186,230,0.16); color: #79809A; box-sizing: border-box;">RTX HDR</span>
+        <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
+        <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">HDR</span>
+        <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">12 March 2024</span>
       </div>
-      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">Tinted glass over dark: fill ≤ 0.10 α, border ~0.35 α, lit text with a faint text-glow. On the OSD, pills sit on the scrim at these exact values — never brighter.</p>
+      <p style="color: #79809A; font-size: 13px; margin: 18px 0 0;">Status pills are passive: tinted stormlight glass (fill 0.08 α, border 0.30 α, lit text with a faint glow) for an HDR source, the resolution and the release date. RTX VSR and RTX HDR are toggles: a stroke border and text-3 when off, the garnet chip with its glow when on. Both sit on the OSD scrim at these values.</p>
     </div>
     <div>
       <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Progress &amp; buffering</div>
       <div style="display: flex; gap: 36px; align-items: center;">
         <div style="flex: 1;">
-          <div style="height: 3px; border-radius: 2px; background: rgba(168,186,230,0.14); overflow: hidden;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 8px rgba(209,69,96,0.7);"></div></div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">WATCHED BAR · 3 PX · GARNET, GLOWING</div>
-          <div style="height: 3px; border-radius: 2px; background: rgba(168,186,230,0.14); margin-top: 24px;"><div style="width: 100%; height: 100%; background: rgba(70,199,149,0.55); border-radius: 2px;"></div></div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">FULLY WATCHED · EMERALD AT 0.55 α, NO GLOW</div>
+          <div style="height: 3px; border-radius: 1.5px; background: #07080D; overflow: hidden;"><div style="width: 62%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">RESUME BAR · 3 PX · GARNET ON STORM-0, NO GLOW</div>
+          <div style="margin-top: 24px; width: 22px; height: 22px; border-radius: 50%; background: #1FA873; color: #FFFFFF; font-size: 12px; display: flex; align-items: center; justify-content: center;">✓</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">WATCHED · THE EMERALD CHECK BADGE · INDEPENDENT OF THE RESUME BAR</div>
         </div>
         <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
-          <div style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;"><div style="width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #DDF1FA 0%, rgba(142,206,235,0.45) 40%, transparent 70%); animation: lwBreathe 2.4s ease-in-out infinite;"></div></div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; text-align: center;">BUFFERING · BREATHING GLOW<br>2 400 MS · NO SPINNER ARC</div>
+          <div style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;"><span style="display: inline-flex; gap: 4px; align-items: center; filter: drop-shadow(0 0 6px rgba(142,206,235,0.35));"><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.00s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.14s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.28s;"></span></span></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; text-align: center;">ACTIVITY · THREE DOTS<br>1 050 MS · 140 MS STAGGER · NO ARC</div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Indicators -->
+  <div style="margin: 64px 0 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Indicators — status that comes and goes on its own</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px 32px;">
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><span style="display: inline-flex; gap: 4px; align-items: center; filter: drop-shadow(0 0 6px rgba(142,206,235,0.35));"><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.00s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.14s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.28s;"></span></span></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">ACTIVITY DOTS · 5 PX · GAP 4 · PEAK 0.95</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">The one activity indicator on browse surfaces: load-more and status pills, the search field, and the detail page's download button while its options load. A control, not a style; one glow for the band.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="background: #191D2E; border-radius: 12px; padding: 8px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: #AAB2C8;"><span style="display: inline-flex; gap: 4px; align-items: center; filter: drop-shadow(0 0 6px rgba(142,206,235,0.35));"><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.00s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.14s;"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: #DDF1FA; opacity: 0.26; animation: lwDot 1.05s ease-in-out infinite 0.28s;"></span></span>Loading more…</div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">LOAD-MORE & STATUS PILL · STORM-3 · R 12 · --E-2</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Bottom-centre, 18 px above the grid edge, over the last row; never takes a click. The library uses the same pill for cache and refresh status.</p></div>
+      <div><div style="background: radial-gradient(90% 120% at 30% 20%, #6F7FA8 0%, #2B3350 45%, #0F1220 100%); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px;"><span style="display: inline-flex; gap: 7px; align-items: center; filter: drop-shadow(0 0 6px rgba(142,206,235,0.35));"><span style="width: 9px; height: 9px; border-radius: 50%; background: #DDF1FA; opacity: 0.22; animation: lwDotOsd 1.05s ease-in-out infinite 0.00s;"></span><span style="width: 9px; height: 9px; border-radius: 50%; background: #DDF1FA; opacity: 0.22; animation: lwDotOsd 1.05s ease-in-out infinite 0.14s;"></span><span style="width: 9px; height: 9px; border-radius: 50%; background: #DDF1FA; opacity: 0.22; animation: lwDotOsd 1.05s ease-in-out infinite 0.28s;"></span></span><span style="font-size: 13px; color: #AAB2C8;">Buffering…</span></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">BUFFERING CARD · SCRIM 0.72 α · R 16 · DOTS 9 PX</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Over video the dots peak at 0.55, inside the HDR glow budget. Loading also hides the transport bar; a stall keeps it.</p></div>
+      <div><div style="background: radial-gradient(90% 120% at 30% 20%, #6F7FA8 0%, #2B3350 45%, #0F1220 100%); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="display: flex; flex-direction: column; gap: 10px; align-items: center;"><span style="height: 34px; padding: 0 14px; box-sizing: border-box; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 17px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: inline-flex; align-items: center; gap: 9px;"><span style="font-family: 'Segoe UI Symbol', sans-serif; color: #AAB2C8; font-size: 16px;">🔊</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #E9EDF7; min-width: 46px; text-align: right;">65%</span></span><span style="height: 34px; padding: 0 14px; box-sizing: border-box; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); border-radius: 17px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: inline-flex; align-items: center; gap: 9px;"><span style="font-family: 'Segoe UI Symbol', sans-serif; color: #AAB2C8; font-size: 15px;">⊕</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #E9EDF7; min-width: 40px; text-align: right;">125%</span><span style="font-size: 12.5px; color: #AAB2C8;">Screen limit</span></span></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">VOLUME & ZOOM PILLS · H 34 · STORM-3 · MONO 13.5</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">In the player, volume sits top-right 108 px down and zoom top-centre 26 px down; the browse window shows zoom top-centre 76 px down. In 120 ms, hold 1.2 s after the last change, out 300 ms; neither wakes the OSD. A fixed min-width keeps them still while a key repeats.</p></div>
+      <div><div style="background: radial-gradient(90% 120% at 30% 20%, #6F7FA8 0%, #2B3350 45%, #0F1220 100%); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><span style="display: inline-flex; align-items: center; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08); border-radius: 18px;"><span style="font-size: 12px; color: #E9EDF7; margin: 0 8px 0 14px;">Playing · 2</span><span style="width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; font-family: 'Segoe UI Symbol', sans-serif; color: #AAB2C8; font-size: 18px;">👥</span></span></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">SYNCPLAY STATUS PILL · SCRIM 0.72 α · TEXT-1 12</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Right-aligned under the gem toggles. Text-1 keeps 7.2:1 over a white frame, where text-2 would fall to 4.0:1.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="position: relative; width: 76px; height: 114px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); box-sizing: border-box;"><span style="position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; left: 8px; top: 8px; background: #D14560; color: #FFF; font-size: 11px;">♥</span><span style="position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; right: 8px; top: 8px; background: #1FA873; color: #FFF; font-size: 12px;">✓</span><span style="position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; right: 8px; bottom: 10px; background: #3E74D8; color: #FFF; font-size: 12px;">⤓</span><span style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #07080D; border-radius: 0 0 8px 8px; overflow: hidden;"><span style="display: block; width: 40%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></span></span></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">STATE BADGES · 22 PX CIRCLES · WHITE GLYPH</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Favorite garnet-lit top-left, watched emerald top-right, downloaded sapphire bottom-right; bottom-left belongs to the episode card's time-left eyebrow. Resume progress is the 3 px garnet bar at the foot.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="position: relative; width: 76px; height: 114px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); background: linear-gradient(160deg, oklch(0.33 0.055 250), oklch(0.15 0.04 284)); box-sizing: border-box; transform: scale(1.03);"><span style="position: absolute; left: 50%; top: 40%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08); display: flex; align-items: center; justify-content: center;"><svg width="11" height="12" viewBox="0 0 11 12" fill="#E9EDF7"><path d="M1 1 L10 6 L1 11 Z"></path></svg></span><span style="position: absolute; right: 6px; bottom: 9px; display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(7,8,13,0.72); border: 1px solid rgba(168,186,230,0.08);"><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">✓</span><span style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #AAB2C8; font-size: 13px;">⋯</span></span></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">CARD HOVER · ACTION BAR + CENTRE PLAY</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Scale snaps to 1.03; the scrim action bar (28 px buttons, r 8) and the centre play fade in over 120 ms and out over 240 ms. Keyboard focus shows the bar at once and dims the card to 0.85.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="width: 200px; height: 40px; border-radius: 8px; background: rgba(142,206,235,0.08); display: flex; align-items: center; padding: 0 12px 0 10px; box-sizing: border-box; gap: 12px;"><span style="font-family: 'Segoe UI Symbol', sans-serif; color: #AAB2C8; font-size: 16px; width: 20px; text-align: center;">⤓</span><span style="font-size: 14px; color: #AAB2C8; flex: 1;">Downloads</span><span style="min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: #DDF1FA; color: #07080D; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center;">2</span></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">NAV COUNT BADGE · 20 PX · LIGHT-CORE ON STORM-0 TEXT</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">The number of active downloads on the Downloads item; hidden at 0. On the collapsed rail it moves to the item's top-right corner.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="width: 220px;"><div style="height: 3px; border-radius: 1.5px; background: #07080D; overflow: hidden;"><div style="width: 46%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560);"></div></div><div style="height: 3px; border-radius: 1.5px; background: #07080D; overflow: hidden; margin-top: 22px;"><div style="width: 100%; height: 100%; background: linear-gradient(90deg, #A62339, #D14560); animation: lwFlow 1.6s linear infinite;"></div></div></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">DOWNLOAD PROGRESS · 3 PX · GARNET ON STORM-0</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Determinate while the size is known; before that, and after the video part finishes, the bar fills and pulses 0.25 ↔ 1 over 800 ms. Settings shows the update download as a 5 px bar.</p></div>
+      <div><div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; height: 132px; display: flex; align-items: center; justify-content: center; gap: 14px; position: relative; overflow: hidden;"><div style="background: #191D2E; border-radius: 12px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.55);"><div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; border: 1.5px solid #D14560; background: rgba(209,69,96,0.13); box-shadow: 0 0 20px rgba(209,69,96,0.34);"><span style="width: 26px; height: 16px; border-radius: 3px; background: rgba(255,255,255,0.20); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center;">EN</span><span style="font-size: 13px; font-weight: 600; color: #D14560;">English · TrueHD 7.1</span></div><div style="display: flex; align-items: center; gap: 8px; padding: 4px 8px;"><span style="width: 26px; height: 16px; border-radius: 3px; background: rgba(255,255,255,0.20); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center;">DE</span><span style="font-size: 13px; color: #AAB2C8;">Deutsch · AC3 5.1</span></div></div></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 12px;">TRACK LANGUAGE BADGE · 26×16 · R 3 · 10/600</div><p style="color: #79809A; font-size: 13px; margin: 8px 0 0;">Two letters in the audio and subtitle flyouts; the selected row is garnet-lit with a garnet glow. r 3 stays off the radius ladder: r 8 is half the chip's height and would turn it into a lozenge.</p></div>
+    </div>
+    <p style="color: #79809A; font-size: 13px; margin: 24px 0 0; max-width: 760px;">Glyphs here stand in for the app's Material Icons Round. The volume and zoom pills, buffering card, load-more pill, search dots and toast are Collapsed when hidden, so their presence in UI Automation means they are on screen. The SyncPlay pill fades with the OSD, and the card action bar and hover play only fade to 0; all three stay in the tree.</p>
+  </div>
+
   <!-- Seek bar + volume -->
   <div style="margin: 64px 0 0;">
-    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 28px;">Seek bar — track 4 px (6 px on hover) · handle 12 px, appears on hover · full-row hit target 24 px</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 28px;">Seek bar — track 4 px · handle 12 px, always shown · full-row hit target 24 px</div>
     <div style="background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 42px 36px 30px;">
-      <div style="position: relative; height: 6px;">
-        <div style="position: absolute; inset: 0; border-radius: 3px; background: rgba(168,186,230,0.16);"></div>
-        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 71%; border-radius: 3px; background: rgba(142,206,235,0.20);"></div>
-        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 3px; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 10px rgba(209,69,96,0.55);"></div>
+      <div style="position: relative; height: 4px;">
+        <div style="position: absolute; inset: 0; border-radius: 2px; background: #222741;"></div>
+        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 2px 0 0 2px; background: linear-gradient(90deg, #A62339, #D14560);"></div>
         <div style="position: absolute; top: -3px; bottom: -3px; left: 24.6%; width: 2px; background: rgba(221,241,250,0.55);"></div>
         <div style="position: absolute; top: -3px; bottom: -3px; left: 58%; width: 2px; background: rgba(221,241,250,0.55);"></div>
         <div style="position: absolute; top: -3px; bottom: -3px; left: 83%; width: 2px; background: rgba(221,241,250,0.35);"></div>
-        <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 12px rgba(221,241,250,0.75), 0 0 28px rgba(142,206,235,0.4);"></div>
+        <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #D14560; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(209,69,96,0.55);"></div>
       </div>
       <div style="display: flex; justify-content: space-between; margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #AAB2C8;"><span>24:12</span><span style="color: #79809A;">−28:34 · ends 22:41</span></div>
-      <div style="display: grid; grid-template-columns: repeat(4, auto); gap: 28px; margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">
-        <span><span style="color: #D14560;">▮</span> PLAYED · GARNET + GLOW</span>
-        <span><span style="color: #8ECEEB;">▮</span> BUFFERED · LIGHT-DIM</span>
+      <div style="display: grid; grid-template-columns: repeat(3, auto); gap: 28px; margin-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em;">
+        <span><span style="color: #D14560;">▮</span> PLAYED · GARNET, NO GLOW</span>
         <span><span style="color: #DDF1FA;">▏</span> CHAPTER TICK · 2 PX</span>
-        <span><span style="color: #DDF1FA;">●</span> HANDLE · INFUSED, HOVER-ONLY</span>
+        <span><span style="color: #D14560;">●</span> HANDLE · GARNET-LIT, ALWAYS SHOWN</span>
       </div>
     </div>
     <div style="display: flex; gap: 48px; margin-top: 32px; align-items: flex-start;">
       <div>
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Volume slider — w 96 · track 4 · stormlight fill</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Volume slider — w 96 · the seek bar's track, fill and handle</div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <svg width="18" height="16" viewBox="0 0 18 16" fill="none" stroke="#AAB2C8" stroke-width="1.6"><path d="M1 6 H4 L8 2.5 V13.5 L4 10 H1 Z"></path><path d="M11 5 C12.5 6.5 12.5 9.5 11 11"></path><path d="M13.5 3 C16 5.5 16 10.5 13.5 13"></path></svg>
           <div style="position: relative; width: 96px; height: 4px;">
-            <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.16);"></div>
-            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px; background: rgba(142,206,235,0.55); box-shadow: 0 0 8px rgba(142,206,235,0.35);"></div>
-            <div style="position: absolute; top: 50%; left: 65%; width: 10px; height: 10px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div>
+            <div style="position: absolute; inset: 0; border-radius: 2px; background: #222741;"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px 0 0 2px; background: linear-gradient(90deg, #A62339, #D14560);"></div>
+            <div style="position: absolute; top: 50%; left: 65%; width: 12px; height: 12px; border-radius: 50%; background: #D14560; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(209,69,96,0.55);"></div>
           </div>
           <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">65</span>
         </div>
-        <p style="color: #79809A; font-size: 13px; margin: 14px 0 0; max-width: 300px;">Scroll wheel anywhere over the control: ±5. Muted: fill drains to 0 over 240 ms, glyph swaps to slashed variant.</p>
+        <p style="color: #79809A; font-size: 13px; margin: 14px 0 0; max-width: 300px;">Scroll wheel anywhere over the control: ±5. Muted: the glyph swaps to the slashed variant; the fill stays where it was.</p>
       </div>
       <div style="flex: 1;">
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Skeleton loaders — --storm-2 blocks · lwPulse 2 400 ms · no shimmer sweep</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; margin-bottom: 16px;">Skeleton loaders — --storm-2 blocks · 0.4 ↔ 0.9, 2 400 ms each way · no shimmer sweep</div>
         <div style="display: flex; gap: 16px;">
-          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite;"></div><div style="width: 90px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite;"></div></div>
-          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite 0.2s;"></div><div style="width: 70px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite 0.2s;"></div></div>
-          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 2.4s ease-in-out infinite 0.4s;"></div><div style="width: 96px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 2.4s ease-in-out infinite 0.4s;"></div></div>
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 4.8s linear infinite;"></div><div style="width: 90px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 4.8s linear infinite;"></div></div>
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 4.8s linear infinite;"></div><div style="width: 70px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 4.8s linear infinite;"></div></div>
+          <div><div style="width: 122px; height: 182px; border-radius: 8px; background: #121522; animation: lwPulse 4.8s linear infinite;"></div><div style="width: 96px; height: 12px; border-radius: 4px; background: #121522; margin-top: 10px; animation: lwPulse 4.8s linear infinite;"></div></div>
         </div>
       </div>
     </div>
@@ -536,13 +551,11 @@
 
   <!-- Empty state -->
   <div style="margin: 64px 0 0;">
-    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Empty state — one of three places the woven ornament may appear</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #79809A; padding-bottom: 12px; border-bottom: 1px solid rgba(168,186,230,0.10); margin-bottom: 24px;">Empty state — gem mark, Marcellus headline, quiet subline</div>
     <div style="position: relative; background: #0C0E16; border: 1px solid rgba(168,186,230,0.08); border-radius: 12px; padding: 72px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden;">
-      <div style="position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 15px), repeating-linear-gradient(-45deg, rgba(142,206,235,0.05) 0px, rgba(142,206,235,0.05) 1px, transparent 1px, transparent 15px); mask-image: radial-gradient(60% 100% at 50% 50%, black, transparent 75%); -webkit-mask-image: radial-gradient(60% 100% at 50% 50%, black, transparent 75%); pointer-events: none;"></div>
-      <div style="position: relative; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, rgba(221,241,250,0.9), rgba(142,206,235,0.35) 45%, transparent 72%); animation: lwBreathe 4.8s ease-in-out infinite;"></div>
-      <div style="position: relative; font-family: 'Marcellus', serif; font-size: 24px; letter-spacing: 0.02em; margin-top: 22px;">Nothing woven here yet</div>
-      <div style="position: relative; color: #AAB2C8; font-size: 14px; margin-top: 8px; max-width: 380px;">This library is empty. Add media to your Jellyfin server and it will appear here.</div>
-      <button style="position: relative; height: 36px; padding: 0 18px; border-radius: 8px; font: 600 14px 'Source Sans 3', sans-serif; color: #E9EDF7; background: #191D2E; border: 1px solid rgba(168,186,230,0.16); margin-top: 26px; cursor: pointer;">Open server dashboard</button>
+      <div style="position: relative; width: 34px; height: 34px; border-radius: 12px; box-sizing: border-box; border: 1px solid rgba(209,69,96,0.30); background: radial-gradient(85% 85% at 32% 28%, rgba(209,69,96,0.70), rgba(166,35,57,0.70) 70%); box-shadow: 0 0 22px rgba(209,69,96,0.30);"></div>
+      <div style="position: relative; font-family: 'Marcellus', serif; font-size: 21px; letter-spacing: 0.02em; margin-top: 16px;">Nothing woven here yet</div>
+      <div style="position: relative; color: #79809A; font-size: 13.5px; margin-top: 6px; max-width: 380px;">This library is empty. Add media to your Jellyfin server and it will appear here.</div>
     </div>
   </div>
 </div><div style="max-width: 1180px; margin: 0 auto; padding: 0 36px; font-size: 15px; line-height: 1.55;">
@@ -620,7 +633,7 @@
                 <div style="height: 164px; border-radius: 8px; border: 1px solid rgba(168,186,230,0.08); position: relative; box-sizing: border-box;">
                   <div style="{{ m.bg }}"></div>
                   <div style="position: absolute; left: 12px; bottom: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(233,237,247,0.75); text-shadow: 0 1px 6px rgba(7,8,13,0.9);">{{ m.meta }}</div>
-                  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="{{ m.barStyle }}"></div></div>
+                  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 8px 8px; overflow: hidden; background: #07080D;"><div style="{{ m.barStyle }}"></div></div>
                 </div>
                 <div style="font-size: 14px; font-weight: 600; margin-top: 9px;">{{ m.t }}</div>
                 <div style="font-size: 12.5px; color: #79809A; margin-top: 1px;">{{ m.sub }}</div>
@@ -748,7 +761,7 @@
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <sc-for list="{{ episodesShort }}" as="m" hint-placeholder-count="3">
                     <div style="display: flex; gap: 14px; background: rgba(18,21,34,0.75); border: 1px solid rgba(168,186,230,0.08); border-radius: 10px; padding: 9px; align-items: center;">
-                      <div style="width: 132px; height: 74px; border-radius: 6px; flex-shrink: 0; position: relative;"><div style="{{ m.bg }}"></div><div style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 6px 6px; overflow: hidden; background: rgba(7,8,13,0.6);"><div style="{{ m.barStyle }}"></div></div></div>
+                      <div style="width: 132px; height: 74px; border-radius: 8px; flex-shrink: 0; position: relative;"><div style="{{ m.bg }}"></div><div style="{{ m.trackStyle }}"><div style="{{ m.barStyle }}"></div></div><div style="{{ m.badgeStyle }}">✓</div></div>
                       <div style="min-width: 0; flex: 1;">
                         <div style="display: flex; align-items: baseline; gap: 9px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #79809A;">{{ m.n }}</span><span style="font-size: 14.5px; font-weight: 600;">{{ m.t }}</span><span style="font-size: 12px; color: #4A5068; margin-left: auto; font-family: 'JetBrains Mono', monospace;">{{ m.dur }}</span></div>
                         <div style="font-size: 13px; color: #AAB2C8; margin-top: 3px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ m.desc }}</div>
@@ -791,21 +804,20 @@
             </div>
           </div>
           <div style="display: flex; gap: 8px;">
-            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX HDR</span>
-            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(108,154,240,0.10); border: 1px solid rgba(108,154,240,0.35); color: #9DBCF7; text-shadow: 0 0 8px rgba(108,154,240,0.5); box-sizing: border-box;">RTX VSR</span>
-            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
-            <span style="height: 22px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; background: rgba(233,178,92,0.09); border: 1px solid rgba(233,178,92,0.35); color: #EFC685; text-shadow: 0 0 8px rgba(233,178,92,0.45); box-sizing: border-box;">HDR10</span>
+            <span style="height: 24px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: rgba(209,69,96,0.10); border: 1px solid rgba(209,69,96,0.45); color: #F0C2CB; box-shadow: 0 0 8px rgba(209,69,96,0.5); box-sizing: border-box;">RTX VSR</span>
+            <span style="height: 24px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: transparent; border: 1px solid rgba(168,186,230,0.16); color: #79809A; box-sizing: border-box;">RTX HDR</span>
+            <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">4K</span>
+            <span style="height: 20px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(142,206,235,0.08); border: 1px solid rgba(142,206,235,0.30); color: #BFE4F5; text-shadow: 0 0 8px rgba(142,206,235,0.5); box-sizing: border-box;">HDR</span>
           </div>
         </div>
         <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; background: linear-gradient(180deg, transparent, rgba(7,8,13,0.6) 45%, rgba(7,8,13,0.92)); display: flex; flex-direction: column; justify-content: flex-end; padding: 0 40px 24px; box-sizing: border-box;">
           <div style="position: relative; height: 4px;">
-            <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.18);"></div>
-            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 71%; border-radius: 2px; background: rgba(142,206,235,0.20);"></div>
-            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 2px; background: linear-gradient(90deg, #A62339, #D14560); box-shadow: 0 0 10px rgba(209,69,96,0.55);"></div>
+            <div style="position: absolute; inset: 0; border-radius: 2px; background: #222741;"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; border-radius: 2px 0 0 2px; background: linear-gradient(90deg, #A62339, #D14560);"></div>
             <div style="position: absolute; top: -3px; bottom: -3px; left: 24.6%; width: 2px; background: rgba(221,241,250,0.5);"></div>
             <div style="position: absolute; top: -3px; bottom: -3px; left: 58%; width: 2px; background: rgba(221,241,250,0.5);"></div>
             <div style="position: absolute; top: -3px; bottom: -3px; left: 83%; width: 2px; background: rgba(221,241,250,0.32);"></div>
-            <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 12px rgba(221,241,250,0.75), 0 0 28px rgba(142,206,235,0.4);"></div>
+            <div style="position: absolute; top: 50%; left: 46%; width: 12px; height: 12px; border-radius: 50%; background: #D14560; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(209,69,96,0.55);"></div>
           </div>
           <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #AAB2C8;"><span>24:12</span><span style="color: #79809A;">−28:34 · ends 22:41</span></div>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
@@ -815,9 +827,9 @@
             <div style="display: flex; align-items: center; gap: 12px; margin-left: 14px;">
               <svg width="18" height="16" viewBox="0 0 18 16" fill="none" stroke="#AAB2C8" stroke-width="1.6"><path d="M1 6 H4 L8 2.5 V13.5 L4 10 H1 Z"></path><path d="M11 5 C12.5 6.5 12.5 9.5 11 11"></path><path d="M13.5 3 C16 5.5 16 10.5 13.5 13"></path></svg>
               <div style="position: relative; width: 96px; height: 4px;">
-                <div style="position: absolute; inset: 0; border-radius: 2px; background: rgba(168,186,230,0.16);"></div>
-                <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px; background: rgba(142,206,235,0.55); box-shadow: 0 0 8px rgba(142,206,235,0.35);"></div>
-                <div style="position: absolute; top: 50%; left: 65%; width: 10px; height: 10px; border-radius: 50%; background: #DDF1FA; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(221,241,250,0.6);"></div>
+                <div style="position: absolute; inset: 0; border-radius: 2px; background: #222741;"></div>
+                <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 65%; border-radius: 2px 0 0 2px; background: linear-gradient(90deg, #A62339, #D14560);"></div>
+                <div style="position: absolute; top: 50%; left: 65%; width: 12px; height: 12px; border-radius: 50%; background: #D14560; transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(209,69,96,0.55);"></div>
               </div>
             </div>
             <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
@@ -836,8 +848,8 @@
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #4A5068; letter-spacing: 0.06em; margin-top: 10px;">IDLE · CHROME + CURSOR GONE</div>
       </div>
       <div style="color: #AAB2C8; font-size: 13.5px; line-height: 1.65; max-width: 640px;">
-        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Hide</strong> — after 3 s without input, both scrims and all chrome fade out together over 400 ms ease-out; the cursor hides with them. Pause keeps the OSD visible.</p>
-        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Restore</strong> — any mouse move, key, or seek restores chrome in 160 ms. A bare keyboard seek (←/→) shows only the seek bar + time, not the full OSD.</p>
+        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Hide</strong> — after 2.5 s without input, both scrims and all chrome fade out together over 300 ms; the cursor hides with them. The pointer over the controls, an open flyout or overflow tray, typing a time, or a load in progress holds the OSD.</p>
+        <p style="margin: 0 0 10px;"><strong style="color: #E9EDF7;">Restore</strong> — a mouse move, or the start of a load, restores chrome in 150 ms. Keys and keyboard seeks act without waking it; volume and zoom answer with their own pills.</p>
         <p style="margin: 0;"><strong style="color: #E9EDF7;">HDR safety</strong> — no surface in the OSD exceeds the scrim values shown; glyphs are #E9EDF7 at most. Glow accents stay ≤ 0.55 α so they cannot bloom over HDR highlights.</p>
       </div>
     </div>
@@ -921,13 +933,15 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px 48px; margin-top: 30px; color: #AAB2C8; font-size: 14px; line-height: 1.65;">
       <div><strong style="color: #E9EDF7;">Glow, cheaply.</strong> All blooms are WPF <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">DropShadowEffect</span> (blur ≤ 28, shadow-depth 0) or pre-rendered radial brushes. No full-screen blur anywhere; the modal scrim is a solid tint.</div>
       <div><strong style="color: #E9EDF7;">OSD airspace.</strong> mpv renders into a child HWND; OSD chrome lives in a layered top-level window synced to the video window's bounds — avoids WPF airspace clipping and survives fullscreen exclusive-ish modes.</div>
-      <div><strong style="color: #E9EDF7;">Ornament budget.</strong> The woven pattern is one tiled 64×64 drawing brush at ≤ 0.06 α, used only on login, empty states, and section dividers. Never behind poster grids or video.</div>
+      <div><strong style="color: #E9EDF7;">Ornament budget.</strong> The woven pattern is one tiled 17×17 crosshatch drawing brush at ≤ 0.06 α, used only on the login screen. Never behind poster grids or video.</div>
       <div><strong style="color: #E9EDF7;">Contrast.</strong> --text-1/2/3 hold ≥ 4.5:1 on storm-1 and storm-2. On artwork, text always sits on a ≥ 0.6 α scrim gradient, never raw.</div>
       <div><strong style="color: #E9EDF7;">Fonts.</strong> Marcellus, Source Sans 3, JetBrains Mono — all SIL OFL; ship as embedded TTFs. Fallback stack: Segoe UI, Segoe UI Variable.</div>
+      <div><strong style="color: #E9EDF7;">Activity, not rings.</strong> <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;">Views/ActivityDots</span> is the only activity indicator. The breathing ring of v1.0 was retired in August 2026: at 18 px its swell was 1.4 px over 2.4 s and read as a static circle.</div>
+      <div><strong style="color: #E9EDF7;">Pills over video.</strong> OSD status sits on the 0.72 α scrim (buffering card, SyncPlay pill, card chips over art); transient readouts (volume, zoom) use storm-3 with --e-2. Neither adds light above the 0.55 glow budget.</div>
       <div><strong style="color: #E9EDF7;">Scale.</strong> Reference layout 1440×900 at 100%. Below 1160 px width the nav rail collapses; above 2560 px, card sizes step up 1.25× rather than reflowing wider rails.</div>
     </div>
     <div style="margin-top: 72px; padding-top: 24px; border-top: 1px solid rgba(168,186,230,0.10); display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #4A5068;">
-      <span>LIGHTWEAVER DESIGN SPEC · V1.0</span>
+      <span>LIGHTWEAVER DESIGN SPEC · V1.1</span>
       <span>CHROME IS DARKNESS · MEDIA IS LIGHT</span>
     </div>
   </div>
@@ -952,14 +966,14 @@ class Component extends DCLogic {
     const media = (arr, bright) => arr.map((m, i) => ({
       ...m,
       bg: grad(hues[(m.h != null ? m.h : i) % hues.length], bright),
-      barStyle: { width: (m.pct || 0) + '%', height: '100%', background: 'linear-gradient(90deg, #A62339, #D14560)', boxShadow: '0 0 8px rgba(209,69,96,0.7)' }
+      barStyle: { width: (m.pct || 0) + '%', height: '100%', background: 'linear-gradient(90deg, #A62339, #D14560)' }
     }));
     const eps = [
       { n: '1', t: 'Low Water', dur: '54 min', desc: 'The parish floods on schedule; the church does not. Wren takes the survey job nobody wanted.', pct: 100, h: 8 },
       { n: '2', t: 'The Tithe Barn', dur: '49 min', desc: 'A ledger of names that were never born. Halloway calls in an old debt.', pct: 100, h: 12 },
       { n: '3', t: 'Saltglass', dur: '57 min', desc: 'What the divers bring up should not have kept its shape. Bram stops sleeping.', pct: 62, h: 15 },
       { n: '4', t: 'The Weir', dur: '51 min', desc: 'The water goes where it is told. For the first time, someone tells it.', pct: 0, h: 17 }
-    ].map((m) => ({ ...m, bg: grad(hues[m.h % hues.length], m.pct === 62, '6px'), barStyle: { width: m.pct + '%', height: '100%', background: m.pct === 100 ? 'rgba(70,199,149,0.55)' : 'linear-gradient(90deg, #A62339, #D14560)', boxShadow: m.pct === 100 ? 'none' : '0 0 8px rgba(209,69,96,0.7)' } }));
+    ].map((m) => ({ ...m, bg: grad(hues[m.h % hues.length], m.pct === 62, '8px'), barStyle: { width: m.pct + '%', height: '100%', background: 'linear-gradient(90deg, #A62339, #D14560)' }, trackStyle: { position: 'absolute', left: '0', right: '0', bottom: '0', height: '3px', borderRadius: '0 0 8px 8px', overflow: 'hidden', background: '#07080D', display: m.pct > 0 && m.pct < 100 ? 'block' : 'none' }, badgeStyle: { position: 'absolute', top: '8px', right: '8px', width: '22px', height: '22px', borderRadius: '50%', background: '#1FA873', color: '#FFFFFF', fontSize: '12px', display: m.pct === 100 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center' } }));
     return {
       episodesShort: eps.slice(0, 3),
       baseLadder: [
@@ -986,11 +1000,16 @@ class Component extends DCLogic {
       ],
       spacing: [4, 8, 12, 16, 20, 24, 32, 40, 48, 64].map((v, i) => ({ t: `--sp-${i + 1}`, v: `${v}px`, bar: { width: `${v * 3}px`, height: '14px', background: 'rgba(142,206,235,0.28)', borderRadius: '2px' } })),
       motion: [
-        { t: '--dur-instant', v: '120 ms', e: 'ease-out', use: 'Press feedback, toggle knob travel, checkmark draw' },
-        { t: '--dur-glow', v: '240 ms in · 420 ms out', e: 'cubic-bezier(.25,.6,.2,1)', use: 'Hover & focus glow — arrives fast, decays slowly' },
-        { t: '--dur-drift', v: '480 ms', e: 'cubic-bezier(.25,.6,.2,1)', use: 'Modal entry (fade + 8 px rise), row load-in, backdrop cross-fade' },
-        { t: '--dur-ambient', v: '2 400 ms loop', e: 'ease-in-out', use: 'Buffering breathe, skeleton pulse, login ornament shimmer' },
-        { t: '--osd-hide', v: '400 ms, after 3 s idle', e: 'ease-out', use: 'Player OSD fade-out; cursor hides with it; any input restores in 160 ms' }
+        { t: '--dur-instant', v: '120 ms', e: 'linear', use: 'Card action bar and hover play fade in; transient pills fade in. Press, hover, focus and toggle states switch at once' },
+        { t: '--dur-glow', v: '240 ms', e: 'linear · CubicEase out', use: 'Card hover reveals fade out (linear); the segmented thumb slides (CubicEase out). The 420 ms decay token has no consumer' },
+        { t: '--dur-drift', v: '480 ms', e: 'CubicEase out', use: 'Modal and shortcuts overlay entry (fade + 24 px rise); Advanced Search result sections (fade + 8 px rise, 60 ms apart)' },
+        { t: '--dur-ambient', v: '2 400 ms each way', e: 'linear, auto-reverse', use: 'Skeleton pulse, opacity 0.4 ↔ 0.9, all blocks in step (a 4.8 s cycle)' },
+        { t: 'activity dots', v: '1 050 ms per dot · 140 ms stagger', e: 'SineEase in-out', use: 'The activity indicator. Each dot swells to 1.18× and full light at 35 %, settles at 70 %, then waits' },
+        { t: 'indicator reveal', v: '250 ms delay', e: '—', use: 'Indicators inside a painted page (load-more pill, search dots, rail refills) wait this long, so fast loads never flash one. First-paint skeletons appear at once' },
+        { t: '--osd-hide', v: '300 ms, after 2.5 s idle', e: 'linear', use: 'Player OSD fade-out; cursor hides with it. A mouse move or the start of a load restores it in 150 ms' },
+        { t: 'transient pill', v: '120 in · 1 200 hold · 300 out', e: 'linear', use: 'Volume and zoom pills; each new change restarts the hold' },
+        { t: 'download pulse', v: '800 ms, auto-reverse', e: 'linear', use: 'Download progress whose size is not known yet, or whose video part has finished; opacity 0.25 ↔ 1' },
+        { t: 'toast', v: '6 s', e: 'none', use: 'Appears and leaves without motion; a click dismisses it early' }
       ],
       continueWatching: media([
         { t: 'Hollowmere', sub: 'S2 E4 · The Weir', meta: '31 min left', pct: 62, h: 0 },

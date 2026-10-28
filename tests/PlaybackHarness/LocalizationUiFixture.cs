@@ -325,7 +325,7 @@ internal static class LocalizationUiFixture
             if (!ffmpeg.WaitForExit(30000) || ffmpeg.ExitCode != 0) throw new InvalidOperationException("Could not generate live switching clip.");
         }
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_VIDEO", "1");
-        using var player = LightWeaver.Player.MpvPlayer.Create(0, Dispatcher.CurrentDispatcher, new AppSettings { HardwareDecoding = false });
+        using var player = LightWeaver.Player.MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), new AppSettings { HardwareDecoding = false });
         vm.Attach(player);
         player.LoadFile(clip);
         var deadline = DateTime.UtcNow.AddSeconds(20);
@@ -400,7 +400,7 @@ internal static class LocalizationUiFixture
         });
         Pump();
         CaptureSizes(main, language + "-library-offline");
-        host.Content = new SectionView((_, _) => Task.FromResult((new List<LightWeaver.Jellyfin.MediaItem>(), 0)));
+        host.Content = new SectionView(model, (_, _) => Task.FromResult((new List<LightWeaver.Jellyfin.MediaItem>(), 0)));
         Pump();
         CaptureSizes(main, language + "-section-empty");
 

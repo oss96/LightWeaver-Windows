@@ -91,13 +91,18 @@ public partial class UpNextShowFlyout : UserControl
             return;
         // The popup inherits the trigger's UI zoom, so its width and offsets are in the trigger's
         // layout units while the window root is not zoomed. Measure the window in those units.
-        var zoom = _trigger.TransformToAncestor(root) is System.Windows.Media.Transform toRoot ? toRoot.Value.M11 : 1.0;
+        // Abs: a right-to-left browse layer adds a mirror below the left-to-right root, so M11 is -zoom.
+        var zoom = _trigger.TransformToAncestor(root) is System.Windows.Media.Transform toRoot ? Math.Abs(toRoot.Value.M11) : 1.0;
         if (zoom <= 0) zoom = 1.0;
         var rootWidth = root.ActualWidth / zoom;
         var rootHeight = root.ActualHeight / zoom;
         FlyoutPanel.Width = Math.Min(FlyoutWidth, Math.Max(0, rootWidth - 2 * margin));
         var rootOrigin = _trigger.TranslatePoint(new Point(0, 0), root);
         var origin = new Point(rootOrigin.X / zoom, rootOrigin.Y / zoom);
+        // Mirrored, the trigger's origin is its right corner and its offsets run leftwards, so the
+        // leading edge is measured from the root's right side and the overflow is past its left.
+        if (_trigger.FlowDirection != root.FlowDirection)
+            origin.X = rootWidth - origin.X;
         var overflow = origin.X + FlyoutPanel.Width - (rootWidth - margin);
         FlyoutPopup.HorizontalOffset = overflow > 0 ? -Math.Min(overflow, Math.Max(0, origin.X - margin)) : 0;
 

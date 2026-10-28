@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>13</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Full-window player</div>
+  <div style="font-size:15px;color:#555;max-width:820px;line-height:1.5">mpv draws the video underneath; everything here is UI drawn over it inside the window. Every surface over video is dark and translucent, with no large bright areas, because the picture can be HDR.</div>
+</div>
+<section id="13t" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">13a</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">Transition: detail preview → full window</span></div>
+  <div style="display:flex;gap:40px;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <sc-for list="{{ trans }}" as="tr">
+        <div style="display:flex;gap:20px;align-items:flex-start">
+          <sc-for list="{{ tr.steps }}" as="s">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ s.os }} · {{ s.cap }}</div>
+              <div style="width:480px;height:300px;position:relative;overflow:hidden;border-radius:{{ s.r }}px;box-shadow:0 12px 30px rgba(0,0,0,0.3)">
+                <div style="width:1440px;height:900px;transform:scale(0.3333);transform-origin:0 0;position:absolute;left:0;top:0;background:{{ s.winBg }};font-family:{{ s.font }};color:{{ s.text }}">
+                  <div style="position:absolute;inset:0;opacity:{{ s.uiOp }}">
+                    <div style="position:absolute;left:1000px;top:76px;right:24px;height:540px;border-radius:{{ s.cardR }}px;background:{{ s.surface }};padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+                      <div style="font-size:30px;font-weight:700">Harbor Lights</div>
+                      <div style="font-size:16px;color:{{ s.text2 }}">2019 · PG-13 · ★ 7.4 · 1 h 58 min</div>
+                      <div style="width:100%;height:12px;border-radius:4px;background:{{ s.surface2 }};margin-top:20px"></div><div style="width:80%;height:12px;border-radius:4px;background:{{ s.surface2 }}"></div><div style="width:90%;height:12px;border-radius:4px;background:{{ s.surface2 }}"></div>
+                    </div>
+                    <div style="position:absolute;left:24px;right:24px;top:640px;bottom:24px;display:flex;gap:16px">
+                      <div style="flex:1.3;border-radius:{{ s.cardR }}px;background:{{ s.surface }};padding:14px;font-size:16px;font-weight:600">More like this →</div>
+                      <div style="flex:1;border-radius:{{ s.cardR }}px;background:{{ s.surface }};padding:14px;font-size:16px;font-weight:600">Cast and Crew →</div>
+                    </div>
+                    <dc-import name="Chrome" p="{{ s }}" width="{{ 1440 }}" active="libraries" badge="2" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+                  </div>
+                  <div style="position:absolute;left:{{ s.vx }}px;top:{{ s.vy }}px;width:{{ s.vw }}px;height:{{ s.vh }}px;border-radius:{{ s.vr }}px;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 14px, rgba(255,255,255,0.012) 14px 28px), #0c0c0d;overflow:hidden">
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 22px/1 {{ s.mono }};color:rgba(255,255,255,0.22);letter-spacing:.08em">VIDEO</div>
+                    <div style="position:absolute;left:16px;right:16px;bottom:16px;height:76px;border-radius:{{ s.tbR }}px;background:rgba(12,12,14,0.6);border:1px solid rgba(255,255,255,0.07)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+      <sc-for list="{{ transNotes }}" as="n">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+          <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:#000;border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:rgba(255,255,255,0.88);box-sizing:border-box;cursor:{{ f.cursor }}">
+            <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 62% 40%, #1e2226 0%, #101214 45%, #08090a 100%)"></div>
+            <div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.02) 0 12px, transparent 12px 24px)"></div>
+            <div style="position:absolute;left:24px;top:{{ f.vlabTop }}px;font:500 11px/1 {{ f.mono }};color:rgba(255,255,255,0.25);letter-spacing:.08em">VIDEO (MPV) · HDR10 · 3840×1608</div>
+            <sc-if value="{{ f.subs }}"><div style="position:absolute;left:0;right:0;bottom:{{ f.subBottom }}px;text-align:center;font-size:{{ f.subSize }}px;font-weight:600;color:#fff;-webkit-text-stroke:3px #000;paint-order:stroke fill;text-shadow:0 2px 4px rgba(0,0,0,0.6)">I told you the ferry doesn’t run after dark.</div></sc-if>
+            <sc-if value="{{ f.controls }}">
+              <div style="position:absolute;left:0;right:0;top:0;height:120px;background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0))"></div>
+              <div style="position:absolute;left:{{ f.titleL }}px;top:12px;display:flex;align-items:center;gap:10px">
+                <div style="width:34px;height:34px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08)" style-hover="background:rgba(255,255,255,0.16)"><span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal">{{ f.backIcon }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:14px;font-weight:600">Lantern House</div><div style="font-size:12px;color:rgba(255,255,255,0.6)">S1 · E4 — The Lamp Room</div></div>
+              </div>
+              <div style="position:absolute;left:16px;right:16px;bottom:16px;height:{{ f.tbH }}px;border-radius:{{ f.tbR }}px;background:rgba(14,14,16,0.58);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(24px) saturate(1.2);-webkit-backdrop-filter:blur(24px) saturate(1.2);box-sizing:border-box;padding:12px 12px 10px 16px;display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:12px;padding-right:4px">
+                  <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,0.8);width:44px">{{ f.tNow }}</div>
+                  <div style="flex:1;position:relative;height:16px;display:flex;align-items:center;gap:2px">
+                    <sc-for list="{{ f.chapters }}" as="c">
+                      <div style="width:{{ c.w }};height:{{ f.seekH }}px;border-radius:2px;background:rgba(255,255,255,0.2);position:relative;overflow:hidden;flex:none">
+                        <div style="position:absolute;left:0;top:0;bottom:0;width:{{ c.buf }};background:rgba(255,255,255,0.18)"></div>
+                        <div style="position:absolute;left:0;top:0;bottom:0;width:{{ c.fill }};background:{{ f.played }}"></div>
+                      </div>
+                    </sc-for>
+                    <div style="position:absolute;left:30%;top:50%;width:{{ f.knob }}px;height:{{ f.knob }}px;margin:{{ f.knobM }};border-radius:50%;background:#e8e8ea;box-shadow:0 1px 3px rgba(0,0,0,0.5)"></div>
+                    <sc-if value="{{ f.trick }}"><div style="position:absolute;left:38%;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(255,255,255,0.7)"></div></sc-if>
+                  </div>
+                  <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,0.6);width:56px;text-align:right">{{ f.tLeft }}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <div style="width:40px;height:40px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.1)"><span style="font-family:{{ f.icon }};font-size:30px;line-height:1;font-weight:normal;font-variation-settings:'FILL' 1">pause</span></div>
+                  <div style="width:36px;height:36px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.1)"><span style="font-family:{{ f.icon }};font-size:22px;line-height:1;font-weight:normal">replay_10</span></div>
+                  <div style="width:36px;height:36px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.1)"><span style="font-family:{{ f.icon }};font-size:22px;line-height:1;font-weight:normal">forward_30</span></div>
+                  <div style="width:36px;height:36px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.1)"><span style="font-family:{{ f.icon }};font-size:22px;line-height:1;font-weight:normal">skip_next</span></div>
+                  <div style="width:1px;height:20px;background:rgba(255,255,255,0.12);margin:0 6px"></div>
+                  <div style="width:36px;height:36px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.1)"><span style="font-family:{{ f.icon }};font-size:21px;line-height:1;font-weight:normal">volume_up</span></div>
+                  <sc-if value="{{ f.wide }}">
+                    <div style="width:90px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);position:relative"><div style="width:70%;height:100%;border-radius:2px;background:rgba(255,255,255,0.75)"></div></div>
+                  </sc-if>
+                  <div style="flex:1"></div>
+                  <div style="position:relative;display:flex;align-items:center;gap:4px">
+                    <sc-for list="{{ f.rbtns }}" as="b">
+                      <div title="{{ b.t }}" style="width:{{ b.w }}px;height:36px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center;gap:4px;background:{{ b.bg }};color:{{ b.color }};font-size:12.5px;font-weight:600" style-hover="background:rgba(255,255,255,0.12)"><sc-if value="{{ b.i }}"><span style="font-family:{{ f.icon }};font-size:21px;line-height:1;font-weight:normal;font-variation-settings:{{ b.iv }}">{{ b.i }}</span></sc-if>{{ b.l }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <sc-if value="{{ f.pins }}">
+                  <div style="position:absolute;left:{{ f.pinSeekX }}px;top:-8px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                  <div style="position:absolute;left:-8px;bottom:30px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">3</div>
+                  <div style="position:absolute;right:240px;bottom:44px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">4</div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.trick }}">
+              <div style="position:absolute;left:{{ f.trickX }}px;bottom:{{ f.trickB }}px;width:208px;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="width:208px;height:117px;border-radius:{{ f.trR }}px;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 8px, rgba(255,255,255,0.02) 8px 16px), #1a1c1e;border:1px solid rgba(255,255,255,0.14);box-shadow:0 6px 20px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font:500 9.5px/1 {{ f.mono }};color:rgba(255,255,255,0.35);letter-spacing:.06em;position:relative">TRICKPLAY FRAME
+                  <div style="position:absolute;right:-26px;top:4px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                </div>
+                <div style="padding:3px 8px;border-radius:6px;background:rgba(10,10,12,0.7);font-size:12px;display:flex;gap:6px"><span style="font-variant-numeric:tabular-nums;font-weight:600">52:31</span><span style="color:rgba(255,255,255,0.6)">Ch. 4 · The lamp</span></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.fly }}">
+              <div style="position:absolute;right:{{ f.flyR }}px;bottom:{{ f.flyB }}px;width:{{ f.flyW }}px;border-radius:{{ f.flyRad }}px;background:rgba(18,18,20,0.72);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(30px) saturate(1.2);-webkit-backdrop-filter:blur(30px) saturate(1.2);box-shadow:0 12px 40px rgba(0,0,0,0.5);padding:8px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+                <sc-if value="{{ f.isTracks }}">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <sc-for list="{{ f.trackCols }}" as="col">
+                      <div style="display:flex;flex-direction:column;gap:1px">
+                        <div style="font-size:11.5px;font-weight:600;color:rgba(255,255,255,0.5);padding:6px 10px 4px">{{ col.h }}</div>
+                        <sc-for list="{{ col.items }}" as="it">
+                          <div style="min-height:{{ f.miH2 }}px;display:flex;align-items:center;gap:8px;padding:4px 10px 4px 8px;border-radius:{{ f.miR }}px;background:{{ it.bg }};font-size:13px" style-hover="background:rgba(255,255,255,0.08)">
+                            <div style="width:14px;flex:none;color:{{ f.accentFg }}"><sc-if value="{{ it.on }}"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal;font-variation-settings:'wght' 600">check</span></sc-if></div>
+                            <div style="display:flex;flex-direction:column;gap:1px;min-width:0"><div>{{ it.l }}</div><sc-if value="{{ it.s }}"><div style="font-size:11.5px;color:rgba(255,255,255,0.5)">{{ it.s }}</div></sc-if></div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="height:1px;background:rgba(255,255,255,0.08);margin:6px 2px"></div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:2px 6px 2px 10px;font-size:12.5px">
+                    <span style="color:rgba(255,255,255,0.65)">Subtitle offset</span>
+                    <div style="display:flex;align-items:center;border-radius:{{ f.miR }}px;background:rgba(255,255,255,0.06)"><div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal">remove</span></div><div style="min-width:44px;text-align:center;font-variant-numeric:tabular-nums">+0.2 s</div><div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal">add</span></div></div>
+                    <div style="flex:1"></div>
+                    <div style="font-size:12.5px;color:{{ f.accentFg }};padding:4px 6px;border-radius:4px" style-hover="background:rgba(255,255,255,0.08)">Subtitle style…</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.isQueue }}">
+                  <div style="display:flex;align-items:center;padding:6px 10px 6px"><div style="font-size:13px;font-weight:600;flex:1">Queue</div><div style="font-size:12px;color:rgba(255,255,255,0.5)">5 left · 4 h 02 min</div></div>
+                  <sc-for list="{{ f.queue }}" as="q">
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:{{ f.miR }}px;background:{{ q.bg }}" style-hover="background:rgba(255,255,255,0.07)">
+                      <div style="width:16px;text-align:center;font-size:12px;color:rgba(255,255,255,0.45)">
+                        <sc-if value="{{ q.cur }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.accentFg }};font-variation-settings:'FILL' 1">equalizer</span></sc-if>
+                        <sc-if value="{{ q.notCur }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">drag_indicator</span></sc-if>
+                      </div>
+                      <div style="width:72px;height:40px;flex:none;border-radius:5px;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 6px, rgba(255,255,255,0.02) 6px 12px), #1c1c1e"></div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.t }}</div><div style="font-size:11.5px;color:rgba(255,255,255,0.5)">{{ q.s }}</div></div>
+                      <sc-if value="{{ q.hover }}"><div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:{{ f.miR }}px;color:rgba(255,255,255,0.7)"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal">close</span></div></sc-if>
+                    </div>
+                  </sc-for>
+                </sc-if>
+                <sc-if value="{{ f.isSpeed }}">
+                  <div style="font-size:11.5px;font-weight:600;color:rgba(255,255,255,0.5);padding:6px 10px 4px">Playback speed</div>
+                  <sc-for list="{{ f.speeds }}" as="s">
+                    <div style="height:{{ f.miH2 }}px;display:flex;align-items:center;gap:8px;padding:0 10px 0 8px;border-radius:{{ f.miR }}px;background:{{ s.bg }};font-size:13px;font-variant-numeric:tabular-nums" style-hover="background:rgba(255,255,255,0.08)">
+                      <div style="width:14px;color:{{ f.accentFg }}"><sc-if value="{{ s.on }}"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal;font-variation-settings:'wght' 600">check</span></sc-if></div>{{ s.l }}
+                    </div>
+                  </sc-for>
+                  <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 2px"></div>
+                  <div style="height:{{ f.miH2 }}px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 10px;font-size:12.5px;color:rgba(255,255,255,0.75)">Keep pitch<div style="width:32px;height:18px;border-radius:9px;background:{{ f.togOn }};position:relative"><div style="position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:7px;background:rgba(255,255,255,0.9)"></div></div></div>
+                </sc-if>
+                <sc-if value="{{ f.isInfo }}">
+                  <div style="display:flex;align-items:center;padding:6px 10px 4px"><div style="font-size:13px;font-weight:600;flex:1">Playback info</div><div style="font-size:11.5px;color:rgba(255,255,255,0.5)">updates every second</div></div>
+                  <div style="display:grid;grid-template-columns:120px 1fr;gap:4px 12px;padding:4px 10px 8px;font:12px/1.5 {{ f.mono }}">
+                    <sc-for list="{{ f.info }}" as="i"><div style="color:rgba(255,255,255,0.5)">{{ i.k }}</div><div style="color:rgba(255,255,255,0.85)">{{ i.v }}</div></sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.skip }}">
+              <div style="position:absolute;right:{{ f.skipR }}px;bottom:{{ f.skipB }}px;height:44px;display:flex;align-items:center;gap:8px;padding:0 18px 0 14px;border-radius:{{ f.skipRad }}px;background:rgba(18,18,20,0.66);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:14px;font-weight:600;box-shadow:0 0 0 2px rgba(255,255,255,0.0)" style-hover="background:rgba(40,40,44,0.8)">
+                <span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal;font-variation-settings:'FILL' 1">fast_forward</span>Skip intro<span style="font-size:11.5px;font-weight:500;color:rgba(255,255,255,0.5);margin-left:4px">{{ f.skipKey }}</span>
+                <div style="position:absolute;left:-26px;top:13px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.upnext }}">
+              <div style="position:absolute;right:24px;bottom:{{ f.upB }}px;width:380px;border-radius:{{ f.flyRad }}px;background:rgba(18,18,20,0.72);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:0 12px 40px rgba(0,0,0,0.5);padding:12px;box-sizing:border-box;display:flex;gap:12px">
+                <div style="width:136px;height:76px;flex:none;border-radius:6px;background:repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 6px, rgba(255,255,255,0.02) 6px 12px), #1c1c1e;position:relative">
+                  <div style="position:absolute;left:50%;top:50%;margin:-18px 0 0 -18px;width:36px;height:36px;border-radius:50%;background:conic-gradient({{ f.accentFg }} 0 72%, rgba(255,255,255,0.15) 72% 100%);display:flex;align-items:center;justify-content:center"><div style="width:30px;height:30px;border-radius:50%;background:rgba(14,14,16,0.9);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums">7</div></div>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                  <div style="font-size:11.5px;color:rgba(255,255,255,0.55)">Up next in 7 s</div>
+                  <div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">S1 · E5 — Low Water</div>
+                  <div style="font-size:11.5px;color:rgba(255,255,255,0.5)">Lantern House · 51 min</div>
+                  <div style="display:flex;gap:6px;margin-top:auto">
+                    <div style="height:28px;padding:0 12px;display:flex;align-items:center;gap:4px;border-radius:{{ f.btnR2 }}px;background:rgba(255,255,255,0.14);font-size:12.5px;font-weight:600" style-hover="background:rgba(255,255,255,0.2)"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal;font-variation-settings:'FILL' 1">play_arrow</span>Play now</div>
+                    <div style="height:28px;padding:0 12px;display:flex;align-items:center;border-radius:{{ f.btnR2 }}px;font-size:12.5px;color:rgba(255,255,255,0.75)" style-hover="background:rgba(255,255,255,0.08)">Cancel</div>
+                  </div>
+                </div>
+                <div style="position:absolute;left:-26px;top:12px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.controls }}">
+              <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" minimal="{{ true }}" title="" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const mac = f.mac, w = f.w;
+    f.controls = f.controls !== false;
+    f.cursor = f.controls ? 'default' : 'none';
+    f.wide = w >= 1200;
+    f.vlabTop = f.controls ? 70 : 24;
+    f.titleL = mac ? 90 : 16;
+    f.btnR2 = mac ? 18 : 4; f.tbR = mac ? 22 : 8; f.tbH = 92; f.trR = mac ? 10 : 6; f.miR = mac ? 7 : 4; f.miH2 = mac ? 30 : 34;
+    f.flyRad = mac ? 16 : 8; f.skipRad = mac ? 22 : 6;
+    f.played = f.accentFg; f.seekH = 4; f.knob = 14; f.knobM = '-7px 0 0 -7px';
+    f.togOn = mac ? f.accent : f.accentFg;
+    f.subs = f.subs !== false; f.subBottom = f.controls ? 136 : 64; f.subSize = w < 1000 ? 22 : 30;
+    f.tNow = '42:10'; f.tLeft = '−1:16:10';
+    const chs = [4, 18, 16, 23, 19, 16, 4];
+    let acc = 0;
+    f.chapters = chs.map(c => { const s = acc; acc += c; const fill = Math.max(0, Math.min(1, (30 - s) / c)); const buf = Math.max(0, Math.min(1, (46 - s) / c)); return { w: 'calc(' + c + '% - 2px)', fill: Math.round(fill * 100) + '%', buf: Math.round(buf * 100) + '%' }; });
+    const seekL = 16 + 16 + 44 + 12, seekW = w - 32 - 28 - 44 - 56 - 24 - 4;
+    f.trickX = Math.round(seekL + seekW * 0.38 - 104); f.trickB = 16 + 92 - 4;
+    f.pinSeekX = Math.round(44 + 12 + seekW * 0.04);
+    const fl = f.flyout;
+    const act = (k) => fl === k;
+    f.rbtns = [
+      { k: 'tracks', i: 'subtitles', t: 'Tracks', w: 36 }, { k: 'quality', i: '', l: '1080p', t: 'Quality', w: 64 }, { k: 'speed', i: '', l: '1×', t: 'Speed', w: 44 },
+      { k: 'queue', i: 'playlist_play', t: 'Queue', w: 36 }, { k: 'info', i: 'info', t: 'Info', w: 36 }, { k: 'fs', i: mac ? 'open_in_full' : 'fullscreen', t: 'Fullscreen', w: 36 }
+    ].map(b => Object.assign(b, { bg: act(b.k) ? 'rgba(255,255,255,0.16)' : 'transparent', color: '#fff', iv: act(b.k) ? "'FILL' 1" : "'FILL' 0" }));
+    const rEdge = { tracks: 248, speed: 132, queue: 92, info: 52 };
+    f.fly = !!fl; f.isTracks = act('tracks'); f.isQueue = act('queue'); f.isSpeed = act('speed'); f.isInfo = act('info');
+    f.flyR = 16 + 12 + (rEdge[fl] || 0) - 4; f.flyB = 16 + 92 + 8;
+    f.flyW = { tracks: 520, queue: 400, speed: 200, info: 440 }[fl] || 300;
+    if (f.isInfo || f.isQueue) f.flyR = 16 + 8;
+    const sel = (on) => on ? 'rgba(255,255,255,0.06)' : 'transparent';
+    f.trackCols = [
+      { h: 'Audio', items: [['English', 'Dolby Digital 5.1 · Default', true], ['English', 'Commentary · AAC Stereo', false], ['Deutsch', 'Dolby Digital 5.1', false], ['Français', 'AAC Stereo', false]].map(([l, s, on]) => ({ l, s, on, bg: sel(on) })) },
+      { h: 'Subtitles', items: [['Off', '', false], ['English', 'SRT · Default', true], ['English SDH', 'PGS', false], ['Deutsch', 'SRT', false], ['Français', 'Forced · ASS', false]].map(([l, s, on]) => ({ l, s, on, bg: sel(on) })) }
+    ];
+    f.queue = [['S1 · E4 — The Lamp Room', 'Now playing · 42:10 of 1:58:20', true], ['S1 · E5 — Low Water', '51 min', false], ['S1 · E6 — Keeper’s Log', '48 min', false], ['S1 · E7 — Fog Signal', '55 min', false], ['S1 · E8 — The Long Night', '1 h 02 min', false]]
+      .map(([t, s, cur], i) => ({ t, s, cur, notCur: !cur, bg: cur ? 'rgba(255,255,255,0.07)' : 'transparent', hover: i === 2 }));
+    f.speeds = ['0.5×', '0.75×', '1×', '1.25×', '1.5×', '2×'].map(l => ({ l, on: l === '1×', bg: sel(l === '1×') }));
+    f.info = [['Method', 'Direct play'], ['Container', 'MKV · 18.4 GB'], ['Video', 'HEVC Main 10 · 3840×1608'], ['', '23.976 fps · HDR10 · 42.1 Mbps'], ['Output', mac ? 'gpu-next · videotoolbox' : 'gpu-next · d3d11va'], ['Display', 'HDR · peak 1000 nits'], ['Audio', 'E-AC3 5.1 · 640 kbps'], ['Buffer', '58 s · 312 MB'], ['Dropped', '0 frames'], ['Server', 'media.home.lan · 11 ms']].map(([k, v]) => ({ k, v }));
+    f.skipR = 24; f.skipB = f.controls ? 16 + 92 + 16 : 48; f.skipKey = mac ? 'S' : 'S';
+    f.upB = f.controls ? 16 + 92 + 16 : 32;
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [], trans: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const steps = (P) => [
+      { cap: '0 ms · preview in detail page', vx: 24, vy: 76, vw: 960, vh: 540, vr: P.cardR, uiOp: 1 },
+      { cap: '90 ms · video growing, UI fading', vx: 12, vy: 38, vw: 1200, vh: 720, vr: Math.round(P.cardR / 2), uiOp: 0.35 },
+      { cap: '180 ms · full window', vx: 0, vy: 0, vw: 1440, vh: 900, vr: 0, uiOp: 0 }
+    ].map(s => Object.assign({}, P, s, { r: P.winR / 3 + 2, tbR: P.mac ? 22 : 8 }));
+    const trans = [{ steps: steps(L.mac) }, { steps: steps(L.win) }];
+    const transNotes = [
+      { n: '1', t: 'Play in the preview grows the same video surface in place to fill the window. mpv keeps playing; nothing reloads.' },
+      { n: '2', t: 'Frame grows over 180 ms ease-out (inside the 200 ms limit). The bar, info panel and rows fade out over the first 120 ms. Corner radius goes to 0.' },
+      { n: '3', t: 'The preview’s bottom bar becomes the full transport bar: same controls in the same order, so the selections made in preselection mode carry over.' },
+      { n: 'Esc', t: 'Esc (or Back) runs the same transition in reverse and leaves the detail page in preview mode at the current position. F / double-click toggles OS fullscreen separately.' }
+    ];
+    const rows = [
+      { id: '13b', label: 'Controls visible · trickplay hover', frames: fr({ trick: true, pins: true }), notes: [
+        { n: 1, t: 'Hovering the seek bar shows the trickplay frame, time and chapter above the pointer, immediately. Clicking seeks; dragging scrubs with live frames.' },
+        { n: 2, t: 'Chapters are 2 px gaps in the track. The lighter segment is buffered. Clicking the time on the right toggles remaining / total.' },
+        { n: 3, t: 'Play/pause, back 10, forward 30, next, volume. Skip intervals come from Settings › Playback.' },
+        { n: 4, t: 'Tracks, Quality, Speed, Queue, Info, Fullscreen. Each opens a flyout drawn inside the window above the bar, never as a separate window.' },
+        { n: 'i', t: 'Bar: ~58% black glass, white glyphs at 88%. The only bright pixels are glyphs and the thin played line.' }
+      ] },
+      { id: '13c', label: 'Tracks flyout', frames: fr({ flyout: 'tracks' }), notes: [
+        { n: '1', t: 'Audio and subtitles side by side; choosing applies instantly and keeps the flyout open. Subtitle offset steps 0.1 s ([ and ] keys).' },
+        { n: '2', t: 'Flyouts close on Esc, on clicking the video, or when controls auto-hide. Only one is open at a time.' }
+      ] },
+      { id: '13d', label: 'Queue flyout', frames: fr({ flyout: 'queue' }), notes: [
+        { n: '1', t: 'Current item marked; others reorder by drag and remove with × on hover. Clicking an item plays it. Same model as the playlist page.' }
+      ] },
+      { id: '13e', label: 'Speed flyout', frames: fr({ flyout: 'speed' }), notes: [
+        { n: '1', t: 'Six fixed speeds. The button label shows the current speed. Keep pitch is on by default.' }
+      ] },
+      { id: '13f', label: 'Info flyout', frames: fr({ flyout: 'info' }), notes: [
+        { n: '1', t: 'Live stats in monospace: method (direct play / transcode with reason), codecs, output, HDR state, buffer, dropped frames, server latency. ⌘I / Ctrl+I toggles it.' }
+      ] },
+      { id: '13g', label: 'Skip intro — controls hidden', frames: fr({ controls: false, skip: true }), notes: [
+        { n: 1, t: 'Appears at the start of the intro marker and stays for its length, whether or not the controls are visible. Click, Return, or S skips. Not shown when auto-skip is on.' },
+        { n: '2', t: 'Dim glass, 66% black. It sits above the transport bar when the bar is visible, and moves down when it hides.' }
+      ] },
+      { id: '13h', label: 'Up Next countdown', frames: fr({ upnext: true }), notes: [
+        { n: 1, t: 'Shown at the credits marker (or 30 s before the end). The ring counts down from the countdown setting; Play now skips the wait, Cancel or Esc dismisses it and lets the credits play.' },
+        { n: '2', t: 'Moving the mouse does not pause the countdown. It is not shown when auto-play next is off.' }
+      ] },
+      { id: '13i', label: 'Idle — controls hidden', frames: fr({ controls: false }), notes: [
+        { n: '1', t: 'After 2.5 s without mouse movement during playback, the bar, title and cursor hide at once (no fade longer than 150 ms). Subtitles move back down.' },
+        { n: '2', t: 'Any mouse movement or key brings them back instantly. Controls stay visible while paused or while a flyout is open.' }
+      ] },
+      { id: '13j', label: 'Narrow (960 × 600)', frames: fr({ trick: true }, 960, 600), notes: [
+        { n: '1', t: 'Volume slider collapses into its button (scroll or click for a vertical slider). Everything else keeps its place.' }
+      ] }
+    ];
+    return { rows, trans, transNotes };
+  }
+}
+</script>
+</body>
+</html>

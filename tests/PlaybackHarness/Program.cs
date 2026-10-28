@@ -16,6 +16,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        LightWeaver.Threading.UiDispatcher.Current = new LightWeaver.Threading.WpfUiDispatcher(System.Windows.Threading.Dispatcher.CurrentDispatcher);
         if (args.Length > 0 && args[0] is LocalizationUiFixture.Mode or LocalizationUiFixture.RestartMode or LocalizationUiFixture.GermanMode or LocalizationUiFixture.EnglishMode
             or LocalizationUiFixture.LoginSwitcherEnglishMode or LocalizationUiFixture.LoginSwitcherGermanMode
             or LocalizationUiFixture.UpNextMode or LocalizationUiFixture.UpNextGermanMode
@@ -38,8 +39,14 @@ internal static class Program
             return SyncPlayTwoClientWorker.Run(args);
         if (args.Contains(SyncPlayTwoClientFixture.Mode))
             return SyncPlayTwoClientFixture.Run();
-        Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT",
-            Path.Combine(Path.GetTempPath(), "lw-playback-harness-" + Guid.NewGuid().ToString("N")));
+        var harnessRoot = Path.Combine(Path.GetTempPath(), "lw-playback-harness-" + Guid.NewGuid().ToString("N"));
+        Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT", harnessRoot);
+        if (!string.Equals(AppPaths.Root, Path.GetFullPath(harnessRoot), StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine($"Refusing to run: app data resolves to {AppPaths.Root}, not the harness's temporary folder. "
+                + "Only Debug builds honour LIGHTWEAVER_TEST_APPDATA_ROOT; run the harness without -c Release.");
+            return 1;
+        }
         if (args.Contains("--download-contract")) return DownloadUxFixture.RunContracts();
         if (args.Contains("--download-languages")) return DownloadLanguagesFixture.RunAsync().GetAwaiter().GetResult();
         if (args.Contains("--download-language-ui")) return DownloadLanguagesFixture.RunUi();
@@ -51,6 +58,20 @@ internal static class Program
         {
             HttpHeaderFixture.Run(Test);
             Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_failures} HTTP header failures)");
+            return _failures == 0 ? 0 : 1;
+        }
+        if (args.Contains(SecurityFixture.Mode))
+        {
+            SecurityFixture.Run(Test);
+            Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_failures} security failures)");
+            return _failures == 0 ? 0 : 1;
+        }
+        // Pure like the mode above: a state machine fed by hand, so it can run anywhere without
+        // libmpv. It also runs ungated in the default run below.
+        if (args.Contains("--seek-gesture"))
+        {
+            SeekGestureFixture.Run(Test);
+            Console.WriteLine($"RESULT: {(_failures == 0 ? "PASS" : "FAIL")} ({_failures} seek gesture failures)");
             return _failures == 0 ? 0 : 1;
         }
         if (args.Contains("--quality-contract"))
@@ -163,7 +184,7 @@ internal static class Program
         Test("mpv accepts buffer limits at creation and runtime", () =>
         {
             var settings = new AppSettings { VideoBufferMiB = 256 };
-            using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher, settings);
+            using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), settings);
             Equal("268435456", player.GetPropertyString("demuxer-max-bytes"));
             Equal(3600d, double.Parse(player.GetPropertyString("cache-secs")!, System.Globalization.CultureInfo.InvariantCulture));
             settings.VideoBufferMiB = 32;
@@ -176,6 +197,8 @@ internal static class Program
         StickySubtitleFixture.Run(Test);
         MediaVersionFixture.Run(Test);
         MediaVersionStoreFixture.Run(Test);
+        SeekGestureFixture.Run(Test);
+        SecurityFixture.Run(Test);
         if (args.Contains("--slider-drag"))
             SliderDragFixture.Run(Test, EnsureApp().Resources);
         if (!SeekMagnitudeFixture.TrySkip())

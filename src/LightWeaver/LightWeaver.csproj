@@ -8,7 +8,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.7.0</Version>
     <!-- ThemeMode (Fluent theme) is still gated behind the WPF0001 experimental diagnostic -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- libmpv-2.dll is x64-only; fail fast instead of BadImageFormatException at runtime -->
@@ -16,7 +15,7 @@
     <!-- mpv_wait_event returns mpv_event*; events are read via pointer casts -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Exe, taskbar and title-bar icon; windows without an explicit Icon fall back to it -->
-    <ApplicationIcon>Assets\LightWeaver.ico</ApplicationIcon>
+    <ApplicationIcon>..\LightWeaver.WinUI\Assets\LightWeaver.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Bundled libmpv (not in git); falls back to PATH search when absent -->
+    <!-- Bundled libmpv (not in git). Release builds load only this copy; Debug builds fall back to PATH -->
     <None Include="..\..\native\win-x64\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\native\win-x64\libmpv-2.dll')" />
   </ItemGroup>
 

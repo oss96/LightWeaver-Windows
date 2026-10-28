@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>04</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Search</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">Recent searches when the field is focused and empty; live results grouped by category while typing; a no-results state. Advanced search is in <a href="05 Advanced Search.dc.html">05</a>.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden">
+              <sc-if value="{{ f.isHome }}">
+                <div style="display:flex;flex-direction:column;gap:22px;padding:18px 0 0 24px">
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600">Continue Watching<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                    <div style="display:flex;gap:14px"><sc-for list="{{ f.cw }}" as="c"><dc-import name="Card" p="{{ f }}" kind="wide" w="{{ 296 }}" title="{{ c.title }}" sub="{{ c.sub }}" progress="{{ c.progress }}" label="{{ c.label }}" hint-size="296px,206px"></dc-import></sc-for></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600">Recently Added<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                    <div style="display:flex;gap:14px"><sc-for list="{{ f.ra }}" as="c"><dc-import name="Card" p="{{ f }}" kind="poster" w="{{ 150 }}" title="{{ c.title }}" sub="{{ c.sub }}" label="{{ c.label }}" hint-size="150px,265px"></dc-import></sc-for></div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.isResults }}">
+                <div style="display:flex;flex-direction:column;gap:18px;padding:16px 24px 0 24px">
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:24px;font-weight:700">Results for “{{ f.q }}”</div><div style="font-size:13px;color:{{ f.text2 }}">31 results</div></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;position:relative">
+                      <sc-for list="{{ f.chips }}" as="c">
+                        <div style="height:28px;padding:0 12px;display:flex;align-items:center;gap:6px;border-radius:{{ f.chipR }}px;background:{{ c.bg }};border:{{ c.border }};color:{{ c.color }};font-size:12.5px;font-weight:500" style-hover="background:{{ c.hbg }}">{{ c.l }}<span style="color:{{ c.ncolor }};font-size:11.5px">{{ c.n }}</span></div>
+                      </sc-for>
+                      <div style="width:1px;height:20px;background:{{ f.sep }};align-self:center;margin:0 4px"></div>
+                      <a href="05 Advanced Search.dc.html" style="position:relative;height:28px;padding:0 12px 0 10px;display:flex;align-items:center;gap:6px;border-radius:{{ f.chipR }}px;background:transparent;border:{{ f.btnBorder }};color:{{ f.text }};font-size:12.5px;font-weight:500;text-decoration:none" style-hover="background:{{ f.btnHover }};text-decoration:none"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal;color:{{ f.text2 }}">tune</span>More filters
+                        <div style="position:absolute;right:-26px;top:5px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">5</div>
+                      </a>
+                      <div style="position:absolute;left:-26px;top:5px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:20px 44px">
+                  <sc-for list="{{ f.groups }}" as="g">
+                    <div style="display:flex;flex-direction:column;gap:10px;flex:0 1 auto;min-width:0;max-width:100%">
+                      <div style="display:flex;align-items:center;gap:8px;padding-right:0">
+                        <div style="font-size:16px;font-weight:600">{{ g.name }}</div><div style="font-size:12px;color:{{ f.text2 }};padding:1px 7px;border-radius:9px;background:{{ f.surface2 }}">{{ g.n }}</div>
+                        <div style="flex:1"></div>
+                        <sc-if value="{{ g.more }}"><div style="display:flex;align-items:center;gap:2px;font-size:12.5px;color:{{ f.accentFg }};padding:3px 6px;border-radius:4px" style-hover="background:{{ f.hover }}">See all<span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal">arrow_forward</span></div></sc-if>
+                      </div>
+                      <div style="display:flex;gap:14px;overflow:hidden">
+                        <sc-for list="{{ g.items }}" as="c"><dc-import name="Card" p="{{ f }}" kind="{{ g.kind }}" w="{{ g.w }}" title="{{ c.title }}" sub="{{ c.sub }}" label="{{ g.label }}" hover="{{ c.hover }}" hint-size="104px,200px"></dc-import></sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ f.isNone }}">
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding-bottom:90px;text-align:center">
+                  <span style="font-family:{{ f.icon }};font-size:44px;line-height:1;font-weight:normal;color:{{ f.text3 }};font-variation-settings:'wght' 300">search_off</span>
+                  <div style="font-size:17px;font-weight:600;margin-top:4px">No results for “{{ f.q }}”</div>
+                  <div style="font-size:13px;color:{{ f.text2 }};max-width:340px;line-height:1.45">Check the spelling, or search fewer words. Search covers titles, people and collections on Home Server.</div>
+                  <div style="display:flex;gap:8px;margin-top:8px">
+                    <div style="height:{{ f.btnH }}px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};font-size:13px" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">tune</span>Advanced search</div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="home" badge="2" search="{{ f.q }}" focused="{{ true }}" slot="search" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px">
+              <sc-if value="{{ f.isHome }}">
+                <div style="width:100%;min-width:380px;padding:6px;box-sizing:border-box;border-radius:{{ f.ddR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};backdrop-filter:{{ f.popBlur }};-webkit-backdrop-filter:{{ f.popBlur }};font-family:{{ f.font }};color:{{ f.text }};position:relative">
+                  <div style="display:flex;align-items:center;padding:6px 8px 6px 10px">
+                    <div style="font-size:12px;font-weight:600;color:{{ f.text3 }}">Recent searches</div>
+                    <div style="flex:1"></div>
+                    <div style="font-size:12px;color:{{ f.accentFg }};padding:2px 6px;border-radius:4px;position:relative" style-hover="background:{{ f.hover }}">Clear all
+                      <div style="position:absolute;right:-30px;top:0;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">2</div>
+                    </div>
+                  </div>
+                  <sc-for list="{{ f.recent }}" as="q">
+                    <div style="height:{{ f.recentH }}px;display:flex;align-items:center;gap:10px;padding:0 4px 0 10px;border-radius:{{ f.miR }}px;background:{{ q.bg }};font-size:13px;position:relative" style-hover="background:{{ f.hover }}">
+                      <span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal;color:{{ f.text2 }}">history</span>
+                      <div style="flex:1">{{ q.l }}</div>
+                      <sc-if value="{{ q.hi }}">
+                        <div title="Remove" style="width:24px;height:24px;border-radius:{{ f.miR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text2 }}" style-hover="background:rgba(255,255,255,0.12);color:{{ f.text }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">close</span></div>
+                        <div style="position:absolute;right:-30px;top:6px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <div style="height:1px;background:{{ f.sep }};margin:6px 4px"></div>
+                  <div style="padding:4px 10px 6px;font-size:11.5px;color:{{ f.text3 }}">{{ f.hint }}</div>
+                </div>
+              </sc-if>
+            </dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const L = window.LW, hm = L.home(false);
+    f.cw = hm.cw; f.ra = hm.ra;
+    f.isHome = f.k === 'home'; f.isResults = f.k === 'results'; f.isNone = f.k === 'none';
+    f.ddR = f.mac ? 14 : 8; f.recentH = f.mac ? 30 : 36; f.chipR = f.mac ? 999 : 14;
+    f.recent = ['harbor lights', 'tomas adler', 'lantern house s2', 'documentaries 2024', 'blue hour'].map((l, i) => ({ l, hi: i === 1, bg: i === 1 ? f.hover : 'transparent' }));
+    f.hint = f.mac ? '↑ ↓ select  ·  ↩ search  ·  ⌫ remove selected' : 'Up/Down to select  ·  Enter to search  ·  Delete removes selected';
+    const sel = 'All';
+    f.chips = [['All', 31], ['Movies', 6], ['Shows', 3], ['Episodes', 14], ['People', 5], ['Collections', 3]].map(([l, n]) => ({
+      l, n, bg: l === sel ? f.accent : f.btnBg, hbg: l === sel ? f.accentHover : f.btnHover, color: l === sel ? '#fff' : f.text,
+      ncolor: l === sel ? 'rgba(255,255,255,0.75)' : f.text3, border: l === sel ? '1px solid transparent' : f.btnBorder
+    }));
+    const narrow = f.w < 1000;
+    const cut = (a) => narrow ? a.slice(0, 7) : a;
+    f.groups = [
+      { name: 'Movies', n: 6, kind: 'poster', w: 104, label: 'poster', items: cut(['Harbor Lights', 'The Harrow', 'Hartfield', 'Charade at Noon', 'Harvest Blue', 'Sharp Corners'].map((t, i) => ({ title: t, sub: String(L.years[i]), hover: i === 0 && !narrow }))) },
+      { name: 'Shows', n: 3, kind: 'poster', w: 104, label: 'poster', items: ['Harlow Street', 'The Harbormaster', 'Shards'].map((t, i) => ({ title: t, sub: (i + 2) + ' seasons' })) },
+      { name: 'People', n: 5, kind: 'person', w: 104, label: 'photo', items: [['Hari Nandan', 'Actor'], ['Charlotte Hare', 'Director'], ['Harriet Vos', 'Actor'], ['Ali Haroun', 'Writer'], ['Mikael Harju', 'Composer']].map(([t, s]) => ({ title: t, sub: s })) },
+      { name: 'Collections', n: 3, kind: 'poster', w: 104, label: 'collection', items: ['Harbor Lights Collection', 'Harry’s Picks', 'The Sharpe Trilogy'].map(t => ({ title: t, sub: 'Collection' })) },
+      { name: 'Episodes', n: 14, kind: 'wide', w: 220, label: 'episode still', more: true, items: ['Harbor at Dusk', 'Hard Return', 'The Harvest', 'Sharpshooter', 'Hark', 'Charred', 'Harrowing'].map((t, i) => ({ title: t, sub: L.shows[i] + ' · S' + (i % 3 + 1) + 'E' + (i + 2) })) }
+    ];
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '4a', label: 'Focused, empty — recent searches', frames: fr({ k: 'home', q: '' }), notes: [
+        { n: 1, t: 'Each entry has a remove × that appears on hover or when selected by keyboard. Clicking an entry runs that search.' },
+        { n: 2, t: 'Clear all removes the whole list without confirmation; the list is local to this device and profile.' },
+        { n: 3, t: 'macOS: search field suggestions menu (glass). Windows: AutoSuggestBox suggestion list, same width as the field.' },
+        { n: 'Esc', t: 'Esc closes the list; a second Esc blurs the field. Clicking outside closes it.' }
+      ] },
+      { id: '4b', label: 'Typing — live grouped results', frames: fr({ k: 'results', q: 'har' }), notes: [
+        { n: 1, t: 'Results replace the page content as you type, after a 150 ms debounce. The previous results stay on screen until new ones arrive; nothing fades.' },
+        { n: 2, t: 'Category chips carry counts and filter in place. Each group header repeats its count; "See all" appears when a group has more than fits.' },
+        { n: 3, t: 'Groups flow side by side when they fit, in a fixed order: Movies, Shows, People, Collections, Episodes. Empty categories are omitted, not shown as zero.' },
+        { n: 'Esc', t: 'Clearing the field or pressing Esc returns to the page you were on, at its scroll position. Return opens the first result.' },
+        { n: 5, t: 'More filters, after the chips, switches this view to Advanced search (05) in place: the query stays, the selected chip becomes the Type filter, and the filter column opens. Same action as the tune button in the field.' }
+      ] },
+      { id: '4c', label: 'No results', frames: fr({ k: 'none', q: 'xqzt' }), notes: [
+        { n: 1, t: 'Names the query and offers Advanced search as the one action.' }
+      ] },
+      { id: '4d', label: 'Narrow (960 × 600)', frames: fr({ k: 'results', q: 'har' }, 960, 600), notes: [
+        { n: 1, t: 'Groups keep one row each and clip at the trailing edge, like Home rows.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

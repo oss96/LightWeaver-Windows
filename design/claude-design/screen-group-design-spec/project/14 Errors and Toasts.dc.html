@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>14</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Errors, offline and toasts</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">Server unreachable, playback failed with Retry, and the toast style used across the app.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.bgC }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <sc-if value="{{ f.isOff }}">
+              <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden;display:flex;flex-direction:column">
+                <div style="margin:12px 24px 0;min-height:44px;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px;box-sizing:border-box;border-radius:{{ f.bannerR }}px;background:{{ f.warnBg }};border:{{ f.warnBorder }};font-size:13px">
+                  <span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal;color:{{ f.warnIcon }};font-variation-settings:'FILL' 1">{{ f.warnGlyph }}</span>
+                  <div style="flex:1"><span style="font-weight:600">Offline.</span> <span style="color:{{ f.text2 }}">Retrying every 15 s · next attempt in 9 s</span></div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;position:relative">
+                  <span style="font-family:{{ f.icon }};font-size:48px;line-height:1;font-weight:normal;color:{{ f.text3 }};font-variation-settings:'wght' 300">cloud_off</span>
+                  <div style="font-size:19px;font-weight:600;margin-top:4px">Can’t reach Home Server</div>
+                  <div style="font-size:13px;color:{{ f.text2 }};max-width:420px;line-height:1.5">media.home.lan:8096 didn’t respond. Check that the server is running and that this device is on the same network or VPN.</div>
+                  <div style="display:flex;gap:8px;margin-top:10px;position:relative">
+                    <div style="height:{{ f.btnH }}px;padding:0 16px;display:flex;align-items:center;gap:6px;border-radius:{{ f.btnR }}px;background:{{ f.accent }};color:#fff;font-size:13px;font-weight:600" style-hover="background:{{ f.accentHover }}"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal">refresh</span>Retry</div>
+                    <div style="height:{{ f.btnH }}px;padding:0 14px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};box-sizing:border-box;font-size:13px" style-hover="background:{{ f.btnHover }}">Switch server…</div>
+                    <div style="height:{{ f.btnH }}px;padding:0 14px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};border:{{ f.btnBorder }};box-sizing:border-box;font-size:13px" style-hover="background:{{ f.btnHover }}">Open Downloads</div>
+                    <div style="position:absolute;right:-28px;top:7px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:{{ f.text3 }};margin-top:6px"><span style="font-family:{{ f.icon }};font-size:15px;line-height:1;font-weight:normal">chevron_right</span>Details: connection timed out after 8 s (https, then http)</div>
+                </div>
+                <div style="padding:0 0 22px 24px;display:flex;flex-direction:column;gap:12px">
+                  <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600">Available offline<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                  <div style="display:flex;gap:14px"><sc-for list="{{ f.offCards }}" as="c"><dc-import name="Card" p="{{ f }}" kind="wide" w="{{ 220 }}" title="{{ c.title }}" sub="{{ c.sub }}" label="backdrop" hint-size="220px,160px"></dc-import></sc-for></div>
+                </div>
+              </div>
+              <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="home" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+            </sc-if>
+            <sc-if value="{{ f.isPlay }}">
+              <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%, #15171a 0%, #0a0b0c 60%, #050506 100%)"></div>
+              <div style="position:absolute;left:0;right:0;top:0;height:120px;background:linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0))"></div>
+              <div style="position:absolute;left:{{ f.titleL }}px;top:12px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.88)">
+                <div style="width:34px;height:34px;border-radius:{{ f.btnR2 }}px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08)"><span style="font-family:{{ f.icon }};font-size:20px;line-height:1;font-weight:normal">{{ f.backIcon }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:14px;font-weight:600">Static Bloom</div><div style="font-size:12px;color:rgba(255,255,255,0.6)">1995 · 1 h 49 min</div></div>
+              </div>
+              <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;padding:22px 22px 18px;box-sizing:border-box;border-radius:{{ f.flyRad }}px;background:rgba(18,18,20,0.72);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);display:flex;flex-direction:column;gap:10px;color:rgba(255,255,255,0.88)">
+                <div style="display:flex;align-items:center;gap:10px"><span style="font-family:{{ f.icon }};font-size:22px;line-height:1;font-weight:normal;color:{{ f.errC }};font-variation-settings:'FILL' 1">error</span><div style="font-size:16px;font-weight:600">Playback failed</div></div>
+                <div style="font-size:13px;line-height:1.5;color:rgba(255,255,255,0.7)">The server couldn’t transcode this file. Its hardware encoder doesn’t support HEVC 10-bit at the requested quality.</div>
+                <div style="display:flex;gap:8px;margin-top:8px;position:relative">
+                  <div style="height:32px;padding:0 16px;display:flex;align-items:center;gap:6px;border-radius:{{ f.btnR2 }}px;background:rgba(255,255,255,0.16);font-size:13px;font-weight:600" style-hover="background:rgba(255,255,255,0.22)"><span style="font-family:{{ f.icon }};font-size:17px;line-height:1;font-weight:normal">refresh</span>Retry</div>
+                  <div style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:{{ f.btnR2 }}px;background:rgba(255,255,255,0.07);font-size:13px" style-hover="background:rgba(255,255,255,0.12)">Play at original quality</div>
+                  <div style="flex:1"></div>
+                  <div style="height:32px;padding:0 10px;display:flex;align-items:center;border-radius:{{ f.btnR2 }}px;font-size:13px;color:rgba(255,255,255,0.6)" style-hover="background:rgba(255,255,255,0.08)">Details</div>
+                  <div style="position:absolute;left:-30px;top:7px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">1</div>
+                </div>
+              </div>
+              <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" minimal="{{ true }}" title="" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+            </sc-if>
+            <sc-if value="{{ f.isToast }}">
+              <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden;padding:18px 24px;display:flex;flex-direction:column;gap:14px">
+                <div style="font-size:17px;font-weight:600">Continue Watching</div>
+                <div style="display:flex;gap:14px"><sc-for list="{{ f.ghost }}" as="g"><div style="width:296px;height:166px;flex:none;border-radius:{{ f.cardR }}px;background:{{ f.ph }}"></div></sc-for></div>
+                <div style="font-size:17px;font-weight:600;margin-top:22px">Recently Added</div>
+                <div style="display:flex;gap:14px"><sc-for list="{{ f.ghost2 }}" as="g"><div style="width:150px;height:225px;flex:none;border-radius:{{ f.cardR }}px;background:{{ f.ph }}"></div></sc-for></div>
+              </div>
+              <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center">
+                <sc-for list="{{ f.toasts }}" as="t">
+                  <div style="position:relative;display:flex;align-items:center;gap:10px;min-height:44px;padding:0 6px 0 14px;box-sizing:border-box;border-radius:{{ f.toastR }}px;background:{{ f.popBg }};border:{{ f.popBorder }};box-shadow:{{ f.popShadow }};backdrop-filter:{{ f.popBlur }};-webkit-backdrop-filter:{{ f.popBlur }};font-size:13px;white-space:nowrap">
+                    <span style="font-family:{{ f.icon }};font-size:19px;line-height:1;font-weight:normal;color:{{ t.ic }};font-variation-settings:'FILL' 1">{{ t.i }}</span>
+                    <span>{{ t.msg }}</span>
+                    <sc-if value="{{ t.act }}"><div style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:{{ f.btnR }}px;background:{{ f.btnBg }};font-weight:600;color:{{ f.accentFg }}" style-hover="background:{{ f.btnHover }}">{{ t.act }}</div></sc-if>
+                    <div style="width:28px;height:28px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text3 }}" style-hover="background:{{ f.hover }}"><span style="font-family:{{ f.icon }};font-size:16px;line-height:1;font-weight:normal">close</span></div>
+                    <div style="position:absolute;right:-28px;top:13px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui;text-align:center">{{ t.n }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" active="home" badge="2" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  deco(f) {
+    const mac = f.mac;
+    f.isOff = f.k === 'off'; f.isPlay = f.k === 'play'; f.isToast = f.k === 'toast';
+    f.bgC = f.isPlay ? '#000' : f.winBg;
+    f.bannerR = mac ? 12 : 4;
+    f.warnBg = mac ? 'rgba(255,214,10,0.10)' : '#433519'; f.warnBorder = mac ? '0.5px solid rgba(255,214,10,0.22)' : '1px solid rgba(0,0,0,0.1)';
+    f.warnIcon = mac ? '#FFD60A' : '#FCE100'; f.warnGlyph = mac ? 'wifi_off' : 'warning';
+    f.errC = mac ? '#FF6961' : '#FF99A4';
+    f.titleL = mac ? 90 : 16; f.btnR2 = mac ? 18 : 4; f.flyRad = mac ? 18 : 8; f.toastR = mac ? 22 : 8;
+    f.offCards = [['Glass Season', '2.8 GB'], ['Paper Moons', '1.9 GB'], ['Lantern House', 'S1 · E1–E2'], ['Wren', '3.6 GB'], ['Kestrel', '2.2 GB'], ['Blue Hour', '2.1 GB']].map(([title, sub]) => ({ title, sub }));
+    f.ghost = [0, 1, 2, 3, 4]; f.ghost2 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    const ok = mac ? '#30D158' : '#6CCB5F';
+    f.toasts = [
+      { n: 1, i: 'info', ic: f.accentFg, msg: 'Added “Harbor Lights” to Road Trip', act: 'Open' },
+      { n: 2, i: 'check_circle', ic: ok, msg: 'Removed from Continue Watching', act: 'Undo' },
+      { n: 3, i: 'error', ic: f.errC, msg: 'Couldn’t mark as played. The server returned an error.', act: 'Retry' }
+    ];
+    return f;
+  }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const fr = (x, w, h) => L.pair(x, w, h).map(f => this.deco(f));
+    const rows = [
+      { id: '14a', label: 'Server unreachable', frames: fr({ k: 'off' }), notes: [
+        { n: 1, t: 'Replaces the content of any server-backed page. Retry tries now; the app also retries every 15 s and restores the page by itself when the server answers.' },
+        { n: 'i', t: 'The offline banner sits above (same as Downloads). Downloaded items stay reachable and playable, shown in an "Available offline" row.' },
+        { n: '⌄', t: 'Details expands the technical reason in place, for support.' }
+      ] },
+      { id: '14b', label: 'Playback failed', frames: fr({ k: 'play' }), notes: [
+        { n: 1, t: 'Shown over the (black) video area inside the window, dim glass. Retry restarts at the same position. The second action depends on the cause: original quality, another version, or another audio track.' },
+        { n: 'Esc', t: 'Esc or Back returns to the detail page in preview mode. Details shows the server and mpv error text with a Copy button.' }
+      ] },
+      { id: '14c', label: 'Toast style', frames: fr({ k: 'toast' }), notes: [
+        { n: 1, t: 'Info: accent icon. 4 s, or 6 s when it has an action.' },
+        { n: 2, t: 'Success with Undo. Undo is the only action that ever appears on a success toast.' },
+        { n: 3, t: 'Error with Retry. Errors stay until dismissed or retried.' },
+        { n: 'i', t: 'Bottom centre, stacking upward, max 3 (oldest drops). Appear and disappear in 120 ms; hovering pauses the timer. macOS: glass capsule. Windows: Flyout surface (acrylic) with 8 px corners. Over video they become the dim pills shown in 09.' }
+      ] },
+      { id: '14d', label: 'Narrow (960 × 600)', frames: fr({ k: 'off' }, 960, 600), notes: [
+        { n: '1', t: 'Same layout; the offline row clips at the trailing edge like any row.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

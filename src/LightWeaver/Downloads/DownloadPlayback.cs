@@ -38,7 +38,7 @@ internal static class DownloadPlayback
                 : download.SubtitleTracks.FirstOrDefault(t => !t.IsExternal && t.TypeOrdinal == download.PreferredSubtitleOrdinal);
         }
         static Jellyfin.MediaStreamChoice? Choice(DownloadTrack? track) => track is null ? null
-            : new(track.Index, track.TypeOrdinal, track.Display, track.Language, track.Title, track.IsDefault, track.IsExternal);
+            : new(track.Index, track.TypeOrdinal, track.Display, track.Language, track.Title, track.IsDefault, track.IsExternal, track.IsForced);
         return (Choice(sourceAudio), explicitSubtitleOff == true ? null : Choice(sourceSubtitle),
             explicitSubtitleOff == true || currentSubtitle is null
                 && download.PreferredSubtitleFileIndex is null && download.PreferredSubtitleOrdinal == -1);

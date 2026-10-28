@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:{{ wcss }};padding:{{ pad }}px;box-sizing:border-box;border-radius:{{ r }}px;background:{{ bg }};border:{{ bd }};box-shadow:{{ sh }};backdrop-filter:{{ bl }};-webkit-backdrop-filter:{{ bl }};font-family:{{ p.font }};color:{{ p.text }};display:flex;flex-direction:column;cursor:default;user-select:none">
+  <sc-for list="{{ rows }}" as="it">
+    <sc-if value="{{ it.isSep }}"><div style="height:1px;background:{{ p.sep }};margin:{{ sepM }}"></div></sc-if>
+    <sc-if value="{{ it.isHeader }}"><div style="padding:{{ hPad }};font-size:{{ hSize }}px;font-weight:600;color:{{ p.text3 }}">{{ it.label }}</div></sc-if>
+    <sc-if value="{{ it.isItem }}">
+      <div style="height:{{ p.miH }}px;display:flex;align-items:center;gap:8px;padding:0 10px 0 {{ padL }}px;border-radius:{{ p.miR }}px;background:{{ it.bg }};color:{{ it.color }};font-size:13px;position:relative;transition:background 50ms" style-hover="background:{{ it.hbg }};color:{{ it.hcolor }}">
+        <div style="width:14px;flex:none;display:flex;align-items:center;justify-content:center">
+          <sc-if value="{{ it.isCheck }}"><span style="font-family:{{ p.icon }};font-size:15px;line-height:1;font-weight:normal;font-variation-settings:'wght' 600">check</span></sc-if>
+          <sc-if value="{{ it.isRadio }}"><div style="width:6px;height:6px;border-radius:3px;background:currentColor"></div></sc-if>
+          <sc-if value="{{ it.isBox }}"><div style="width:14px;height:14px;box-sizing:border-box;border-radius:{{ boxR }}px;background:{{ it.boxBg }};border:{{ it.boxBorder }};display:flex;align-items:center;justify-content:center;color:#fff"><sc-if value="{{ it.check }}"><span style="font-family:{{ p.icon }};font-size:12px;line-height:1;font-weight:normal;font-variation-settings:'wght' 700">check</span></sc-if></div></sc-if>
+        </div>
+        <sc-if value="{{ it.hasIcon }}"><span style="font-family:{{ p.icon }};font-size:17px;line-height:1;font-weight:normal;font-variation-settings:{{ p.iv }};width:18px;flex:none">{{ it.icon }}</span></sc-if>
+        <div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</div>
+        <sc-if value="{{ it.hasNote }}"><span style="font-size:12px;color:{{ it.noteColor }}">{{ it.note }}</span></sc-if>
+        <sc-if value="{{ it.hasKbd }}"><span style="font-size:12px;color:{{ it.noteColor }};font-family:{{ p.font }}">{{ it.kbd }}</span></sc-if>
+        <sc-if value="{{ it.sub }}"><span style="font-family:{{ p.icon }};font-size:16px;line-height:1;font-weight:normal;margin-right:-4px">chevron_right</span></sc-if>
+      </div>
+    </sc-if>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:240,&quot;height&quot;:300},&quot;p&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;items&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;array&quot;},&quot;width&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:220}}">
+class Component extends DCLogic {
+  renderVals() {
+    const P = this.props, p = P.p;
+    if (!p) return {};
+    const items = P.items || [];
+    const anyLead = items.some(i => i.check !== undefined || i.radio !== undefined || i.box !== undefined);
+    const rows = items.map(i => {
+      if (i === '-' || i.sep) return { isSep: true };
+      if (i.header) return { isHeader: true, label: i.header };
+      const hi = !!i.hi, danger = !!i.danger, dis = !!i.disabled;
+      const hiBg = p.menuHi, hiColor = p.menuHiText;
+      const base = dis ? p.text3 : danger ? (p.mac ? '#FF6961' : '#FF99A4') : p.text;
+      return {
+        isItem: true, label: i.label, icon: i.icon, hasIcon: !!i.icon, sub: !!i.sub,
+        isCheck: i.check === true && !i.box, isRadio: i.radio === true, isBox: i.box !== undefined, check: !!i.box,
+        boxBg: i.box ? p.accent : 'transparent', boxBorder: i.box ? 'none' : '1px solid ' + p.text3,
+        note: i.note, hasNote: !!i.note, kbd: i.kbd, hasKbd: !!i.kbd,
+        bg: hi ? hiBg : 'transparent', color: hi ? hiColor : base,
+        hbg: dis ? 'transparent' : hiBg, hcolor: dis ? p.text3 : hiColor,
+        noteColor: hi && p.mac ? 'rgba(255,255,255,0.8)' : p.text3
+      };
+    });
+    const w = P.width || 220;
+    return {
+      p, rows, wcss: typeof w === 'number' ? w + 'px' : w,
+      r: p.mac ? 12 : 8, bg: P.bare ? 'transparent' : (P.overVideo ? p.ovBg : p.popBg),
+      bd: P.bare ? 'none' : p.popBorder, sh: P.bare ? 'none' : p.popShadow, bl: P.bare ? 'none' : p.popBlur, pad: P.bare ? 0 : p.menuPad,
+      padL: anyLead ? 8 : 10, boxR: p.mac ? 4 : 3,
+      sepM: p.mac ? '5px 10px' : '4px -4px',
+      hPad: p.mac ? '6px 10px 3px' : '8px 12px 4px', hSize: p.mac ? 11 : 12
+    };
+  }
+}
+</script>
+</body>
+</html>

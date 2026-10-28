@@ -1,0 +1,219 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>v2 player port: type a time, Up Next timing. Proposal 2026-10-23</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: transparent; color: var(--foreground, #1a1a1a); font-family: system-ui, sans-serif; }
+  .doc { padding: 24px 0 40px; display: flex; flex-direction: column; gap: 36px; max-width: 1400px; }
+  .crumb { font-size: 13px; color: var(--muted-foreground, #666); }
+  h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  h3 { font: 600 13px ui-monospace, Menlo, monospace; color: var(--muted-foreground, #555); margin: 0 0 8px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: var(--foreground, #333); max-width: 960px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 680px), 1fr)); gap: 24px; }
+  .ui { font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; }
+  .icon { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-weight: normal; line-height: 1; }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 3px; border-radius: 4px; }
+
+  .video { width: min(100%, 680px); height: 150px; border-radius: 6px; position: relative; overflow: hidden;
+           background: linear-gradient(160deg, #3b4a57 0%, #1d2731 55%, #0e1216 100%); }
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.58); padding: 6px 16px 10px; }
+  .seekrow { display: flex; align-items: center; gap: 12px; height: 28px; }
+  .time { font-size: 12px; color: rgba(255,255,255,.88); padding: 2px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+  .time.hover { background: rgba(255,255,255,.06); }
+  .track { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); position: relative; }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; width: 36%; border-radius: 2px; background: #F08C9C; }
+  .field { width: 76px; height: 24px; border-radius: 4px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.2);
+           display: flex; align-items: center; padding: 0 6px; font-size: 12px; color: #fff; }
+  .field .sel { background: #B83A52; color: #fff; padding: 0 1px; }
+  .field .caret { width: 1px; height: 14px; background: #fff; margin-left: 1px; }
+  .btnrow { display: flex; gap: 2px; margin-top: 2px; }
+  .btnrow span { width: 38px; height: 38px; display: grid; place-items: center; font-size: 18px; color: #fff; }
+  .tip { position: absolute; left: 14px; bottom: 74px; padding: 6px 9px; border-radius: 4px; background: rgba(44,44,44,.97);
+         border: 1px solid rgba(255,255,255,.09); font-size: 12px; color: #fff; white-space: nowrap; }
+
+  .pane { width: min(100%, 680px); background: #202020; padding: 20px 24px 22px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .gtitle { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
+  .card { min-height: 64px; padding: 12px 16px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(0,0,0,.1);
+          display: grid; grid-template-columns: 18px 1fr auto; gap: 16px; align-items: center; }
+  .card .icon { font-size: 18px; width: 18px; }
+  .label { font-size: 14px; }
+  .desc { font-size: 12px; color: rgba(255,255,255,.78); margin-top: 2px; }
+  .toggle { width: 40px; height: 20px; border-radius: 10px; background: #B83A52; position: relative; }
+  .toggle::after { content: ""; position: absolute; right: 4px; top: 4px; width: 12px; height: 12px; border-radius: 6px; background: #fff; }
+  .stepper { height: 32px; min-width: 120px; border-radius: 4px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07);
+             display: flex; align-items: center; font-size: 13px; }
+  .stepper b { font-weight: 400; flex: 1; padding: 0 10px; font-variant-numeric: tabular-nums; }
+  .stepper span { width: 28px; text-align: center; color: rgba(255,255,255,.78); font-size: 12px; }
+
+  .panel { width: min(100%, 680px); background: #202020; padding: 18px; border-radius: 6px; position: relative; height: 330px; }
+  .side { width: 420px; border-radius: 8px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.07); padding: 16px 18px; }
+  .title { font-size: 22px; font-weight: 600; margin: 4px 0 10px; }
+  .actions { display: flex; gap: 6px; }
+  .lwbtn { height: 32px; padding: 0 12px; border-radius: 4px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07);
+           display: flex; align-items: center; gap: 6px; font-size: 13px; color: #fff; }
+  .lwbtn.sq { width: 32px; padding: 0; justify-content: center; }
+  .lwbtn .icon { font-size: 15px; }
+  .fly { position: absolute; left: 236px; top: 112px; width: 340px; border-radius: 8px; background: rgba(44,44,44,.97);
+         border: 1px solid rgba(255,255,255,.09); box-shadow: 0 8px 16px rgba(0,0,0,.26); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .flabel { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.78); }
+  .segtrack { display: inline-flex; padding: 2px; border-radius: 4px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); align-self: flex-start; }
+  .seg { height: 28px; padding: 0 10px; display: flex; align-items: center; border-radius: 3px; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.78); position: relative; }
+  .seg.on { background: rgba(255,255,255,.08); color: #fff; }
+  .seg.on::after { content: ""; position: absolute; left: 50%; bottom: 1px; margin-left: -8px; width: 16px; height: 3px; border-radius: 2px; background: #F08C9C; }
+  .status { font-size: 12px; color: rgba(255,255,255,.78); line-height: 1.4; }
+@media (max-width: 620px) {
+    .pane, .panel { padding: 16px; }
+    .side { width: 100%; padding: 16px; }
+    .fly { left: 20px; top: 130px; width: calc(100% - 40px); }
+    .segtrack { flex-wrap: wrap; }
+    .card { gap: 8px; grid-template-columns: 18px minmax(0,1fr) auto; }
+    .stepper { min-width: 80px; }
+    .actions { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 &#183; design/proposals &#183; 2026-10-23</div>
+    <h1>Player port: type a time and Up Next timing</h1>
+    <p>The owner picked three WPF player features for 2.0: typing a position into the time readout,
+    when the Up Next card appears (globally and per show), and carrying the subtitle choice into the
+    next episode. These source-based mockups retain the handoff's elapsed time as plain text (13b), the Up next group with two
+    rows (<code>SettingsPane.dc.html</code>) and no per-show setting. The subtitle carry-over has no
+    UI. The accepted additions use existing controls. Native screenshots are deferred under the development verification policy.</p>
+  </header>
+
+  <section>
+    <h2>1 &#183; Player: type a time <span class="impact">within the system</span></h2>
+    <ul>
+      <li>The elapsed time becomes a subtle button (<code>LwSubtleButton</code>, padding 4,0, as the
+      remaining-time button at the other end of the row): hover <code>LwHoverBrush</code>, tooltip
+      "Go to a time", which opens only as the player's tooltip rule allows.</li>
+      <li>A click puts a 76 &#215; 24 field in its place: dim glass (55 % black, 1 px 20 % white stroke,
+      <code>LwControlRadius</code>), <code>LwBareTextBox</code> at 12 in white, prefilled with the
+      position and selected. Its tooltip gives the format: "ss, mm:ss or hh:mm:ss - Enter seeks, Esc
+      cancels" (the WPF string). The seek bar gives up the few pixels the field needs; nothing else moves.</li>
+      <li>No error state: input that is not a time closes the field and seeks nowhere, as in WPF.</li>
+    </ul>
+    <div class="grid">
+      <div><h3>Now (13b)</h3>
+        <div class="video ui"><div class="bar">
+          <div class="seekrow"><span class="time">42:10</span><div class="track"><i></i></div><span class="time">-1:16:10</span></div>
+          <div class="btnrow"><span class="icon">&#xE769;</span><span class="icon">&#xED3C;</span><span class="icon">&#xED3D;</span><span class="icon">&#xE893;</span><span class="icon">&#xE767;</span></div>
+        </div></div></div>
+      <div><h3>Hover</h3>
+        <div class="video ui"><div class="tip">Go to a time</div><div class="bar">
+          <div class="seekrow"><span class="time hover">42:10</span><div class="track"><i></i></div><span class="time">-1:16:10</span></div>
+          <div class="btnrow"><span class="icon">&#xE769;</span><span class="icon">&#xED3C;</span><span class="icon">&#xED3D;</span><span class="icon">&#xE893;</span><span class="icon">&#xE767;</span></div>
+        </div></div></div>
+      <div><h3>Open, prefilled and selected</h3>
+        <div class="video ui"><div class="bar">
+          <div class="seekrow"><span class="field new"><span class="sel">42:10</span></span><div class="track"><i></i></div><span class="time">-1:16:10</span></div>
+          <div class="btnrow"><span class="icon">&#xE769;</span><span class="icon">&#xED3C;</span><span class="icon">&#xED3D;</span><span class="icon">&#xE893;</span><span class="icon">&#xE767;</span></div>
+        </div></div></div>
+      <div><h3>Typing (Enter seeks to 1:05:00)</h3>
+        <div class="video ui"><div class="tip">ss, mm:ss or hh:mm:ss - Enter seeks, Esc cancels</div><div class="bar">
+          <div class="seekrow"><span class="field">1:05:00<span class="caret"></span></span><div class="track"><i></i></div><span class="time">-1:16:10</span></div>
+          <div class="btnrow"><span class="icon">&#xE769;</span><span class="icon">&#xED3C;</span><span class="icon">&#xED3D;</span><span class="icon">&#xE893;</span><span class="icon">&#xE767;</span></div>
+        </div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 &#183; Settings &#8250; Playback &#8250; Up next: when the card appears <span class="impact">within the system</span></h2>
+    <ul>
+      <li>A third row under Countdown, the drawn stepper row: "Show Up Next before the end" (the WPF
+      title), "Seconds before the end, for episodes without a credits marker", 5 to 300, clock glyph
+      (<code>Icons.Clock</code>, as the media-key seek row).</li>
+      <li>Countdown keeps its row; its range goes back to the WPF 3 to 120 s.</li>
+    </ul>
+    <div class="grid">
+      <div><h3>Drawn</h3><div class="pane ui">
+        <div class="gtitle">Up next</div>
+        <div class="card"><span class="icon">&#xE893;</span><div><div class="label">Play next episode automatically</div></div><div class="toggle"></div></div>
+        <div class="card"><span class="icon">&#xE916;</span><div><div class="label">Countdown</div><div class="desc">Seconds on the Up Next card</div></div>
+          <div class="stepper"><b>10</b><span>&#x2228;</span><span>&#x2227;</span></div></div>
+      </div></div>
+      <div><h3>Suggested</h3><div class="pane ui">
+        <div class="gtitle">Up next</div>
+        <div class="card"><span class="icon">&#xE893;</span><div><div class="label">Play next episode automatically</div></div><div class="toggle"></div></div>
+        <div class="card"><span class="icon">&#xE916;</span><div><div class="label">Countdown</div><div class="desc">Seconds on the Up Next card</div></div>
+          <div class="stepper"><b>10</b><span>&#x2228;</span><span>&#x2227;</span></div></div>
+        <div class="card new"><span class="icon">&#xE121;</span><div><div class="label">Show Up Next before the end</div><div class="desc">Seconds before the end, for episodes without a credits marker</div></div>
+          <div class="stepper"><b>30</b><span>&#x2228;</span><span>&#x2227;</span></div></div>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 &#183; Detail page: Up Next for this show <span class="impact">new component variant: per-show timing flyout</span></h2>
+    <ul>
+      <li>On a show, a season or an episode, a 32 &#215; 32 <code>LwButton</code> with the stopwatch
+      (<code>Icons.Timer</code>) after Download, as Download is drawn. Its name and tooltip say the
+      show's lead: "Up Next for this show: Global (30 s)" or "Up Next for this show: 60 s" (WPF strings).
+      The WPF series pill with its value is not carried over: the action row holds icon buttons of
+      one width, and the page lays out once.</li>
+      <li>It opens a standard flyout (<code>LwPopupBrush</code>, <code>LwGroupRadius</code>, no
+      open animation) below it: the heading "When the Up Next card appears for this show"
+      (<code>LwFilterLabel</code>), a segmented control (<code>LwSegmentTrack</code> /
+      <code>LwSegment</code>) Global &#183; 15 s &#183; 30 s &#183; 60 s &#183; Custom, a 5 to 300 number box under it
+      while Custom is chosen, and the WPF status line (12, <code>LwText2Brush</code>). A choice saves
+      at once, including choosing Custom before changing its value. Long translated segments wrap within the flyout. Focus starts on the chosen segment; Esc closes and returns focus to the button.</li>
+    </ul>
+    <div class="grid">
+      <div><h3>Show, flyout open (Global)</h3>
+        <div class="panel ui"><div class="side">
+          <div class="title">Lantern House</div>
+          <div class="actions">
+            <div class="lwbtn"><span class="icon">&#xE73E;</span>Mark watched</div>
+            <div class="lwbtn"><span class="icon">&#xEB51;</span>Favorite</div>
+            <div class="lwbtn sq"><span class="icon">&#xE896;</span></div>
+            <div class="lwbtn sq new"><span class="icon">&#xE916;</span></div>
+          </div></div>
+          <div class="fly">
+            <div class="flabel">When the Up Next card appears for this show</div>
+            <div class="segtrack"><span class="seg on">Global</span><span class="seg">15 s</span><span class="seg">30 s</span><span class="seg">60 s</span><span class="seg">Custom</span></div>
+            <div class="status">Appears at the credits marker. Episodes without one: 30 s before the end (global setting).</div>
+          </div></div></div>
+      <div><h3>Custom 90 s</h3>
+        <div class="panel ui"><div class="side">
+          <div class="title">Lantern House</div>
+          <div class="actions">
+            <div class="lwbtn"><span class="icon">&#xE73E;</span>Mark watched</div>
+            <div class="lwbtn"><span class="icon">&#xEB51;</span>Favorite</div>
+            <div class="lwbtn sq"><span class="icon">&#xE896;</span></div>
+            <div class="lwbtn sq"><span class="icon">&#xE916;</span></div>
+          </div></div>
+          <div class="fly">
+            <div class="flabel">When the Up Next card appears for this show</div>
+            <div class="segtrack"><span class="seg">Global</span><span class="seg">15 s</span><span class="seg">30 s</span><span class="seg">60 s</span><span class="seg on">Custom</span></div>
+            <div class="stepper" style="width:120px"><b>90</b><span>&#x2228;</span><span>&#x2227;</span></div>
+            <div class="status">Appears at the credits marker. Episodes without one: 90 s before the end. Global is 30 s.</div>
+          </div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 &middot; Subtitle choice across episodes</h2>
+    <p>No new player control is needed. The current subtitle picker supplies the saved choice.</p>
+    <table style="border-collapse:collapse;font-size:14px;line-height:1.5">
+      <thead><tr><th style="text-align:left;padding:8px">Choice</th><th style="text-align:left;padding:8px">Next episode</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:8px">Off</td><td style="padding:8px">Off is sent during negotiation, including when the preceding episode burned subtitles into the picture.</td></tr>
+        <tr><td style="padding:8px">English SDH sidecar</td><td style="padding:8px">Language, title and forced flag resolve the new file's track. A late exact match replaces a temporary language fallback.</td></tr>
+        <tr><td style="padding:8px">Forced signs</td><td style="padding:8px">A forced track in the same language wins before a full subtitle track.</td></tr>
+        <tr><td style="padding:8px">No counterpart</td><td style="padding:8px">The file keeps its default while later subtitle tracks are checked.</td></tr>
+      </tbody>
+    </table>
+    <p>Within the system. An explicit pick on the current file retains that exact track identity until another pick or load.</p>
+  </section>
+</main>
+</body>
+</html>

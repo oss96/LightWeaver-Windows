@@ -103,7 +103,7 @@ internal static class SeekMagnitudeFixture
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_VIDEO", "1");
         Environment.SetEnvironmentVariable("LIGHTWEAVER_MPV_NO_AUDIO", "1");
         // wid 0: no parent HWND. HardwareDecoding=false: software decode, so no GPU is needed.
-        using var player = MpvPlayer.Create(0, Dispatcher.CurrentDispatcher, new AppSettings { HardwareDecoding = false });
+        using var player = MpvPlayer.Create(0, new LightWeaver.Threading.WpfUiDispatcher(Dispatcher.CurrentDispatcher), new AppSettings { HardwareDecoding = false });
         var generation = player.LoadFile(ClipPath);
         var loadDeadline = DateTime.UtcNow.AddSeconds(20);
         while (player.Duration <= 0 && DateTime.UtcNow < loadDeadline)

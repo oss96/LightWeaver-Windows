@@ -68,6 +68,9 @@ public sealed class DownloadManager : IDisposable
     public event Action? DownloadsChanged;
     /// <summary>A download reached Completed (badge broadcast / toast).</summary>
     public event Action<DownloadItem>? Completed;
+    /// <summary>A title was added, changed state or removed: what is available offline may have
+    /// changed. Progress ticks do not raise it. Marshal to the dispatcher before touching UI.</summary>
+    public event Action? AvailabilityChanged;
 
     // Test hooks (verify skill): throttle makes pause/concurrency observable on a fast
     // LAN; the log file gives the suite assertable transition/resume evidence.
@@ -97,6 +100,9 @@ public sealed class DownloadManager : IDisposable
         => _live.Values.OrderBy(i => i.AddedTimestampMs).ToList();
 
     public bool IsTracked(Guid itemId) => _live.ContainsKey(itemId);
+
+    /// <summary>The tracked download of an item as it is now, progress included; null when none.</summary>
+    public DownloadItem? Find(Guid itemId) => _live.TryGetValue(itemId, out var item) ? item : null;
 
     public int ActiveDownloadCount => _live.Values.Count(i => i.Status == DownloadStatus.Downloading);
 
@@ -243,12 +249,20 @@ public sealed class DownloadManager : IDisposable
     {
         if (_active.ContainsKey(item.ItemId))
             return;   // already downloading
+        if (!DownloadPaths.IsContained(item))
+            throw new InvalidOperationException(L.Text("Downloads.UnsafePath"));
         Log($"enqueue {item.ItemId:N} \"{item.Title}\" ({item.Resolution})");
         var queued = item with { Status = DownloadStatus.Queued, ErrorMessage = null };
         Detail("enqueue", queued);
         Persist(queued);
         Pump();
     }
+
+    /// <summary>A fully qualified path with no "." or ".." segment, so it cannot climb out of the
+    /// folder it names.</summary>
+    public static bool IsCanonicalFilePath(string? path)
+        => path is { Length: > 0 } && Path.IsPathFullyQualified(path)
+           && !path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(s => s is "." or "..");
 
     public void Pause(Guid itemId)
     {
@@ -302,13 +316,39 @@ public sealed class DownloadManager : IDisposable
             {
                 Log($"remove {itemId:N}");
                 Detail("remove", item);
-                TryDeleteFile(item.FilePath);
-                DeleteSubtitles(item);
+                DeleteFiles(item);
                 _store.Remove(itemId);
             }
         }
         RaiseChanged();
         Pump();
+    }
+
+    /// <summary>Moves a queued item to another place in the queue. The queue runs in
+    /// <see cref="DownloadItem.AddedTimestampMs"/> order, so the queued items' existing stamps are
+    /// handed out again in the new order.</summary>
+    public void MoveInQueue(Guid itemId, int newIndex)
+    {
+        lock (_pumpLock)
+        {
+            var queued = _live.Values.Where(i => i.Status == DownloadStatus.Queued).OrderBy(i => i.AddedTimestampMs).ToList();
+            var from = queued.FindIndex(i => i.ItemId == itemId);
+            if (from < 0) return;
+            newIndex = Math.Clamp(newIndex, 0, queued.Count - 1);
+            if (from == newIndex) return;
+            var stamps = queued.Select(i => i.AddedTimestampMs).ToList();
+            var moved = queued[from];
+            queued.RemoveAt(from);
+            queued.Insert(newIndex, moved);
+            for (var i = 0; i < queued.Count; i++)
+            {
+                if (queued[i].AddedTimestampMs == stamps[i]) continue;
+                var restamped = queued[i] with { AddedTimestampMs = stamps[i] };
+                _live[restamped.ItemId] = restamped;
+                _store.AddOrUpdate(restamped);
+            }
+        }
+        RaiseChanged();
     }
 
     public void PauseAll()
@@ -349,10 +389,7 @@ public sealed class DownloadManager : IDisposable
                 cts.Cancel();
             _active.Clear();
             foreach (var item in _live.Values)
-            {
-                TryDeleteFile(item.FilePath);
-                DeleteSubtitles(item);
-            }
+                DeleteFiles(item);
             _live.Clear();
             _store.Save([]);
         }
@@ -420,6 +457,8 @@ public sealed class DownloadManager : IDisposable
             var auth = _authHeader(item);
             if (url is null || auth is null)
                 throw new InvalidOperationException(L.Text("DownloadManager.NoSignedInSessionForThisServer.90661eab"));
+            if (!DownloadPaths.IsContained(item))
+                throw new InvalidOperationException(L.Text("Downloads.UnsafePath"));
 
             Directory.CreateDirectory(Path.GetDirectoryName(item.FilePath)!);
             var startByte = File.Exists(item.FilePath) ? new FileInfo(item.FilePath).Length : 0L;
@@ -462,6 +501,22 @@ public sealed class DownloadManager : IDisposable
                 Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
                     $"event=range_refused outcome=restart item={itemId:N} bytes_on_disk={startByte} bytes_total={serverTotal ?? -1} transcoded={(item.IsTranscoded ? "true" : "false")}"));
                 Log($"restart {itemId:N} from byte 0 (416 at {startByte})");
+                startByte = 0;
+                response = await SendAsync(url, auth, startByte, ct).ConfigureAwait(false);
+            }
+            // A 206 names where its body starts. One that does not start at the byte asked for is
+            // a body for some other offset, and appending it built a file of the wrong length out
+            // of the wrong bytes; the truncation check below only catches a SHORT file, so the
+            // result was marked Completed and preferred over the server (B15). Same single restart
+            // as the 416 above, never a loop: the restart asks for no Range at all.
+            else if (response.StatusCode == HttpStatusCode.PartialContent && startByte > 0
+                && response.Content.Headers.ContentRange is { HasRange: true, From: { } from }
+                && from != startByte)
+            {
+                response.Dispose();
+                Diagnostics.AppLog.Info("downloads", FormattableString.Invariant(
+                    $"event=range_misaligned outcome=restart item={itemId:N} bytes_on_disk={startByte} range_from={from}"));
+                Log($"restart {itemId:N} from byte 0 (206 from {from}, asked {startByte})");
                 startByte = 0;
                 response = await SendAsync(url, auth, startByte, ct).ConfigureAwait(false);
             }
@@ -727,6 +782,16 @@ public sealed class DownloadManager : IDisposable
                 StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Deletes the video and its sidecars, but only when the stored path is still inside
+    /// a download folder: a tampered index must not turn Remove into a delete anywhere.</summary>
+    private static void DeleteFiles(DownloadItem item)
+    {
+        if (!DownloadPaths.IsContained(item))
+            return;
+        TryDeleteFile(item.FilePath);
+        DeleteSubtitles(item);
+    }
+
     private static void DeleteSubtitles(DownloadItem item)
     {
         foreach (var subtitle in item.SubtitleFiles)
@@ -752,7 +817,7 @@ public sealed class DownloadManager : IDisposable
             BytesPerSecond = bytesPerSecond,
             ProgressTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
         }, item);
-        RaiseChanged();
+        RaiseChanged(availability: false);
     }
 
     /// <summary>Status transition: in-memory + disk index (progress ticks skip the disk).</summary>
@@ -763,10 +828,16 @@ public sealed class DownloadManager : IDisposable
         RaiseChanged();
     }
 
-    private void RaiseChanged() => DownloadsChanged?.Invoke();
+    private void RaiseChanged(bool availability = true)
+    {
+        DownloadsChanged?.Invoke();
+        if (availability) AvailabilityChanged?.Invoke();
+    }
 
     private static void TryDeleteFile(string path)
     {
+        if (!IsCanonicalFilePath(path))
+            return;
         // A cancel races the download task's open FileStream: cancellation is
         // observed at the next read/write, so the handle may close a beat later.
         _ = Task.Run(async () =>
@@ -829,17 +900,34 @@ public sealed class DownloadManager : IDisposable
         Diagnostics.AppLog.Detail("downloads", line);
     }
 
+    private static readonly object LogLock = new();
+
+    /// <summary>Test-hook log. Concurrent downloads share one file, so appends are serialised, and a
+    /// reader holding it with FileShare.Read only delays a line (as DiskJsonCache.Log does) rather
+    /// than losing one a suite asserts on.</summary>
     private static void Log(string line)
     {
         if (LogPath is null)
             return;
-        try
+        var text = FormattableString.Invariant($"{DateTime.Now:HH:mm:ss.fff} {line}\r\n");
+        lock (LogLock)
         {
-            File.AppendAllText(LogPath,
-                FormattableString.Invariant($"{DateTime.Now:HH:mm:ss.fff} {line}\r\n"));
-        }
-        catch (IOException)
-        {
+            for (var attempt = 1; attempt <= 5; attempt++)
+            {
+                try
+                {
+                    File.AppendAllText(LogPath, text);
+                    return;
+                }
+                catch (IOException ex) when ((ex.HResult & 0xFFFF) is 32 or 33)
+                {
+                    Thread.Sleep(10 * attempt);
+                }
+                catch (IOException)
+                {
+                    return;
+                }
+            }
         }
     }
 

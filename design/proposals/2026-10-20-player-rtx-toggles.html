@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+  Proposal: RTX VSR and RTX HDR toggles in the v2 player bar (designer skill, 2026-10-20). One
+  suggestion, applied at once: parity with the WPF v1 overlay's gem toggles.
+  System: DESIGN.md (LwAccentSoftBrush for highlighted buttons, over-video rules, snap states),
+  Tokens.xaml values, the bar's existing 38 px LwSubtleButton controls and the Speed text button.
+  Current state: drawn from PlayerView.xaml; the app is not launched on the desktop host.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Player RTX toggles. Proposal 2026-10-20</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .doc { padding: 48px 56px 80px; display: flex; flex-direction: column; gap: 36px; max-width: 1400px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: #333; max-width: 960px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  .label { font: 500 12px ui-monospace, Menlo, monospace; color: #555; margin: 8px 0 0; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+
+  .video { position: relative; width: 1100px; height: 200px; border-radius: 6px; overflow: hidden;
+           background: linear-gradient(135deg, #3a4a5c 0%, #5d6b4e 45%, #2b2f38 100%); }
+  .video.compact { width: 640px; }
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.58); padding: 6px 16px 10px;
+         font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; }
+  .seek { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; height: 28px; font-size: 12px; color: rgba(255,255,255,.88); }
+  .track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); position: relative; }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; border-radius: 2px; background: #F08C9C; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .group { display: flex; gap: 2px; align-items: center; }
+  .btn { width: 38px; height: 38px; border-radius: 4px; display: grid; place-items: center;
+         font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 18px; color: #fff; }
+  .btn.wide { width: auto; min-width: 44px; padding: 0 6px; font: 600 13px "Segoe UI Variable Text", "Segoe UI", system-ui; }
+  .vol { width: 96px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.3); margin: 0 6px; position: relative; }
+  .vol i { position: absolute; inset: 0 30% 0 0; background: #F08C9C; border-radius: 2px; }
+  .tog { height: 38px; min-width: 44px; padding: 0 8px; border-radius: 4px; display: grid; place-items: center;
+         font: 600 13px "Segoe UI Variable Text", "Segoe UI", system-ui; color: rgba(255,255,255,.78); }
+  .tog.on { background: rgba(184,58,82,.26); color: #fff; }
+  .tog.hover { background: rgba(255,255,255,.06); }
+  .tog.on.hover { background: linear-gradient(rgba(255,255,255,.06), rgba(255,255,255,.06)), rgba(184,58,82,.26); }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 3px; border-radius: 6px; display: flex; gap: 2px; }
+  .tip { position: absolute; bottom: 64px; left: 498px; background: #2b2b2b; border: 1px solid rgba(255,255,255,.12); color: #fff;
+         font: 12px "Segoe UI Variable Text", "Segoe UI", system-ui; padding: 5px 8px; border-radius: 4px; }
+  table { border-collapse: collapse; font-size: 13px; background: #f8f7f5; border: 1px solid rgba(0,0,0,.1); }
+  th { background: #1a1a1a; color: #fff; text-align: left; padding: 8px 12px; font-weight: 600; }
+  td { padding: 8px 12px; border-top: 1px solid rgba(0,0,0,.08); vertical-align: top; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 · design/proposals · 2026-10-20</div>
+    <h1>Player: RTX VSR and RTX HDR toggles</h1>
+    <p>Owner report: RTX Video Super Resolution and RTX Video HDR work in the v2 player, but turning
+    them off needs the Settings page. The WPF player has two toggles for them in its overlay
+    ("RTX HDR" and "RTX VSR", top right, garnet when on, hidden when the GPU or an HDR source rules
+    RTX out, collapsed in the mini player, no shortcut). The v2 bar has no counterpart.</p>
+  </header>
+
+  <section>
+    <h2>Now</h2>
+    <div class="video">
+      <div class="bar">
+        <div class="seek"><span>0:41:12</span><div class="track"><i></i></div><span>-1:07:30</span></div>
+        <div class="row">
+          <div class="group">
+            <div class="btn" style="width:40px;font-size:20px">&#xE769;</div><div class="btn">&#xED3C;</div><div class="btn">&#xED3D;</div><div class="btn">&#xE893;</div><div class="btn">&#xE767;</div><div class="vol"><i></i></div>
+          </div>
+          <div class="group">
+            <div class="btn">&#xE8D6;</div><div class="btn">&#xE7F0;</div><div class="btn">&#xE713;</div><div class="btn wide">1×</div><div class="btn">&#xE8FD;</div><div class="btn">&#xE946;</div><div class="btn">&#xE740;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="label">Player bar (PlayerView.xaml, Transport), SDR source on an RTX GPU, VSR on in Settings: nothing shows it.</p>
+  </section>
+
+  <section>
+    <h2>Suggestion: two text toggles at the start of the bar's right group <span class="impact">new component variant: LwBarToggle</span></h2>
+    <div class="video">
+      <div class="bar">
+        <div class="seek"><span>0:41:12</span><div class="track"><i></i></div><span>-1:07:30</span></div>
+        <div class="row">
+          <div class="group">
+            <div class="btn" style="width:40px;font-size:20px">&#xE769;</div><div class="btn">&#xED3C;</div><div class="btn">&#xED3D;</div><div class="btn">&#xE893;</div><div class="btn">&#xE767;</div><div class="vol"><i></i></div>
+          </div>
+          <div class="group">
+            <div class="new"><div class="tog on">RTX VSR</div><div class="tog hover">RTX HDR</div></div>
+            <div class="btn">&#xE8D6;</div><div class="btn">&#xE7F0;</div><div class="btn">&#xE713;</div><div class="btn wide">1×</div><div class="btn">&#xE8FD;</div><div class="btn">&#xE946;</div><div class="btn">&#xE740;</div>
+          </div>
+        </div>
+      </div>
+      <div class="tip">RTX Video HDR</div>
+    </div>
+    <p class="label">RTX VSR on (accentSoft fill, white text); RTX HDR off and hovered (hover fill, 78 % white text), with its tooltip.</p>
+    <ul>
+      <li><b>What changes.</b> A <code>ToggleButton</code> pair, "RTX VSR" and "RTX HDR", in the
+      style <code>LwBarToggle</code>: 38 px high like the bar's buttons, min width 44, 8 px side
+      padding, 13 semibold like the Speed button, <code>LwControlRadius</code>. Off: transparent,
+      text at 78 % white. On: <code>LwAccentSoftBrush</code> fill, full-white text. Hover and press
+      use <code>LwHoverBrush</code> / <code>LwPressBrush</code> and snap. Tooltip and accessible name
+      "RTX Video Super Resolution" / "RTX Video HDR"; AutomationIds <code>PlayerVsrToggle</code> /
+      <code>PlayerRtxHdrToggle</code>. A click does not take keyboard focus, so Space still pauses.</li>
+      <li><b>Behaviour.</b> A toggle writes the Settings default (<code>RtxVsrDefault</code>,
+      <code>RtxHdrDefault</code>) and saves; the save re-applies the RTX state to the playing video
+      through <code>PlayerViewModel.ApplyRtxDefaults</code> → <code>MpvPlayer.SetRtxFilters</code>, the
+      same path a Settings change now takes. Settings and the bar always agree.</li>
+      <li><b>When they show.</b> As in WPF: only while <code>PlayerViewModel.RtxAvailable</code>
+      (an RTX GPU and a source that is not PQ/HLG), and not in the compact bar (detail preview,
+      mini player), where the WPF mini player drops them too. The detail page's preselection bar
+      gets none: there is no source yet to tell SDR from HDR, and the preview column is already full.</li>
+      <li><b>Why here.</b> The right group holds the picture and track options; text labels match
+      WPF's names and need no new icon. The over-video rule allows the soft fill: it is small and
+      26 % garnet, not a large accent fill.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>States</h2>
+    <table>
+      <tr><th>Situation</th><th>Toggles</th></tr>
+      <tr><td>RTX GPU, SDR source, full player</td><td>Shown; checked state = Settings default</td></tr>
+      <tr><td>RTX GPU, HDR10 / HLG / Dolby Vision source</td><td>Hidden (NVIDIA's video processing is SDR-only; the preference is kept)</td></tr>
+      <tr><td>No RTX GPU or driver</td><td>Hidden</td></tr>
+      <tr><td>Compact bar (detail preview while playing, mini player)</td><td>Hidden</td></tr>
+      <tr><td>Bar too narrow</td><td>The right group moves to its own row and wraps (BarRow), nothing is cut off</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

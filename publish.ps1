@@ -5,9 +5,10 @@ $root = $PSScriptRoot
 
 & (Join-Path $root 'tools\Verify-LibMpv.ps1')
 
-$csproj = Join-Path $root 'src\LightWeaver\LightWeaver.csproj'
-$version = (Select-String -Path $csproj -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
-if (-not $version) { Write-Error 'No <Version> found in LightWeaver.csproj' }
+$props = Join-Path $root 'Directory.Build.props'
+$version = (Select-String -Path $props -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
+if (-not $version) { Write-Error 'No <Version> found in Directory.Build.props' }
+$csproj = Join-Path $root 'src\LightWeaver.WinUI\LightWeaver.WinUI.csproj'
 
 $publishDir = Join-Path $root 'dist\publish'
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
@@ -25,12 +26,15 @@ if (-not (Test-Path (Join-Path $publishDir 'libmpv-2.dll'))) {
 # installed copy carry the same signature. Signing after either one would leave an unsigned exe
 # inside a signed installer, which is the arrangement that looks fine and helps nobody.
 #
-# Only our own two binaries: the apphost the user launches and the managed assembly behind it. The
-# .NET runtime files are already signed by Microsoft, and re-signing a third party's libmpv-2.dll
-# with our certificate would assert authorship we do not have.
+# Only our own binaries: the apphost the user launches, the managed assembly behind it, and the two
+# libraries it is built on. The updater compares an installer's signer with this exe's. The .NET
+# and Windows App SDK runtime files are already signed by Microsoft, and re-signing a third party's
+# libmpv-2.dll with our certificate would assert authorship we do not have.
 & (Join-Path $root 'sign.ps1') -Path @(
     (Join-Path $publishDir 'LightWeaver.exe'),
-    (Join-Path $publishDir 'LightWeaver.dll')
+    (Join-Path $publishDir 'LightWeaver.dll'),
+    (Join-Path $publishDir 'LightWeaver.Core.dll'),
+    (Join-Path $publishDir 'LightWeaver.Localization.dll')
 )
 
 $zip = Join-Path $root "dist\LightWeaver-$version-win-x64.zip"

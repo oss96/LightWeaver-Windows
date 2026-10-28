@@ -61,20 +61,87 @@ public static class BrowseFolderCache
     /// folder that is only ever read keeps the index's own age moving with it.</para></summary>
     public static async Task<FolderCacheEntry<MediaItem>?> ReadAsync(string key)
     {
-        var entry = await MetadataCache.ReadAsync<FolderCacheEntry<MediaItem>>(key).ConfigureAwait(false);
-        if (entry is null || entry.Items is null || entry.Schema != CurrentSchema)
+        var entry = await ReadEntryAsync(key).ConfigureAwait(false);
+        if (entry is null)
             return null;
-        if (TryParseKey(key, out var profileKey, out var folderId))
-            await RecordAsync(profileKey, folderId).ConfigureAwait(false);
+        await RecordKeyAsync(key).ConfigureAwait(false);
         return entry;
     }
 
     /// <summary>Writes a folder entry best-effort (the underlying cache swallows write errors) and
     /// records the folder in its profile's index, which is what <see cref="InvalidateProfileAsync"/>
-    /// later enumerates.</summary>
-    public static async Task StoreAsync(string key, FolderCacheEntry<MediaItem> entry)
+    /// later enumerates. The write holds the entry's write gate (<see cref="MetadataCache.LockAsync"/>),
+    /// like every other writer of a folder entry, so it cannot land in the middle of another's
+    /// read-modify-write. <paramref name="removedSince"/> names the items of a list that removals
+    /// known to the writer have taken out; they are dropped inside the gate, before the write and
+    /// again after it for a removal recorded while it ran. Returns what was stored.</summary>
+    public static async Task<FolderCacheEntry<MediaItem>> StoreAsync(string key, FolderCacheEntry<MediaItem> entry,
+        Func<IReadOnlyList<MediaItem>, IReadOnlySet<Guid>>? removedSince = null)
     {
+        using (await MetadataCache.LockAsync(key).ConfigureAwait(false))
+            entry = await WriteAsync(key, entry, removedSince).ConfigureAwait(false);
+        // The index has its own gate; taken after this one is released, never inside it.
+        await RecordKeyAsync(key).ConfigureAwait(false);
+        return entry;
+    }
+
+    /// <summary>A read-modify-write of one folder entry under its write gate: <paramref name="update"/>
+    /// gets the entry (null on a miss) and returns what to store, or null to leave it as it is.
+    /// <paramref name="removedSince"/> is applied as in <see cref="StoreAsync"/>. Returns what was
+    /// stored, or null when nothing was.</summary>
+    public static async Task<FolderCacheEntry<MediaItem>?> UpdateAsync(string key,
+        Func<FolderCacheEntry<MediaItem>?, FolderCacheEntry<MediaItem>?> update,
+        Func<IReadOnlyList<MediaItem>, IReadOnlySet<Guid>>? removedSince = null)
+    {
+        FolderCacheEntry<MediaItem>? stored = null;
+        using (await MetadataCache.LockAsync(key).ConfigureAwait(false))
+        {
+            if (update(await ReadEntryAsync(key).ConfigureAwait(false)) is { } next)
+                stored = await WriteAsync(key, next, removedSince).ConfigureAwait(false);
+        }
+        if (stored is not null)
+            await RecordKeyAsync(key).ConfigureAwait(false);
+        return stored;
+    }
+
+    /// <summary>The caller holds the key's write gate. Filters, writes, and writes again while a
+    /// removal recorded during the write names an item it holds.</summary>
+    private static async Task<FolderCacheEntry<MediaItem>> WriteAsync(string key, FolderCacheEntry<MediaItem> entry,
+        Func<IReadOnlyList<MediaItem>, IReadOnlySet<Guid>>? removedSince)
+    {
+        if (Without(entry, removedSince?.Invoke(entry.Items)) is { } filtered)
+            entry = filtered;
         await MetadataCache.StoreAsync(key, entry).ConfigureAwait(false);
+        while (Without(entry, removedSince?.Invoke(entry.Items)) is { } late)
+        {
+            entry = late;
+            await MetadataCache.StoreAsync(key, entry).ConfigureAwait(false);
+        }
+        return entry;
+    }
+
+    /// <summary>The entry without the given items, its count lowered by as many; null when it holds
+    /// none of them.</summary>
+    private static FolderCacheEntry<MediaItem>? Without(FolderCacheEntry<MediaItem> entry, IReadOnlySet<Guid>? itemIds)
+    {
+        if (itemIds is not { Count: > 0 })
+            return null;
+        var kept = entry.Items.Where(item => !itemIds.Contains(item.Id)).ToList();
+        var removed = entry.Items.Count - kept.Count;
+        return removed == 0
+            ? null
+            : entry with { Items = kept, TotalCount = Math.Max(kept.Count, entry.TotalCount - removed) };
+    }
+
+    /// <summary><see cref="ReadAsync"/> without the index record, for use under the write gate.</summary>
+    private static async Task<FolderCacheEntry<MediaItem>?> ReadEntryAsync(string key)
+    {
+        var entry = await MetadataCache.ReadAsync<FolderCacheEntry<MediaItem>>(key).ConfigureAwait(false);
+        return entry is null || entry.Items is null || entry.Schema != CurrentSchema ? null : entry;
+    }
+
+    private static async Task RecordKeyAsync(string key)
+    {
         if (TryParseKey(key, out var profileKey, out var folderId))
             await RecordAsync(profileKey, folderId).ConfigureAwait(false);
     }
@@ -85,6 +152,16 @@ public static class BrowseFolderCache
     /// index rewritten on every single-folder change.</summary>
     public static void Invalidate(string profileKey, Guid folderId)
         => MetadataCache.Remove(Key(profileKey, folderId));
+
+    /// <summary>Takes the given items out of one folder entry, for items the server has since
+    /// removed. Cheaper and less disruptive than <see cref="Invalidate"/>: the rest of the folder
+    /// stays cached, and the order is untouched, so a partial entry still resumes at the right
+    /// offset — the server's own listing has shrunk by the same items. No-op on a miss or when
+    /// the entry holds none of them. A read-modify-write under the entry's write gate
+    /// (<see cref="UpdateAsync"/>): two removals that each read the entry before the other wrote
+    /// used to store a list with the other's item still in it.</summary>
+    public static Task RemoveItemsAsync(string key, IReadOnlySet<Guid> itemIds)
+        => UpdateAsync(key, entry => entry is null ? null : Without(entry, itemIds));
 
     /// <summary>Drops every folder entry this profile has. For the LibraryChanged batches that
     /// report items added or removed but name no folder — correct beats cheap there, because the

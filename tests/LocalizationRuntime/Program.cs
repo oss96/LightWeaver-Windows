@@ -17,6 +17,8 @@ L.Initialize("de-AT");
 var germanIdentity = L.CacheIdentity;
 Check(L.Text("hello") == "Hallo", "specific culture uses neutral language pack");
 Check(L.Format("count", 1234) == "Anzahl " + 1234.ToString("N0", CultureInfo.GetCultureInfo("de-AT")), "formatting uses selected UI culture");
+var cachedAt = new DateTime(2026, 10, 25, 14, 30, 0);
+Check(L.Format("cached", cachedAt) == "Offline - zwischengespeicherte Ergebnisse vom " + cachedAt.ToString("g", CultureInfo.GetCultureInfo("de-AT")) + ".", "cached browsing timestamp uses the selected UI culture");
 Check(CultureInfo.CurrentCulture.Name == machineCulture.Name, "UI locale does not change machine parsing culture");
 Check(L.Text("missing") == "Missing", "missing translation falls back to English");
 Check(L.Text("stale") == "Changed source", "outdated source stamp falls back to English");

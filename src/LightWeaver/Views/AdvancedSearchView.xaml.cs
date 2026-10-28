@@ -57,9 +57,25 @@ public partial class AdvancedSearchView : UserControl
 
     private bool _mixedMode;
     private int _totalCount;
+    /// <summary>The summary line's per-type totals for a mixed query; null for a typed one.
+    /// Kept so a removal can lower them.</summary>
+    private List<(BaseItemKind Kind, int Total)>? _summaryBreakdown;
+    /// <summary>Mixed mode's sections, kept so a removal can edit them in place.</summary>
+    private readonly List<ResultSection> _sections = [];
+    /// <summary>The query <see cref="_sections"/> answer, for re-asking one section's first page
+    /// (see <see cref="RefillSectionAsync"/>) without picking up an edit not yet applied.</summary>
+    private AdvancedSearchQuery? _sectionsQuery;
     private bool _loadingMore;
     private bool _initializing = true;
     private int _loadGeneration;
+    /// <summary>Bumped when <see cref="RemoveItems"/> takes cards off the paged grid. An append asks
+    /// for the page at the grid's count, so one in flight across a removal would land one card off
+    /// per removed card: a skipped result, or a boundary card twice. It carries the epoch and the
+    /// count it started at, is dropped when either moved, and is asked again at the new count.</summary>
+    private int _appendEpoch;
+    /// <summary>Asks again when a grid append or a section refill ran out of retries with results
+    /// left (see <see cref="RemovalRefill"/>).</summary>
+    private readonly RefillBackoff _refillBackoff = new();
     private System.Windows.Threading.DispatcherTimer? _termTimer;
 
     // Person type-ahead (2026-08-05). The box is a transient PICKER, not a second piece of
@@ -114,7 +130,16 @@ public partial class AdvancedSearchView : UserControl
                 await LoadGenresAsync(seed.Genres);
             if (_items.Count == 0 && _loadGeneration == 0)
                 await ResetAndReloadAsync();
+            else
+                RefillPending();   // shown again: an emptied grid or section with results left asks now
             SearchBox.Focus();   // P5: the on-screen field is the single search input
+        };
+        // Playback collapses the browse layer without unloading this view, so Loaded alone misses
+        // the return from the player; a retry the backoff skipped while hidden asks here.
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true && IsLoaded && _loadGeneration > 0)
+                RefillPending();
         };
         ItemsGrid.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnScroll));
     }
@@ -193,7 +218,7 @@ public partial class AdvancedSearchView : UserControl
         catch (Exception ex)
         {
             Diagnostics.AppLog.Detail("advanced-search",
-                $"event=facet_load outcome=failure facet=genres elapsed_ms={started.ElapsedMilliseconds}", ex);
+                $"event=facet_load outcome=failure facet=genres elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
             // no genre facet then — the dropdown stays empty
         }
     }
@@ -205,6 +230,8 @@ public partial class AdvancedSearchView : UserControl
         if (!HasAnyConstraint())
         {
             ++_loadGeneration;   // drop any in-flight load
+            ReleaseStaleAppend();
+            _refillBackoff.Cancel();
             Diagnostics.AppLog.Detail("advanced-search", $"event=query outcome=prompt generation={_loadGeneration}");
             ShowPrompt();
             return;
@@ -217,6 +244,8 @@ public partial class AdvancedSearchView : UserControl
     private async Task LoadAsync()
     {
         var generation = ++_loadGeneration;
+        ReleaseStaleAppend();
+        _refillBackoff.Cancel();
         var profileKey = _app.ActiveSessionKey;
         var started = System.Diagnostics.Stopwatch.StartNew();
         StatusText.Visibility = Visibility.Collapsed;
@@ -239,6 +268,7 @@ public partial class AdvancedSearchView : UserControl
             $"event=load outcome=start generation={generation} term_length={q.Term?.Length ?? 0} types={q.ItemTypes.Count} genres={q.Genres.Count} people={q.PersonIds.Count} years={(q.MinYear is null && q.MaxYear is null ? 0 : 1)} watched={q.Watched?.ToString() ?? "any"} sort={q.Sort} order={q.Order}");
         try
         {
+            var requestedAtUtc = DateTime.UtcNow;
             if (q.ItemTypes.Count <= 1)
             {
                 var (items, total) = await _app.Jellyfin.AdvancedSearchAsync(q, 0, PageSize);
@@ -247,14 +277,22 @@ public partial class AdvancedSearchView : UserControl
                     Diagnostics.AppLog.Detail("advanced-search", $"event=load outcome=stale generation={generation} mode=single");
                     return;
                 }
+                var listedCount = items.Count;
+                (items, total) = DropRemoved(items, total, requestedAtUtc, profileKey);
+                total = RemovalRefill.RemainingTotal(items.Count, listedCount, total);
                 _queryRunning = false;
                 _mixedMode = false;
                 _totalCount = total;
                 _items.Clear();
                 foreach (var item in items)
                     _items.Add(item);
-                LiveText.Bind(ResultSummary, "Text", () => FormatSummary(total, null));
+                _sections.Clear();
+                _summaryBreakdown = null;
+                BindSummary(total);
                 ShowSingle();
+                // Every card it listed was removed while it ran, with results left: the append
+                // asks for the first page again, as a removal that empties the grid does.
+                RefillPending();
                 Diagnostics.AppLog.Detail("advanced-search",
                     $"event=load outcome=success generation={generation} mode=single elapsed_ms={started.ElapsedMilliseconds} count={items.Count} total={total}");
             }
@@ -264,7 +302,13 @@ public partial class AdvancedSearchView : UserControl
                 var kinds = q.ItemTypes.ToList();
                 var tasks = kinds.Select(k =>
                     _app.Jellyfin.AdvancedSearchAsync(q with { ItemTypes = [k] }, 0, SectionCap)).ToList();
-                var results = await Task.WhenAll(tasks);
+                var results = (await Task.WhenAll(tasks))
+                    .Select(result =>
+                    {
+                        var (kept, adjusted) = DropRemoved(result.Items, result.TotalCount, requestedAtUtc, profileKey);
+                        return (Items: kept, Total: RemovalRefill.RemainingTotal(kept.Count, result.Items.Count, adjusted));
+                    })
+                    .ToArray();
                 if (generation != _loadGeneration || profileKey != _app.ActiveSessionKey)
                 {
                     Diagnostics.AppLog.Detail("advanced-search", $"event=load outcome=stale generation={generation} mode=mixed");
@@ -274,12 +318,14 @@ public partial class AdvancedSearchView : UserControl
 
                 var sections = new List<(BaseItemKind Kind, List<MediaItem> Items, int Total)>();
                 for (var i = 0; i < kinds.Count; i++)
-                    if (results[i].TotalCount > 0)
-                        sections.Add((kinds[i], results[i].Items, results[i].TotalCount));
+                    if (results[i].Total > 0)
+                        sections.Add((kinds[i], results[i].Items, results[i].Total));
 
                 var grand = sections.Sum(s => s.Total);
-                LiveText.Bind(ResultSummary, "Text", () => FormatSummary(grand,
-                    kinds.Select((k, i) => (k, results[i].TotalCount)).ToList()));
+                _sectionsQuery = q;
+                _sections.Clear();
+                _summaryBreakdown = kinds.Select((k, i) => (k, results[i].Total)).ToList();
+                BindSummary(grand);
 
                 if (sections.Count == 0)
                 {
@@ -306,6 +352,10 @@ public partial class AdvancedSearchView : UserControl
                     BuildSections(sections);
                     ShowSections();
                 }
+                // A preview, or the handed-off grid, whose every card was removed while the
+                // requests were out still counts results: its first page again, as a removal that
+                // empties it does. Without this an emptied section stayed up empty for good.
+                RefillPending();
                 Diagnostics.AppLog.Detail("advanced-search",
                     $"event=load outcome=success generation={generation} mode={(_mixedMode ? "mixed" : "single")} elapsed_ms={started.ElapsedMilliseconds} count={sections.Sum(s => s.Items.Count)} total={grand} sections={sections.Count}");
             }
@@ -319,7 +369,7 @@ public partial class AdvancedSearchView : UserControl
                 return;
             }
             Diagnostics.AppLog.Detail("advanced-search",
-                $"event=load outcome=failure generation={generation} elapsed_ms={started.ElapsedMilliseconds}", ex);
+                $"event=load outcome=failure generation={generation} elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
             _queryRunning = false;
             SkeletonHost.Visibility = Visibility.Collapsed;
             ItemsGrid.Visibility = Visibility.Collapsed;
@@ -333,41 +383,96 @@ public partial class AdvancedSearchView : UserControl
             if (generation == _loadGeneration)
             {
                 _queryRunning = false;
-                SkeletonHost.Visibility = Visibility.Collapsed;
+                // An emptied grid with results left keeps the skeleton as its loading state.
+                if (!GridPending)
+                    SkeletonHost.Visibility = Visibility.Collapsed;
             }
         }
     }
 
     private bool _queryRunning;
 
-    private async void OnScroll(object sender, ScrollChangedEventArgs e)
+    private void OnScroll(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.VerticalOffset < e.ExtentHeight - e.ViewportHeight - 200)
+            return;
+        TryAppend();
+    }
+
+    /// <summary>Starts the paged grid's next append unless one is running or the grid is complete.</summary>
+    private void TryAppend()
     {
         if (_mixedMode || _loadingMore || _items.Count >= _totalCount)
             return;
-        if (e.VerticalOffset < e.ExtentHeight - e.ViewportHeight - 200)
-            return;
+        _ = AppendPageAsync();
+    }
 
+    /// <summary>One append at the grid's count. It lands only if the load generation, the append
+    /// epoch and the count it started at are all unchanged. One dropped for a moved epoch or count
+    /// (a removal took cards off the grid meanwhile) is asked again at the new count; one dropped
+    /// for a new load is not, and the load released its flag.</summary>
+    private async Task AppendPageAsync()
+    {
         _loadingMore = true;
-        // Append-owned: hidden unconditionally in the finally. See LibraryView.OnScroll.
+        // Append-owned: hidden in the finally by the append of the current load. See LibraryView.
         MoreLoading.Show();
         var generation = _loadGeneration;
+        var appendEpoch = _appendEpoch;
+        var offset = _items.Count;
         var profileKey = _app.ActiveSessionKey;
         var started = System.Diagnostics.Stopwatch.StartNew();
+        var requeue = false;
         Diagnostics.AppLog.Detail("advanced-search",
-            $"event=load outcome=start mode=append generation={generation} offset={_items.Count}");
+            $"event=load outcome=start mode=append generation={generation} offset={offset}");
         try
         {
             if (int.TryParse(Environment.GetEnvironmentVariable("LIGHTWEAVER_SLOW_LOAD_MS"), out var slowMs) && slowMs > 0)
                 await Task.Delay(slowMs);
-            var (more, total) = await _app.Jellyfin.AdvancedSearchAsync(BuildQuery(), _items.Count, PageSize);
-            if (generation != _loadGeneration || profileKey != _app.ActiveSessionKey)
+            List<MediaItem> more;
+            int total;
+            int listedCount;
+            for (var attempt = 0; ; attempt++)
             {
-                Diagnostics.AppLog.Detail("advanced-search", $"event=load outcome=stale mode=append generation={generation}");
-                return;
+                var requestedAtUtc = DateTime.UtcNow;
+                var (listed, serverTotal) = await _app.Jellyfin.AdvancedSearchAsync(BuildQuery(), offset, PageSize);
+                if (generation != _loadGeneration || profileKey != _app.ActiveSessionKey)
+                {
+                    Diagnostics.AppLog.Detail("advanced-search", $"event=load outcome=stale mode=append generation={generation}");
+                    return;
+                }
+                if (appendEpoch != _appendEpoch || offset != _items.Count)
+                {
+                    Diagnostics.AppLog.Detail("advanced-search",
+                        $"event=load outcome=stale mode=append generation={generation} reason=count_moved offset={offset} count={_items.Count}");
+                    requeue = true;
+                    return;
+                }
+                listedCount = listed.Count;
+                (more, total) = DropRemoved(listed, serverTotal, requestedAtUtc, profileKey);
+                // Every card it listed was removed while it ran, and the server still counts more
+                // past this offset: ask again. A removal of cards not on the grid moves no epoch,
+                // so a refill of an emptied grid otherwise took this page for the end of the
+                // results and showed none.
+                if (!RemovalRefill.AskAgain(more.Count, listedCount, total, offset, attempt))
+                    break;
+                Diagnostics.AppLog.Detail("advanced-search",
+                    $"event=load outcome=retry mode=append generation={generation} reason=all_removed offset={offset} total={total} attempt={attempt + 1}");
             }
-            _totalCount = total;
             foreach (var item in more)
                 _items.Add(item);
+            // Out of retries with every card removed is not the end: the total stays, and an
+            // emptied grid keeps its loading state and asks again after a backoff. Only a page
+            // that listed nothing, or a count that drops to what is shown, ends the results.
+            _totalCount = RemovalRefill.RemainingTotal(_items.Count, listedCount, total);
+            if (GridPending)
+            {
+                Diagnostics.AppLog.Detail("advanced-search",
+                    $"event=load outcome=exhausted mode=append generation={generation} offset={offset} total={_totalCount}");
+                ArmRefillRetry(generation, profileKey);
+            }
+            else
+                _refillBackoff.Succeeded();
+            SettleGrid();
             Diagnostics.AppLog.Detail("advanced-search",
                 $"event=load outcome=success mode=append generation={generation} elapsed_ms={started.ElapsedMilliseconds} count={more.Count} total={total}");
         }
@@ -377,15 +482,34 @@ public partial class AdvancedSearchView : UserControl
                 Diagnostics.AppLog.Detail("advanced-search",
                     $"event=load outcome=stale mode=append generation={generation} phase=exception elapsed_ms={started.ElapsedMilliseconds}");
             else
+            {
                 Diagnostics.AppLog.Detail("advanced-search",
-                    $"event=load outcome=failure mode=append generation={generation} elapsed_ms={started.ElapsedMilliseconds}", ex);
-            // next scroll retries
+                    $"event=load outcome=failure mode=append generation={generation} elapsed_ms={started.ElapsedMilliseconds} error={ex.GetType().Name}");
+                // next scroll retries; an emptied grid has no scroll, so it asks again after a backoff
+                if (GridPending)
+                    ArmRefillRetry(generation, profileKey);
+            }
         }
         finally
         {
-            _loadingMore = false;
-            MoreLoading.Hide();
+            // A new load released the flag when it bumped the generation, and the flag may belong
+            // to its own append by now.
+            if (generation == _loadGeneration)
+            {
+                _loadingMore = false;
+                MoreLoading.Hide();
+                if (requeue)
+                    TryAppend();
+            }
         }
+    }
+
+    /// <summary>A new load supersedes any append in flight; its page is dropped when it lands, so
+    /// it must not hold <c>_loadingMore</c> until then and block the new query's first append.</summary>
+    private void ReleaseStaleAppend()
+    {
+        _loadingMore = false;
+        MoreLoading.Hide();
     }
 
     // ---- Presentation states ----
@@ -409,18 +533,85 @@ public partial class AdvancedSearchView : UserControl
         SkeletonHost.Visibility = Visibility.Collapsed;
         SectionsScroll.Visibility = Visibility.Collapsed;
         ItemsGrid.Visibility = Visibility.Visible;
-        if (_items.Count == 0)
+        switch (RemovalRefill.Classify(_items.Count, _totalCount))
         {
-            EmptyView.Show(() => L.Text("AdvancedSearchView.NothingHere.256616a3"), () => L.Text("AdvancedSearchView.NoItemsMatchTheseFiltersTryLoosening.20ccc9be"));
-            StarterChips.Visibility = Visibility.Collapsed;
-            ClearFiltersBtn.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            HideCenter();
-            AnimateIn(ItemsGrid, 0);
+            case RemovalRefill.State.Showing:
+                HideCenter();
+                AnimateIn(ItemsGrid, 0);
+                break;
+            case RemovalRefill.State.Pending:
+                // Every card gone with results left: the loading skeleton while the refill runs.
+                ShowSkeleton();
+                break;
+            default:
+                EmptyView.Show(() => L.Text("AdvancedSearchView.NothingHere.256616a3"), () => L.Text("AdvancedSearchView.NoItemsMatchTheseFiltersTryLoosening.20ccc9be"));
+                StarterChips.Visibility = Visibility.Collapsed;
+                ClearFiltersBtn.Visibility = Visibility.Visible;
+                break;
         }
     }
+
+    /// <summary>The paged grid is on screen with no cards and results left (see
+    /// <see cref="RemovalRefill"/>).</summary>
+    private bool GridPending =>
+        !_mixedMode && ItemsGrid.Visibility == Visibility.Visible
+        && RemovalRefill.Classify(_items.Count, _totalCount) == RemovalRefill.State.Pending;
+
+    /// <summary>Shows the paged grid's state under <see cref="RemovalRefill"/> after an append or a
+    /// removal changed its cards or its total: cards, the loading skeleton while it is empty with
+    /// results left, or the zero-results state with the summary at zero once nothing is.</summary>
+    private void SettleGrid()
+    {
+        if (_mixedMode || _queryRunning || ItemsGrid.Visibility != Visibility.Visible)
+            return;
+        switch (RemovalRefill.Classify(_items.Count, _totalCount))
+        {
+            case RemovalRefill.State.Showing:
+                if (SkeletonHost.Visibility == Visibility.Visible)
+                {
+                    SkeletonHost.Visibility = Visibility.Collapsed;
+                    HideCenter();
+                }
+                break;
+            case RemovalRefill.State.Pending:
+                ShowSkeleton();
+                break;
+            default:
+                _summaryBreakdown = _summaryBreakdown?.Select(entry => (entry.Kind, 0)).ToList();
+                BindSummary(0);
+                ShowSingle();
+                break;
+        }
+    }
+
+    /// <summary>Starts a refill for whatever <see cref="RemovalRefill"/> counts as pending: the
+    /// paged grid's first page again, or each emptied mixed section's. A grid append or a section
+    /// refill already running is left to land; each re-checks its state when it does.</summary>
+    private void RefillPending()
+    {
+        if (_queryRunning)
+            return;
+        if (_mixedMode)
+        {
+            foreach (var section in _sections.ToList())
+                if (RemovalRefill.Classify(section.Items.Count, section.Total) == RemovalRefill.State.Pending)
+                    _ = RefillSectionAsync(section);
+        }
+        else if (GridPending)
+            TryAppend();
+    }
+
+    /// <summary>One more ask after the backoff, for the load that ran out of retries, on this
+    /// profile, while the view is shown. Hidden (navigated away, or collapsed under the player,
+    /// which leaves it loaded), it waits for the next reveal instead.</summary>
+    private void ArmRefillRetry(int generation, string? profileKey)
+        => _refillBackoff.Arm(() =>
+        {
+            if (generation != _loadGeneration || profileKey != _app.ActiveSessionKey || !IsVisible)
+                return;
+            Diagnostics.AppLog.Detail("advanced-search", $"event=refill outcome=backoff_retry generation={generation}");
+            RefillPending();
+        });
 
     private void ShowSections()
     {
@@ -506,7 +697,7 @@ public partial class AdvancedSearchView : UserControl
 
             var count = new TextBlock
             {
-                Text = string.Create(CultureInfo.InvariantCulture, $"· {total}"),
+                Text = SectionCountText(total),
                 Style = (Style)FindResource("LwTypeMono"),
                 FontSize = 12.5,
                 Foreground = (Brush)FindResource("LwText3Brush"),
@@ -532,6 +723,8 @@ public partial class AdvancedSearchView : UserControl
             DockPanel.SetDock(showOnly, Dock.Right);
             header.Children.Add(showOnly);
 
+            // Observable so a removal drops the card in place.
+            var cards = new ObservableCollection<MediaItem>(items);
             var list = new ListBox
             {
                 Background = Brushes.Transparent,
@@ -539,7 +732,7 @@ public partial class AdvancedSearchView : UserControl
                 ItemTemplateSelector = (DataTemplateSelector)FindResource("MediaCardSelector"),
                 ItemContainerStyle = (Style)FindResource("LwMediaGridItem"),
                 Template = (ControlTemplate)Resources["PlainList"],
-                ItemsSource = items,
+                ItemsSource = cards,
                 ItemsPanel = new ItemsPanelTemplate(new System.Windows.FrameworkElementFactory(typeof(WrapPanel))),
             };
             System.Windows.Automation.AutomationProperties.SetAutomationId(list, $"AsSection{kind}");
@@ -550,7 +743,209 @@ public partial class AdvancedSearchView : UserControl
             section.Children.Add(list);
             AnimateIn(section, index * 60);
             SectionsHost.Children.Add(section);
+            _sections.Add(new ResultSection(kind, cards, count, section) { Total = total });
             index++;
+        }
+    }
+
+    private static string SectionCountText(int total)
+        => string.Create(CultureInfo.InvariantCulture, $"· {total}");
+
+    /// <summary>One mixed-mode section: its type, its cards, the header count and the panel.</summary>
+    private sealed class ResultSection(BaseItemKind kind, ObservableCollection<MediaItem> items,
+        TextBlock count, FrameworkElement host)
+    {
+        public BaseItemKind Kind { get; } = kind;
+        public ObservableCollection<MediaItem> Items { get; } = items;
+        public TextBlock Count { get; } = count;
+        public FrameworkElement Host { get; } = host;
+        public int Total { get; set; }
+        /// <summary>A <see cref="RefillSectionAsync"/> is in flight for it.</summary>
+        public bool Refilling { get; set; }
+    }
+
+    private void BindSummary(int total)
+    {
+        var breakdown = _summaryBreakdown?.ToList();
+        LiveText.Bind(ResultSummary, "Text", () => FormatSummary(total, breakdown));
+    }
+
+    /// <summary>A page answered for a request that started before a removal still lists the item;
+    /// the shell's removal ledger drops it, and the server's count, which still has it, shrinks
+    /// with it.</summary>
+    private (List<MediaItem> Items, int Total) DropRemoved(List<MediaItem> items, int total,
+        DateTime requestedAtUtc, string? profileKey)
+    {
+        var kept = _app.DropRemovedItems(items, requestedAtUtc, profileKey);
+        return (kept, total - (items.Count - kept.Count));
+    }
+
+    /// <summary>Drops items the server no longer has, in place: from the paged grid or from the
+    /// mixed sections, with the counts in the summary and the section headers lowered to match. A
+    /// section whose cards are all gone closes. Without it, opening a result deleted since the
+    /// search answered 404 and went back to the same dead card.</summary>
+    public void RemoveItems(IReadOnlySet<Guid> itemIds)
+    {
+        var removedByKind = new Dictionary<BaseItemKind, int>();
+        var removed = 0;
+        for (var i = _items.Count - 1; i >= 0; i--)
+            if (itemIds.Contains(_items[i].Id))
+            {
+                if (Enum.TryParse<BaseItemKind>(_items[i].Type.ToString(), out var kind))
+                    removedByKind[kind] = removedByKind.GetValueOrDefault(kind) + 1;
+                _items.RemoveAt(i);
+                removed++;
+            }
+        var fromGrid = removed;
+        // The grid pages by count: an append in flight was asked at the old one.
+        if (fromGrid > 0)
+            _appendEpoch++;
+        foreach (var section in _sections)
+        {
+            var inSection = 0;
+            for (var i = section.Items.Count - 1; i >= 0; i--)
+                if (itemIds.Contains(section.Items[i].Id))
+                {
+                    section.Items.RemoveAt(i);
+                    inSection++;
+                }
+            if (inSection == 0)
+                continue;
+            removed += inSection;
+            removedByKind[section.Kind] = removedByKind.GetValueOrDefault(section.Kind) + inSection;
+            section.Total = Math.Max(section.Items.Count, section.Total - inSection);
+            // A preview emptied while the server still has results of its type is refilled below;
+            // only a section with nothing left closes.
+            SettleSection(section);
+        }
+        if (removed == 0)
+            return;
+        Diagnostics.AppLog.Detail("advanced-search",
+            $"event=items_removed count={removed} mode={(_mixedMode ? "mixed" : "single")}");
+        // The prompt state keeps the last results behind it; there is no summary to lower.
+        if (ItemsGrid.Visibility != Visibility.Visible && SectionsScroll.Visibility != Visibility.Visible)
+            return;
+
+        if (_summaryBreakdown is not null)
+            _summaryBreakdown = _summaryBreakdown
+                .Select(entry => (entry.Kind, Math.Max(0, entry.Total - removedByKind.GetValueOrDefault(entry.Kind))))
+                .ToList();
+        if (_mixedMode)
+        {
+            BindSummary(_sections.Sum(section => section.Total));
+            if (!ShowZeroResultsIfSectionsEmpty())
+                RefillPending();
+        }
+        else
+        {
+            _totalCount = Math.Max(_items.Count, _totalCount - fromGrid);
+            BindSummary(_totalCount);
+            // The same for the paged grid: with results left on the server, the loading state and
+            // its first page again rather than "Nothing here" under a summary that still counts them.
+            SettleGrid();
+            RefillPending();
+        }
+    }
+
+    /// <summary>A section's header count and visibility under <see cref="RemovalRefill"/>: it
+    /// closes only at a confirmed total of zero. Emptied with results left, it keeps its header
+    /// and count while its refill runs.</summary>
+    private static void SettleSection(ResultSection section)
+    {
+        section.Count.Text = SectionCountText(section.Total);
+        section.Host.Visibility = RemovalRefill.Classify(section.Items.Count, section.Total) == RemovalRefill.State.Empty
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    /// <summary>The zero-results state, once every mixed section's remaining total is 0. A
+    /// section with cards gone but results left is refilled instead. Returns whether it was
+    /// shown.</summary>
+    private bool ShowZeroResultsIfSectionsEmpty()
+    {
+        if (!_sections.All(section => RemovalRefill.Classify(section.Items.Count, section.Total) == RemovalRefill.State.Empty))
+            return false;
+        _mixedMode = false;
+        _totalCount = 0;
+        ShowSingle();
+        return true;
+    }
+
+    /// <summary>Removals emptied a mixed section's preview while the server still has results of
+    /// its type: its first page again, as the load asked for it. Mixed sections preview
+    /// <see cref="SectionCap"/> cards and do not page, so without this the section stayed an
+    /// empty header and, once every preview was empty, the view showed "Nothing here" under a
+    /// summary that still counted the rest. The server's count replaces the section's, and the
+    /// summary follows it.</summary>
+    private async Task RefillSectionAsync(ResultSection section)
+    {
+        if (section.Refilling || _sectionsQuery is not { } query)
+            return;
+        section.Refilling = true;
+        var generation = _loadGeneration;
+        var profileKey = _app.ActiveSessionKey;
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        Diagnostics.AppLog.Detail("advanced-search",
+            $"event=section_refill outcome=start generation={generation} kind={section.Kind} total={section.Total}");
+        bool Stale() => generation != _loadGeneration || profileKey != _app.ActiveSessionKey
+                        || !_mixedMode || !_sections.Contains(section);
+        try
+        {
+            List<MediaItem> items;
+            int total;
+            int listedCount;
+            for (var attempt = 0; ; attempt++)
+            {
+                var requestedAtUtc = DateTime.UtcNow;
+                var (listed, serverTotal) = await _app.Jellyfin.AdvancedSearchAsync(
+                    query with { ItemTypes = [section.Kind] }, 0, SectionCap);
+                if (Stale())
+                {
+                    Diagnostics.AppLog.Detail("advanced-search",
+                        $"event=section_refill outcome=stale generation={generation} kind={section.Kind}");
+                    return;
+                }
+                listedCount = listed.Count;
+                (items, total) = DropRemoved(listed, serverTotal, requestedAtUtc, profileKey);
+                // Every card it listed was removed while it ran; the server has them out by now.
+                if (!RemovalRefill.AskAgain(items.Count, listedCount, total, 0, attempt))
+                    break;
+                Diagnostics.AppLog.Detail("advanced-search",
+                    $"event=section_refill outcome=retry generation={generation} kind={section.Kind} total={total} attempt={attempt + 1}");
+            }
+            section.Items.Clear();
+            foreach (var item in items)
+                section.Items.Add(item);
+            // A first page that listed nothing, or a count at zero, closes the section. Out of
+            // retries with every card removed keeps the count: the section stays up, empty, and
+            // asks again after a backoff.
+            section.Total = RemovalRefill.RemainingTotal(items.Count, listedCount, total);
+            SettleSection(section);
+            _summaryBreakdown = _summaryBreakdown?
+                .Select(entry => entry.Kind == section.Kind ? (entry.Kind, section.Total) : entry)
+                .ToList();
+            BindSummary(_sections.Sum(other => other.Total));
+            var pending = RemovalRefill.Classify(section.Items.Count, section.Total) == RemovalRefill.State.Pending;
+            if (pending)
+                ArmRefillRetry(generation, profileKey);
+            else
+                _refillBackoff.Succeeded();
+            ShowZeroResultsIfSectionsEmpty();
+            Diagnostics.AppLog.Detail("advanced-search",
+                $"event=section_refill outcome={(pending ? "exhausted" : "success")} generation={generation} elapsed_ms={started.ElapsedMilliseconds} kind={section.Kind} count={items.Count} total={section.Total}");
+        }
+        catch (Exception ex)
+        {
+            var stale = Stale();
+            Diagnostics.AppLog.Detail("advanced-search",
+                $"event=section_refill outcome={(stale ? "stale" : "failure")} generation={generation} elapsed_ms={started.ElapsedMilliseconds} kind={section.Kind} error={ex.GetType().Name}");
+            // The section keeps its header and count and asks again after a backoff.
+            if (!stale)
+                ArmRefillRetry(generation, profileKey);
+        }
+        finally
+        {
+            section.Refilling = false;
         }
     }
 
@@ -785,7 +1180,7 @@ public partial class AdvancedSearchView : UserControl
                     $"event=person_lookup outcome=stale generation={generation} phase=exception elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length}");
             else
                 Diagnostics.AppLog.Detail("advanced-search",
-                    $"event=person_lookup outcome=failure generation={generation} elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length}", ex);
+                    $"event=person_lookup outcome=failure generation={generation} elapsed_ms={started.ElapsedMilliseconds} term_length={term.Length} error={ex.GetType().Name}");
             // Degrade the way the genre facet does (LoadGenresAsync swallows its failure): a
             // facet lookup must not seize StatusText, which is the results region's channel.
             if (generation == _personSuggestGeneration)

@@ -26,6 +26,9 @@ public static class MetadataCache
     public static Task<T?> ReadAsync<T>(string key) where T : class
         => Cache.ReadAsync<T>(key);
 
+    /// <inheritdoc cref="DiskJsonCache.LockAsync"/>
+    public static Task<IDisposable> LockAsync(string key) => Cache.LockAsync(key);
+
     /// <inheritdoc cref="DiskJsonCache.StoreAsync{T}"/>
     public static Task StoreAsync<T>(string key, T data) where T : class
         => Cache.StoreAsync(key, data);
@@ -35,6 +38,9 @@ public static class MetadataCache
 
     /// <inheritdoc cref="DiskJsonCache.Touch"/>
     public static void Touch(string key) => Cache.Touch(key);
+
+    /// <inheritdoc cref="DiskJsonCache.WrittenAtUtc"/>
+    public static DateTime? WrittenAtUtc(string key) => Cache.WrittenAtUtc(key);
 
     /// <inheritdoc cref="DiskJsonCache.EvictOlderThan"/>
     public static void EvictOlderThan(TimeSpan maxAge) => Cache.EvictOlderThan(maxAge);

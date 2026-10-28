@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;family=Open+Sans:wght@400;500;600;700&amp;display=block">
+<script src="lw.js"></script>
+<style>body{margin:0;background:#e7e5e1;-webkit-font-smoothing:antialiased}a{color:#8a1c30;text-decoration:none}a:hover{color:#b32b45;text-decoration:underline}</style>
+</helmet>
+<div style="padding:56px 64px 24px;font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:#666"><a href="00 Overview.dc.html">LightWeaver</a><span>/</span><span>01</span></div>
+  <div style="font-size:44px;font-weight:700;letter-spacing:-0.02em">Nav morph</div>
+  <div style="font-size:15px;color:#555;max-width:760px;line-height:1.5">The Home | Libraries | Playlists group changes into the list of libraries or playlists in place. All frames are live: click Libraries or Playlists, pick an item, click outside, or press Esc.</div>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+  <section id="{{ r.id }}" style="padding:44px 64px 12px;font-family:system-ui,-apple-system,sans-serif">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ r.id }}</span><span style="font-size:20px;font-weight:600;color:#1a1a1a">{{ r.label }}</span></div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <sc-for list="{{ r.frames }}" as="f" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none">
+          <div style="font:500 12px ui-monospace,Menlo,monospace;color:#666">{{ f.os }} · {{ f.w }}×{{ f.h }}</div>
+          <div style="width:{{ f.w }}px;height:{{ f.h }}px;position:relative;border-radius:{{ f.winR }}px;background:{{ f.winBg }};border:{{ f.winBorder }};box-shadow:{{ f.winShadow }};overflow:hidden;font-family:{{ f.font }};color:{{ f.text }};box-sizing:border-box">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:{{ f.barH }}px;background:{{ f.layer }};border-top:{{ f.layerTop }};overflow:hidden;display:flex;flex-direction:column;gap:22px;padding:18px 0 0 24px;box-sizing:border-box">
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:8px;padding-right:20px">
+                  <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600;padding:2px 6px;margin-left:-6px;border-radius:6px" style-hover="background:rgba(255,255,255,0.06)">Continue Watching<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                  <div style="flex:1"></div>
+                  <div style="display:flex;gap:4px">
+                    <div style="width:28px;height:24px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text3 }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">chevron_left</span></div>
+                    <div style="width:28px;height:24px;border-radius:{{ f.btnR }}px;display:flex;align-items:center;justify-content:center;color:{{ f.text }};background:{{ f.btnBg }}" style-hover="background:{{ f.btnHover }}"><span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal">chevron_right</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:14px;position:relative">
+                  <sc-for list="{{ f.cw }}" as="c"><dc-import name="Card" p="{{ f }}" kind="wide" w="{{ 296 }}" title="{{ c.title }}" sub="{{ c.sub }}" progress="{{ c.progress }}" label="{{ c.label }}" hover="{{ c.hover }}" hint-size="296px,206px"></dc-import></sc-for>
+                  <sc-if value="{{ f.cardPin }}"><div style="position:absolute;left:258px;top:146px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center">6</div></sc-if>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600">Next Up<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                <div style="display:flex;gap:14px">
+                  <sc-for list="{{ f.nu }}" as="c"><dc-import name="Card" p="{{ f }}" kind="wide" w="{{ 296 }}" title="{{ c.title }}" sub="{{ c.sub }}" label="{{ c.label }}" hint-size="296px,206px"></dc-import></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:4px;font-size:17px;font-weight:600">Recently Added<span style="font-family:{{ f.icon }};font-size:18px;line-height:1;font-weight:normal;color:{{ f.text2 }}">arrow_forward</span></div>
+                <div style="display:flex;gap:14px">
+                  <sc-for list="{{ f.ra }}" as="c"><dc-import name="Card" p="{{ f }}" kind="poster" w="{{ 150 }}" title="{{ c.title }}" sub="{{ c.sub }}" label="{{ c.label }}" hint-size="150px,265px"></dc-import></sc-for>
+                </div>
+              </div>
+            </div>
+            <dc-import name="Chrome" p="{{ f }}" width="{{ f.w }}" nav="{{ f.nav }}" libs="{{ f.libs }}" active="{{ f.active }}" pins="{{ f.pins }}" badge="2" scroll-to="{{ f.scrollTo }}" style="position:absolute;left:0;top:0;right:0" hint-size="100%,58px"></dc-import>
+          </div>
+        </div>
+      </sc-for>
+      <div style="width:330px;flex:none;display:flex;flex-direction:column;gap:14px;padding-top:30px">
+        <sc-for list="{{ r.notes }}" as="n">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:none;width:20px;height:20px;border-radius:50%;background:#FF8A1F;color:#000;font:700 11px/20px system-ui,sans-serif;text-align:center">{{ n.n }}</div>
+            <div style="font-size:14px;line-height:1.5;color:#2b2b2b;text-wrap:pretty">{{ n.t }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</sc-for>
+<div style="height:80px"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (!window.LW) this.t = setInterval(() => { if (window.LW) { clearInterval(this.t); this.forceUpdate(); } }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const L = window.LW;
+    if (!L) return { rows: [] };
+    const h = L.home(false), hh = L.home(true);
+    const base = Object.assign({ libs: L.libs3, active: 'home', nav: 'collapsed' }, h);
+    const fr = (x, w, hgt) => L.pair(Object.assign({}, base, x), w, hgt);
+    const rows = [
+      { id: '1a', label: 'Collapsed — Home', frames: fr(Object.assign({ pins: true, cardPin: true }, hh)), notes: [
+        { n: 1, t: 'Home | Libraries | Playlists. Home navigates; Libraries and Playlists do not navigate, they morph this group in place.' },
+        { n: 2, t: 'Search. Results appear live while typing (04). ⌘F / Ctrl+F or / focuses it.' },
+        { n: 3, t: 'Advanced search button, inside the field on the right. Opens the filter panel (05).' },
+        { n: 4, t: 'Downloads (badge = active downloads) | SyncPlay | Settings. On macOS Settings opens the separate Settings window, same as ⌘,.' },
+        { n: 5, t: 'Profile menu (11).' },
+        { n: 6, t: 'Card hover: ✓ and ⋯ appear instantly, no fade. They are not rendered at all without hover. Row title with → opens the full list (03); ‹ › page the row by one viewport.' }
+      ] },
+      { id: '1b', label: 'Libraries expanded', frames: fr({ nav: 'libraries' }), notes: [
+        { n: '↔', t: 'Clicking Libraries widens the group to fit its items: width animates 240 ms ease-out, the only animation over 200 ms in the app. Items swap instantly, no crossfade; the expanding clip reveals them.' },
+        { n: 'i', t: 'Items are icon over label with the same metrics as Home | Libraries | Playlists, so the change reads as one control.' },
+        { n: 'Esc', t: 'Contracts on: choosing a library (navigates there and highlights Libraries), clicking anywhere outside the group, or Esc. Back/Forward contract and navigate.' },
+        { n: '⌨', t: '←/→ move between items, Return opens, Esc closes and returns focus to Libraries.' }
+      ] },
+      { id: '1c', label: 'Playlists expanded', frames: fr({ nav: 'playlists' }), notes: [
+        { n: '↔', t: 'Same behaviour. The first item, All, opens the Playlists page (06). Order matches that page.' }
+      ] },
+      { id: '1d', label: 'Overflow: 9 libraries, room available (1440)', frames: fr({ nav: 'libraries', libs: L.libs9, active: 'libraries' }), notes: [
+        { n: '1', t: 'Rule 1: the group grows toward the search field. Search shrinks down to its 200 px minimum. Nothing else in the bar moves.' },
+        { n: '2', t: 'Search keeps its placeholder and the advanced button at 200 px.' }
+      ] },
+      { id: '1e', label: 'Overflow: 9 libraries, no room left (960)', frames: fr({ nav: 'libraries', libs: L.libs9, active: 'libraries', scrollTo: 156 }, 960, 600), notes: [
+        { n: '3', t: 'Rule 2: once search is at minimum, the group stops growing and scrolls horizontally inside its own bounds.' },
+        { n: '4', t: 'A fade plus a chevron button appears only on a clipped edge. Chevrons page by three items; wheel and trackpad scroll work too. On open, the current library is scrolled into view.' },
+        { n: '5', t: 'Window minimum is 900 × 600, so the group always shows at least three items.' }
+      ] },
+      { id: '1f', label: 'Narrow — collapsed (960)', frames: fr({}, 960, 600), notes: [
+        { n: '↔', t: 'At 960 the search field takes up the slack; rows show fewer cards, still cut off at the trailing edge.' }
+      ] }
+    ];
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

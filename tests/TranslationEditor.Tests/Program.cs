@@ -192,15 +192,39 @@ await Check("changed filter rejects command injection and missing revisions", as
 });
 await Check("HTTP write guard rejects cross-origin forms and spoofed hosts", () =>
 {
+    using var fixture = new Fixture();
+    var session = new EditorSession(Path.Combine(fixture.Root, "session-token"));
     var context = new DefaultHttpContext(); var request = context.Request;
     request.Host = new HostString("127.0.0.1", 5386); request.Method = "PUT"; request.ContentType = "application/json";
-    Assert(!RequestSecurity.Allows(request));
-    request.Headers["X-Translation-Editor"] = "1"; Assert(RequestSecurity.Allows(request));
-    request.Headers.Origin = "https://attacker.invalid"; Assert(!RequestSecurity.Allows(request));
-    request.Headers.Origin = "http://127.0.0.1:5386"; Assert(RequestSecurity.Allows(request));
-    request.ContentType = "application/x-www-form-urlencoded"; Assert(!RequestSecurity.Allows(request));
-    request.Method = "GET"; request.Host = new HostString("attacker.invalid"); Assert(!RequestSecurity.Allows(request));
-    request.Host = new HostString("localhost", 5386); Assert(RequestSecurity.Allows(request));
+    request.Path = "/api/languages/de"; request.Headers[EditorSession.HeaderName] = session.Token;
+    Assert(RequestSecurity.Refusal(request, session) == 403);
+    request.Headers["X-Translation-Editor"] = "1"; Assert(RequestSecurity.Refusal(request, session) is null);
+    request.Headers.Origin = "https://attacker.invalid"; Assert(RequestSecurity.Refusal(request, session) == 403);
+    request.Headers.Origin = "http://127.0.0.1:5386"; Assert(RequestSecurity.Refusal(request, session) is null);
+    request.ContentType = "application/x-www-form-urlencoded"; Assert(RequestSecurity.Refusal(request, session) == 403);
+    request.Method = "GET"; request.Host = new HostString("attacker.invalid"); Assert(RequestSecurity.Refusal(request, session) == 403);
+    request.Host = new HostString("localhost", 5386); Assert(RequestSecurity.Refusal(request, session) is null);
+});
+await Check("the API needs this user's session header, never a cookie", () =>
+{
+    using var fixture = new Fixture();
+    var path = Path.Combine(fixture.Root, "session", "session-token");
+    var session = new EditorSession(path);
+    Assert(session.Token.Length == 43 && new EditorSession(path).Token == session.Token);
+    var other = new EditorSession(Path.Combine(fixture.Root, "other-user", "session-token"));
+    Assert(other.Token != session.Token);
+
+    var api = new DefaultHttpContext().Request;
+    api.Host = new HostString("127.0.0.1", 5386); api.Method = "GET"; api.Path = "/api/workspace";
+    Assert(RequestSecurity.Refusal(api, session) == 401);
+    api.Headers.Cookie = $"{EditorSession.HeaderName}={session.Token}"; Assert(RequestSecurity.Refusal(api, session) == 401);
+    api.Headers[EditorSession.HeaderName] = other.Token; Assert(RequestSecurity.Refusal(api, session) == 401);
+    api.Headers[EditorSession.HeaderName] = session.Token; Assert(RequestSecurity.Refusal(api, session) is null);
+
+    var page = new DefaultHttpContext().Request;
+    page.Host = new HostString("127.0.0.1", 5386); page.Method = "GET"; page.Path = "/";
+    page.QueryString = new QueryString("?changed=abc&lang=ar");
+    Assert(RequestSecurity.Refusal(page, session) is null);
 });
 Console.WriteLine($"Translation editor: {passed} passed, {failed} failed.");
 return failed == 0 ? 0 : 1;

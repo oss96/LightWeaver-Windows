@@ -15,9 +15,9 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $repo = 'oss96/LightWeaver-Windows'
 
-$csproj = Join-Path $root 'src\LightWeaver\LightWeaver.csproj'
-$version = (Select-String -Path $csproj -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
-if (-not $version) { Write-Error 'No <Version> found in LightWeaver.csproj' }
+$props = Join-Path $root 'Directory.Build.props'
+$version = (Select-String -Path $props -Pattern '<Version>([^<]+)</Version>').Matches[0].Groups[1].Value
+if (-not $version) { Write-Error 'No <Version> found in Directory.Build.props' }
 
 if ($NotesFile) {
     if (-not (Test-Path -LiteralPath $NotesFile)) { Write-Error "No such notes file: $NotesFile" }
@@ -46,6 +46,26 @@ if (-not $SkipBuild) {
 }
 if (-not (Test-Path $setup)) { Write-Error "Missing $setup - build first (or drop -SkipBuild)" }
 
+# Check the asset the way the updater will, on every path including -SkipBuild, which reuses a file
+# from disk: signed and untampered, timestamped, signed by the same certificate as the app it
+# installs, and stamped with this release's version. A clean signature alone is not enough - the
+# updater refuses an installer whose product version is not the release tag.
+$setupSig = Get-AuthenticodeSignature -LiteralPath $setup
+if (-not $setupSig.SignerCertificate -or $setupSig.Status -in @('HashMismatch', 'NotSigned')) {
+    Write-Error "$setup is unsigned or was modified after signing (status $($setupSig.Status))"
+}
+if (-not $setupSig.TimeStamperCertificate) { Write-Error "$setup is signed but not timestamped" }
+$appExe = Join-Path $root 'dist\publish\LightWeaver.exe'
+if (-not (Test-Path -LiteralPath $appExe)) { Write-Error "Missing $appExe - the installer's app cannot be checked" }
+$appSig = Get-AuthenticodeSignature -LiteralPath $appExe
+if (-not $appSig.SignerCertificate -or $appSig.SignerCertificate.Thumbprint -ne $setupSig.SignerCertificate.Thumbprint) {
+    Write-Error 'The installer and the app it installs are signed by different certificates; installed clients would refuse the update'
+}
+$setupVersion = "$((Get-Item -LiteralPath $setup).VersionInfo.ProductVersion)".Trim()
+if ($setupVersion -ne $version) {
+    Write-Error "$setup carries product version '$setupVersion', not $version; installed clients would refuse the update"
+}
+
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Write-Error 'The gh CLI is not on PATH' }
 # cmd isolates gh's stderr (PS 5.1 turns native stderr into terminating errors).
 cmd /c "gh auth status >nul 2>&1"
@@ -71,7 +91,7 @@ try {
     [IO.File]::WriteAllText($notes, $body)
     # 'Continue' for the same reason as the delete above: gh's upload progress goes to stderr.
     $ErrorActionPreference = 'Continue'
-    $url = & gh release create $version $setup --title "LightWeaver $version" --notes-file $notes --repo $repo
+    $url = & gh release create $version $setup --title "LightWeaver $version" --notes-file $notes --repo $repo --verify-tag
     $ghExit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     if ($ghExit -ne 0) { Write-Error 'Release creation failed' }

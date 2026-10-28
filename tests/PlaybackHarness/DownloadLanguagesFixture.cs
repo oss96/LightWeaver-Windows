@@ -46,10 +46,16 @@ internal static class DownloadLanguagesFixture
         return Result();
     }
 
-    private static DownloadItem Item(string directory, string origin = "http://127.0.0.1") => new()
+    private static DownloadItem Item(string directory, string origin = "http://127.0.0.1")
     {
-        ItemId = Guid.NewGuid(), Title = "Synthetic language episode", ServerUrl = origin,
-        FilePath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".mkv"),
+        var id = Guid.NewGuid();
+        return Item(id, directory, origin);
+    }
+
+    private static DownloadItem Item(Guid id, string directory, string origin) => new()
+    {
+        ItemId = id, Title = "Synthetic language episode", ServerUrl = origin,
+        FilePath = Path.Combine(directory, $"{id:N}_episode.mkv"),
         AddedTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
     };
 

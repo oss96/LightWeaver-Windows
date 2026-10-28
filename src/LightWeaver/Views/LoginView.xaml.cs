@@ -22,7 +22,7 @@ public partial class LoginView : UserControl
                 { Source = app });
         Unloaded += (_, _) => _qcCts?.Cancel();
         ServerBox.TextChanged += (_, _) =>
-            HttpWarning.Visibility = ServerBox.Text.TrimStart().StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            HttpWarning.Visibility = Jellyfin.JellyfinService.UsesPlainHttp(ServerBox.Text)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         Loaded += (_, _) =>

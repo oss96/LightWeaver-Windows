@@ -1,5 +1,8 @@
 # Claude Design prompt — LightWeaver "Advanced Search" screen redesign
 
+> Legacy: a prompt for the "woven light" design of the WPF shell (`src/LightWeaver`). The current
+> design is [`DESIGN.md`](../DESIGN.md).
+
 ## What this is
 Redesign ONE screen — the **Advanced Search** screen of **LightWeaver**, a native Windows
 (WPF) desktop Jellyfin media client. Deliver a full-screen mockup plus specs for any new or

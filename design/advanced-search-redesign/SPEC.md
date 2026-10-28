@@ -1,5 +1,8 @@
 # Advanced Search redesign — spec
 
+> Legacy: part of the "woven light" design of the WPF shell (`src/LightWeaver`). The current
+> design is [`DESIGN.md`](../../DESIGN.md).
+
 Redesign of the Advanced Search screen inside the shipped **woven light** system. Companion
 mockups: `mockup-main.html` (populated, mixed-type state, 1440px) and `mockup-states.html`
 (states a–f). Every value below is an existing `Lw*` token unless flagged **NEW**.

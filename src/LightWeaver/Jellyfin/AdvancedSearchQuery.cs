@@ -40,6 +40,9 @@ public sealed record AdvancedSearchQuery
     /// <summary>Watched state filter (IsPlayed / IsUnplayed); null = all.</summary>
     public ItemFilter? Watched { get; init; }
 
+    /// <summary>Minimum community rating, 0-10 (server MinCommunityRating); null = any.</summary>
+    public double? MinRating { get; init; }
+
     public ItemSortBy Sort { get; init; } = ItemSortBy.SortName;
 
     public SortOrder Order { get; init; } = SortOrder.Ascending;

@@ -13,6 +13,9 @@ public sealed record MediaChapter(string? Name, long StartTicks)
 /// Jellyfin id — clicking the tile opens the Advanced Search Screen pre-filtered on it (M5).</summary>
 public sealed record PersonEntry(Guid Id, string Name, string? Role, string? ImageUrl)
 {
+    /// <summary>The server's kind of credit (Actor, Director, Writer, GuestStar…); null when unknown.</summary>
+    public string? Kind { get; init; }
+
     public string RoleDisplay => Role ?? "";
     public override string ToString() => Name;
 }
@@ -53,6 +56,9 @@ public sealed class MediaItem
     /// <summary>When the item was added to the library — the "Date added" sort key. Null unless
     /// the query asked for <c>ItemFields.DateCreated</c>.</summary>
     public DateTimeOffset? DateCreated { get; init; }
+    /// <summary>When media was last added to a folder; for a show, its newest episode's date added.
+    /// Null unless the query asked for <c>ItemFields.DateLastMediaAdded</c>.</summary>
+    public DateTimeOffset? DateLastMediaAdded { get; init; }
     public long? RuntimeTicks { get; init; }
     public string? Overview { get; init; }
     public float? CommunityRating { get; init; }
@@ -62,8 +68,32 @@ public sealed class MediaItem
     public double? PlayedPercentage { get; init; }
     public bool Played { get; init; }
     public bool IsFavorite { get; init; }
+    /// <summary>Unwatched episodes left in a series or season; null for other items.</summary>
+    public int? UnplayedItemCount { get; init; }
+
+    /// <summary>How many children a folder or playlist has; null when not asked for.</summary>
+    public int? ChildCount { get; init; }
+
+    /// <summary>The video's stored size in pixels; null for items without video and when the query
+    /// did not ask for <c>ItemFields.Width</c> and <c>ItemFields.Height</c>.</summary>
+    public int? VideoWidth { get; init; }
+    public int? VideoHeight { get; init; }
+
+    /// <summary>The video's display aspect as the server writes it ("16:9", "2.40:1"); null when unknown.</summary>
+    public string? VideoAspectRatio { get; init; }
+
+    /// <summary>How many versions (media sources) the server has for this title; null when the
+    /// query did not ask for <c>ItemFields.MediaSourceCount</c> or the server did not say.</summary>
+    public int? MediaSourceCount { get; init; }
+
+    /// <summary>The entry id of this item inside a playlist (its position's identity, used to
+    /// remove or move it); null outside a playlist.</summary>
+    public string? PlaylistItemId { get; init; }
     /// <summary>Cast & crew; populated on single-item fetches (list queries omit People).</summary>
     public IReadOnlyList<PersonEntry> People { get; init; } = [];
+
+    /// <summary>Production locations; for a person, the birthplace.</summary>
+    public IReadOnlyList<string> ProductionLocations { get; init; } = [];
     /// <summary>Library collection type ("movies", "tvshows", "boxsets", …); null for
     /// non-library items. Decides which libraries get a Genres entry point.</summary>
     public string? CollectionType { get; init; }
@@ -76,6 +106,8 @@ public sealed class MediaItem
     public string? TrailerUrl { get; init; }
     public string? PrimaryImageTag { get; init; }
     public string? BackdropImageTag { get; init; }
+    /// <summary>An episode's series Primary image tag: its poster when the episode has no image of its own.</summary>
+    public string? SeriesPrimaryImageTag { get; init; }
     /// <summary>Populated on single-item fetches (list queries omit chapters).</summary>
     public IReadOnlyList<MediaChapter> Chapters { get; init; } = [];
 
@@ -129,21 +161,27 @@ public sealed class MediaItem
             ProductionYear = ProductionYear,
             PremiereDate = PremiereDate,
             DateCreated = DateCreated,
+            DateLastMediaAdded = DateLastMediaAdded,
             RuntimeTicks = RuntimeTicks,
             Overview = Overview,
             CommunityRating = CommunityRating,
             OfficialRating = OfficialRating,
             Genres = Genres,
             People = People,
+            ProductionLocations = ProductionLocations,
             CollectionType = CollectionType,
             ProviderIds = ProviderIds,
             TrailerUrl = TrailerUrl,
             PrimaryImageTag = PrimaryImageTag,
             BackdropImageTag = BackdropImageTag,
+            SeriesPrimaryImageTag = SeriesPrimaryImageTag,
             Chapters = Chapters,
             PosterUrl = PosterUrl,
             BackdropUrl = BackdropUrl,
             ThumbUrl = ThumbUrl,
+            UnplayedItemCount = UnplayedItemCount,
+            ChildCount = ChildCount,
+            PlaylistItemId = PlaylistItemId,
             // The four this copy exists to replace.
             Played = played,
             IsFavorite = isFavorite,

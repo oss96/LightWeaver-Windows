@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div ref="{{ rootRef }}" style="height:{{ p.barH }}px;display:flex;align-items:center;gap:10px;padding:0 {{ padR }}px 0 {{ padL }}px;box-sizing:border-box;font-family:{{ p.font }};color:{{ p.text }};position:relative;user-select:none;-webkit-user-select:none;cursor:default">
+  <sc-if value="{{ p.mac }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;gap:8px;margin-right:6px;flex:none">
+      <div style="width:12px;height:12px;border-radius:50%;background:#FF5F57;box-shadow:inset 0 0 0 0.5px rgba(0,0,0,0.3)"></div>
+      <div style="width:12px;height:12px;border-radius:50%;background:#FEBC2E;box-shadow:inset 0 0 0 0.5px rgba(0,0,0,0.3)"></div>
+      <div style="width:12px;height:12px;border-radius:50%;background:#28C840;box-shadow:inset 0 0 0 0.5px rgba(0,0,0,0.3)"></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ minimal }}">
+    <div style="flex:1;text-align:center;font-size:13px;font-weight:600;color:{{ p.text2 }};padding-right:{{ titlePad }}px">{{ title }}</div>
+  </sc-if>
+  <sc-if value="{{ full }}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:none">
+      <div style="display:flex;align-items:center;height:36px;padding:0 2px;border-radius:{{ bfR }}px;background:{{ bfBg }};border:{{ bfBorder }};box-shadow:{{ bfShadow }};backdrop-filter:{{ p.glassBlur }};-webkit-backdrop-filter:{{ p.glassBlur }};gap:2px">
+        <div style="width:36px;height:32px;border-radius:{{ bfItemR }}px;display:flex;align-items:center;justify-content:center;color:{{ p.text }};transition:background 60ms" style-hover="background:{{ p.hover }}" style-active="background:{{ p.press }}"><span style="font-family:{{ p.icon }};font-size:20px;line-height:1;font-variation-settings:{{ p.iv }};font-weight:normal">{{ p.backIcon }}</span></div>
+        <div style="width:36px;height:32px;border-radius:{{ bfItemR }}px;display:flex;align-items:center;justify-content:center;color:{{ p.text3 }}"><span style="font-family:{{ p.icon }};font-size:20px;line-height:1;font-variation-settings:{{ p.iv }};font-weight:normal">{{ p.fwdIcon }}</span></div>
+      </div>
+    </div>
+    <div style="position:relative;flex:none">
+      <div ref="{{ groupRef }}" style="width:{{ navW }}px;height:{{ grpH }}px;border-radius:{{ p.groupR }}px;background:{{ p.glass }};border:{{ p.glassBorder }};box-shadow:{{ p.glassShadow }};backdrop-filter:{{ p.glassBlur }};-webkit-backdrop-filter:{{ p.glassBlur }};transition:width 240ms cubic-bezier(.2,.8,.2,1);overflow:hidden;box-sizing:border-box;position:relative">
+        <sc-if value="{{ collapsed }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;height:100%;padding:2px;box-sizing:border-box">
+            <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="3">
+              <div onClick="{{ it.onClick }}" style="flex:none;width:64px;height:100%;border-radius:{{ itemR }}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ it.bg }};color:{{ it.color }};position:relative;transition:background 60ms" style-hover="background:{{ it.hbg }}">
+                <span style="font-family:{{ p.icon }};font-size:19px;line-height:1;font-variation-settings:{{ it.iv }};font-weight:normal">{{ it.icon }}</span>
+                <span style="font-size:10.5px;font-weight:500;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+                <sc-if value="{{ it.ind }}"><div style="position:absolute;bottom:2px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ p.accentFg }}"></div></sc-if>
+                <sc-if value="{{ it.caret }}"><div style="position:absolute;top:5px;right:6px;width:4px;height:4px;border-radius:2px;background:{{ p.text3 }}"></div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ expanded }}">
+          <div ref="{{ scrollRef }}" onScroll="{{ onScroll }}" style="display:flex;height:100%;padding:2px;box-sizing:border-box;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:{{ mask }};mask-image:{{ mask }}">
+            <sc-for list="{{ expItems }}" as="it" hint-placeholder-count="3">
+              <div onClick="{{ it.onClick }}" style="flex:none;width:78px;height:100%;border-radius:{{ itemR }}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ it.bg }};color:{{ it.color }};position:relative;transition:background 60ms" style-hover="background:{{ it.hbg }}">
+                <span style="font-family:{{ p.icon }};font-size:19px;line-height:1;font-variation-settings:{{ it.iv }};font-weight:normal">{{ it.icon }}</span>
+                <span style="font-size:10.5px;font-weight:500;white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+                <sc-if value="{{ it.ind }}"><div style="position:absolute;bottom:2px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ p.accentFg }}"></div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ showL }}">
+            <div onClick="{{ scrollL }}" style="position:absolute;left:2px;top:2px;bottom:2px;width:22px;border-radius:{{ itemR }}px;display:flex;align-items:center;justify-content:center;background:{{ p.surface2 }};color:{{ p.text }}" style-hover="background:{{ p.press }}"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-weight:normal">chevron_left</span></div>
+          </sc-if>
+          <sc-if value="{{ showR }}">
+            <div onClick="{{ scrollR }}" style="position:absolute;right:2px;top:2px;bottom:2px;width:22px;border-radius:{{ itemR }}px;display:flex;align-items:center;justify-content:center;background:{{ p.surface2 }};color:{{ p.text }}" style-hover="background:{{ p.press }}"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-weight:normal">chevron_right</span></div>
+          </sc-if>
+        </sc-if>
+      </div>
+      <sc-if value="{{ pins }}"><div style="position:absolute;top:-7px;left:-7px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center;z-index:5">1</div></sc-if>
+    </div>
+    <div style="position:relative;flex:1 1 360px;min-width:200px;max-width:560px;margin:0 auto">
+      <div style="height:{{ sH }}px;border-radius:{{ sR }}px;background:{{ sBg }};border:{{ sBorder }};border-bottom:{{ sBottom }};box-shadow:{{ sShadow }};backdrop-filter:{{ p.glassBlur }};-webkit-backdrop-filter:{{ p.glassBlur }};display:flex;align-items:center;gap:6px;padding:0 4px 0 10px;box-sizing:border-box">
+        <sc-if value="{{ p.mac }}"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;color:{{ p.text2 }};font-weight:normal">search</span></sc-if>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;font-size:13px;white-space:nowrap;overflow:hidden">
+          <sc-if value="{{ hasText }}"><span style="color:{{ p.text }}">{{ search }}</span></sc-if>
+          <sc-if value="{{ focused }}"><span style="display:inline-block;width:1.5px;height:15px;background:{{ caretColor }};margin-left:1px"></span></sc-if>
+          <sc-if value="{{ showPh }}"><span style="color:{{ p.text3 }}">{{ placeholder }}</span></sc-if>
+        </div>
+        <sc-if value="{{ hasText }}"><div style="width:22px;height:22px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:{{ p.text2 }}" style-hover="background:{{ p.hover }}"><span style="font-family:{{ p.icon }};font-size:15px;line-height:1;font-weight:normal">close</span></div></sc-if>
+        <div style="position:relative;width:28px;height:26px;border-radius:{{ advR }}px;display:flex;align-items:center;justify-content:center;background:{{ advBg }};color:{{ advColor }};transition:background 60ms" style-hover="background:{{ p.hover }}"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-variation-settings:{{ p.iv }};font-weight:normal">tune</span>
+          <sc-if value="{{ pins }}"><div style="position:absolute;top:-14px;right:-6px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center;z-index:5">3</div></sc-if>
+        </div>
+        <sc-if value="{{ p.win }}"><div style="width:28px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:{{ p.text2 }}"><span style="font-family:{{ p.icon }};font-size:18px;line-height:1;font-weight:normal">search</span></div></sc-if>
+      </div>
+      <sc-if value="{{ pins }}"><div style="position:absolute;top:-7px;left:-7px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center;z-index:5">2</div></sc-if>
+      <sc-if value="{{ kSearch }}"><div style="position:absolute;left:0;top:100%;margin-top:6px;z-index:30;min-width:100%">{{ kids }}</div></sc-if>
+    </div>
+    <div style="position:relative;flex:none">
+      <div style="display:flex;height:{{ grpH }}px;padding:2px;box-sizing:border-box;border-radius:{{ p.groupR }}px;background:{{ p.glass }};border:{{ p.glassBorder }};box-shadow:{{ p.glassShadow }};backdrop-filter:{{ p.glassBlur }};-webkit-backdrop-filter:{{ p.glassBlur }}">
+        <sc-for list="{{ rightItems }}" as="it" hint-placeholder-count="3">
+          <div style="flex:none;width:64px;height:100%;border-radius:{{ itemR }}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:{{ it.bg }};color:{{ it.color }};position:relative;transition:background 60ms" style-hover="background:{{ it.hbg }}">
+            <span style="font-family:{{ p.icon }};font-size:19px;line-height:1;font-variation-settings:{{ it.iv }};font-weight:normal">{{ it.icon }}</span>
+            <span style="font-size:10.5px;font-weight:500;white-space:nowrap">{{ it.label }}</span>
+            <sc-if value="{{ it.badge }}"><div style="position:absolute;top:4px;left:36px;min-width:15px;height:15px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:{{ p.accent }};color:#fff;font-size:9.5px;font-weight:700;line-height:15px;text-align:center">{{ it.badge }}</div></sc-if>
+            <sc-if value="{{ it.ind }}"><div style="position:absolute;bottom:2px;left:50%;margin-left:-8px;width:16px;height:3px;border-radius:2px;background:{{ p.accentFg }}"></div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{ pins }}"><div style="position:absolute;top:-7px;left:-7px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center;z-index:5">4</div></sc-if>
+      <sc-if value="{{ kRight }}"><div style="position:absolute;right:{{ kRightOff }}px;top:100%;margin-top:6px;z-index:30">{{ kids }}</div></sc-if>
+    </div>
+    <div style="position:relative;flex:none;margin-right:{{ avMr }}px">
+      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(140deg,#6b4d57,#3c3036);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;box-shadow:{{ avRing }}">MK</div>
+      <sc-if value="{{ pins }}"><div style="position:absolute;top:-7px;left:-9px;width:18px;height:18px;border-radius:50%;background:#FF8A1F;color:#000;font:700 10px/18px system-ui,sans-serif;text-align:center;z-index:5">5</div></sc-if>
+      <sc-if value="{{ kAvatar }}"><div style="position:absolute;right:{{ kAvOff }}px;top:100%;margin-top:8px;z-index:30">{{ kids }}</div></sc-if>
+    </div>
+  </sc-if>
+  <sc-if value="{{ p.win }}">
+    <div style="display:flex;align-self:stretch;flex:none;color:{{ p.text }}">
+      <div style="width:46px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.06)"><span style="font-family:{{ p.icon }};font-size:16px;line-height:1;font-variation-settings:'wght' 200;font-weight:normal">remove</span></div>
+      <div style="width:46px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.06)"><span style="font-family:{{ p.icon }};font-size:14px;line-height:1;font-variation-settings:'wght' 200;font-weight:normal">crop_square</span></div>
+      <div style="width:46px;display:flex;align-items:center;justify-content:center;border-top-right-radius:7px" style-hover="background:#C42B1C"><span style="font-family:{{ p.icon }};font-size:16px;line-height:1;font-variation-settings:'wght' 200;font-weight:normal">close</span></div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:58},&quot;p&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;width&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1440},&quot;nav&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;collapsed&quot;,&quot;libraries&quot;,&quot;playlists&quot;],&quot;default&quot;:&quot;collapsed&quot;},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;libraries&quot;,&quot;playlists&quot;],&quot;default&quot;:&quot;home&quot;},&quot;pins&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false}}">
+class Component extends DCLogic {
+  state = { o: undefined, act: undefined, lib: undefined, sl: 0, sw: 0, cw: 0 };
+  rootRef = React.createRef(); groupRef = React.createRef(); scrollRef = React.createRef();
+  componentDidMount() {
+    this.onKey = e => { if (e.key === 'Escape' && this.cur() !== 'collapsed') this.setState({ o: 'collapsed' }); };
+    this.onDown = e => { if (this.cur() !== 'collapsed' && this.groupRef.current && !this.groupRef.current.contains(e.target) && this.props.interactive !== false) this.setState({ o: 'collapsed' }); };
+    document.addEventListener('keydown', this.onKey);
+    document.addEventListener('mousedown', this.onDown);
+    this.measure();
+  }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { document.removeEventListener('keydown', this.onKey); document.removeEventListener('mousedown', this.onDown); }
+  measure() {
+    const s = this.scrollRef.current;
+    if (!s) return;
+    if (this.props.scrollTo && !this._did) { this._did = true; s.scrollLeft = this.props.scrollTo; }
+    const v = { sl: Math.round(s.scrollLeft), sw: s.scrollWidth, cw: s.clientWidth };
+    if (v.sl !== this.state.sl || v.sw !== this.state.sw || v.cw !== this.state.cw) this.setState(v);
+  }
+  cur() { return this.state.o !== undefined ? this.state.o : (this.props.nav || 'collapsed'); }
+  renderVals() {
+    const P = this.props, p = P.p;
+    if (!p) return {};
+    const W = P.width || 1440;
+    const open = this.cur();
+    const act = this.state.act || P.active || 'home';
+    const lib = this.state.lib !== undefined ? this.state.lib : (P.activeLib ?? -1);
+    const libs = P.libs || (window.LW && window.LW.libs3) || [];
+    const pls = (window.LW && window.LW.playlists) || [];
+    const mac = p.mac;
+    const fixed = mac ? 446 : 498;
+    const navMax = Math.max(140, W - fixed - 200);
+    const list = open === 'playlists' ? pls : libs;
+    const full = list.length * 78 + 4 + (mac ? 1 : 2);
+    const navW = open === 'collapsed' ? 196 + (mac ? 1 : 2) : Math.min(full, navMax);
+    const overflow = open !== 'collapsed' && full > navMax;
+    const itemR = mac ? 20 : 6;
+    const mk = (sel) => ({
+      bg: sel ? p.sel : 'transparent', hbg: sel ? p.sel : p.hover,
+      color: sel ? (mac ? p.accentFg : p.text) : p.text, iv: sel ? p.ivf : p.iv, ind: sel && p.win
+    });
+    const navItems = [
+      { key: 'home', icon: 'home', label: 'Home' },
+      { key: 'libraries', icon: 'video_library', label: 'Libraries', caret: true },
+      { key: 'playlists', icon: 'playlist_play', label: 'Playlists', caret: true }
+    ].map(it => {
+      const src = it.key === 'libraries' ? libs : it.key === 'playlists' ? pls : null;
+      if (src && act === it.key && lib >= 0 && src[lib]) { it.icon = src[lib].icon; it.label = src[lib].label; }
+      return it;
+    }).map(it => Object.assign(it, mk(act === it.key), {
+      caret: false,
+      onClick: () => it.key === 'home' ? this.setState({ act: 'home', lib: -1 }) : this.setState({ o: it.key })
+    }));
+    const expItems = list.map((it, i) => Object.assign({ icon: it.icon, label: it.label }, mk(act === open && lib === i), {
+      onClick: () => this.setState({ o: 'collapsed', act: open, lib: i })
+    }));
+    const { sl, sw, cw } = this.state;
+    const showL = overflow && sl > 2, showR = overflow && sl + cw < sw - 2;
+    const mask = overflow ? `linear-gradient(90deg, ${showL ? 'transparent 0, #000 36px' : '#000 0'}, ${showR ? '#000 calc(100% - 36px), transparent 100%' : '#000 100%'})` : 'none';
+    const r = P.right;
+    const rightItems = [
+      { key: 'downloads', icon: 'download', label: 'Downloads', badge: P.badge || '' },
+      { key: 'syncplay', icon: 'groups', label: 'SyncPlay', badge: P.sync ? '3' : '' },
+      { key: 'settings', icon: 'settings', label: 'Settings' }
+    ].map(it => Object.assign(it, mk(r === it.key)));
+    const focused = !!P.focused, search = P.search || '';
+    return {
+      p, rootRef: this.rootRef, groupRef: this.groupRef, scrollRef: this.scrollRef,
+      full: !P.minimal, minimal: !!P.minimal, title: P.title || '', titlePad: mac ? 70 : 0,
+      padL: mac ? 16 : 8, padR: mac ? 14 : 0, avMr: mac ? 0 : 8,
+      bfR: mac ? 18 : 4, bfItemR: mac ? 16 : 4,
+      bfBg: mac ? p.glass : 'transparent', bfBorder: mac ? p.glassBorder : '1px solid transparent', bfShadow: mac ? p.glassShadow : 'none',
+      grpH: mac ? 44 : 46, itemR, navW,
+      collapsed: open === 'collapsed', expanded: open !== 'collapsed', navItems, expItems,
+      showL, showR, mask,
+      onScroll: () => this.measure(),
+      scrollL: () => { const s = this.scrollRef.current; if (s) s.scrollBy({ left: -234, behavior: 'smooth' }); },
+      scrollR: () => { const s = this.scrollRef.current; if (s) s.scrollBy({ left: 234, behavior: 'smooth' }); },
+      sH: mac ? 36 : 34, sR: mac ? 18 : 4,
+      sBg: mac ? p.glass : (focused ? '#1c1c1c' : p.fieldBg),
+      sBorder: mac ? p.glassBorder : p.fieldBorder,
+      sBottom: mac ? p.glassBorder : (focused ? '2px solid ' + p.accentFg : p.fieldBottom),
+      sShadow: mac ? (focused ? p.glassShadow + ', ' + p.focus : p.glassShadow) : 'none',
+      search, hasText: !!search, focused, showPh: !search,
+      placeholder: mac ? 'Search' : 'Search movies, shows, people',
+      caretColor: p.accentFg,
+      advR: mac ? 13 : 4, advBg: P.advOpen ? p.accentSoft : 'transparent', advColor: P.advOpen ? p.accentFg : p.text2,
+      rightItems, avRing: P.avatarOpen ? '0 0 0 2px ' + p.accentFg : 'none',
+      pins: !!P.pins,
+      kids: P.children, kSearch: !!P.children && P.slot === 'search', kAvatar: !!P.children && P.slot === 'avatar',
+      kRight: !!P.children && (P.slot === 'downloads' || P.slot === 'syncplay' || P.slot === 'settings'),
+      kRightOff: P.slot === 'syncplay' ? -40 : 0, kAvOff: mac ? -6 : -40
+    };
+  }
+}
+</script>
+</body>
+</html>

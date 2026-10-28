@@ -103,6 +103,40 @@ public sealed class NavigationService
         Log("reset", root);
     }
 
+    /// <summary>Drops the current frame for good and makes the nearest frame behind it current,
+    /// or <paramref name="fallback"/> when Back is empty. Unlike <see cref="GoBack"/> the dropped
+    /// frame is not kept for Forward: it is a page for an item the server no longer has. With no
+    /// frame behind and no fallback nothing changes.</summary>
+    public NavFrame? DiscardCurrent(NavFrame? fallback)
+    {
+        if (_back.Count > 0)
+        {
+            Current = _back[^1];
+            _back.RemoveAt(_back.Count - 1);
+        }
+        else if (fallback is not null)
+        {
+            Current = fallback;
+        }
+        else
+        {
+            Log("discard_skip", Current);
+            return Current;
+        }
+        Log("discard", Current);
+        return Current;
+    }
+
+    /// <summary>Drops every back/forward frame the predicate matches — a page for an item the
+    /// server no longer has, which Back or Forward would otherwise re-enter only to fail again.
+    /// The current frame is never removed; <see cref="DiscardCurrent"/> leaves it.</summary>
+    public void RemoveFrames(Func<NavFrame, bool> predicate)
+    {
+        var removed = _back.RemoveAll(frame => predicate(frame)) + _forward.RemoveAll(frame => predicate(frame));
+        if (removed > 0)
+            Log("remove", Current);
+    }
+
     /// <summary>Mutates the current frame in place (search refine — updates the view/title
     /// without adding a history entry).</summary>
     public void ReplaceCurrent(NavFrame frame)

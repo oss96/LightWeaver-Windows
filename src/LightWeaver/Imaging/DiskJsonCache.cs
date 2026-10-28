@@ -46,12 +46,25 @@ public sealed class DiskJsonCache
     /// failure.</summary>
     private static readonly Lock HookLock = new();
 
+    /// <summary>Attempts per LIGHTWEAVER_CACHE_LOG line. <see cref="HookLock"/> only orders this
+    /// process: a second process appending to the same file, or a test reading it with
+    /// File.ReadAllText (FileShare.Read, so it denies writers), still made an append fail with a
+    /// sharing violation that the best-effort catch swallowed. A short backoff (10, 20, 30, 40 ms)
+    /// outlasts either, and the cap keeps a file someone holds open indefinitely from stalling a
+    /// cache read for longer than that.</summary>
+    private const int HookAttempts = 5;
+
     private readonly string _cacheDir;
     private readonly string _logPrefix;
     private readonly string _cacheName;
 
     // One fetch per key no matter how many callers race it.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+
+    /// <summary>The writers' gate, see <see cref="LockAsync"/>. Separate from <see cref="_locks"/>,
+    /// whose gates may briefly be duplicated (a duplicate fetch is harmless; two read-modify-writes
+    /// at once are not).</summary>
+    private readonly KeyedAsyncLock _writeLocks = new();
 
     /// <param name="dirName">Folder under <see cref="AppPaths.Root"/> holding this cache's entries.</param>
     /// <param name="logPrefix">Tag for the LIGHTWEAVER_CACHE_LOG lines, e.g. "MetadataCache".</param>
@@ -119,7 +132,7 @@ public sealed class DiskJsonCache
                 try
                 {
                     Directory.CreateDirectory(_cacheDir);
-                    tmp = $"{path}.{Environment.CurrentManagedThreadId}.{Guid.NewGuid():N}.tmp";
+                    tmp = $"{path}.{Environment.ProcessId}.{Environment.CurrentManagedThreadId}.{Guid.NewGuid():N}.tmp";
                     await File.WriteAllTextAsync(tmp, JsonSerializer.Serialize(fresh, Options)).ConfigureAwait(false);
                     File.Move(tmp, path, overwrite: true);
                     tmp = null; // moved atomically; there is no temporary file left to clean up
@@ -177,8 +190,18 @@ public sealed class DiskJsonCache
         return null;
     }
 
+    /// <summary>Holds one key's write gate until the result is disposed. Every writer of an entry
+    /// that others edit too (the browse lists and folders) takes it around its whole
+    /// read-modify-write or store: two removals that each read the same list and wrote it back
+    /// without the other's item lost one of the removals, and the deleted item came back on the
+    /// next start. <see cref="ReadAsync{T}"/> and <see cref="StoreAsync{T}"/> do not take it, so a
+    /// holder calls them inside. Hold it for file work only, never across a network request, and
+    /// take one key at a time.</summary>
+    public Task<IDisposable> LockAsync(string key) => _writeLocks.AcquireAsync(key);
+
     /// <summary>Writes data to disk cache best-effort. The temporary filename is unique per
-    /// write so concurrent refreshes cannot delete or promote one another's partial JSON.</summary>
+    /// write and carries the process id, so concurrent refreshes (in this process or another
+    /// instance sharing the folder) cannot delete or promote one another's partial JSON.</summary>
     public async Task StoreAsync<T>(string key, T data) where T : class
     {
         if (data is null) return;
@@ -187,7 +210,7 @@ public sealed class DiskJsonCache
         try
         {
             Directory.CreateDirectory(_cacheDir);
-            tmp = $"{path}.{Environment.CurrentManagedThreadId}.{Guid.NewGuid():N}.tmp";
+            tmp = $"{path}.{Environment.ProcessId}.{Environment.CurrentManagedThreadId}.{Guid.NewGuid():N}.tmp";
             await File.WriteAllTextAsync(tmp, JsonSerializer.Serialize(data, Options)).ConfigureAwait(false);
             File.Move(tmp, path, overwrite: true);
             tmp = null; // moved atomically; there is no temporary file left to clean up
@@ -305,6 +328,20 @@ public sealed class DiskJsonCache
         }
     }
 
+    /// <summary>When the entry was last written or touched, or null when there is none.</summary>
+    public DateTime? WrittenAtUtc(string key)
+    {
+        try
+        {
+            var path = Path.Combine(_cacheDir, CacheFileName(key));
+            return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     public void Clear()
     {
         try
@@ -389,9 +426,27 @@ public sealed class DiskJsonCache
                 var text = FormattableString.Invariant(
                     $"{DateTime.Now:HH:mm:ss.fff} lookup={lookupId} [{_logPrefix}] {line}{Environment.NewLine}");
                 lock (HookLock)
-                    File.AppendAllText(path, text);
+                {
+                    for (var attempt = 1; ; attempt++)
+                    {
+                        try
+                        {
+                            File.AppendAllText(path, text);
+                            return;
+                        }
+                        catch (IOException ex) when (attempt < HookAttempts && IsSharingViolation(ex))
+                        {
+                            Thread.Sleep(10 * attempt);
+                        }
+                    }
+                }
             }
         }
         catch { /* logging is best-effort */ }
     }
+
+    /// <summary>ERROR_SHARING_VIOLATION or ERROR_LOCK_VIOLATION: the file is busy, so a retry can
+    /// succeed. Anything else (a missing directory, a full disk) will not heal in 100 ms.</summary>
+    private static bool IsSharingViolation(IOException ex)
+        => (ex.HResult & 0xFFFF) is 32 or 33;
 }

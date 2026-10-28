@@ -2,10 +2,35 @@
   "version": 1,
   "sourceLanguage": "en",
   "strings": {
-    "hello": { "text": "Hello", "context": "fixture", "sources": [] },
-    "count": { "text": "Count {0:N0}", "context": "fixture", "sources": [] },
-    "missing": { "text": "Missing", "context": "fixture", "sources": [] },
-    "stale": { "text": "Changed source", "context": "fixture", "sources": [] },
-    "invalid": { "text": "Value {0}", "context": "fixture", "sources": [] }
+    "hello": {
+      "text": "Hello",
+      "context": "fixture",
+      "sources": []
+    },
+    "count": {
+      "text": "Count {0:N0}",
+      "context": "fixture",
+      "sources": []
+    },
+    "missing": {
+      "text": "Missing",
+      "context": "fixture",
+      "sources": []
+    },
+    "stale": {
+      "text": "Changed source",
+      "context": "fixture",
+      "sources": []
+    },
+    "invalid": {
+      "text": "Value {0}",
+      "context": "fixture",
+      "sources": []
+    },
+    "cached": {
+      "text": "Offline - showing cached results from {0:g}.",
+      "context": "cached browsing timestamp fixture",
+      "sources": []
+    }
   }
 }

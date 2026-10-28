@@ -145,17 +145,17 @@ public partial class MainWindow
             return;
         }
         // Both halves are optional and the server sends either alone. Joined rather than stacked:
-        // the toast is one line of text.
-        var parts = new[] { action.Header, action.Text }
-            .Where(part => !string.IsNullOrWhiteSpace(part))
-            .Select(part => part!.Trim());
-        var text = string.Join(" — ", parts);
+        // the toast is one line of text, and it names the server so a message cannot pass for the
+        // app's own.
+        var text = RemoteCommand.MessageText(action.Header, action.Text);
         if (text.Length == 0)
         {
             RemoteNoop("general", profileKey, "empty_message");
             return;
         }
-        ShowToast(text);
+        var server = _app.FindSessionByKey(profileKey)?.ServerUrl is { } url
+            && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Authority : profileKey;
+        ShowToast(L.Format("MainWindowRemoteControl.ServerMessage", server, text));
     }
 
     // ---- Remote track selection -----------------------------------------------------
@@ -317,7 +317,7 @@ public partial class MainWindow
             RemoteNoop("play", profileKey, "no_session");
             return;
         }
-        _ = StartRemotePlayAsync(profileKey, kind, message, jf);
+        _ = StartRemotePlayAsync(profileKey, kind, RemoteCommand.LimitPlayRequest(message), jf);
     }
 
     private async Task StartRemotePlayAsync(string profileKey, RemotePlayKind kind,
@@ -422,6 +422,15 @@ public partial class MainWindow
     /// point — a view that reloads first just re-reads the entry that is about to be deleted.</summary>
     private async Task InvalidateBrowseCachesAsync(string profileKey, LibraryUpdateMessage message)
     {
+        var folders = message.AffectedFolderIds();
+        var items = message.AffectedItemIds();
+        // A batch that names items but no folder cannot say WHICH page went stale, and the entry
+        // holding the deleted item is one nothing else will ever invalidate. Correct beats cheap
+        // here: this is the case the fix exists for.
+        var blanket = folders.Count == 0
+            && (message.ItemsRemoved is { Count: > 0 } || message.ItemsAdded is { Count: > 0 });
+        var serverUrl = _app.FindSessionByKey(profileKey)?.ServerUrl;
+
         // Before any delete. A prefetch in flight for this profile holds the folder it is filling
         // in memory and writes it back when it finishes, which would restore the entry being
         // dropped and leave the deleted items on screen anyway.
@@ -432,41 +441,54 @@ public partial class MainWindow
         // caching effectively stops until the scan finishes. That is the intended order of
         // preference: during the one window when the library is genuinely churning, a cold browse
         // page is cheaper than a page of items the server no longer has.
-        BrowsePrefetcher.CancelProfile(profileKey);
-
-        var folders = message.AffectedFolderIds();
-        var items = message.AffectedItemIds();
-        // A batch that names items but no folder cannot say WHICH page went stale, and the entry
-        // holding the deleted item is one nothing else will ever invalidate. Correct beats cheap
-        // here: this is the case the fix exists for.
-        var blanket = folders.Count == 0
-            && (message.ItemsRemoved is { Count: > 0 } || message.ItemsAdded is { Count: > 0 });
-        var serverUrl = _app.FindSessionByKey(profileKey)?.ServerUrl;
-
-        // Off the dispatcher: these are file deletes, and the blanket case is one per cached
-        // folder.
-        await Task.Run(async () =>
+        //
+        // Awaited: the cancel does not stop a store, or the read-modify-write a run makes to apply
+        // its removals, that is already under way. Deleting while one is in flight let it write
+        // the entry back over the delete. Begin, not a bare cancel: a run a view starts while this
+        // waits or deletes would read an entry before the delete and store it after, so until
+        // EndInvalidate below a start is only recorded, and it runs once the delete is done.
+        await BrowsePrefetcher.BeginInvalidate(profileKey);
+        try
         {
-            if (blanket)
-                await BrowseFolderCache.InvalidateProfileAsync(profileKey).ConfigureAwait(false);
-            else
-                foreach (var folderId in folders)
-                    BrowseFolderCache.Invalidate(profileKey, folderId);
-            // The per-item projections are 1 h entries with no invalidation path of their own, and
-            // their keys are computable from the item id — so dropping them costs two deletes per
-            // changed item and saves an hour of a stale version list on the detail view.
-            if (serverUrl is { Length: > 0 })
-                foreach (var itemId in items)
-                {
-                    Imaging.MetadataCache.Remove($"streams:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
-                    Imaging.MetadataCache.Remove($"versions:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
-                }
-        });
+            // Off the dispatcher: these are file deletes, and the blanket case is one per cached
+            // folder.
+            await Task.Run(async () =>
+            {
+                if (blanket)
+                    await BrowseFolderCache.InvalidateProfileAsync(profileKey).ConfigureAwait(false);
+                else
+                    foreach (var folderId in folders)
+                        BrowseFolderCache.Invalidate(profileKey, folderId);
+                // The per-item projections are 1 h entries with no invalidation path of their own,
+                // and their keys are computable from the item id — so dropping them costs two
+                // deletes per changed item and saves an hour of a stale version list on the
+                // detail view.
+                if (serverUrl is { Length: > 0 })
+                    foreach (var itemId in items)
+                    {
+                        Imaging.MetadataCache.Remove($"streams:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
+                        Imaging.MetadataCache.Remove($"versions:{serverUrl}:{itemId:N}:{L.CacheIdentity}");
+                    }
+            });
+        }
+        finally
+        {
+            BrowsePrefetcher.EndInvalidate(profileKey);
+        }
 
         // Only the active profile has live views; a backgrounded one rebuilds from the cache it
         // just lost when it is switched back to.
         if (_windowClosing || profileKey != _app.ActiveSessionKey)
             return;
+        // Removed ids first, by name. The folder ids a batch carries are LIBRARY ids, so a view
+        // of anything below a library — a box set, a folder, a series, a season, a playlist —
+        // never matches them and would not reload; Home's Favorites and a detail page's "More
+        // like this" have no folder at all. Every one of them can drop a named card in place.
+        if (message.ItemsRemoved is { Count: > 0 } removed)
+            _app.NotifyItemsRemoved(removed
+                .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .ToHashSet());
         _app.NotifyLibraryChanged(folders);
     }
 

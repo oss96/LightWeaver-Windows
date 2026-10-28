@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The browse top bar, Windows variant of the design's Chrome.dc.html: back/forward, the
+     Home | Libraries | Playlists group, the search field (clear, advanced-search tune button,
+     search), the Downloads | SyncPlay | Settings group and the profile avatar. The system caption
+     buttons sit in the reserved column on the right. -->
+<UserControl
+    x:Class="LightWeaver.WinUI.Shell.TopBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:LightWeaver.WinUI.Controls"
+    xmlns:loc="using:LightWeaver.WinUI.Localization"
+    xmlns:t="using:LightWeaver.WinUI.Theme"
+    Height="{StaticResource LwBarHeight}">
+
+    <Grid x:Name="Root" Padding="8,0,0,0" ColumnSpacing="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition x:Name="CaptionColumn" Width="138" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Labels take their own width while the window has room for every one of them at 76 px;
+             below that the search field is near its minimum and the items keep the drawn 64. -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LabelWidths">
+                <VisualState x:Name="NaturalLabels">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="{StaticResource LwBarLabelsNaturalFrom}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="DrawnLabels">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="NavHome.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                        <Setter Target="NavLibraries.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                        <Setter Target="NavPlaylists.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                        <Setter Target="NavDownloads.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                        <Setter Target="SyncPlayButton.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                        <Setter Target="NavSettings.MaxWidth" Value="{StaticResource LwBarItemWidth}" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <!-- Back / forward -->
+        <StackPanel x:Name="HistoryGroup" Orientation="Horizontal" Spacing="2" Padding="3,0" VerticalAlignment="Center">
+            <Button x:Name="BackButton" Style="{StaticResource LwSubtleButton}" Width="36" Height="32"
+                    AutomationProperties.AutomationId="BackButton" ToolTipService.ToolTip="{loc:Text Key=TopBar.BackShortcut}"
+                    AutomationProperties.Name="{loc:Text Key=TopBar.Back}" Click="OnBack">
+                <FontIcon Style="{StaticResource LwDirectionalIcon}" FontSize="16" Glyph="{x:Bind t:Icons.ArrowBack}" />
+            </Button>
+            <Button x:Name="ForwardButton" Style="{StaticResource LwSubtleButton}" Width="36" Height="32" IsEnabled="False"
+                    AutomationProperties.AutomationId="ForwardButton" ToolTipService.ToolTip="{loc:Text Key=TopBar.ForwardShortcut}"
+                    AutomationProperties.Name="{loc:Text Key=TopBar.Forward}" Click="OnForward">
+                <FontIcon Style="{StaticResource LwDirectionalIcon}" FontSize="16" Glyph="{x:Bind t:Icons.ArrowForward}" />
+            </Button>
+        </StackPanel>
+
+        <!-- Home | Libraries | Playlists. NavPill hosts the group's pill while the morph draws it on
+             the compositor (NavMorphTransition). -->
+        <Canvas x:Name="NavPill" Grid.Column="1" Width="0" Height="{StaticResource LwGroupHeight}" HorizontalAlignment="Left"
+                VerticalAlignment="Center" IsHitTestVisible="False" />
+        <Border x:Name="NavGroup" Grid.Column="1" Height="{StaticResource LwGroupHeight}" Padding="2"
+                CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwGlassBrush}"
+                BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1" VerticalAlignment="Center">
+            <Grid x:Name="NavContent">
+                <StackPanel x:Name="NavItems" Orientation="Horizontal">
+                    <c:BarItem x:Name="NavHome" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.Home}" Label="{loc:Text Key=TopBar.Home}" IsSelected="True"
+                               AutomationProperties.AutomationId="NavHome" Click="OnNavHome" />
+                    <c:BarItem x:Name="NavLibraries" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.VideoLibrary}"
+                               AutomationProperties.AutomationId="NavLibraries" Click="OnNavLibraries" />
+                    <c:BarItem x:Name="NavPlaylists" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.PlaylistPlay}"
+                               AutomationProperties.AutomationId="NavPlaylists" Click="OnNavPlaylists" />
+                </StackPanel>
+                <!-- Libraries or Playlists, morphed in place (design 01). Scrolls inside its own
+                     bounds once the search field is at its minimum. -->
+                <Grid x:Name="Morph" Visibility="Collapsed">
+                    <ScrollViewer x:Name="MorphScroller" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" IsTabStop="False"
+                                  AutomationProperties.AutomationId="NavMorph" ViewChanged="OnMorphScrolled">
+                        <StackPanel x:Name="MorphItems" Orientation="Horizontal" XYFocusKeyboardNavigation="Enabled" />
+                    </ScrollViewer>
+                    <Border x:Name="MorphFadeLeft" Width="32" HorizontalAlignment="Left" IsHitTestVisible="False" Visibility="Collapsed">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Color="#FF2B2B2B" Offset="0.35" />
+                                <GradientStop Color="#002B2B2B" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Border x:Name="MorphFadeRight" Width="32" HorizontalAlignment="Right" IsHitTestVisible="False" Visibility="Collapsed">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                                <GradientStop Color="#FF2B2B2B" Offset="0.35" />
+                                <GradientStop Color="#002B2B2B" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Button x:Name="MorphLeft" Style="{StaticResource LwSubtleButton}" Width="20" Height="38" HorizontalAlignment="Left" Visibility="Collapsed"
+                            IsTabStop="False" Click="OnMorphLeft" AutomationProperties.AutomationId="NavMorphLeft">
+                        <FontIcon Style="{StaticResource LwDirectionalIcon}" FontSize="12" Glyph="{x:Bind t:Icons.ChevronLeft}" />
+                    </Button>
+                    <Button x:Name="MorphRight" Style="{StaticResource LwSubtleButton}" Width="20" Height="38" HorizontalAlignment="Right" Visibility="Collapsed"
+                            IsTabStop="False" Click="OnMorphRight" AutomationProperties.AutomationId="NavMorphRight">
+                        <FontIcon Style="{StaticResource LwDirectionalIcon}" FontSize="12" Glyph="{x:Bind t:Icons.ChevronRight}" />
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Search field: flex 1 1 360 px, 160 to 560 px, centred in the free space. -->
+        <Grid x:Name="SearchField" Grid.Column="2" MinWidth="160" MaxWidth="560" Height="34" VerticalAlignment="Center"
+              AutomationProperties.AutomationId="SearchField">
+            <Canvas x:Name="SearchChromeHost" IsHitTestVisible="False" />
+            <Border x:Name="SearchChrome" CornerRadius="{StaticResource LwControlRadius}" Background="{StaticResource LwFieldBrush}"
+                    BorderBrush="{StaticResource LwFieldBorderBrush}" BorderThickness="1" />
+            <Border x:Name="SearchBottom" Height="1" VerticalAlignment="Bottom" Margin="1,0" Background="{StaticResource LwFieldBottomBrush}"
+                    CornerRadius="0,0,4,4" />
+            <Grid Padding="10,0,4,0" ColumnSpacing="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="SearchPlaceholder" Text="{loc:Text Key=TopBar.SearchPlaceholder}" FontSize="13"
+                           Foreground="{StaticResource LwText3Brush}" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
+                <TextBox x:Name="SearchBox" Style="{StaticResource LwBareTextBox}" VerticalAlignment="Stretch" AutomationProperties.AutomationId="SearchBox"
+                         AutomationProperties.Name="{loc:Text Key=TopBar.SearchPlaceholder}"
+                         TextChanged="OnSearchTextChanged" GotFocus="OnSearchFocus" LostFocus="OnSearchFocus" KeyDown="OnSearchKeyDown" />
+                <Button x:Name="ClearButton" Grid.Column="1" Style="{StaticResource LwSubtleButton}" Width="22" Height="22" CornerRadius="11"
+                        Foreground="{StaticResource LwText2Brush}" Visibility="Collapsed" AutomationProperties.AutomationId="SearchClear"
+                        ToolTipService.ToolTip="{loc:Text Key=TopBar.ClearSearch}" AutomationProperties.Name="{loc:Text Key=TopBar.ClearSearch}" Click="OnClear">
+                    <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Close}" />
+                </Button>
+                <Button x:Name="TuneButton" Grid.Column="2" Style="{StaticResource LwSubtleButton}" Width="28" Height="26"
+                        Foreground="{StaticResource LwText2Brush}" AutomationProperties.AutomationId="AdvancedSearchButton"
+                        ToolTipService.ToolTip="{loc:Text Key=TopBar.AdvancedSearch}" AutomationProperties.Name="{loc:Text Key=TopBar.AdvancedSearch}" Click="OnTune">
+                    <FontIcon Style="{StaticResource LwIcon}" Glyph="{x:Bind t:Icons.Tune}" />
+                </Button>
+                <Button x:Name="SearchButton" Grid.Column="3" Style="{StaticResource LwSubtleButton}" Width="28" Height="26"
+                        Foreground="{StaticResource LwText2Brush}" AutomationProperties.AutomationId="SearchButton"
+                        ToolTipService.ToolTip="{loc:Text Key=TopBar.Search}" AutomationProperties.Name="{loc:Text Key=TopBar.Search}" Click="OnSearch">
+                    <FontIcon Style="{StaticResource LwIcon}" Glyph="{x:Bind t:Icons.Search}" />
+                </Button>
+            </Grid>
+            <!-- Recent searches while the field is focused and empty (design 04, 4a). A popup, not a
+                 flyout, so the field keeps the keyboard. -->
+            <Popup x:Name="RecentPopup" VerticalOffset="38" IsLightDismissEnabled="False" ShouldConstrainToRootBounds="True">
+                <Border x:Name="RecentPanel" Padding="6" CornerRadius="8" Background="{StaticResource LwPopupBrush}"
+                        BorderBrush="{StaticResource LwPopupBorderBrush}" BorderThickness="1" AutomationProperties.AutomationId="SearchRecentPanel">
+                    <StackPanel>
+                        <Grid Padding="10,6,8,6">
+                            <TextBlock x:Name="RecentHeading" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource LwText3Brush}" VerticalAlignment="Center" />
+                            <Button x:Name="RecentClearAll" Style="{StaticResource LwSubtleButton}" HorizontalAlignment="Right" Padding="6,2" FontSize="12"
+                                    Foreground="{StaticResource LwAccentFgBrush}" Click="OnClearRecent" AutomationProperties.AutomationId="SearchClearRecent" />
+                        </Grid>
+                        <StackPanel x:Name="RecentList" />
+                        <Border Height="1" Margin="4,6" Background="{StaticResource LwSeparatorBrush}" />
+                        <TextBlock x:Name="RecentHint" Padding="10,4,10,6" FontSize="11.5" Foreground="{StaticResource LwText3Brush}" TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+
+        <!-- Downloads | SyncPlay | Settings -->
+        <Border x:Name="RightGroup" Grid.Column="3" Height="{StaticResource LwGroupHeight}" Padding="2"
+                CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwGlassBrush}"
+                BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+                <c:BarItem x:Name="NavDownloads" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.Download}" Label="{loc:Text Key=TopBar.Downloads}"
+                           AutomationProperties.AutomationId="NavDownloads" Click="OnNavDownloads" />
+                <c:BarItem x:Name="SyncPlayButton" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.Groups}" Label="{loc:Text Key=TopBar.SyncPlay}"
+                           AutomationProperties.AutomationId="SyncPlayButton" Click="OnSyncPlay" />
+                <c:BarItem x:Name="NavSettings" Style="{StaticResource LwBarItemFlexible}" Icon="{x:Bind t:Icons.Settings}" Label="{loc:Text Key=TopBar.Settings}"
+                           AutomationProperties.AutomationId="NavSettings" Click="OnNavSettings" />
+            </StackPanel>
+        </Border>
+
+        <!-- Profile avatar -->
+        <Button x:Name="ProfileButton" Grid.Column="4" Width="32" Height="32" CornerRadius="16" Padding="0" Margin="0,0,8,0"
+                BorderThickness="0" BorderBrush="{StaticResource LwAccentFgBrush}" VerticalAlignment="Center" AutomationProperties.AutomationId="ProfileButton"
+                AutomationProperties.Name="{loc:Text Key=TopBar.Profile}" Style="{StaticResource LwAvatarButton}" Click="OnProfile">
+            <Button.Background>
+                <!-- CSS linear-gradient(140deg, ...) on a square -->
+                <LinearGradientBrush StartPoint="0.047,-0.04" EndPoint="0.953,1.04">
+                    <GradientStop Color="#6B4D57" Offset="0" />
+                    <GradientStop Color="#3C3036" Offset="1" />
+                </LinearGradientBrush>
+            </Button.Background>
+            <TextBlock x:Name="AvatarText" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+        </Button>
+    </Grid>
+</UserControl>

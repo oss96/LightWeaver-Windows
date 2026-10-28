@@ -86,6 +86,7 @@ public sealed class PlayerViewModel : ObservableObject
     private bool _isPaused;
     private double _positionSeconds;
     private double _durationSeconds;
+    private double _knownDurationSeconds;
     private double _volume = 100;
     private bool _isMuted;
     private bool _isBuffering;
@@ -93,6 +94,7 @@ public sealed class PlayerViewModel : ObservableObject
     private bool _rtxVsrEnabled;
     private bool _rtxHdrEnabled;
     private int _maxLumaNits = 1000;
+    private RtxRequest? _pushedRtx;
 
     /// <summary>True while the seek slider thumb is being dragged — suppresses
     /// position feedback from mpv so the thumb doesn't fight the user.</summary>
@@ -106,6 +108,12 @@ public sealed class PlayerViewModel : ObservableObject
     internal Func<TransportRequest, bool>? TransportGate { get; set; }
     private bool Gate(TransportRequest request) => TransportGate?.Invoke(request) == true;
 
+    /// <summary>Refuses a seek the playing file cannot reach yet, such as past what a running
+    /// download has written, and tells the user why; true when refused. Null allows every seek.</summary>
+    public Func<double, bool>? SeekLimit { get; set; }
+
+    private bool Unreachable(double target) => SeekLimit?.Invoke(target) == true;
+
     private SyncPlayInfo? _syncPlay;
     public SyncPlayInfo? SyncPlay => _syncPlay;
     private bool _syncPlayPending;
@@ -118,6 +126,12 @@ public sealed class PlayerViewModel : ObservableObject
                 OnPropertyChanged(nameof(SyncPlayStatus));
         }
     }
+    /// <summary>"State · N". N counts USERS, not devices: one account on two devices is 1. The
+    /// server builds <c>GroupInfoDto.Participants</c> from its per-session table with
+    /// <c>Select(UserName).Distinct()</c>, and no API reports a group's session count.
+    /// Counting <c>UserJoined</c>/<c>UserLeft</c> instead would drift: a reconnecting session's
+    /// restore runs <c>SessionJoin</c> again and re-sends <c>UserJoined</c> to everyone else, and
+    /// a late joiner cannot see same-name sessions that were already there.</summary>
     public string SyncPlayStatus => SyncPlay is { } group
         ? L.Format("PlayerViewModel.Value.3bc02e73", ((SyncPlayPending ? L.Text("PlayerViewModel.Syncing.2bdc0f46") : SyncPlayStateLabel(group.State))), (group.Participants.Count))
         : SyncPlayPending ? L.Text("PlayerViewModel.Joining.f1e37263") : "";
@@ -195,12 +209,13 @@ public sealed class PlayerViewModel : ObservableObject
     public void Attach(MpvPlayer player)
     {
         _player = player;
+        _pushedRtx = null;
         // The generation payload is ignored here on purpose: the scrubber shows whatever mpv last
         // reported, and a stale value is corrected by the next tick a few tens of milliseconds
         // later. It matters where a position is REMEMBERED across a load (MainWindow's fallback),
         // not where it is displayed.
         player.PositionChanged += (pos, _) => { if (!IsSeeking) PositionSecondsFromPlayer(pos); };
-        player.DurationChanged += d => { _durationSeconds = d; OnPropertyChanged(nameof(DurationSeconds)); OnPropertyChanged(nameof(TimeDisplay)); };
+        player.DurationChanged += d => { _durationSeconds = d > 0 ? Math.Max(d, _knownDurationSeconds) : d; OnPropertyChanged(nameof(DurationSeconds)); OnPropertyChanged(nameof(TimeDisplay)); };
         player.PauseChanged += p => { _isPaused = p; OnPropertyChanged(nameof(IsPaused)); };
         player.VolumeChanged += v => { _volume = v; OnPropertyChanged(nameof(Volume)); };
         player.MuteChanged += m =>
@@ -369,20 +384,25 @@ public sealed class PlayerViewModel : ObservableObject
         VersionChangeRequested?.Invoke(option.Id);
     }
 
+    /// <summary>Names the tracks for the menus where the file itself does not, such as a download
+    /// whose saved metadata knows the languages; null shows the file's own names.</summary>
+    public Func<IReadOnlyList<MpvTrack>, IReadOnlyList<MpvTrack>>? TrackNames { get; set; }
+
     private void RebuildTrackOptions(int generation)
     {
         if (_player is null || generation != _player.LoadGeneration)
             return;
+        var tracks = TrackNames?.Invoke(_player.Tracks) ?? _player.Tracks;
         VideoTracks.Clear();
-        foreach (var t in _player.Tracks.Where(t => t.Type == "video"))
+        foreach (var t in tracks.Where(t => t.Type == "video"))
             VideoTracks.Add(new TrackOption(t.Id, t.Display, t.Selected) { DisplayProvider = () => t.Display });
 
         AudioTracks.Clear();
-        foreach (var t in _player.Tracks.Where(t => t.Type == "audio"))
+        foreach (var t in tracks.Where(t => t.Type == "audio"))
             AudioTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)) { DisplayProvider = () => t.Display });
 
         SubtitleTracks.Clear();
-        var subs = _player.Tracks.Where(t => t.Type == "sub").ToList();
+        var subs = tracks.Where(t => t.Type == "sub").ToList();
         SubtitleTracks.Add(new TrackOption(-1, L.Text("PlayerViewModel.Off.830d786d"), subs.All(s => !s.Selected)) { DisplayProvider = () => L.Text("PlayerViewModel.Off.830d786d") });
         foreach (var t in subs)
             SubtitleTracks.Add(new TrackOption(t.Id, t.Display, t.Selected, LanguageBadge.For(t.Lang)) { DisplayProvider = () => t.Display });
@@ -678,7 +698,19 @@ public sealed class PlayerViewModel : ObservableObject
         _upNextAtEnd = false;
         _positionSeconds = 0;
         _durationSeconds = 0;
+        _knownDurationSeconds = 0;
         OnPropertyChanged(nameof(PositionSeconds));
+        OnPropertyChanged(nameof(DurationSeconds));
+        OnPropertyChanged(nameof(TimeDisplay));
+    }
+
+    /// <summary>The loaded file's full length when the file cannot tell yet, such as a download
+    /// still being written: the timeline ends there instead of where the bytes on disk end.</summary>
+    public void SetKnownDuration(double seconds)
+    {
+        _knownDurationSeconds = seconds;
+        if (_durationSeconds >= seconds) return;
+        _durationSeconds = seconds;
         OnPropertyChanged(nameof(DurationSeconds));
         OnPropertyChanged(nameof(TimeDisplay));
     }
@@ -692,7 +724,7 @@ public sealed class PlayerViewModel : ObservableObject
             if (SetProperty(ref _positionSeconds, value))
             {
                 OnPropertyChanged(nameof(TimeDisplay));
-                if (IsSeeking && _player is not null && !Gate(new(TransportKind.SeekAbsolute, value)))
+                if (IsSeeking && _player is not null && !Unreachable(value) && !Gate(new(TransportKind.SeekAbsolute, value)))
                     _player.TimePos = value;
             }
         }
@@ -960,7 +992,7 @@ public sealed class PlayerViewModel : ObservableObject
     private bool _upNextAutoAdvance = true;
     private bool _upNextAtEnd;
     private int _upNextRemaining;
-    private System.Windows.Threading.DispatcherTimer? _upNextTimer;
+    private Threading.IUiTimer? _upNextTimer;
     private int _upNextCountdownSeconds = 10;
     private int _upNextLeadSeconds = UpNextPreferences.DefaultLeadSeconds;
 
@@ -1073,11 +1105,9 @@ public sealed class PlayerViewModel : ObservableObject
         NotifyUpNextChanged();
     }
 
-    private System.Windows.Threading.DispatcherTimer CreateUpNextTimer()
+    private Threading.IUiTimer CreateUpNextTimer()
     {
-        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        timer.Tick += (_, _) => TickUpNextCountdown();
-        return timer;
+        return Threading.UiDispatcher.Current.CreateTimer(TimeSpan.FromSeconds(1), TickUpNextCountdown);
     }
 
     private void HandleUpNextEndReached()
@@ -1165,6 +1195,18 @@ public sealed class PlayerViewModel : ObservableObject
         NotifyNextPrevChanged();
     }
 
+    /// <summary>Drops Up Next and the episode neighbors that are in <paramref name="ids"/>; true
+    /// when Up Next was among them.</summary>
+    public bool ForgetItems(IReadOnlySet<Guid> ids)
+    {
+        var upNext = _upNextItem is { } item && ids.Contains(item.Id);
+        if (upNext) SetUpNext(null);
+        if (_prevEpisode is { } previous && ids.Contains(previous.Id)) _prevEpisode = null;
+        if (_nextEpisode is { } next && ids.Contains(next.Id)) _nextEpisode = null;
+        NotifyNextPrevChanged();
+        return upNext;
+    }
+
     // ---- Info panel (live playback stats + server media info) ----
 
     private bool _updatingQuality;
@@ -1173,6 +1215,10 @@ public sealed class PlayerViewModel : ObservableObject
     private string _qualityStatus = L.Text("PlayerViewModel.UnavailableForThisPlayback.89fbc22d");
     private bool _qualityAvailable;
     private bool _qualityVisible;
+
+    /// <summary>The quality menus' tiers, in order: null is the Settings default, 0 the original
+    /// file, the rest are bitrate caps in Mbps. Shared by the player and the detail page.</summary>
+    public static readonly IReadOnlyList<int?> QualityTierMbps = [null, 0, 20, 10, 4, 1];
 
     /// <summary>Raised as soon as either quality control changes. MainWindow owns the
     /// server negotiation and calls <see cref="SetQualityState"/> with the result.</summary>
@@ -1213,16 +1259,7 @@ public sealed class PlayerViewModel : ObservableObject
         bool visible = true)
     {
         _updatingQuality = true;
-        _qualityTierIndex = maxBitrateMbps switch
-        {
-            null => 0,
-            0 => 1,
-            20 => 2,
-            10 => 3,
-            4 => 4,
-            1 => 5,
-            _ => 0,
-        };
+        _qualityTierIndex = Math.Max(0, QualityTierMbps.ToList().IndexOf(maxBitrateMbps));
         _qualityForceTranscode = forceTranscode;
         _qualityAvailable = available;
         _qualityVisible = visible;
@@ -1240,16 +1277,7 @@ public sealed class PlayerViewModel : ObservableObject
     {
         if (_updatingQuality || !_qualityAvailable)
             return;
-        var bitrate = _qualityTierIndex switch
-        {
-            0 => (int?)null,
-            1 => 0,
-            2 => 20,
-            3 => 10,
-            4 => 4,
-            5 => 1,
-            _ => null,
-        };
+        var bitrate = _qualityTierIndex >= 0 && _qualityTierIndex < QualityTierMbps.Count ? QualityTierMbps[_qualityTierIndex] : null;
         QualityChangeRequested?.Invoke(new QualityRequest(bitrate, _qualityForceTranscode));
     }
 
@@ -1377,9 +1405,9 @@ public sealed class PlayerViewModel : ObservableObject
 
     /// <summary>Preview source for the seek bar; null = no trickplay (time-only tooltip).
     /// Set per playback from the metadata fetch, read by the overlay on hover.</summary>
-    public TrickplayProvider? Trickplay { get; private set; }
+    public TrickplaySource? Trickplay { get; private set; }
 
-    public void SetTrickplay(TrickplayProvider? provider) => Trickplay = provider;
+    public void SetTrickplay(TrickplaySource? provider) => Trickplay = provider;
 
     // ---- Jump forward/back ----
 
@@ -1423,6 +1451,7 @@ public sealed class PlayerViewModel : ObservableObject
 
     private void SeekRelative(double seconds)
     {
+        if (seconds > 0 && Unreachable(_positionSeconds + seconds)) return;
         if (!Gate(new(TransportKind.SeekRelative, seconds))) _player?.SeekRelative(seconds);
     }
 
@@ -1445,6 +1474,7 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>Seek to the given position (used on slider click / drag end).</summary>
     public void Seek(double seconds)
     {
+        if (Unreachable(seconds)) return;
         if (Gate(new(TransportKind.SeekAbsolute, seconds))) return;
         if (_player is null)
             return;
@@ -1516,6 +1546,12 @@ public sealed class PlayerViewModel : ObservableObject
     /// drives the OSD buffering indicator (M26).</summary>
     public bool IsBuffering => _isBuffering;
 
+    /// <summary>Moves subtitles earlier (negative) or later by <paramref name="step"/> seconds.</summary>
+    public void AdjustSubtitleDelay(double step)
+    {
+        if (_player is { } player) player.SubtitleDelay += step;
+    }
+
     public void ToggleMute()
     {
         if (_player is { } p)
@@ -1584,7 +1620,7 @@ public sealed class PlayerViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _rtxVsrEnabled, value))
-                _player?.SetRtxFilters(_rtxVsrEnabled, _rtxHdrEnabled, _maxLumaNits);
+                PushRtx();
         }
     }
 
@@ -1594,17 +1630,27 @@ public sealed class PlayerViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _rtxHdrEnabled, value))
-                _player?.SetRtxFilters(_rtxVsrEnabled, _rtxHdrEnabled, _maxLumaNits);
+                PushRtx();
         }
     }
 
-    /// <summary>Applies the persisted RTX defaults (called once after Attach; the
-    /// property setters push the filters to mpv).</summary>
+    /// <summary>Applies the persisted RTX settings (after Attach and on every settings save): the
+    /// toggles and the HDR peak reach mpv as one filter change, and only when the chain differs.</summary>
     public void ApplyRtxDefaults(AppSettings settings)
     {
         _maxLumaNits = settings.RtxHdrMaxLumaNits;
-        RtxVsrEnabled = settings.RtxVsrDefault;
-        RtxHdrEnabled = settings.RtxHdrDefault;
+        SetProperty(ref _rtxVsrEnabled, settings.RtxVsrDefault, nameof(RtxVsrEnabled));
+        SetProperty(ref _rtxHdrEnabled, settings.RtxHdrDefault, nameof(RtxHdrEnabled));
+        PushRtx();
+    }
+
+    /// <summary>Sends the RTX request to the attached player unless it asks for the chain last sent.</summary>
+    private void PushRtx()
+    {
+        var request = new RtxRequest(_rtxVsrEnabled, _rtxHdrEnabled, _maxLumaNits);
+        if (_player is null || _pushedRtx is { } pushed && request.SameFilterAs(pushed)) return;
+        _pushedRtx = request;
+        _player.SetRtxFilters(request.Vsr, request.Hdr, request.MaxLumaNits);
     }
 
     private void PositionSecondsFromPlayer(double pos)
