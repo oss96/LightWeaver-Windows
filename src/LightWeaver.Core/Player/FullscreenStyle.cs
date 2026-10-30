@@ -12,9 +12,9 @@ public readonly record struct ScreenRect(int Left, int Top, int Right, int Botto
     public LayerRect InDips(double scale) => new(0, 0, Width / scale, Height / scale);
 }
 
-/// <summary>The window styles of full screen without a presenter switch: the frame, caption, caption
-/// buttons and the maximized state go, every other bit stays, so leaving full screen puts the exact
-/// style back and a maximized window is maximized again.</summary>
+/// <summary>The window styles of full screen without a presenter switch: the sizing border and the
+/// maximized state go, every other bit stays, so leaving full screen puts the exact style back and a
+/// maximized window is maximized again.</summary>
 public static class FullscreenStyle
 {
     public const long Caption = 0x00C00000;
@@ -32,8 +32,10 @@ public static class FullscreenStyle
     /// <summary>WPF_RESTORETOMAXIMIZED: a minimized window restores maximized.</summary>
     public const uint RestoreToMaximized = 0x0002;
 
-    /// <summary>WS_OVERLAPPEDWINDOW without WS_OVERLAPPED (0): what a framed window has and full screen does not.</summary>
-    public const long Frame = Caption | SystemMenu | ThickFrame | MinimizeBox | MaximizeBox;
+    /// <summary>The sizing border: the only frame bit full screen takes off. The caption stays, because
+    /// without it the Windows App SDK destroys its caption buttons window and builds a new one when it
+    /// comes back, and UI Automation can still call the old window's freed provider.</summary>
+    public const long Frame = ThickFrame;
 
     /// <summary>The style of <paramref name="style"/>'s window while it covers its monitor. Windows
     /// keeps the taskbar over a maximized window whatever its rect, so the maximized bit goes too.</summary>
@@ -48,8 +50,8 @@ public static class FullscreenStyle
     }
 
     /// <summary>Whether a window with <paramref name="style"/> at <paramref name="window"/> is full
-    /// screen on <paramref name="monitor"/> as Windows judges it: no frame, neither maximized nor
-    /// minimized, and exactly the monitor's rect, not its work area.</summary>
+    /// screen on <paramref name="monitor"/>: no sizing border, neither maximized nor minimized, and
+    /// exactly the monitor's rect, not its work area.</summary>
     public static bool Covers(long style, ScreenRect window, ScreenRect monitor)
         => (style & (Frame | Maximize | Minimize)) == 0 && window == monitor;
 

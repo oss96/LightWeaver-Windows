@@ -348,11 +348,27 @@ header row and the library's A–Z rail.
 
 `Shell/WindowFullscreen.cs` makes the WinUI window full screen without an AppWindow presenter switch
 (the switch restored through the window's restored rect, onto the second monitor, under DWM's
-animation). On entering it drops the frame bits and `WS_MAXIMIZE`, sets the window to the monitor's
-`rcMonitor` (not `rcWork`), turns the whole rect into client area through a `WM_NCCALCSIZE` subclass
-and marks the window with `ITaskbarList2::MarkFullscreenWindow`. `FullscreenStyle.Covers`
-(LightWeaver.Core) is the test Windows applies: no frame, neither maximized nor minimized, exactly
-the monitor rect.
+animation). On entering it drops `WS_THICKFRAME` and `WS_MAXIMIZE`, sets the window to the monitor's
+`rcMonitor` (not `rcWork`), turns the whole rect into client area through a `WM_NCCALCSIZE` subclass,
+hides the caption buttons window and marks the window with `ITaskbarList2::MarkFullscreenWindow`.
+`FullscreenStyle.Covers` (LightWeaver.Core) is what `Reassert` checks: no sizing border, neither
+maximized nor minimized, exactly the monitor rect.
+
+The caption, system menu and minimize and maximize boxes stay set in full screen. Without
+`WS_CAPTION` the Windows App SDK destroys its caption buttons window (`ReunionWindowingCaptionControls`)
+and builds a new one when the bit comes back, and UI Automation can still hold the old window's
+provider: in a guest run (2026-10-30) a suite's `FindFirst` called through the freed
+`CTitleBarCaptionButtonsFragmentRootProvider` and Control Flow Guard ended the app with 0xc0000409
+in `uiautomationcore!UiaNodeTraverser::Traverse`. A full-screen stress loop (40 entries and exits,
+each followed by a walk of the whole UIA tree) saw a new caption buttons window after every exit and
+12 to 15 failed walks in full screen; keeping the caption, that window kept one runtime id and no walk
+failed. Full screen hides that window with `ShowWindow` instead, and leaving shows it again.
+
+`MarkFullscreenWindow` runs from the dispatcher queue, after the window change rather than inside it:
+the change runs in a `CompositionTarget.Rendering` callback, `MarkFullscreenWindow` sends to the
+taskbar's thread and waits, and a XAML dispatcher timer that fired meanwhile re-entered XAML there,
+which fails fast (0xc000027b, a stowed `E_UNEXPECTED` in
+`CXcpDispatcher::OnReentrancyProtectedWindowMessage` under `TaskbarList::MarkFullscreenWindow`).
 
 None of that hides the taskbar on its own: the Windows App SDK sets the window property
 `NonRudeHWND`, and the shell never treats a window carrying it as a full-screen app, whatever its

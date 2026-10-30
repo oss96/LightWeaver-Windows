@@ -248,9 +248,12 @@ Check(!new LayerFrame(1, 1, 0, 0, 0, 0, 10, 10, 6, 1).IsValid && !new LayerFrame
 const long OverlappedWindow = 0x00CF0000, ClipChildren = 0x02000000, Minimize = 0x20000000;
 var maximized = OverlappedWindow | FullscreenStyle.Visible | FullscreenStyle.Maximize | ClipChildren;
 var borderless = FullscreenStyle.Borderless(maximized);
-Check(FullscreenStyle.Frame == OverlappedWindow, "the frame is exactly WS_OVERLAPPEDWINDOW");
-Check((borderless & OverlappedWindow) == 0, "full screen has no caption, caption buttons or sizing frame");
-Check(borderless == (FullscreenStyle.Visible | ClipChildren), "and is not maximized, which Windows keeps the taskbar over, but keeps visible and clipping");
+Check(FullscreenStyle.Frame == FullscreenStyle.ThickFrame, "full screen takes off only the sizing border");
+Check((borderless & FullscreenStyle.ThickFrame) == 0, "full screen has no sizing frame");
+Check((borderless & (FullscreenStyle.Caption | FullscreenStyle.SystemMenu | FullscreenStyle.MinimizeBox | FullscreenStyle.MaximizeBox))
+    == (FullscreenStyle.Caption | FullscreenStyle.SystemMenu | FullscreenStyle.MinimizeBox | FullscreenStyle.MaximizeBox),
+    "but keeps the caption and its buttons' bits, so the Windows App SDK keeps its caption buttons window");
+Check(borderless == ((OverlappedWindow & ~FullscreenStyle.ThickFrame) | FullscreenStyle.Visible | ClipChildren), "and is not maximized, which Windows keeps the taskbar over, but keeps visible and clipping");
 Check(FullscreenStyle.Restored(borderless, maximized) == maximized, "leaving puts the exact style back: maximized again");
 var restored = OverlappedWindow | FullscreenStyle.Visible;
 Check(FullscreenStyle.Restored(FullscreenStyle.Borderless(restored), restored) == restored, "a restored window leaves restored");
@@ -325,8 +328,8 @@ Check(!FullscreenStyle.Covers(borderless, work, monitor), "the work area is not:
 Check(!FullscreenStyle.Covers(borderless, monitor with { Bottom = 2159 }, monitor) && !FullscreenStyle.Covers(borderless, new ScreenRect(-1, 0, 3840, 2160), monitor),
     "one pixel short or over is not");
 Check(!FullscreenStyle.Covers(borderless | FullscreenStyle.Maximize, monitor, monitor), "a maximized window on the monitor's rect is not");
-Check(!FullscreenStyle.Covers(borderless | FullscreenStyle.Caption, monitor, monitor) && !FullscreenStyle.Covers(borderless | FullscreenStyle.ThickFrame, monitor, monitor),
-    "nor one with a caption or sizing frame");
+Check(!FullscreenStyle.Covers(borderless | FullscreenStyle.ThickFrame, monitor, monitor), "nor one with a sizing frame");
+Check(FullscreenStyle.Covers(borderless | FullscreenStyle.Caption, monitor, monitor), "the kept caption does not keep it from being full screen");
 Check(!FullscreenStyle.Covers(borderless, monitor, secondary) && FullscreenStyle.Covers(borderless, secondary, secondary),
     "it covers the monitor it is on, in that monitor's own pixels");
 Check(monitor.InDips(1.5) == new LayerRect(0, 0, 2560, 1440) && secondary.InDips(1) == new LayerRect(0, 0, 1920, 1080),

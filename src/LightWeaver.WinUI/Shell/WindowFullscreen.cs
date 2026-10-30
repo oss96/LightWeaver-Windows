@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using LightWeaver.Player;
+using Microsoft.UI.Dispatching;
 
 namespace LightWeaver.WinUI.Shell;
 
@@ -24,6 +25,8 @@ internal sealed partial class WindowFullscreen
     private static readonly Guid IidTaskbarList2 = new("602d4995-b13a-429b-a66e-1935e44f4317");
     private const string NonRudeProperty = "NonRudeHWND";
     private const string ContentBridgeClass = "Microsoft.UI.Content.DesktopChildSiteBridge";
+    private const string CaptionButtonsClass = "ReunionWindowingCaptionControls";
+    private const int Hide = 0, ShowNoActivate = 8;
 
     private static nint s_covering;
     private static WindowFullscreen? s_current;
@@ -78,7 +81,7 @@ internal sealed partial class WindowFullscreen
         SetDwmInt(_hwnd, DwmWindowCornerPreference, CornerDoNotRound);
         SetWindowLongPtrW(_hwnd, GwlStyle, (nint)FullscreenStyle.Borderless(_style));
         Cover(entry == FullscreenEntry.Cover);
-        MarkFullscreen(_hwnd, true);
+        MarkFullscreenLater(_hwnd, true);
         _entered = true;
         _covering = true;
     }
@@ -95,7 +98,7 @@ internal sealed partial class WindowFullscreen
         _entered = false;
         s_covering = 0;
         s_current = null;
-        MarkFullscreen(_hwnd, false);
+        MarkFullscreenLater(_hwnd, false);
         if (_nonRude != 0) SetPropW(_hwnd, NonRudeProperty, _nonRude);
         var exit = FullscreenStyle.Exit(IsIconic(_hwnd), _style);
         SetWindowLongPtrW(_hwnd, GwlStyle, (nint)FullscreenStyle.Restored(GetWindowLongPtrW(_hwnd, GwlStyle), _style));
@@ -110,6 +113,7 @@ internal sealed partial class WindowFullscreen
             SetWindowPos(_hwnd, 0, _bounds.Left, _bounds.Top, _bounds.Width, _bounds.Height, SwpNoZOrder | SwpNoOwnerZOrder | SwpNoActivate | SwpFrameChanged);
             if (exit == FullscreenExit.Remaximize) KeepRestoredRect();
         }
+        ShowCaptionButtons(_hwnd, true);
         SetDwmInt(_hwnd, DwmWindowCornerPreference, CornerDefault);
     }
 
@@ -139,6 +143,16 @@ internal sealed partial class WindowFullscreen
         var flags = SwpNoOwnerZOrder | SwpFrameChanged | (toFront ? 0 : SwpNoZOrder | SwpNoActivate);
         SetWindowPos(_hwnd, 0, monitor.Left, monitor.Top, monitor.Width, monitor.Height, flags);
         FillWithContent(_hwnd);
+        ShowCaptionButtons(_hwnd, false);
+    }
+
+    /// <summary>Hides or shows the Windows App SDK's caption buttons window. Full screen keeps the
+    /// caption style, without which that window is destroyed and rebuilt, and UI Automation can then
+    /// call the old one's freed provider; so it hides the buttons instead.</summary>
+    private static void ShowCaptionButtons(nint hwnd, bool show)
+    {
+        var buttons = FindWindowExW(hwnd, 0, CaptionButtonsClass, null);
+        if (buttons != 0) ShowWindow(buttons, show ? ShowNoActivate : Hide);
     }
 
     /// <summary>The Windows App SDK marks its windows NonRudeHWND, and the shell then keeps the taskbar
@@ -184,6 +198,15 @@ internal sealed partial class WindowFullscreen
     }
 
     private static void SetDwmInt(nint hwnd, int attribute, int value) => DwmSetWindowAttribute(hwnd, attribute, ref value, sizeof(int));
+
+    /// <summary>Marks the window from the dispatcher queue rather than from the window change, which runs
+    /// in a XAML render callback: MarkFullscreenWindow waits on the taskbar's thread, a dispatcher timer
+    /// that fires meanwhile re-enters XAML there, and XAML fails fast on it.</summary>
+    private static void MarkFullscreenLater(nint hwnd, bool fullscreen)
+    {
+        if (DispatcherQueue.GetForCurrentThread() is { } queue) queue.TryEnqueue(() => MarkFullscreen(hwnd, fullscreen));
+        else MarkFullscreen(hwnd, fullscreen);
+    }
 
     /// <summary>ITaskbarList2::MarkFullscreenWindow: the taskbar drops below the window whenever it is
     /// active, rather than relying on its own guess. Raw vtable calls, no built-in COM interop.</summary>
@@ -308,6 +331,10 @@ internal sealed partial class WindowFullscreen
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool IsIconic(nint hwnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ShowWindow(nint hwnd, int command);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
