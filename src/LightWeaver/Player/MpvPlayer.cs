@@ -76,11 +76,14 @@ public sealed class MpvPlayer : IDisposable
     private const ulong ObsOsdWidth = 17;
     private const ulong ObsVideoDisplayWidth = 18;
     private const ulong ObsVideoDisplayHeight = 19;
+    private const ulong ObsCoreIdle = 20;
 
     private readonly nint _ctx;
+    private SubtitleLoadRequests? _subtitleLoads;
     private readonly IUiDispatcher _dispatcher;
     private readonly Thread _eventThread;
     private volatile bool _disposed;
+    private readonly KeepAwake? _keepAwake;
 
     // Latest-value coalescing for time-pos: the event thread overwrites the value;
     // at most one dispatcher callback is pending at a time.
@@ -90,6 +93,7 @@ public sealed class MpvPlayer : IDisposable
     private bool _posDispatchQueued;
 
     private bool _pause;
+    private int _seekSerial;
     private double _duration;
     private double _volume = 100;
     private bool _mute;
@@ -226,11 +230,15 @@ public sealed class MpvPlayer : IDisposable
     public IReadOnlyList<MpvChapter> Chapters { get; private set; } = [];
     public event Action? ChaptersChanged;
 
-    private MpvPlayer(nint ctx, IUiDispatcher dispatcher, DisplayTarget? display)
+    private MpvPlayer(nint ctx, IUiDispatcher dispatcher, MpvVideoTarget target)
     {
         _ctx = ctx;
         _dispatcher = dispatcher;
-        Display = display;
+        if (target is MpvVideoTarget.Composition composition)
+        {
+            Display = composition.Display;
+            _keepAwake = new KeepAwake();
+        }
         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "mpv-events" };
     }
 
@@ -409,6 +417,8 @@ public sealed class MpvPlayer : IDisposable
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdMarginBottom, "osd-dimensions/mb", MpvFormat.Int64), "observe osd margin bottom");
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdHeight, "osd-dimensions/h", MpvFormat.Int64), "observe osd height");
             Check(LibMpv.mpv_observe_property(ctx, ObsOsdWidth, "osd-dimensions/w", MpvFormat.Int64), "observe osd width");
+            if (target is MpvVideoTarget.Composition)
+                Check(LibMpv.mpv_observe_property(ctx, ObsCoreIdle, "core-idle", MpvFormat.Flag), "observe core-idle");
         }
         catch
         {
@@ -416,7 +426,7 @@ public sealed class MpvPlayer : IDisposable
             throw;
         }
 
-        var player = new MpvPlayer(ctx, uiDispatcher, (target as MpvVideoTarget.Composition)?.Display);
+        var player = new MpvPlayer(ctx, uiDispatcher, target);
         player._eventThread.Start();
         // Style/audio prefs are ordinary properties — applied after init so the same
         // code paths serve startup and live settings changes.
@@ -462,6 +472,26 @@ public sealed class MpvPlayer : IDisposable
         return ok;
     }
 
+    /// <summary>Whether the file being loaded is a SyncPlay group's item. Normalization is
+    /// bypassed for it; see <see cref="NormalizesAudio"/>.</summary>
+    public bool GroupPlayback { get; private set; }
+
+    /// <summary>Whether dynaudnorm goes into the audio chain. Never with passthrough, which
+    /// bypasses filters, and never for a group's item: the filter emits nothing until it holds
+    /// about 16 s of audio, so every start and seek first downloads 16 s of the file, and on a
+    /// remote link the whole group waits for it.</summary>
+    public static bool NormalizesAudio(AppSettings settings, bool groupPlayback)
+        => settings.VolumeNormalization && !settings.AudioPassthrough && !groupPlayback;
+
+    /// <summary>Marks the next file as a group's item or not, before it loads, and re-applies the
+    /// audio options when that changes the filter. False when mpv rejected a part.</summary>
+    public bool SetGroupPlayback(bool groupPlayback, AppSettings settings)
+    {
+        if (groupPlayback == GroupPlayback) return true;
+        GroupPlayback = groupPlayback;
+        return ApplyAudioOptions(settings);
+    }
+
     /// <summary>Applies output device, passthrough and normalization. Passthrough and
     /// dynaudnorm are mutually exclusive (bitstreaming bypasses filters) — passthrough
     /// wins if both are somehow set. False when mpv rejected a part.</summary>
@@ -494,7 +524,7 @@ public sealed class MpvPlayer : IDisposable
         _audioSyncGaveUp = false;
         ok &= LibMpv.mpv_set_property_string(_ctx, "audio-spdif",
             passthrough ? "ac3,eac3,dts,dts-hd,truehd" : "") >= 0;
-        var wantNormalization = !passthrough && settings.VolumeNormalization;
+        var wantNormalization = NormalizesAudio(settings, GroupPlayback);
         var err = wantNormalization
             ? LibMpv.Command(_ctx, "af", "set", "dynaudnorm")
             : LibMpv.Command(_ctx, "af", "clr", "");
@@ -513,7 +543,7 @@ public sealed class MpvPlayer : IDisposable
         // (B31/B32) is precisely a disagreement between what was asked for here and what came up.
         if (Diagnostics.AppLog.Verbose)
             Detail($"event=audio_options device={DeviceCategory(device)} device_hash={Diagnostics.AppLog.ShortHash(device)} "
-                + $"passthrough={(passthrough ? "on" : "off")} normalization={(wantNormalization ? "on" : "off")}");
+                + $"passthrough={(passthrough ? "on" : "off")} normalization={(wantNormalization ? "on" : "off")} group={(GroupPlayback ? "yes" : "no")}");
         return ok && err >= 0;
     }
 
@@ -789,6 +819,7 @@ public sealed class MpvPlayer : IDisposable
         // NaN when mpv has no position to give (between files): EvaluateAudioSync treats that as
         // "cannot tell whether video advanced" and stands down, which is the safe direction.
         var timePosAtArm = TryGetPropertyDouble("time-pos", out var pos) ? pos : double.NaN;
+        var seeksAtArm = _seekSerial;
         UiLog(string.Format(CultureInfo.InvariantCulture,
             "AudioSyncWatchdog arm trigger={0} gen={1} timePos={2:F3}", trigger, generation, timePosAtArm));
         _audioSyncWatchdog?.Stop();
@@ -796,12 +827,20 @@ public sealed class MpvPlayer : IDisposable
         {
             _audioSyncWatchdog?.Stop();
             if (generation == LoadGeneration)
-                EvaluateAudioSync(trigger, timePosAtArm);
+                EvaluateAudioSync(trigger, timePosAtArm, seeksAtArm);
             else
                 UiLog($"AudioSyncWatchdog stale gen={generation} now={LoadGeneration}");
         });
         _audioSyncWatchdog.Start();
     }
+
+    /// <summary>Whether the video clock moved on by PLAYING since <paramref name="timePosAtArm"/>
+    /// was read: not paused, no seek in between, and at least half a second further. A seek moves
+    /// time-pos too, and a paused seek leaves audio-pts unreadable, which together read exactly like
+    /// audio stuck behind playing video.</summary>
+    public static bool VideoPlayedSince(double timePosAtArm, double timePos, bool paused, int seeksAtArm, int seeksNow)
+        => !paused && seeksAtArm == seeksNow && double.IsFinite(timePosAtArm)
+            && timePos - timePosAtArm >= MinVideoAdvanceSeconds;
 
     /// <summary>
     /// Repairs an audio restart point that jumped past the video clock — at most ONCE per load
@@ -812,7 +851,7 @@ public sealed class MpvPlayer : IDisposable
     /// (loading, video-only, no output at all, paused, end-of-file) would otherwise look exactly
     /// like the failure to the oracle below.
     /// </summary>
-    private void EvaluateAudioSync(string trigger, double timePosAtArm)
+    private void EvaluateAudioSync(string trigger, double timePosAtArm, int seeksAtArm)
     {
         if (_disposed || _ctx == nint.Zero)
             return;
@@ -834,8 +873,7 @@ public sealed class MpvPlayer : IDisposable
         // The signature of THIS bug is that video keeps advancing while audio does not, so a video
         // clock that did not move means paused, buffering, or a genuine stall — none of them ours.
         if (!TryGetPropertyDouble("time-pos", out var timePos)
-            || !double.IsFinite(timePosAtArm)
-            || timePos - timePosAtArm < MinVideoAdvanceSeconds)
+            || !VideoPlayedSince(timePosAtArm, timePos, _pause, seeksAtArm, _seekSerial))
             return;
         // Load-bearing, not decoration: audio-pts is ALSO unavailable once audio_status reaches
         // STATUS_EOF, so without this guard every normal end of file would read as stuck and earn a
@@ -856,6 +894,7 @@ public sealed class MpvPlayer : IDisposable
         SayDetail(FormattableString.Invariant(
             $"event=audio_sync outcome=repair trigger={Token(trigger)} audio_pts={(audioPtsReadable ? "readable" : "unavailable")} divergence={divergence:F3}"));
         ReloadSelectedAudioTrack("audio-sync");
+        var seeksAtRepair = _seekSerial;
 
         // One verify pass, one give-up, no recursion: the reload produces an AUDIO_RECONFIG of its
         // own, which _audioSyncRepairing swallows until this timer resolves, and _audioSyncGaveUp
@@ -892,7 +931,7 @@ public sealed class MpvPlayer : IDisposable
             var inconclusive = !TryGetPropertyDouble("time-pos", out var verifyPos)
                 || !TryGetPropertyDouble("time-remaining", out var verifyRemaining)
                 || verifyRemaining <= NearEndOfFileSeconds
-                || verifyPos - timePos < MinVideoAdvanceSeconds
+                || !VideoPlayedSince(timePos, verifyPos, _pause, seeksAtRepair, _seekSerial)
                 || !HasAudioTrack
                 || GetPropertyString("current-ao") is not { Length: > 0 };
             if (!inconclusive && IsAudioStuck(verifyPos, out _, out _))
@@ -1229,6 +1268,7 @@ public sealed class MpvPlayer : IDisposable
 
     public int LoadFile(string pathOrUrl)
     {
+        _subtitleLoads?.CancelAll();
         var generation = Interlocked.Increment(ref _loadGeneration);
         Volatile.Write(ref _authoritativeTracksGeneration, 0);
         _eofRaised = false;
@@ -1343,6 +1383,7 @@ public sealed class MpvPlayer : IDisposable
     public void Stop()
     {
         CheckAlive();
+        _subtitleLoads?.CancelAll();
         LibMpv.Command(_ctx, "stop");
     }
 
@@ -1469,6 +1510,28 @@ public sealed class MpvPlayer : IDisposable
         if (Diagnostics.AppLog.Verbose)
             Detail($"event=hwdec state={(enabled ? "on" : "off")} mode={(enabled ? "d3d11va" : "no")}");
         return ok;
+    }
+
+    /// <summary>Loads an external subtitle without waiting on the network on the UI thread.</summary>
+    public async Task<bool> AddExternalSubtitleAsync(string url, string? title, string? lang, int generation)
+    {
+        CheckAlive();
+        if (generation != LoadGeneration) return false;
+        _subtitleLoads ??= new SubtitleLoadRequests(_dispatcher,
+            (id, arguments) => LibMpv.CommandAsync(_ctx, id, arguments),
+            id => LibMpv.mpv_abort_async_command(_ctx, id));
+        string[] arguments = (title, lang) switch
+        {
+            ({ Length: > 0 }, { Length: > 0 }) => ["sub-add", url, "auto", title, lang],
+            ({ Length: > 0 }, _) => ["sub-add", url, "auto", title],
+            (_, { Length: > 0 }) => ["sub-add", url, "auto", L.Text("MpvPlayer.External.8bf7fc85"), lang],
+            _ => ["sub-add", url, "auto"],
+        };
+        var success = await _subtitleLoads.Start(arguments);
+        if (_disposed || generation != LoadGeneration) return false;
+        SayDetail($"event=sub_add outcome={(success ? "success" : "failure")} generation={generation}");
+        if (success) RefreshTracks(generation);
+        return success;
     }
 
     /// <summary>Adds an external subtitle track (call after FileLoaded; mpv drops it on
@@ -1920,7 +1983,9 @@ public sealed class MpvPlayer : IDisposable
     {
         if (_disposed)
             return;
+        _subtitleLoads?.CancelAll();
         _disposed = true;
+        _keepAwake?.Dispose();
 
         if (LibMpv.Command(_ctx, "quit") < 0)
             LibMpv.mpv_wakeup(_ctx);
@@ -1941,6 +2006,12 @@ public sealed class MpvPlayer : IDisposable
             {
                 case MpvEventId.Shutdown:
                     return;
+
+                case MpvEventId.CommandReply:
+                    var requestId = ev.ReplyUserdata;
+                    var commandSucceeded = ev.Error >= 0;
+                    Post(() => _subtitleLoads?.Complete(requestId, commandSucceeded));
+                    break;
 
                 case MpvEventId.StartFile:
                     var startedGeneration = ConsumeStartedLoadGeneration();
@@ -1997,7 +2068,11 @@ public sealed class MpvPlayer : IDisposable
                 // PLAYBACK_RESTART below in the healthy case; the pairing failing to happen is
                 // B41, and the check reads the state itself rather than counting events.
                 case MpvEventId.Seek:
-                    Post(() => ArmPlaybackStallCheck("seek"));
+                    Post(() =>
+                    {
+                        _seekSerial++;
+                        ArmPlaybackStallCheck("seek");
+                    });
                     break;
 
                 case MpvEventId.PlaybackRestart:
@@ -2334,6 +2409,15 @@ public sealed class MpvPlayer : IDisposable
             case ObsDuration when prop.Format == MpvFormat.Double:
                 var duration = *(double*)prop.Data;
                 Post(() => { _duration = duration; DurationChanged?.Invoke(duration); });
+                break;
+            case ObsCoreIdle when prop.Format == MpvFormat.Flag && _keepAwake is { } keepAwake:
+                var playing = *(int*)prop.Data == 0;
+                keepAwake.Hold(playing);
+                if (Diagnostics.AppLog.Verbose)
+                {
+                    var held = keepAwake.IsHeld;
+                    Post(() => Detail($"event=keep_awake state={(playing ? "on" : "off")} outcome={(held == playing ? "success" : "failure")}"));
+                }
                 break;
             case ObsPause when prop.Format == MpvFormat.Flag:
                 var paused = *(int*)prop.Data != 0;

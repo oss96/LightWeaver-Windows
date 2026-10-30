@@ -255,7 +255,85 @@ Check(sdh.MatchSource(sourceSubs)?.Index == 33 && new SubtitleCarryOver(false, "
 Check(new SubtitleCarryOver(true, "eng", "English", false).MatchSource(sourceSubs) is null,
     "Off cannot resolve to an enabled source track");
 
+var subtitleDispatcher = new ManualDispatcher();
+var submitted = new List<ulong>();
+var aborted = new List<ulong>();
+var subtitleRequests = new SubtitleLoadRequests(subtitleDispatcher, (id, _) => { submitted.Add(id); return 0; }, aborted.Add);
+var slowSubtitle = subtitleRequests.Start("sub-add", "slow.vtt");
+var fastSubtitle = subtitleRequests.Start("sub-add", "fast.vtt");
+Check(!slowSubtitle.IsCompleted && !fastSubtitle.IsCompleted && submitted.Count == 2,
+    "subtitle requests return immediately and a slow load does not hold up another");
+subtitleRequests.Complete(submitted[1], true);
+Check(await fastSubtitle && !slowSubtitle.IsCompleted, "out-of-order subtitle replies complete only the matching request");
+subtitleRequests.Complete(submitted[0], false);
+Check(!await slowSubtitle, "HTTP and decoder failures leave a subtitle unavailable");
+var abandoned = subtitleRequests.Start("sub-add", "old.vtt");
+var oldId = submitted[^1];
+subtitleRequests.CancelAll();
+var currentSubtitle = subtitleRequests.Start("sub-add", "new.vtt");
+subtitleRequests.Complete(oldId, true);
+Check(!await abandoned && aborted.Contains(oldId) && !currentSubtitle.IsCompleted,
+    "stop or replacement cancels the old request and its late reply cannot finish the new one");
+subtitleDispatcher.Tick();
+Check(!await currentSubtitle && aborted.Contains(submitted[^1]), "a stalled subtitle is aborted after its deadline");
+subtitleRequests.Complete(submitted[^1], true);
+Check(!await currentSubtitle, "a late success cannot reverse a timeout");
+var rejectedRequests = new SubtitleLoadRequests(subtitleDispatcher, (_, _) => -1, _ => throw new Exception("nothing was queued"));
+Check(!await rejectedRequests.Start("sub-add", "rejected.vtt"), "submission failure completes without waiting for a reply");
+var availability = new PlayerViewModel();
+availability.ResetExternalSubtitles(loading: true);
+Check(availability.ExternalSubtitleStatus.Contains("not available yet", StringComparison.Ordinal), "subtitle metadata still loading has an unavailable status");
+availability.SetExternalSubtitles([new("first.vtt", "English", "eng"), new("second.vtt", "Deutsch", "deu")]);
+Check(availability.UnavailableSubtitles.Count == 2 && availability.UnavailableSubtitles.All(s => !s.Failed)
+    && availability.UnavailableSubtitles[0].Display == "English \u00b7 Not available yet", "external rows start unavailable until native completion");
+availability.CompleteExternalSubtitle("first.vtt", true);
+availability.CompleteExternalSubtitle("second.vtt", false);
+Check(availability.UnavailableSubtitles.Count == 1 && availability.UnavailableSubtitles[0].Failed
+    && availability.UnavailableSubtitles[0].Display == "Deutsch \u00b7 Not available", "a ready subtitle leaves the disabled list while a failed one stays unavailable");
+var toLoad = availability.SetExternalSubtitles([new("vobsub.vtt", "1", null, IsText: false), new("english.vtt", null, "eng"), new("english.vtt", null, "eng")]);
+Check(toLoad.Count == 1 && toLoad[0].Url == "english.vtt" && availability.UnavailableSubtitles.Count == 2
+    && availability.UnavailableSubtitles[0] is { Failed: true, Display: "1 · Not available" } && !availability.UnavailableSubtitles[1].Failed,
+    "an image subtitle is listed as not available and never requested, and a repeated URL loads once");
+availability.ResetExternalSubtitles();
+availability.CompleteExternalSubtitle("second.vtt", false);
+Check(availability.UnavailableSubtitles.Count == 0 && availability.ExternalSubtitleStatus == "", "a new playback clears unavailable rows and ignores missing completions");
+
+// --- Windows stays awake while video plays, and only then -------------------------------------------
+var power = new CountingPowerRequest();
+var keepAwake = new KeepAwake(power);
+keepAwake.Hold(true);
+keepAwake.Hold(true);
+Check(keepAwake.IsHeld && power.Count == 1, "playing holds the request once, however often mpv repeats it");
+keepAwake.Hold(false);
+keepAwake.Hold(false);
+Check(!keepAwake.IsHeld && power.Count == 0, "pausing releases the request once");
+power.Refuse = true;
+keepAwake.Hold(true);
+Check(!keepAwake.IsHeld, "a request Windows refused is not counted as held");
+power.Refuse = false;
+keepAwake.Hold(true);
+Check(keepAwake.IsHeld && power.Count == 1, "the next play asks again");
+keepAwake.Dispose();
+Check(power.Count == 0 && power.Disposed, "closing the player while playing releases and closes the request");
+keepAwake.Hold(true);
+Check(power.Count == 0, "a closed player never holds Windows awake again");
+
 Console.WriteLine($"PlayerSettings: {checks} checks passed");
+
+sealed class CountingPowerRequest : IPowerRequest
+{
+    public int Count { get; private set; }
+    public bool Refuse { get; set; }
+    public bool Disposed { get; private set; }
+    public bool Set()
+    {
+        if (Refuse) return false;
+        Count++;
+        return true;
+    }
+    public void Clear() => Count--;
+    public void Dispose() => Disposed = true;
+}
 
 sealed class ManualDispatcher : IUiDispatcher
 {

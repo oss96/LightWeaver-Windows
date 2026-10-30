@@ -27,7 +27,9 @@ one repo each) rather than one cross-platform build.
 - A failed direct play retries once through the server's transcoder. Settings › Video caps the
   streaming bitrate (Unlimited, or 60 down to 2 Mbps) and sets the video buffer (75 to 1200 MB)
 - Audio output device and bitstream passthrough in Settings › Audio; an output that cannot take
-  passthrough falls back to decoded audio and says so. Volume normalization is a Settings switch
+  passthrough falls back to decoded audio and says so. Volume normalization is a Settings switch;
+  it stays off for a SyncPlay group's item, where its 16 s look-ahead would hold up every start
+  and seek for the whole group
 - Quality menus name each tier with its bitrate beside it (High · 1080p · 20 Mbps; As in
   Settings shows the Settings cap) and have an "Always transcode" switch; the player and the
   detail page offer the same tiers (As in Settings, Original, 20, 10, 4 and 1 Mbps). The
@@ -41,9 +43,10 @@ one repo each) rather than one cross-platform build.
   double-click on the video) grows it to fill the screen and back again, playing or paused as it
   was; the preview's "Auto full screen" switch opens every Play full screen. Esc leaves full screen;
   Back returns to the preview, paused. Full screen covers the whole monitor the window is on,
-  taskbar included, without Windows' window animation, with the title, Back and the bar over the
-  video; leaving it puts the window back in one step (a maximized window is maximized again and
-  never passes through its restored size; a restored or snapped one returns to its exact rect), and
+  edge to edge, without Windows' window animation, and the taskbar (an auto-hidden one too) stays
+  under it, with the title, Back and the bar over the video; leaving it puts the window back in one
+  step (a maximized window is maximized again and never passes through its restored size; a
+  restored or snapped one returns to its exact rect), and
   the video then shrinks onto the preview. Either way the page is laid out for the new size
   before the window changes, so the old layout never shows in the new window. A click on the video pauses and resumes at once, and the
   player's shortcuts work whenever it is on screen. Audio and subtitles have a button each; where the bar is too narrow for both of its groups on one row (the preview in a small window) they fold into one Tracks button whose flyout lists audio and subtitles side by side. The player's flyouts open above the whole bar, so the seek bar and the times stay in view. Tracks that the file names only by a language code are listed by the language's name. Its tooltips open when you point at a control or reach it with the keyboard, not when the bar appears under a mouse that has not moved. Played
@@ -56,10 +59,18 @@ one repo each) rather than one cross-platform build.
   its edges. The bar has a seek bar with chapters, buffer and trickplay previews, back/forward (Settings ›
   Playback), next, volume, and flyouts for audio and subtitles (with a 0.1 s subtitle offset),
   quality and version, speed, the queue and live stats, drawn as dim glass over the video; Skip intro, the Up Next card, keyboard
-  shortcuts and an idle hide.
+  shortcuts and an idle hide. The wheel over the player changes the volume; every volume or mute change shows the level
+  in a readout at the top right for a moment, without bringing up the bar.
 - **Type a time**: click the elapsed time and type where to go, as `ss`, `mm:ss` or `hh:mm:ss`
   (`83:45` is 83 minutes). Enter seeks, Esc or a click elsewhere cancels, and anything else
   seeks nowhere. While the field is open the keys type and no player shortcut runs.
+- **Stays awake while playing**: while a video plays, Windows neither turns the screen off, starts
+  the screen saver nor goes to sleep. Pausing, stopping, the end of the video and closing the
+  player let it go again.
+- **Subtitles load in the background**: the video starts without waiting for the server's
+  external subtitle files. Until one arrives, the subtitle menu lists it as "Not available yet",
+  and it becomes selectable as soon as it is loaded. One that fails to load, or an image subtitle
+  (VobSub, PGS) that the server cannot convert, is listed as "Not available".
 - **Subtitles carry over**: a subtitle picked in the player (or Off) is kept for the next
   episode and every later file in the session, found by its language, title and forced flag, so
   "English (SDH)" stays SDH rather than becoming the first English track. A file without it
@@ -82,7 +93,9 @@ one repo each) rather than one cross-platform build.
   saved server, which signs in as its remembered user in one click. Then sign in with Quick
   Connect (a code you approve on a signed-in device; it renews itself before it expires) or a
   username and password, choosing from the server's public users. "Stay signed in" off forgets
-  the sign-in when the app closes. Right-click a saved server to remove it.
+  the sign-in when the app closes. Right-click a saved server to remove it. Each sign-in is its own
+  device on the server, so the same account saved under a LAN and a public address stays signed in
+  on both.
 - **Profile menu** (the avatar): switch user on this server, switch server, Play a link… (Ctrl+L),
   Open file… (Ctrl+O), Settings (Ctrl+,) and Log out, which signs out of this server only and opens
   Login on it.
@@ -91,7 +104,10 @@ one repo each) rather than one cross-platform build.
   toasts or, over video, as small pills. Several within 3 s merge into one ("Alex and Jo joined").
   The group list refreshes after every join, leave or state change and lists each group once.
   Your pause, play, seek and queue requests reach the group one at a time, in the order you made
-  them, so a double-click on the video leaves the group playing or paused as it was.
+  them. In a group a click on the video pauses or plays once the double-click time has passed, so
+  a double-click for full screen sends the group nothing. A member whose video buffers carries on
+  from where it stalled once the group resumes, instead of jumping ahead by the length of the
+  stall, and a catch-up seek on a transcode aims ahead by the time the last one took.
 - **Play on**: other Jellyfin clients can play on this app and drive it (transport, volume, mute,
   full screen, audio and subtitle picks on direct play, and messages)
 - The server's library pushes drop the affected browse caches, so pages open fresh
@@ -402,21 +418,23 @@ design) stays in the repository and the solution, and still builds
 
 Tests: `dotnet run --project tests/SearchModel.Tests`, `dotnet run --project tests/Login.Tests`,
 `dotnet run --project tests/Home.Tests`,
-`dotnet run --project tests/Library.Tests`, `dotnet run --project tests/Details.Tests`, `dotnet run --project tests/SearchPerson.Tests`, `dotnet run --project tests/Playlists.Tests`, `dotnet run --project tests/Downloads.Tests`, `dotnet run --project tests/Shortcuts.Tests`, `dotnet run --project tests/PlayerSettings.Tests`, `dotnet run --project tests/FrameTiming.Tests`, `dotnet run --project tests/Updates.Tests`,
+`dotnet run --project tests/Library.Tests`, `dotnet run --project tests/Details.Tests`, `dotnet run --project tests/SearchPerson.Tests`, `dotnet run --project tests/Playlists.Tests`, `dotnet run --project tests/Downloads.Tests`, `dotnet run --project tests/Shortcuts.Tests`, `dotnet run --project tests/PlayerSettings.Tests`, `dotnet run --project tests/FrameTiming.Tests`, `dotnet run --project tests/Updates.Tests`, `dotnet run --project tests/SyncPlay.Tests`,
 `dotnet run --project tests/FastUi.Tests -- .`
 `dotnet run --project tests/LocalizationAudit -- .`
 and `dotnet run --project tests/LocalizationRuntime`. Unit tests and these static checks run
 before a merge. A maintainer UI suite drives the screens through UI Automation on the test VM
-before a new release is created.
+before a new release is created. Its full run builds once and runs nine groups, sharing app
+sessions for Home/Library, Detail/Player, Search/Advanced Search and Settings/Layout. Individual
+scenarios report their own results and timings; their standalone entry points remain available.
 
 ## Dependency maintenance
 
 The shipped app's NuGet versions live in `src/LightWeaver.Core/LightWeaver.Core.csproj` (the
 Jellyfin client and DPAPI) and `src/LightWeaver.WinUI/LightWeaver.WinUI.csproj` (the Windows App
 SDK). Alongside `Jellyfin.Sdk`, explicit references in Core, as in the WPF app's
-`src/LightWeaver/LightWeaver.csproj`, keep all six Kiota runtime packages on 1.22.2 and
-`Std.UriTemplate` on 2.0.12 instead of taking the older transitive versions from the Jellyfin SDK.
-Renovate can propose updates for each reference. It groups Kiota updates and keeps them below 2.0
+`src/LightWeaver/LightWeaver.csproj`, keep all six Kiota runtime packages on 2.1.2, the set
+`Jellyfin.Sdk` 2026.10.12 (the Jellyfin 12.0 API) is built on, and `Std.UriTemplate` on 2.0.12.
+Renovate can propose updates for each reference. It groups Kiota updates and keeps them below 3.0
 until a separate Jellyfin compatibility migration, and moves the four Windows App SDK packages
 (WinUI, Foundation, InteractiveExperiences, Runtime) together. Updates require review and merge,
 then a new app release. Kiota brings in two indirect packages:
@@ -508,7 +526,7 @@ are listed there under Navigation.
 | `Left` / `Right` | Seek back (Settings › Playback › Skip back) / forward 10 s |
 | `Ctrl+Left` / `Ctrl+Right` | Seek back / forward 30 s (Settings › Playback › Skip forward) |
 | `.` / `,` | Next / previous frame |
-| `Up` / `Down` | Volume |
+| `Up` / `Down`, wheel over the player | Volume |
 | `M` | Mute |
 | `+` / `-` | Playback speed |
 | `A` / `S` / `V` | Cycle audio / subtitle / video track |

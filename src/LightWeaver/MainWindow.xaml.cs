@@ -2570,7 +2570,7 @@ public partial class MainWindow : Window
             || external.AppliedGeneration == state.Generation)
             return;
         external.AppliedGeneration = state.Generation;
-        foreach (var sub in external.Subtitles)
+        foreach (var sub in external.Subtitles.Where(s => s.IsText))
             player.AddExternalSubtitle(sub.Url, sub.Title, sub.Language);
     }
 

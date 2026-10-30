@@ -6,8 +6,8 @@
   "packageRules": [
     {
       "matchPackageNames": ["Microsoft.Kiota.*"],
-      "groupName": "Kiota 1.x runtime",
-      "allowedVersions": "<2.0.0"
+      "groupName": "Kiota 2.x runtime",
+      "allowedVersions": "<3.0.0"
     },
     {
       "matchPackageNames": ["Microsoft.WindowsAppSDK.*"],

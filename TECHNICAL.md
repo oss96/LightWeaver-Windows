@@ -26,6 +26,13 @@ Playback negotiation selects an explicitly requested media-source id from the re
 if another source is listed first. An absent selected source returns no decision and tears
 down the unused session. With no requested version, the server's first source stays the default.
 
+The client builds on `Jellyfin.Sdk` 2026.10.12, generated from the 12.0 API spec, with the Kiota
+2.x runtime. That spec leaves out every route of Jellyfin's `HlsSegmentController`, which is
+hidden from the OpenAPI document, so the SDK has no builder for `DELETE /Videos/ActiveEncodings`
+even though Jellyfin 12.4 still serves it. `DiscardUnplayedDecisionAsync` sends that teardown as
+an authorized raw request with the session's device id and the decision's `PlaySessionId`, and
+logs any non-success status as a failure.
+
 The device profile declares PGS/VobSub as Embed. This allows embedded graphical subtitles in
 the original stream; it does not advertise the External graphical-subtitle path added by
 [Jellyfin #17512](https://github.com/jellyfin/jellyfin/pull/17512). Forced HLS playback can burn
@@ -343,10 +350,34 @@ header row and the library's A–Z rail.
 (the switch restored through the window's restored rect, onto the second monitor, under DWM's
 animation). On entering it drops the frame bits and `WS_MAXIMIZE`, sets the window to the monitor's
 `rcMonitor` (not `rcWork`), turns the whole rect into client area through a `WM_NCCALCSIZE` subclass
-and marks the window with `ITaskbarList2::MarkFullscreenWindow`. Windows keeps the taskbar over a
-window that still carries `WS_MAXIMIZE`, whatever its rect; that is why it showed over the player
-until 2026-10-21, covering the bar's button row. `FullscreenStyle.Covers` (LightWeaver.Core) is the
-test Windows applies: no frame, neither maximized nor minimized, exactly the monitor rect.
+and marks the window with `ITaskbarList2::MarkFullscreenWindow`. `FullscreenStyle.Covers`
+(LightWeaver.Core) is the test Windows applies: no frame, neither maximized nor minimized, exactly
+the monitor rect.
+
+None of that hides the taskbar on its own: the Windows App SDK sets the window property
+`NonRudeHWND`, and the shell never treats a window carrying it as a full-screen app, whatever its
+rect and `MarkFullscreenWindow` say. Measured on the owner's desktop (2.0.0, auto-hide taskbar,
+2026-10-29): with the property on, `SHQueryUserNotificationState` stayed `QUNS_ACCEPTS_NOTIFICATIONS`
+with the player in the foreground and the taskbar stayed topmost and slid up over the bar; with it
+removed, it reported `QUNS_BUSY` and the taskbar dropped below the player, also while another monitor
+had the focus. Full screen removes the property before covering the monitor and leaving puts the
+saved value back before the window changes, so a maximized window on a monitor with an auto-hidden
+taskbar is not taken for a full-screen app.
+
+XAML places its content (the `Microsoft.UI.Content.DesktopChildSiteBridge` child) one pixel below the
+top of a window that is not maximized, for a top border; full screen has none, so pixel row 0 showed
+the backdrop as a light line and the 2159-row content letterboxed the 16:9 video one column in from
+each side. `WindowFullscreen` subclasses that child and, while the window covers its monitor, turns
+every `WM_WINDOWPOSCHANGING` into one that fills the client area (`FullscreenStyle.FillingFlags`);
+XAML repositions it as before once the window has left full screen.
+
+A maximized window had the same kind of strip on a monitor at another scale than the main one. The
+Windows App SDK takes the main monitor's frame off the top of a maximized client area (11 px at
+150%), while the window hangs over each monitor by that monitor's own frame (8 px at 100%): on the
+owner's 1440p monitor next to the 4K one the client started at y=343 under a work area starting at
+340, and the rows between showed light. `MaximizedFrame` subclasses the window from the start and,
+after the SDK's `WM_NCCALCSIZE`, sets the top of a maximized client area to its monitor's work area
+(`WindowFrame.MaximizedClient`); measured afterwards, the content is exactly the work area.
 
 Leaving puts the style and rect back in one `SetWindowPos`. A window that was maximized gets
 `WS_MAXIMIZE` back at its maximized rect, and its restored rect from the placement saved on entering
@@ -813,6 +844,16 @@ Ported from the WPF player in 2.0.
   subtitle pick applies to the title it was made for; a pick in the player outranks it from then
   on, also after a quality or version reload of the same title. The preferred subtitle language
   applies only while nothing has been carried. A transcode keeps the server's tracks, as before.
+- **Background external subtitles.** `AttachExternalSubtitlesAsync` adds the item's external
+  subtitles one at a time, in the server's order, with `MpvPlayer.AddExternalSubtitleAsync`: an
+  `mpv_command_async` `sub-add` whose `MPV_EVENT_COMMAND_REPLY` completes it on the UI thread
+  (`SubtitleLoadRequests`), aborted after 30 s and on stop, the next load and disposal. The UI
+  thread never waits on the server. `PlayerViewModel.UnavailableSubtitles` lists the ones not yet
+  loaded as disabled rows in the subtitle flyout. Image streams (`IsTextSubtitleStream` false, such
+  as DVDSUB) are listed as not available and never requested: Jellyfin cannot serve them as
+  WebVTT and answers HTTP 400, after 14 s on a remote server. A track that arrives after
+  `ApplyTracksAsync` gets the subtitle intent or carry-over, or the preferred language when that
+  is what the load applied; audio is left as it is.
 
 ## v2 app zoom, live removal and offline pages
 
@@ -915,6 +956,58 @@ sets `Updater.SessionEnding` on `WM_QUERYENDSESSION` and clears it when `WM_ENDS
 session goes on, so a logoff, a shutdown or the Restart Manager closing the app never starts an
 installer, as WPF's `SessionEnding` does.
 
+## SyncPlay drift and group audio
+
+Between commands, `SyncPlayScheduler.ResolveDrift` compares the player with where the last
+`Unpause` says the group is and seeks once the gap passes 400 ms. That reference is only valid
+while the group plays to it. When this member buffers, Jellyfin moves the group to `Waiting` and
+pauses the other members at the position where the buffer began, but sends this member nothing
+but the state update. When it reports ready, `WaitingGroupState` sends the resume `Unpause` to
+every other member (`AllExceptCurrentSession`) whenever the delay exceeds twice the highest ping,
+and takes this member's position as the group's. So drift correction runs only while the
+group's state is `Playing`; a `Waiting` that interrupts the last `Unpause` marks it stale, and the
+next `Playing` update anchors the reference at this member's own position and the server instant
+(`SyncPlayDriftAnchor`). A newly applied command clears the anchor, a restored membership keeps
+it, and the binding reads command, state and anchor from one membership snapshot
+(`SyncPlayClient.DriftState`). Before this, a 2.95 s buffer produced a 2958 ms forward seek past
+the cache, a second buffer, and a server `Seek` back.
+
+A drift seek on a transcode takes 1 to 2 s to play again, and the group moves on meanwhile, so
+measuring again right after it lands found the member behind once more: five seeks in 6 s on
+Oct 29. `SyncPlayPlayerBinding` now waits for the drift seek's playback restart (10 s at most)
+before measuring again, counts `MinDriftInterval` from that restart, and leads the next target by
+how long the last drift seek took to play (`SyncPlayState.DriftSeekLead`, at most 3 s), so the
+second seek lands where the group is.
+
+The audio-sync repair judges audio stuck when video advanced while audio-pts stayed unreadable.
+A seek moves time-pos too, and a paused seek leaves audio-pts unreadable, so a SyncPlay seek
+right after a load read as exactly that failure and reloaded the audio track mid-seek.
+`MpvPlayer.VideoPlayedSince` now counts as advance only playing time: not paused and no
+`MPV_EVENT_SEEK` between the two readings, in the check and in its verify pass.
+
+In a group, a click on the video waits out the system double-click time before it pauses or
+plays, and a second press inside it cancels the click, so a double-click for full screen posts
+no pause and unpause to the group. Alone, the click still acts at once.
+
+Volume normalization is `dynaudnorm`, whose defaults (500 ms frames, a 31-frame window) emit
+nothing until about 16 s of audio is queued, so every start and seek first has to download 16 s
+of the file. A SyncPlay member reports ready only after its playback restart, so on a remote link
+the whole group waited on it. `MpvPlayer.NormalizesAudio` leaves the filter out for a group's
+item (`SetGroupPlayback`, set by the WinUI controller from `PlayForGroup` before each load); the
+setting itself is unchanged and applies again outside the group. A retry of a failed group item
+goes back through `SyncPlayCoordinator.RetryGroupItem`, so it keeps both the group binding and the
+bypass.
+
+## One device per signed-in profile
+
+Jellyfin ends a device's other sessions for the user when it signs in again, and the app used to
+send one install-wide device id for every profile. Two profiles of one user on one server, a LAN
+and a public address say, signed each other out: a 401 on one, then a 403 on the other's socket
+right after signing in again. Every sign-in now uses `JellyfinService.ForSignIn`, a service with
+a device id of its own, which the saved profile keeps (`SavedCredentials.DeviceId`). Reconnecting
+a saved profile speaks as that id (`CredentialStore.DeviceIdFor`); a profile saved before it has
+none and keeps the shared id its token was issued to.
+
 ## Server-supplied input and local secrets
 
 A Jellyfin server, or anyone who can change plain-HTTP traffic to one, controls item metadata,
@@ -1015,6 +1108,27 @@ the editor runs without a console, so Unicode translations remain outside the ch
 unless their content changed. `working-tree` means HEAD; use a full base commit
 for a handoff link that remains useful after committing.
 Reload, saving and language creation lock conflicting editor actions until their requests finish.
+
+## Maintainer end-to-end orchestration
+
+The companion verify skill's `v2-tests/run-all.ps1` builds the WinUI Debug app once with
+`-warnaserror`, then passes `-SkipBuild` to nine isolated PowerShell entry points. Four groups
+share a signed-in app session: Home/Library, Detail/Player, Search/Advanced Search and
+Settings/Layout. Login, migration, downloads, playlists and SyncPlay retain separate processes
+and cleanup. Standalone entry points build by default; screenshot capture stays separate.
+
+Each merged scenario prints its result and elapsed time. A failed assertion, exception or app
+exit causes a fresh session before the next scenario, while preserving the aggregate failure.
+The media group restores the movie's preselection choices before playback. Minimum-size page
+checks run within the scenarios that already visit those pages; the preferences group checks
+the minimum window and Arabic mirroring. The discovery group also verifies command-line
+Advanced Search startup before returning Home for Search's initially empty history checks.
+
+The companion's `verify/tools/check-v2-orchestration.ps1` checks parsing, shared-session recovery,
+cleanup, environment restoration and the full runner's build/failure behavior with synthetic
+child scripts. It launches no app and uses no UI Automation or credentials. Real UI suites run
+on the Hyper-V guests before a release through the release workflow, or as an explicitly
+requested one-off run through the VM queue.
 
 ## Release packaging (2.0)
 

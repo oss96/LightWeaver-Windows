@@ -159,6 +159,21 @@ Paths in the Code column are under `src/LightWeaver.WinUI/`; design files are un
 
 ## Changes
 
+### 2026-10-30 · Player: the wheel sets the volume, shown in a readout
+- What changed: the wheel over the full player and the mini-player steps the volume by the Up/Down
+  step, one step per notch; Ctrl+wheel stays the zoom and the detail preview leaves the wheel alone.
+  Every user change to the level or mute (wheel, keys, mute, the bar's slider, a remote) shows a
+  volume readout (new component, `PlayerView.VolumePill`) for 1.2 s without waking the controls: the
+  toast-over-video pill drawn the same way (`LwPlayerGlassBrush`, 1 px `LwPlayerGlassBorderBrush`,
+  `LwGroupRadius`, the toast shadow, at least 36 tall), the volume glyph (`Icons.Mute` while muted) at
+  16 and the level as "45%" at 13 in `LwPlayerTextBrush`, top right at 72 from the top and 16 from
+  the edge, opposite the toasts; 10 and 12 in the compact bar and the mini-player. It appears and
+  leaves without a fade.
+- Why: the owner missed the 1.x behaviour, where the wheel changed the volume and a pill showed the
+  level instead of the whole bar.
+- Proposal: none; the owner asked for the 1.x pill.
+- Chosen option: the 1.x volume pill, drawn as the player's toast over video.
+
 ### 2026-10-28 · Detail: version drop-down and the player's quality options before Play
 - What changed: the detail preview's bar starts its right-hand group with a version drop-down when
   the movie or episode has two or more versions: a `LwSubtleButton` 160 wide and 38 tall, padding

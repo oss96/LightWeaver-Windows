@@ -80,8 +80,7 @@ public partial class MainWindow
     {
         if (_player is not { } player) return;
         _syncPlayBinding = new(player, new Threading.WpfUiDispatcher(Dispatcher), _syncPlay, () => IsGroupPlayback
-            ? (new SyncPlayState(_syncPlay.JoinedAtUtc, _syncPlay.PlaylistItemId,
-                LastApplied: _syncPlay.LastApplied), _syncPlay.Clock?.Offset ?? TimeSpan.Zero) : null);
+            && _syncPlay.DriftState() is { } state ? (state, _syncPlay.Clock?.Offset ?? TimeSpan.Zero) : null);
         _syncPlayBinding.StopRequested += () => OnSyncPlayActionRequired(new(SyncPlayActionKind.Stop));
         player.EndReached += OnSyncPlayEndReached;
         _syncPlay.ReadPlayer = () => _syncPlayBinding?.ReadState() ?? SyncPlayPlayerState.Idle;

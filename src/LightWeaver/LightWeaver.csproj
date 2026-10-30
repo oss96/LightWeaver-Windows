@@ -47,16 +47,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Sdk" Version="2025.10.21" />
-    <!-- Pin above the vulnerable 1.20.1 transitive (NU1903); stay on 1.x for SDK compat -->
-    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
-    <!-- Override the SDK's older transitive runtime as one compatible Kiota 1.x set.
-         Explicit references let Renovate track these versions independently of Jellyfin.Sdk. -->
-    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="1.22.2" />
+    <PackageReference Include="Jellyfin.Sdk" Version="2026.10.12" />
+    <!-- The Kiota 2.x runtime Jellyfin.Sdk builds on, as one compatible set. Explicit references
+         let Renovate track these versions independently of Jellyfin.Sdk. -->
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="2.1.2" />
     <PackageReference Include="Std.UriTemplate" Version="2.0.12" />
   </ItemGroup>
 

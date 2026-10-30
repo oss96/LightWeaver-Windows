@@ -58,6 +58,7 @@ internal sealed class PlaybackController : IDisposable
     private bool _subtitlePickedHere;
     private int _carryGeneration = -1;
     private int _tracksReadyGeneration = -1;
+    private int _preferredSubtitleGeneration = -1;
     private int _loadedGeneration = -1;
     private SubtitleSelectionRequest? _subtitleIntent;
     private long _subtitleChoiceTimestamp;
@@ -206,18 +207,19 @@ internal sealed class PlaybackController : IDisposable
     public SyncPlayCoordinator? SyncPlay { get; set; }
 
     private bool _groupLoading;
+    private bool _forGroup;
 
     /// <summary>Whether the title starting now is the group's item, loaded through PlayForGroup.</summary>
     internal bool IsGroupLoading => _groupLoading;
 
     /// <summary>The group's current item, played in the group's session; returns its sequence.</summary>
-    internal int PlayForGroup(MediaItem item, JellyfinService session)
+    internal int PlayForGroup(MediaItem item, JellyfinService session, PlaybackChoice? choice = null)
     {
         _groupLoading = true;
         try
         {
             _app.Queue.Clear();
-            Start(item, null, session);
+            Start(item, choice, session);
         }
         finally
         {
@@ -307,11 +309,12 @@ internal sealed class PlaybackController : IDisposable
         _app.PublishStopReport(_reporter?.Stop());
         if (!_reportStarted && _decision is { } decision) _ = Session.DiscardUnplayedDecisionAsync(decision);
         _player?.Stop();
+        ViewModel.ResetExternalSubtitles();
         _item = null;
         _negotiating = false;
         _decision = null;
         _session = null;
-        _generation = _loadedGeneration = _tracksReadyGeneration = _carryGeneration = -1;
+        _generation = _loadedGeneration = _tracksReadyGeneration = _carryGeneration = _preferredSubtitleGeneration = -1;
         _app.Queue.Clear();
         ViewModel.SetUpNext(null);
         SyncPlay?.OnStopped();
@@ -398,6 +401,7 @@ internal sealed class PlaybackController : IDisposable
         _app.PublishStopReport(_reporter?.Stop());
         if (!_reportStarted && _decision is { } stale) _ = Session.DiscardUnplayedDecisionAsync(stale);
         var sequence = ++_sequence;
+        _forGroup = _groupLoading;
         Failure = null;
         _directUrl = null;
         _link = null;
@@ -410,7 +414,7 @@ internal sealed class PlaybackController : IDisposable
         _requestedDownload = download;
         _detached = detached;
         _item = item;
-        _generation = _loadedGeneration = _tracksReadyGeneration = _carryGeneration = -1;
+        _generation = _loadedGeneration = _tracksReadyGeneration = _carryGeneration = _preferredSubtitleGeneration = -1;
         _choice = choice;
         _decision = null;
         _streams = Task.FromResult<MediaSourceStreams?>(null);
@@ -425,6 +429,7 @@ internal sealed class PlaybackController : IDisposable
         _subtitlePickedHere = false;
         _negotiating = false;
 
+        ViewModel.ResetExternalSubtitles();
         ViewModel.SetNowPlaying(item.PlaybackTitle, item.PlaybackSubtitle, item.PlaybackRelease);
         ViewModel.SetServerChapters(item.Chapters.Select(c => c.StartSeconds));
         ViewModel.SetSkipSegments([], _settings.AutoSkipIntro, _settings.AutoSkipCredits);
@@ -499,6 +504,7 @@ internal sealed class PlaybackController : IDisposable
         _app.PublishStopReport(_reporter?.Stop());
         if (!_reportStarted && _decision is { } stale) _ = Session.DiscardUnplayedDecisionAsync(stale);
         ++_sequence;
+        _forGroup = false;
         Failure = null;
         _app.Queue.Clear();
         _link = Uri.TryCreate(url, UriKind.Absolute, out var address) && !address.IsFile ? address : null;
@@ -613,9 +619,11 @@ internal sealed class PlaybackController : IDisposable
     {
         if (_player is null) return;
         Diagnostics.AppLog.Info("player", $"event=load source={(_link is not null ? "link" : _local ? "local" : _decision is { IsTranscode: true } ? "transcode" : "direct")} item={_item?.Id:N}");
+        ViewModel.ResetExternalSubtitles();
         _player.SetHttpHeaders(authorization);
+        _player.SetGroupPlayback(_forGroup, _settings);
         _subtitleIntent = null;
-        _loadedGeneration = _tracksReadyGeneration = _carryGeneration = -1;
+        _loadedGeneration = _tracksReadyGeneration = _carryGeneration = _preferredSubtitleGeneration = -1;
         _generation = _player.LoadFile(url);
         _reportStarted = false;
         SyncPlay?.OnLoaded(_generation);
@@ -730,14 +738,26 @@ internal sealed class PlaybackController : IDisposable
 
     private async Task AttachExternalSubtitlesAsync(MpvPlayer player, int generation, Task<List<ExternalSubtitle>> pending)
     {
+        bool Current() => !_disposed && _item is not null && generation == _generation
+            && generation == _loadedGeneration && generation == player.LoadGeneration;
+        if (!Current()) return;
+        ViewModel.ResetExternalSubtitles(loading: true);
         try
         {
             var subtitles = await pending;
-            if (_disposed || generation != _generation || generation != _loadedGeneration || generation != player.LoadGeneration) return;
-            foreach (var subtitle in subtitles) player.AddExternalSubtitle(subtitle.Url, subtitle.Title, subtitle.Language);
+            if (!Current()) return;
+            foreach (var subtitle in ViewModel.SetExternalSubtitles(subtitles))
+            {
+                var success = await player.AddExternalSubtitleAsync(subtitle.Url, subtitle.Title, subtitle.Language, generation);
+                if (!Current()) return;
+                ViewModel.CompleteExternalSubtitle(subtitle.Url, success);
+                if (success) ApplyLateSubtitleChoice(player, generation);
+            }
         }
         catch (Exception ex)
         {
+            if (!Current()) return;
+            ViewModel.ResetExternalSubtitles(failed: true);
             Diagnostics.AppLog.Error("player", $"event=external_subtitles outcome=failure error={ex.GetType().Name}");
         }
     }
@@ -747,6 +767,20 @@ internal sealed class PlaybackController : IDisposable
         if (_player is not { } player || generation != _generation || generation != _tracksReadyGeneration) return;
         if (ApplyDownloadSubtitle(player)) return;
         if (generation == _carryGeneration) CarrySubtitle(player, generation);
+    }
+
+    private void ApplyLateSubtitleChoice(MpvPlayer player, int generation)
+    {
+        if (generation != _generation || generation != _tracksReadyGeneration || player.LoadGeneration != generation) return;
+        if (_carryGeneration == generation) CarrySubtitle(player, generation);
+        else if (_preferredSubtitleGeneration == generation) SelectPreferredSubtitle(player);
+    }
+
+    private void SelectPreferredSubtitle(MpvPlayer player)
+    {
+        if (_settings.PreferredSubtitleLanguage is { Length: > 0 } language
+            && player.Tracks.FirstOrDefault(t => t.Type == "sub" && Languages.Matches(t.Lang, language)) is { Selected: false } preferred)
+            player.SelectSubtitleTrack(preferred.Id);
     }
 
     private bool ApplyDownloadSubtitle(MpvPlayer player)
@@ -832,10 +866,10 @@ internal sealed class PlaybackController : IDisposable
             _carryGeneration = generation;
             CarrySubtitle(player, generation);
         }
-        else if (choice is null && _settings.PreferredSubtitleLanguage is { Length: > 0 } subtitleLanguage
-            && player.Tracks.FirstOrDefault(t => t.Type == "sub" && Languages.Matches(t.Lang, subtitleLanguage)) is { Selected: false } preferredSubtitle)
+        else if (choice is null && _settings.PreferredSubtitleLanguage is { Length: > 0 })
         {
-            player.SelectSubtitleTrack(preferredSubtitle.Id);
+            _preferredSubtitleGeneration = generation;
+            SelectPreferredSubtitle(player);
         }
     }
 
@@ -925,6 +959,7 @@ internal sealed class PlaybackController : IDisposable
             var current = ViewModel.Versions.ToList().FindIndex(v => v.IsSelected);
             choice = choice with { VersionId = ViewModel.Versions[(current + 1) % ViewModel.Versions.Count].Id, AudioIndex = null, SubtitleIndex = null };
         }
+        if (_forGroup && SyncPlay?.RetryGroupItem(choice) == true) return;
         Start(item, choice, _detached ? null : _session, _requestedDownload, _detached);
     }
 

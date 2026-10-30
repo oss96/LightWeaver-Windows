@@ -37,4 +37,30 @@ Check(rebound.Count == map.Count, "unknown names are ignored");
 Check(PlayerActionDispatcher.DisplayName(PlayerAction.SubtitleLater) == "Subtitles 0.1 s later", "the new actions have names");
 Check(PlayerActionDispatcher.DisplayChord("") == PlayerActionDispatcher.DisplayChord(null), "unbound displays the same either way");
 
+// --- The wheel over the player --------------------------------------------------------------------
+var wheel = new VolumeWheel();
+Check(wheel.Steps(120) == 1 && wheel.Steps(-120) == -1, "a mouse notch is one volume step up or down");
+Check(wheel.Steps(360) == 3, "a fast spin reports every notch");
+Check(wheel.Steps(40) == 0 && wheel.Steps(40) == 0 && wheel.Steps(40) == 1, "touchpad deltas add up to a notch");
+Check(wheel.Steps(100) == 0 && wheel.Steps(-100) == 0 && wheel.Steps(-20) == -1, "reversing drops the part of a notch the other way");
+Check(wheel.Steps(0) == 0, "no delta, no step");
+
+// --- The volume readout the wheel and the keys raise ----------------------------------------------
+var vm = new LightWeaver.ViewModels.PlayerViewModel { Volume = 50 };
+var feedback = 0;
+vm.VolumeFeedback += () => feedback++;
+PlayerActionDispatcher.Dispatch(PlayerAction.VolumeUp, vm);
+PlayerActionDispatcher.Dispatch(PlayerAction.VolumeDown, vm);
+PlayerActionDispatcher.Dispatch(PlayerAction.VolumeDown, vm);
+Check(vm.Volume == 45 && feedback == 3, "every volume step shows the readout");
+vm.Volume = 100;
+feedback = 0;
+PlayerActionDispatcher.Dispatch(PlayerAction.VolumeUp, vm);
+Check(vm.Volume == 100 && feedback == 1, "a step at the limit still shows the readout");
+var culture = System.Globalization.CultureInfo.CurrentCulture;
+System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+vm.Volume = 44.6;
+Check(vm.VolumeReadout == "45%", "the readout rounds to whole percent in invariant digits");
+System.Globalization.CultureInfo.CurrentCulture = culture;
+
 Console.WriteLine($"Shortcuts: {checks} checks passed");

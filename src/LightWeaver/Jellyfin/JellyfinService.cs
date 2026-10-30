@@ -13,8 +13,9 @@ namespace LightWeaver.Jellyfin;
 
 public sealed record LoginResult(bool Success, string? Error, SavedCredentials? Credentials);
 
-/// <summary>An external (sidecar) subtitle stream, resolved to an absolute URL for mpv.</summary>
-public sealed record ExternalSubtitle(string Url, string? Title, string? Language);
+/// <summary>An external (sidecar) subtitle stream, resolved to an absolute URL for mpv. An image
+/// stream (VobSub, PGS) cannot be served as WebVTT, so it is never requested.</summary>
+public sealed record ExternalSubtitle(string Url, string? Title, string? Language, bool IsText = true);
 
 /// <summary>One label/value line of an item's media metadata. Id is an invariant lookup
 /// name for summary facts; Label is translated presentation text.</summary>
@@ -137,7 +138,7 @@ public sealed class JellyfinService : IDisposable
     private readonly HttpClient _httpClient;
     /// <summary>Kept because the transcode-teardown route is keyed by device + play session,
     /// and the SDK settings do not hand the device id back out once initialized.</summary>
-    private readonly string _deviceId = CredentialStore.GetOrCreateDeviceId();
+    private readonly string _deviceId;
 
     public string? ServerUrl { get; private set; }
     public string? AccessToken { get; private set; }
@@ -166,8 +167,17 @@ public sealed class JellyfinService : IDisposable
 
     public JellyfinApiClient Client => _client;
 
-    public JellyfinService()
+    /// <summary>A service for signing in: its own new device id, which the saved profile keeps.
+    /// Jellyfin ends a device's other sessions for the user on sign-in, so two profiles of one user
+    /// on one server, a LAN and a public address say, only stay signed in side by side as two
+    /// devices.</summary>
+    public static JellyfinService ForSignIn() => new(Guid.NewGuid().ToString());
+
+    /// <summary>A service that speaks as <paramref name="deviceId"/>, or as the install's shared
+    /// device id when none is given.</summary>
+    public JellyfinService(string? deviceId = null)
     {
+        _deviceId = deviceId ?? CredentialStore.GetOrCreateDeviceId();
         _settings = new JellyfinSdkSettings();
         _settings.Initialize(
             "LightWeaver",
@@ -214,7 +224,7 @@ public sealed class JellyfinService : IDisposable
 
             ApplySession(url, auth.AccessToken, auth.User.Id.Value, auth.User.Name ?? username);
             var credentials = new SavedCredentials(url, username, auth.AccessToken, auth.User.Id.Value,
-                await GetServerNameAsync().ConfigureAwait(false));
+                await GetServerNameAsync().ConfigureAwait(false), _deviceId);
             return new LoginResult(true, null, credentials);
         }
         catch (Exception ex)
@@ -304,7 +314,7 @@ public sealed class JellyfinService : IDisposable
             // own-name guard on a UserLeft for this profile; the List reconcile still corrects it.
             ApplySession(url, auth.AccessToken, auth.User.Id.Value, auth.User.Name);
             var credentials = new SavedCredentials(url, auth.User.Name ?? "user",
-                auth.AccessToken, auth.User.Id.Value, await GetServerNameAsync().ConfigureAwait(false));
+                auth.AccessToken, auth.User.Id.Value, await GetServerNameAsync().ConfigureAwait(false), _deviceId);
             return new LoginResult(true, null, credentials);
         }
         catch (Exception ex)
@@ -1374,7 +1384,7 @@ public sealed class JellyfinService : IDisposable
             // otherwise fall back to the stable subtitle endpoint.
             var url = SameOriginUrl(ServerUrl, stream.DeliveryUrl)
                 ?? ServerUrl + $"/Videos/{itemId}/{source.Id}/Subtitles/{stream.Index}/Stream.vtt";
-            subs.Add(new ExternalSubtitle(url, stream.Title ?? stream.DisplayTitle, stream.Language));
+            subs.Add(new ExternalSubtitle(url, stream.Title ?? stream.DisplayTitle, stream.Language, stream.IsTextSubtitleStream != false));
         }
         return subs;
     }
@@ -2392,16 +2402,20 @@ public sealed class JellyfinService : IDisposable
     /// device's NowPlaying and saves the item's resume position from the reported ticks, so
     /// using it to drop an orphan would overwrite the resume point of the stream that is
     /// still playing. And deliberately not retried — a lost teardown costs an idle ffmpeg job
-    /// the server reaps on its own, while a retry storm on the live session costs more.</para></summary>
+    /// the server reaps on its own, while a retry storm on the live session costs more.</para>
+    ///
+    /// <para>A raw request: Jellyfin 12 still serves <c>DELETE /Videos/ActiveEncodings</c>, but
+    /// hides its controller from the OpenAPI spec, so the 12.x SDK has no builder for it.</para></summary>
     public async Task DiscardUnplayedDecisionAsync(PlaybackDecision decision)
     {
         try
         {
-            await _client.Videos.ActiveEncodings.DeleteAsync(cfg =>
-            {
-                cfg.QueryParameters.DeviceId = _deviceId;
-                cfg.QueryParameters.PlaySessionId = decision.PlaySessionId;
-            }).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(HttpMethod.Delete,
+                $"{ServerUrl}/Videos/ActiveEncodings?deviceId={Uri.EscapeDataString(_deviceId)}"
+                + $"&playSessionId={Uri.EscapeDataString(decision.PlaySessionId)}");
+            request.Headers.TryAddWithoutValidation("Authorization", AuthorizationHeader);
+            using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
             DiscardDetail(decision, "sent");
         }
         catch (Exception ex)

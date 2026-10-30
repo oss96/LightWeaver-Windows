@@ -288,7 +288,7 @@ public sealed partial class MainWindow
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             password = box.Password;
         }
-        using var scratch = new JellyfinService();
+        using var scratch = JellyfinService.ForSignIn();
         var result = await scratch.LoginAsync(server.Url, user.Name, password);
         if (!result.Success)
         {

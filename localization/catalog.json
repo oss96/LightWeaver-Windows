@@ -969,6 +969,7 @@
       "text": "Volume (over the player)",
       "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
       "sources": [
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs",
         "src/LightWeaver/Player/AppShortcuts.cs"
       ]
     },
@@ -976,6 +977,7 @@
       "text": "Wheel",
       "context": "private static IReadOnlyList<ShortcutRow> Unbound { get; } =",
       "sources": [
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs",
         "src/LightWeaver/Player/AppShortcuts.cs"
       ]
     },
@@ -5770,7 +5772,8 @@
       "text": "External",
       "context": "public void AddExternalSubtitle(string url, string? title, string? lang)",
       "sources": [
-        "src/LightWeaver/Player/MpvPlayer.cs"
+        "src/LightWeaver/Player/MpvPlayer.cs",
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
       ]
     },
     "MpvPlayer.Forced.0483da29": {
@@ -6461,6 +6464,20 @@
         "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
       ]
     },
+    "Player.ExternalSubtitlesLoading": {
+      "text": "External subtitles are not available yet. Loading…",
+      "context": "Status under the player's subtitle list while the list of external subtitles is still being fetched",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
+    "Player.ExternalSubtitlesUnavailable": {
+      "text": "External subtitles are not available.",
+      "context": "Status under the player's subtitle list when the external subtitles could not be listed",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
     "Player.FailedDirect": {
       "text": "This file couldn’t be played, directly or through the server’s transcoder.",
       "context": "Player failure panel: direct play and the transcode retry failed",
@@ -6724,6 +6741,13 @@
         "src/LightWeaver.WinUI/Player/PlaybackController.cs"
       ]
     },
+    "Player.SubtitleNotReady": {
+      "text": "{0} · Not available yet",
+      "context": "Disabled row in the player's subtitle list for an external subtitle that is still loading; {0} is its name",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
+      ]
+    },
     "Player.SubtitleOffset": {
       "text": "Offset",
       "context": "Player tracks flyout: subtitle timing offset",
@@ -6736,6 +6760,13 @@
       "context": "Toast after [ or ]; {0} the offset in seconds",
       "sources": [
         "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
+      ]
+    },
+    "Player.SubtitleUnavailable": {
+      "text": "{0} · Not available",
+      "context": "Disabled row in the player's subtitle list for an external subtitle that failed to load or is an image subtitle the server cannot convert; {0} is its name",
+      "sources": [
+        "src/LightWeaver/ViewModels/PlayerViewModel.cs"
       ]
     },
     "Player.Subtitles": {
@@ -8950,7 +8981,7 @@
       ]
     },
     "Settings.NormalizeHint": {
-      "text": "Evens out loud and quiet titles",
+      "text": "Evens out loud and quiet titles. Stays off in SyncPlay groups, where it would delay every start and seek.",
       "context": "Settings audio row description",
       "sources": [
         "src/LightWeaver.WinUI/Pages/SettingsPage.cs"

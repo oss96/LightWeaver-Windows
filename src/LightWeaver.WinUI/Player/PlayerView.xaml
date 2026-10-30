@@ -2,8 +2,8 @@
 <!-- The player's controls over the video (design 13): title and Back on top, the transport bar at
      the bottom (seek bar with chapters, buffer and trickplay; play/pause, back, forward, next,
      volume; RTX VSR and RTX HDR, audio and subtitles, quality, speed, queue, info, full screen), Skip
-     intro and the Up Next card. Where the row is too narrow for both groups, audio and subtitles fold
-     into one Tracks button (13c). Clicking the position opens a field in its place to type one.
+     intro, the Up Next card and the volume readout. Where the row is too narrow for both groups, audio
+     and subtitles fold into one Tracks button (13c). Clicking the position opens a field in its place to type one.
      Flyouts open inside the window above the bar. After 2.5 s without input during playback the
      controls and the cursor hide; they stay while paused or while a flyout is open. -->
 <UserControl
@@ -217,6 +217,24 @@
                     <Button x:Name="UpNextPlay" Style="{StaticResource LwAccentButton}" Click="OnUpNextPlay" AutomationProperties.AutomationId="PlayerUpNextPlay" />
                 </StackPanel>
             </Grid>
+        </Border>
+
+        <!-- The volume readout: top right, opposite the toasts, shown by every change to the level or
+             mute and independent of the controls. Collapsed until shown, so UI Automation presence
+             means visible. -->
+        <Border x:Name="VolumePill" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,72,16,0" MinHeight="36" Padding="12,0,14,1"
+                Visibility="Collapsed" IsHitTestVisible="False" CornerRadius="{StaticResource LwGroupRadius}"
+                Background="{StaticResource LwPlayerGlassBrush}" BorderBrush="{StaticResource LwPlayerGlassBorderBrush}" BorderThickness="1"
+                Translation="0,0,24">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <FontIcon x:Name="VolumePillIcon" Style="{StaticResource LwIcon}" FontSize="16" Foreground="{StaticResource LwPlayerTextBrush}"
+                          Glyph="{x:Bind t:Icons.Volume}" AutomationProperties.AutomationId="PlayerVolumeIndicatorGlyph" />
+                <TextBlock x:Name="VolumePillText" FontSize="13" MinWidth="34" TextAlignment="Right" VerticalAlignment="Center"
+                           Foreground="{StaticResource LwPlayerTextBrush}" AutomationProperties.AutomationId="PlayerVolumeIndicator" />
+            </StackPanel>
         </Border>
 
         <Popup x:Name="TrickplayPopup" IsLightDismissEnabled="False" ShouldConstrainToRootBounds="True">

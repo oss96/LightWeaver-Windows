@@ -38,6 +38,7 @@ public sealed partial class MainWindow
     private WindowFullscreen? _fullscreen;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _transitionsBack;
     private bool _localPlay;
+    private readonly VolumeWheel _volumeWheel = new();
 
     private CompositeTransform LayerTransform => (CompositeTransform)_playerLayer!.RenderTransform;
 
@@ -50,6 +51,7 @@ public sealed partial class MainWindow
         _playerView = new PlayerView();
         _playerView.PreviewKeyDown += OnZoomKey;
         _playerView.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(OnZoomWheel), handledEventsToo: true);
+        _playerView.PointerWheelChanged += OnPlayerWheel;
         _playerLayer = new Grid
         {
             Visibility = Visibility.Collapsed,
@@ -109,6 +111,20 @@ public sealed partial class MainWindow
             if (_playerMode == PlayerMode.Preview && !ReferenceEquals(_nav.CurrentPage, _previewPage)) _playback?.Stop();
         };
         return _playback;
+    }
+
+    /// <summary>The wheel over the full or mini player steps the volume as Up and Down do, shown by the
+    /// volume readout alone; Ctrl+wheel stays the zoom, and the detail preview leaves the wheel alone.</summary>
+    private void OnPlayerWheel(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (_playerMode != PlayerMode.Full || _playback is null || _playerView is null
+            || e.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)) return;
+        var wheel = e.GetCurrentPoint(_playerView).Properties;
+        if (wheel.IsHorizontalMouseWheel) return;
+        e.Handled = true;
+        var steps = _volumeWheel.Steps(wheel.MouseWheelDelta);
+        for (var i = 0; i < Math.Abs(steps); i++)
+            PlayerActionDispatcher.Dispatch(steps > 0 ? PlayerAction.VolumeUp : PlayerAction.VolumeDown, _playback.ViewModel);
     }
 
     /// <summary>The video's swapchain is the size of the display the window is on.</summary>

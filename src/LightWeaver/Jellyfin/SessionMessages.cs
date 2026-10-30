@@ -35,6 +35,16 @@ public static class SyncPlayCommandTypes
     public const string Seek = "Seek";
 }
 
+/// <summary>What a <see cref="SyncPlayStateUpdate.State"/> can be (Jellyfin's
+/// <c>GroupStateType</c>).</summary>
+public static class SyncPlayGroupStates
+{
+    public const string Idle = "Idle";
+    public const string Waiting = "Waiting";
+    public const string Paused = "Paused";
+    public const string Playing = "Playing";
+}
+
 /// <summary>The nine <see cref="SyncPlayGroupUpdateMessage.Type"/> values (Jellyfin's
 /// <c>GroupUpdateType</c>). Constants rather than an enum for the same reason
 /// <see cref="SessionMessageTypes"/> is: the payload union is discriminated on this string, and a

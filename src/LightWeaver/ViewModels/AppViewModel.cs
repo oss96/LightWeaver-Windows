@@ -50,7 +50,7 @@ public sealed class AppViewModel : ObservableObject
     /// <summary>The active profile's session. In the Login state this is a fresh
     /// "scratch" service so an in-progress login (or Quick Connect handshake) can
     /// never mutate a warm session's server URL/token.</summary>
-    public JellyfinService Jellyfin { get; private set; } = new();
+    public JellyfinService Jellyfin { get; private set; } = JellyfinService.ForSignIn();
 
     /// <summary>Profile key of the active warm session; null while logged out.</summary>
     public string? ActiveSessionKey { get; private set; }
@@ -404,7 +404,7 @@ public sealed class AppViewModel : ObservableObject
     private void ReplaceWithScratchSession()
     {
         var outgoing = Jellyfin;
-        Jellyfin = new JellyfinService();
+        Jellyfin = JellyfinService.ForSignIn();
         // Identity check against the warm set: a service that IS a warm session belongs to
         // _sessions and is CloseSession's to dispose, not ours.
         if (!_sessions.Values.Any(s => ReferenceEquals(s, outgoing)))
@@ -418,7 +418,7 @@ public sealed class AppViewModel : ObservableObject
         if (saved is not null)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var service = new JellyfinService();
+            var service = new JellyfinService(CredentialStore.DeviceIdFor(saved));
             if (await service.ReconnectAsync(saved))
             {
                 SessionLog($"cold-connect {SessionKey(saved)} {sw.ElapsedMilliseconds}ms");
@@ -520,7 +520,7 @@ public sealed class AppViewModel : ObservableObject
         }
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var service = new JellyfinService();
+        var service = new JellyfinService(CredentialStore.DeviceIdFor(profile));
         if (!await service.ReconnectAsync(profile))
         {
             service.Dispose();
@@ -539,7 +539,7 @@ public sealed class AppViewModel : ObservableObject
     {
         if (CredentialStore.Load() is not { } saved)
             return null;
-        var service = new JellyfinService();
+        var service = new JellyfinService(CredentialStore.DeviceIdFor(saved));
         if (!await service.ReconnectAsync(saved))
         {
             service.Dispose();

@@ -4,17 +4,17 @@ using LightWeaver.Player;
 namespace LightWeaver.WinUI.Shell;
 
 /// <summary>Full screen without switching AppWindow presenters: the window keeps its
-/// OverlappedPresenter, loses its frame and maximized bit, covers the monitor it is on and is marked
-/// full screen with the taskbar; leaving puts the exact style and rect back in one move, maximized
-/// again if it was. The presenter switch it replaces left through the window's restored rect (often
+/// OverlappedPresenter, loses its frame and maximized bit, covers the monitor it is on with its
+/// content and is marked full screen with the taskbar; leaving puts the exact style and rect back
+/// in one move, maximized again if it was. The presenter switch it replaces left through the window's restored rect (often
 /// reaching onto another screen) before maximizing again, under DWM's restore animation.</summary>
 internal sealed partial class WindowFullscreen
 {
     private const int GwlStyle = -16;
-    private const uint SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoZOrder = 0x0004, SwpNoActivate = 0x0010, SwpFrameChanged = 0x0020, SwpNoOwnerZOrder = 0x0200;
+    private const uint SwpNoSize = FullscreenStyle.NoSize, SwpNoMove = FullscreenStyle.NoMove, SwpNoZOrder = 0x0004, SwpNoActivate = 0x0010, SwpFrameChanged = 0x0020, SwpNoOwnerZOrder = 0x0200;
     private const uint MonitorDefaultToNearest = 2;
     private const uint ShowMinimizedNoActivate = 7, ShowInPlaceNoActivate = 8;
-    private const uint WmNcCalcSize = 0x0083, WmStyleChanged = 0x007D;
+    private const uint WmNcCalcSize = 0x0083, WmStyleChanged = 0x007D, WmWindowPosChanging = 0x0046;
     private const int DwmTransitionsForceDisabled = 3, DwmWindowCornerPreference = 33;
     private const int CornerDefault = 0, CornerDoNotRound = 1;
     private const nuint SubclassId = 0x4C57;
@@ -22,6 +22,8 @@ internal sealed partial class WindowFullscreen
     private const int SlotHrInit = 3, SlotMarkFullscreenWindow = 8;
     private static readonly Guid ClsidTaskbarList = new("56fdf344-fd6d-11d0-958a-006097c9a090");
     private static readonly Guid IidTaskbarList2 = new("602d4995-b13a-429b-a66e-1935e44f4317");
+    private const string NonRudeProperty = "NonRudeHWND";
+    private const string ContentBridgeClass = "Microsoft.UI.Content.DesktopChildSiteBridge";
 
     private static nint s_covering;
     private static WindowFullscreen? s_current;
@@ -31,6 +33,7 @@ internal sealed partial class WindowFullscreen
     private long _style;
     private ScreenRect _bounds;
     private WindowPlacement _placement;
+    private nint _nonRude;
     private bool _entered;
     private bool _waitingForRestore;
     private bool _covering;
@@ -93,6 +96,7 @@ internal sealed partial class WindowFullscreen
         s_covering = 0;
         s_current = null;
         MarkFullscreen(_hwnd, false);
+        if (_nonRude != 0) SetPropW(_hwnd, NonRudeProperty, _nonRude);
         var exit = FullscreenStyle.Exit(IsIconic(_hwnd), _style);
         SetWindowLongPtrW(_hwnd, GwlStyle, (nint)FullscreenStyle.Restored(GetWindowLongPtrW(_hwnd, GwlStyle), _style));
         if (exit == FullscreenExit.SavedPlacement)
@@ -130,9 +134,27 @@ internal sealed partial class WindowFullscreen
 
     private void Cover(bool toFront)
     {
+        AllowFullscreenShell();
         var monitor = MonitorRect(_hwnd);
         var flags = SwpNoOwnerZOrder | SwpFrameChanged | (toFront ? 0 : SwpNoZOrder | SwpNoActivate);
         SetWindowPos(_hwnd, 0, monitor.Left, monitor.Top, monitor.Width, monitor.Height, flags);
+        FillWithContent(_hwnd);
+    }
+
+    /// <summary>The Windows App SDK marks its windows NonRudeHWND, and the shell then keeps the taskbar
+    /// over them however they cover the monitor; full screen takes the mark off and leaving puts it back.</summary>
+    private void AllowFullscreenShell()
+    {
+        var mark = RemovePropW(_hwnd, NonRudeProperty);
+        if (mark != 0) _nonRude = mark;
+    }
+
+    /// <summary>Moves the XAML content to the whole client area, which <see cref="ContentProc"/> then
+    /// keeps while the window covers its monitor.</summary>
+    private static void FillWithContent(nint hwnd)
+    {
+        var content = FindWindowExW(hwnd, 0, ContentBridgeClass, null);
+        if (content != 0 && GetClientRect(hwnd, out var client)) SetWindowPos(content, 0, 0, 0, client.Right, client.Bottom, SwpNoZOrder | SwpNoOwnerZOrder | SwpNoActivate);
     }
 
     /// <summary>Covering the monitor while not maximized can become the window's restored rect; the
@@ -181,11 +203,12 @@ internal sealed partial class WindowFullscreen
     }
 
     /// <summary>While the window covers its monitor its whole rect is client area, whatever the
-    /// title bar code would reserve for a frame.</summary>
+    /// title bar code would reserve for a frame, and the XAML content fills it.</summary>
     private static unsafe void Subclass(nint hwnd)
     {
-        if (!Subclassed.Add(hwnd)) return;
-        SetWindowSubclass(hwnd, (nint)(delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint>)&WindowProc, SubclassId, 0);
+        if (Subclassed.Add(hwnd)) SetWindowSubclass(hwnd, (nint)(delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint>)&WindowProc, SubclassId, 0);
+        var content = FindWindowExW(hwnd, 0, ContentBridgeClass, null);
+        if (content != 0 && Subclassed.Add(content)) SetWindowSubclass(content, (nint)(delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint>)&ContentProc, SubclassId, 0);
     }
 
     /// <summary>A style change that keeps the rect (WS_MAXIMIZE or the frame put back) moves nothing,
@@ -200,6 +223,24 @@ internal sealed partial class WindowFullscreen
         return result;
     }
 
+    /// <summary>XAML places its content a pixel below the top of a window that is not maximized, for a
+    /// top border full screen does not have: the row left over shows as a light line and the shorter
+    /// content narrows the video. Every move of the content is made one that fills the window.</summary>
+    [UnmanagedCallersOnly]
+    private static unsafe nint ContentProc(nint hwnd, uint message, nint wParam, nint lParam, nuint id, nuint data)
+    {
+        if (message == WmWindowPosChanging && s_covering != 0 && GetParent(hwnd) == s_covering && GetClientRect(s_covering, out var client))
+        {
+            var position = (WindowPos*)lParam;
+            position->X = 0;
+            position->Y = 0;
+            position->Width = client.Right;
+            position->Height = client.Bottom;
+            position->Flags = FullscreenStyle.FillingFlags(position->Flags);
+        }
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private record struct Rect(int Left, int Top, int Right, int Bottom)
     {
@@ -211,6 +252,18 @@ internal sealed partial class WindowFullscreen
 
     [StructLayout(LayoutKind.Sequential)]
     private record struct WindowPlacement(int Length, uint Flags, uint ShowCmd, Point MinPosition, Point MaxPosition, Rect NormalPosition);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowPos
+    {
+        public nint Hwnd;
+        public nint InsertAfter;
+        public int X;
+        public int Y;
+        public int Width;
+        public int Height;
+        public uint Flags;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MonitorInfo
@@ -230,6 +283,23 @@ internal sealed partial class WindowFullscreen
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetWindowRect(nint hwnd, out Rect rect);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetClientRect(nint hwnd, out Rect rect);
+
+    [LibraryImport("user32.dll")]
+    private static partial nint GetParent(nint hwnd);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial nint FindWindowExW(nint parent, nint after, string? className, string? windowName);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial nint RemovePropW(nint hwnd, string name);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetPropW(nint hwnd, string name, nint data);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -68,13 +68,26 @@ public sealed record SyncPlayAction(
 /// <param name="LastApplied">The last command that was acted on, for duplicate detection and as the
 /// reference the group's expected position is extrapolated from.</param>
 /// <param name="LastDriftSeekUtc">The local instant of the last drift correction.</param>
+/// <param name="GroupState">The group's state from its last <c>StateUpdate</c>: <c>Idle</c>,
+/// <c>Waiting</c>, <c>Paused</c> or <c>Playing</c>; null before the first one.</param>
+/// <param name="DriftAnchor">Where the group resumed from without sending this client an
+/// <c>Unpause</c>; see <see cref="SyncPlayScheduler.ResumeAnchor"/>.</param>
+/// <param name="DriftSeekLead">How long the last drift seek took to play again, added to the next
+/// one's target so it lands where the group will be rather than where it was.</param>
 public sealed record SyncPlayState(
     DateTime JoinedAtUtc,
     Guid? PlaylistItemId = null,
     bool IsPaused = true,
     bool IsBuffering = false,
     SyncPlayCommandMessage? LastApplied = null,
-    DateTime LastDriftSeekUtc = default);
+    DateTime LastDriftSeekUtc = default,
+    string? GroupState = null,
+    SyncPlayDriftAnchor? DriftAnchor = null,
+    TimeSpan DriftSeekLead = default);
+
+/// <summary>A point on the group's timeline: the group was at <paramref name="PositionTicks"/> at
+/// the server instant <paramref name="WhenUtc"/>, and has played on from there.</summary>
+public sealed record SyncPlayDriftAnchor(DateTime WhenUtc, long PositionTicks);
 
 /// <summary>Turns a SyncPlay command into the action it names, and nothing else. Pure and static
 /// for the same reason <see cref="RemoteCommand"/> is: group playback is otherwise only assertable
@@ -92,6 +105,11 @@ public static class SyncPlayScheduler
     /// the position it is measured against only settles a moment later, so correcting on every
     /// sample would chase its own tail.</summary>
     public static readonly TimeSpan MinDriftInterval = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>Ceiling on <see cref="SyncPlayState.DriftSeekLead"/>. A transcode's HLS seek takes 1
+    /// to 2 s to play again; a seek that took longer stalled on the network, and leading the next
+    /// one by that would overshoot.</summary>
+    public static readonly TimeSpan MaxDriftSeekLead = TimeSpan.FromSeconds(3);
 
     /// <summary>Ceiling on an unpause's pre-roll. The server sets <c>When</c> to now +
     /// max(highestPing * 2, 500 ms) and clamps pings to 10 s, so 30 s is beyond any honest value;
@@ -184,13 +202,25 @@ public static class SyncPlayScheduler
     /// <para>Suppressed unless the group is actually playing (the last command was an
     /// <c>Unpause</c>), that <c>Unpause</c>'s instant has arrived, the player is playing and not
     /// buffering, and the command was for the entry that is playing — all of them are ways of
-    /// measuring drift against a position that means nothing.</para></summary>
+    /// measuring drift against a position that means nothing.</para>
+    ///
+    /// <para>Also suppressed while the group's state says anything but <c>Playing</c>. A member
+    /// that buffers gets no command, only a <c>Waiting</c> state update, while the server pauses
+    /// everyone else at the position where the buffer began; extrapolating the last
+    /// <c>Unpause</c> through that wait would seek this member ahead by the length of its own
+    /// stall. Once the group resumes, a <see cref="SyncPlayState.DriftAnchor"/> replaces that
+    /// <c>Unpause</c> as the reference.</para></summary>
     public static SyncPlayAction ResolveDrift(SyncPlayState state, TimeSpan offset,
         DateTime localNowUtc, double currentPositionSeconds)
     {
-        if (state.LastApplied is not { Command: SyncPlayCommandTypes.Unpause } last
-            || last.WhenUtc is not { } whenServer || last.PositionTicks is not { } startTicks)
+        if (state.GroupState is { } groupState && groupState != SyncPlayGroupStates.Playing)
             return SyncPlayAction.Noop;
+        if (state.LastApplied is not { Command: SyncPlayCommandTypes.Unpause } last
+            || last.WhenUtc is not { } lastWhen || last.PositionTicks is not { } lastTicks)
+            return SyncPlayAction.Noop;
+        var (whenServer, startTicks) = state.DriftAnchor is { } anchor
+            ? (anchor.WhenUtc, anchor.PositionTicks)
+            : (lastWhen, lastTicks);
         if (state.IsBuffering || !SameItem(last.PlaylistItemId, state.PlaylistItemId))
             return SyncPlayAction.Noop;
         // A player that is not moving cannot drift, and seeking it would not start it: the
@@ -213,10 +243,31 @@ public static class SyncPlayScheduler
         if (serverNow <= whenServer)
             return SyncPlayAction.Noop;
         var expected = startTicks + (serverNow - whenServer).Ticks;
+        var lead = state.DriftSeekLead < TimeSpan.Zero ? TimeSpan.Zero
+            : state.DriftSeekLead > MaxDriftSeekLead ? MaxDriftSeekLead : state.DriftSeekLead;
         return Math.Abs(expected - Ticks(currentPositionSeconds)) > SeekThreshold.Ticks
-            ? new SyncPlayAction(SyncPlayActionKind.DriftSeek, expected, localNowUtc, NeedsSeek: true)
+            ? new SyncPlayAction(SyncPlayActionKind.DriftSeek, expected + lead.Ticks, localNowUtc, NeedsSeek: true)
             : SyncPlayAction.Noop;
     }
+
+    /// <summary>Whether a state update leaves the last applied <c>Unpause</c> describing a timeline
+    /// the group has left: the group stopped to wait while this client was playing to it.</summary>
+    public static bool InterruptsUnpause(string? newState, SyncPlayCommandMessage? lastApplied)
+        => newState == SyncPlayGroupStates.Waiting
+            && lastApplied?.Command == SyncPlayCommandTypes.Unpause;
+
+    /// <summary>The drift reference once the group plays again after interrupting an
+    /// <c>Unpause</c>, or null when this update does not resume it.
+    ///
+    /// <para>When the member that buffered reports ready, Jellyfin sends the new <c>Unpause</c> to
+    /// every OTHER member and takes the reporting member's position as the group's. That member
+    /// sees only the <c>Playing</c> state update, so its own position at that moment is where the
+    /// group is.</para></summary>
+    public static SyncPlayDriftAnchor? ResumeAnchor(bool unpauseInterrupted, string? newState,
+        DateTime serverNowUtc, double positionSeconds)
+        => unpauseInterrupted && newState == SyncPlayGroupStates.Playing
+            ? new SyncPlayDriftAnchor(serverNowUtc, Ticks(positionSeconds))
+            : null;
 
     /// <summary>Where the group is now.
     ///

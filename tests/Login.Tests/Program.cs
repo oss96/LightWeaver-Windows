@@ -106,13 +106,47 @@ using (var server = new SessionServer())
     await app.LastRevocation.WaitAsync(TimeSpan.FromSeconds(10));
     Check(app.LastRevocation.IsCompletedSuccessfully, "the revocation finishes after the session was closed and disposed");
 }
+// --- One device per profile: signing in on one profile keeps the other signed in ---------------
+var shared = CredentialStore.GetOrCreateDeviceId();
+using (var first = JellyfinService.ForSignIn())
+using (var second = JellyfinService.ForSignIn())
+{
+    string DeviceOf(JellyfinService service) => service.AuthorizationHeader.Split("DeviceId=\"")[1].Split('"')[0];
+    Check(DeviceOf(first) != DeviceOf(second) && DeviceOf(first) != shared && DeviceOf(second) != shared,
+        "every sign-in speaks as a device of its own");
+}
+var legacy = new SavedCredentials("http://media.home.lan:8096", "Mara", "token-legacy", Guid.NewGuid());
+Check(CredentialStore.DeviceIdFor(legacy) == shared, "a profile saved before per-profile devices keeps the shared id its token belongs to");
+Check(CredentialStore.DeviceIdFor(legacy with { DeviceId = "lan-device" }) == "lan-device", "a profile with its own device uses it");
+CredentialStore.Save(new SavedCredentials("http://cabin.invalid:8096", "Jonah", "token-jonah", Guid.NewGuid(), "Cabin", "cabin-device"));
+Check(CredentialStore.LoadProfiles().Profiles.Single(p => p.Username == "Jonah").DeviceId == "cabin-device",
+    "the profile's device survives saving and loading");
+using (var server = new SessionServer())
+{
+    var userId = Guid.NewGuid();
+    server.UserId = userId;
+    var app = new AppViewModel();
+    Check(await app.SwitchProfileAsync(new SavedCredentials(server.Origin, "Mara", "token-lan", userId, "Home", "lan-device"))
+        && server.MeAuthorization?.Contains("DeviceId=\"lan-device\"", StringComparison.Ordinal) == true,
+        "a saved profile reconnects as its own device");
+    Check(await new AppViewModel().SwitchProfileAsync(new SavedCredentials(server.Origin, "Mara", "token-old", userId, "Home"))
+        && server.MeAuthorization?.Contains($"DeviceId=\"{shared}\"", StringComparison.Ordinal) == true,
+        "an older profile reconnects as the shared device its token was issued to");
+
+    using var service = new JellyfinService("lan-device");
+    await service.ReconnectAsync(new SavedCredentials(server.Origin, "Mara", "token-lan", userId, "Home", "lan-device"));
+    await service.DiscardUnplayedDecisionAsync(new PlaybackDecision("http://unused", true, "play session/1", null));
+    Check(server.EncodingTeardown == "DELETE /Videos/ActiveEncodings?deviceId=lan-device&playSessionId=play%20session%2F1 Token=\"token-lan\"",
+        "a discarded decision ends its server encoding as the profile's device: " + server.EncodingTeardown);
+}
 try { Directory.Delete(appData, recursive: true); } catch (IOException) { }
 
 Console.WriteLine($"{checks} checks passed.");
 return 0;
 
-/// <summary>A Jellyfin stand-in on a loopback port: answers /Users/Me, and holds /Sessions/Logout
-/// open until <see cref="ReleaseLogout"/> is set, reporting the token it carried.</summary>
+/// <summary>A Jellyfin stand-in on a loopback port: answers /Users/Me, records the encoding
+/// teardown, and holds /Sessions/Logout open until <see cref="ReleaseLogout"/> is set, reporting
+/// the token it carried.</summary>
 sealed class SessionServer : IDisposable
 {
     private readonly HttpListener _listener = new();
@@ -131,6 +165,8 @@ sealed class SessionServer : IDisposable
 
     public string Origin { get; }
     public Guid UserId { get; set; }
+    public string? MeAuthorization { get; private set; }
+    public string? EncodingTeardown { get; private set; }
     public TaskCompletionSource<string?> LogoutArrived { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource ReleaseLogout { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -153,9 +189,16 @@ sealed class SessionServer : IDisposable
             switch (context.Request.Url!.AbsolutePath)
             {
                 case "/Users/Me":
+                    MeAuthorization = context.Request.Headers["Authorization"];
                     var body = Encoding.UTF8.GetBytes("{\"Id\":\"" + UserId.ToString("N") + "\",\"Name\":\"Mara\"}");
                     response.ContentType = "application/json";
                     await response.OutputStream.WriteAsync(body);
+                    break;
+                case "/Videos/ActiveEncodings":
+                    var authorization = context.Request.Headers["Authorization"] ?? "";
+                    EncodingTeardown = $"{context.Request.HttpMethod} {context.Request.Url.PathAndQuery} "
+                        + authorization[Math.Max(0, authorization.IndexOf("Token=", StringComparison.Ordinal))..];
+                    response.StatusCode = 204;
                     break;
                 case "/Sessions/Logout":
                     var token = context.Request.Headers["Authorization"] is { } header && header.IndexOf("Token=\"", StringComparison.Ordinal) is var at and >= 0

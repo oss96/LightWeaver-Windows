@@ -83,8 +83,20 @@ internal static partial class LibMpv
     [LibraryImport(Lib)]
     private static partial int mpv_command(nint ctx, nint argv);
 
+    [LibraryImport(Lib)]
+    private static partial int mpv_command_async(nint ctx, ulong replyUserdata, nint argv);
+
+    [LibraryImport(Lib)]
+    internal static partial void mpv_abort_async_command(nint ctx, ulong replyUserdata);
+
+    internal static int CommandAsync(nint ctx, ulong requestId, params string[] args)
+        => SendCommand(ctx, requestId, args);
+
     /// <summary>mpv_command with a NULL-terminated UTF-8 char** built from managed strings.</summary>
     internal static unsafe int Command(nint ctx, params string[] args)
+        => SendCommand(ctx, null, args);
+
+    private static unsafe int SendCommand(nint ctx, ulong? requestId, string[] args)
     {
         var argv = new nint[args.Length + 1]; // trailing element stays Zero = NULL terminator
         try
@@ -93,7 +105,7 @@ internal static partial class LibMpv
                 argv[i] = Marshal.StringToCoTaskMemUTF8(args[i]);
             fixed (nint* p = argv)
             {
-                return mpv_command(ctx, (nint)p);
+                return requestId is { } id ? mpv_command_async(ctx, id, (nint)p) : mpv_command(ctx, (nint)p);
             }
         }
         finally

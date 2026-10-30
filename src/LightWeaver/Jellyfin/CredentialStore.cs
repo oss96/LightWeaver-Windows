@@ -6,10 +6,12 @@ using System.Text.Json;
 namespace LightWeaver.Jellyfin;
 
 /// <summary>Server session persisted between runs. Token only — never the password.
-/// ServerName is display-only (switcher UI); null on profiles saved before v2.</summary>
+/// ServerName is display-only (switcher UI); null on profiles saved before v2. DeviceId is the
+/// device the token was issued to; null on profiles saved before it, which keep the install's
+/// shared id (<see cref="CredentialStore.DeviceIdFor"/>).</summary>
 public sealed record SavedCredentials(string ServerUrl, string Username, string AccessToken,
     [property: System.Text.Json.Serialization.JsonConverter(typeof(LenientGuidConverter))] Guid UserId,
-    string? ServerName = null);
+    string? ServerName = null, string? DeviceId = null);
 
 /// <summary>
 /// Reads a Guid in either form. Jellyfin returns <c>User.Id</c> as **32 hex chars with no dashes**,
@@ -185,6 +187,11 @@ public static class CredentialStore
                 $"event=clear outcome=failure error={ex.GetType().Name}");
         }
     }
+
+    /// <summary>The device id a saved profile's token belongs to: its own, or the install's shared
+    /// one for a profile saved before profiles had their own.</summary>
+    public static string DeviceIdFor(SavedCredentials saved)
+        => saved.DeviceId is { Length: > 0 } own ? own : GetOrCreateDeviceId();
 
     /// <summary>Stable random device id (not a secret — stored in plain text).</summary>
     public static string GetOrCreateDeviceId()

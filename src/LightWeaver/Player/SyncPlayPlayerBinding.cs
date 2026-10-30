@@ -8,6 +8,10 @@ namespace LightWeaver.Player;
 /// All mutations run on the supplied dispatcher; ReadState only reads cached player properties.</summary>
 public sealed class SyncPlayPlayerBinding : IDisposable
 {
+    /// <summary>How long a drift seek may take to play again before drift correction stops
+    /// waiting for it; a seek that never restarts is the stall recovery's business.</summary>
+    private static readonly TimeSpan DriftSeekTimeout = TimeSpan.FromSeconds(10);
+
     private readonly MpvPlayer _player;
     private readonly IUiDispatcher _dispatcher;
     private readonly ISyncPlayReporter _reporter;
@@ -23,6 +27,9 @@ public sealed class SyncPlayPlayerBinding : IDisposable
     private bool _startPaused;
     private bool _disposed;
     private DateTime _lastDriftSeekUtc;
+    private DateTime _driftSeekIssuedUtc;
+    private bool _driftSeekPending;
+    private TimeSpan _driftSeekLead;
 
     public event Action? StopRequested;
 
@@ -67,6 +74,7 @@ public sealed class SyncPlayPlayerBinding : IDisposable
         }
         if (action.Kind == SyncPlayActionKind.Noop) return;
         CancelDue();
+        if (action.Kind != SyncPlayActionKind.DriftSeek) _driftSeekPending = false;
         if (action.Kind == SyncPlayActionKind.Stop)
         {
             _deferred = null;
@@ -100,10 +108,11 @@ public sealed class SyncPlayPlayerBinding : IDisposable
                 break;
             case SyncPlayActionKind.DriftSeek:
                 var delta = action.TargetSeconds - _player.TimePos;
-                _lastDriftSeekUtc = _utcNow();
+                _lastDriftSeekUtc = _driftSeekIssuedUtc = _utcNow();
+                _driftSeekPending = true;
                 _player.TimePos = action.TargetSeconds;
                 AppLog.Info("syncplay", FormattableString.Invariant(
-                    $"event=drift outcome=seek delta_ms={delta * 1000:0}"));
+                    $"event=drift outcome=seek delta_ms={delta * 1000:0} lead_ms={_driftSeekLead.TotalMilliseconds:0}"));
                 break;
         }
     }
@@ -159,6 +168,12 @@ public sealed class SyncPlayPlayerBinding : IDisposable
     private void OnPlaybackRestarted(int generation)
     {
         if (!Owns(generation)) return;
+        if (_driftSeekPending)
+        {
+            _driftSeekPending = false;
+            _lastDriftSeekUtc = _utcNow();
+            _driftSeekLead = _lastDriftSeekUtc - _driftSeekIssuedUtc;
+        }
         _awaitingLoad = false;
         _settled = true;
         if (_deferred is { } action)
@@ -207,13 +222,15 @@ public sealed class SyncPlayPlayerBinding : IDisposable
 
     private void OnPositionChanged(double position, int generation)
     {
-        if (!Owns(generation) || _due is not null || _readyPending || _player.IsLoading
+        if (_driftSeekPending && _utcNow() - _driftSeekIssuedUtc > DriftSeekTimeout) _driftSeekPending = false;
+        if (!Owns(generation) || _due is not null || _readyPending || _driftSeekPending || _player.IsLoading
             || _readGroup() is not { } group) return;
         var action = SyncPlayScheduler.ResolveDrift(group.State with
         {
             IsPaused = _player.Pause,
             IsBuffering = _player.IsBuffering,
             LastDriftSeekUtc = _lastDriftSeekUtc,
+            DriftSeekLead = _driftSeekLead,
         }, group.Offset, _utcNow(), position);
         if (action.Kind == SyncPlayActionKind.DriftSeek) Apply(action, generation);
     }
@@ -237,6 +254,8 @@ public sealed class SyncPlayPlayerBinding : IDisposable
         _settled = false;
         _awaitingLoad = false;
         _lastDriftSeekUtc = default;
+        _driftSeekPending = false;
+        _driftSeekLead = TimeSpan.Zero;
     }
 
     public void Dispose()

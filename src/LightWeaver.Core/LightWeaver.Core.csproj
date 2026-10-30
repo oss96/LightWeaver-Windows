@@ -54,18 +54,19 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LightWeaver" />
     <InternalsVisibleTo Include="Login.Tests" />
+    <InternalsVisibleTo Include="PlayerSettings.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Sdk" Version="2025.10.21" />
-    <!-- Same pins as the WPF app: above the vulnerable 1.20.1 transitive (NU1903), as one compatible
-         Kiota 1.x set rather than the Jellyfin SDK's older transitive runtime -->
-    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.2" />
-    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="1.22.2" />
+    <PackageReference Include="Jellyfin.Sdk" Version="2026.10.12" />
+    <!-- Same Kiota 2.x set as the WPF app, referenced explicitly so Renovate tracks it independently
+         of Jellyfin.Sdk -->
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="2.1.2" />
+    <PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="2.1.2" />
     <PackageReference Include="Std.UriTemplate" Version="2.0.12" />
     <!-- DPAPI for CredentialStore; the WPF app gets it from the Windows Desktop framework -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />

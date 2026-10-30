@@ -26,6 +26,9 @@ public static class FullscreenStyle
     public const long Minimize = 0x20000000;
     public const long Visible = 0x10000000;
 
+    /// <summary>SWP_NOSIZE and SWP_NOMOVE: a SetWindowPos that keeps the size or the position.</summary>
+    public const uint NoSize = 0x0001, NoMove = 0x0002;
+
     /// <summary>WPF_RESTORETOMAXIMIZED: a minimized window restores maximized.</summary>
     public const uint RestoreToMaximized = 0x0002;
 
@@ -64,4 +67,17 @@ public static class FullscreenStyle
     /// <summary>The WINDOWPLACEMENT flags that make a window minimized in full screen restore the way
     /// it was on entering: maximized for a window with <paramref name="before"/>'s maximized bit.</summary>
     public static uint MinimizedPlacementFlags(long before) => (before & Maximize) != 0 ? RestoreToMaximized : 0;
+
+    /// <summary>The SetWindowPos flags of a move of the window's content made to fill the full-screen
+    /// window: its position and size always apply, whatever the move kept.</summary>
+    public static uint FillingFlags(uint flags) => flags & ~(NoMove | NoSize);
+}
+
+/// <summary>The client area of a maximized window as Windows lays it out on any monitor.</summary>
+public static class WindowFrame
+{
+    /// <summary>The client area <paramref name="computed"/> for a maximized window, started at the top
+    /// of its monitor's <paramref name="work"/> area: the frame taken off the top can be the main
+    /// monitor's, wider or narrower than the overhang on a monitor at another scale.</summary>
+    public static ScreenRect MaximizedClient(ScreenRect computed, ScreenRect work) => computed with { Top = work.Top };
 }

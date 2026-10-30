@@ -138,6 +138,32 @@ foreach (var sample in mustFail)
 if (explicitNew.IsMatch("var x = FastUi.Flyout(new MenuFlyout());") is false)
     failures.Add("self-check: wrapped flyout not recognised");
 
+Requires("Player/PlaybackController.cs", "await player.AddExternalSubtitleAsync(", "ViewModel.CompleteExternalSubtitle(");
+var playbackSource = File.ReadAllText(Path.Combine(app, "Player", "PlaybackController.cs"));
+var attachmentStart = playbackSource.IndexOf("private async Task AttachExternalSubtitlesAsync(", StringComparison.Ordinal);
+var attachmentEnd = playbackSource.IndexOf("private void OnTracksChanged(", attachmentStart, StringComparison.Ordinal);
+var attachment = playbackSource[attachmentStart..attachmentEnd];
+if (attachment.Contains("ApplyTracksAsync(", StringComparison.Ordinal) || !attachment.Contains("ApplyLateSubtitleChoice(", StringComparison.Ordinal))
+    failures.Add("a delayed subtitle reply must reconcile subtitles without reapplying initial audio choices");
+var lateChoiceStart = playbackSource.IndexOf("private void ApplyLateSubtitleChoice(", StringComparison.Ordinal);
+var lateChoiceEnd = playbackSource.IndexOf("private bool ApplyDownloadSubtitle(", lateChoiceStart, StringComparison.Ordinal);
+if (playbackSource[lateChoiceStart..lateChoiceEnd].Contains("Audio", StringComparison.Ordinal))
+    failures.Add("late subtitle reconciliation must preserve audio choices made while loading");
+Requires("Player/PlayerView.xaml.cs", "row.IsEnabled = false;", "PlayerSubtitleUnavailable", "vm.UnavailableSubtitles.CollectionChanged += OnRowsChanged;", "vm.UnavailableSubtitles.CollectionChanged -= OnRowsChanged;", "row.Focus(focusState)");
+
+// 10. In a SyncPlay group a click on the video waits out the double-click time and a second press
+//     cancels it, so a double-click for full screen never pauses and resumes the whole group.
+Requires("Player/PlayerView.xaml.cs", "if (vm.SyncPlay is not null)", "_groupClick.Start();", "if (_groupClick.IsRunning)");
+
+// 9. A XamlRoot's ContentIslandEnvironment is null while its window tears down, and pointer events
+//    still arrive then; it is read through a pattern, never dereferenced directly.
+foreach (var path in files.Where(p => p.EndsWith(".cs", StringComparison.Ordinal)))
+{
+    var text = File.ReadAllText(path);
+    foreach (Match m in Regex.Matches(text, @"\.ContentIslandEnvironment\s*\."))
+        failures.Add($"{Rel(path)}:{text.AsSpan(0, m.Index).Count('\n') + 1} ContentIslandEnvironment dereferenced without a null check");
+}
+
 foreach (var f in failures) Console.WriteLine("FAIL " + f);
 Console.WriteLine($"Fast UI check: {files.Count} files, {flyouts} flyouts, {failures.Count} failures.");
 return failures.Count == 0 ? 0 : 1;

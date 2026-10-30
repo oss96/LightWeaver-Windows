@@ -1,3 +1,4 @@
+using LightWeaver.Details;
 using LightWeaver.Diagnostics;
 using LightWeaver.Jellyfin;
 using LightWeaver.Localization;
@@ -81,7 +82,7 @@ internal sealed class SyncPlayCoordinator : IDisposable
     public void AttachPlayer(MpvPlayer player)
     {
         _binding = new SyncPlayPlayerBinding(player, new WinUiDispatcher(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()), Client,
-            () => IsGroupPlayback ? (new SyncPlayState(Client.JoinedAtUtc, Client.PlaylistItemId, LastApplied: Client.LastApplied), Client.Clock?.Offset ?? TimeSpan.Zero) : null);
+            () => IsGroupPlayback && Client.DriftState() is { } state ? (state, Client.Clock?.Offset ?? TimeSpan.Zero) : null);
         _binding.StopRequested += () => OnActionRequired(new(SyncPlayActionKind.Stop));
         player.EndReached += OnEndReached;
         Client.ReadPlayer = () => _binding?.ReadState() ?? SyncPlayPlayerState.Idle;
@@ -334,7 +335,21 @@ internal sealed class SyncPlayCoordinator : IDisposable
         }
     }
 
-    private async Task LoadGroupItemAsync(SyncPlayQueueItem entry, long ticks)
+    /// <summary>Plays the group's current item again after it failed, through the group's own load
+    /// path so it stays the group's playback; false outside a group.</summary>
+    internal bool RetryGroupItem(PlaybackChoice choice)
+    {
+        if (!Client.IsInGroup || CurrentEntry(_queue) is not { Item: not null, PlaylistItem: not null } entry) return false;
+        _playbackSequence = -1;
+        _awaitingLoad = false;
+        _deferredAction = null;
+        _requestedEntry = null;
+        _loadedEntry = null;
+        _ = LoadGroupItemAsync(entry, choice.Start.Ticks, choice with { Start = TimeSpan.Zero });
+        return true;
+    }
+
+    private async Task LoadGroupItemAsync(SyncPlayQueueItem entry, long ticks, PlaybackChoice? choice = null)
     {
         if (entry.Item is not { } itemId || entry.PlaylistItem is not { } playlistId || Client.ProfileKey is not { } key
             || _app.FindSessionByKey(key) is not { IsConnected: true } session) return;
@@ -350,7 +365,7 @@ internal sealed class SyncPlayCoordinator : IDisposable
             _awaitingLoad = true;
             _loadedEntry = playlistId;
             if (ticks > 0) _deferredAction ??= new(SyncPlayActionKind.Seek, TargetTicks: ticks);
-            _playbackSequence = _playback.PlayForGroup(item, session);
+            _playbackSequence = _playback.PlayForGroup(item, session, choice);
             RefreshQueueRows();
             AppLog.Info("syncplay", $"event=load outcome=group item={itemId:N}");
         }

@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
 #endif
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "LightWeaver.ico"));
         ExtendsContentIntoTitleBar = true;
+        MaximizedFrame.Attach(WindowHandle);
         SetTitleBar(BarZoom);
         var titleBar = AppWindow.TitleBar;
         titleBar.PreferredHeightOption = TitleBarHeightOption.Tall;

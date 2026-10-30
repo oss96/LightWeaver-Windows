@@ -258,6 +258,15 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
     /// <see cref="SyncPlayState"/> for <see cref="SyncPlayScheduler.ResolveDrift"/>.</summary>
     public SyncPlayCommandMessage? LastApplied => _group?.LastApplied;
 
+    /// <summary>The group as the drift correction measures against it, or null outside a group.
+    /// Built from ONE membership read, so the command, the state and the resume anchor always
+    /// belong together; reading them one property at a time can pair an old <c>Unpause</c> with
+    /// the anchor a newer command has just cleared.</summary>
+    public SyncPlayState? DriftState() => _group is { } group
+        ? new SyncPlayState(group.JoinedAtUtc, group.PlaylistItemId, LastApplied: group.LastApplied,
+            GroupState: group.State, DriftAnchor: group.DriftAnchor)
+        : null;
+
     /// <summary>The clock every instant in this protocol is expressed against, or null outside a
     /// group. Created on join, because it polls and pings and there is nothing to poll for
     /// otherwise.</summary>
@@ -882,7 +891,9 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
                 ServerNow(),
                 previous?.PlaylistItemId,
                 previous?.LastQueueUpdate,
-                previous?.LastApplied);
+                previous?.LastApplied,
+                previous?.UnpauseInterrupted ?? false,
+                previous?.DriftAnchor);
             _group = group;
             _membershipEpoch++;
             ResetBufferingLocked();
@@ -939,11 +950,20 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
             AppLog.Detail("syncplay", "event=state outcome=unreadable");
             return;
         }
+        var position = ReadLocalPlayer().PositionSeconds;
         lock (_lock)
         {
             if (_group is not { } group)
                 return;
-            _group = group with { State = state.State ?? group.State };
+            var interrupted = group.UnpauseInterrupted
+                || SyncPlayScheduler.InterruptsUnpause(state.State, group.LastApplied);
+            var anchor = SyncPlayScheduler.ResumeAnchor(interrupted, state.State, ServerNow(), position);
+            _group = group with
+            {
+                State = state.State ?? group.State,
+                UnpauseInterrupted = interrupted && anchor is null,
+                DriftAnchor = anchor ?? group.DriftAnchor,
+            };
         }
         AppLog.Detail("syncplay", $"event=state outcome=applied state={state.State ?? "none"}");
         Raise(StateChanged, state, SyncPlayGroupUpdateTypes.StateUpdate);
@@ -1081,7 +1101,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
         {
             if (_group is not { } current || current.GroupId != group.GroupId)
                 return;
-            _group = current with { LastApplied = command };
+            _group = current with { LastApplied = command, UnpauseInterrupted = false, DriftAnchor = null };
         }
         AppLog.Detail("syncplay", FormattableString.Invariant(
             $"event=command outcome=resolved kind={action.Kind} target_s={action.TargetSeconds:0.###} seek={action.NeedsSeek}"));
@@ -1439,5 +1459,7 @@ public sealed class SyncPlayClient : IDisposable, ISyncPlayReporter
         DateTime JoinedAtUtc,
         Guid? PlaylistItemId,
         DateTimeOffset? LastQueueUpdate,
-        SyncPlayCommandMessage? LastApplied);
+        SyncPlayCommandMessage? LastApplied,
+        bool UnpauseInterrupted = false,
+        SyncPlayDriftAnchor? DriftAnchor = null);
 }

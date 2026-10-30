@@ -692,6 +692,7 @@ public sealed partial class SettingsPage : Grid, INavPage
             (L.Text("AppShortcuts.ZoomOut.9d3f60e5"), "Ctrl+Minus"),
             (L.Text("AppShortcuts.ResetZoom.e27a5c81"), "Ctrl+0"),
             (L.Text("AppShortcuts.ZoomTheInterface.b85d3f17"), L.Text("AppShortcuts.CtrlWheel.6a0e9c42")),
+            (L.Text("AppShortcuts.VolumeOverThePlayer.3e1534cd"), L.Text("AppShortcuts.Wheel.a7db831a")),
         ];
         yield return new Group(L.Text("Settings.KeysNavigation"), [.. fixedKeys.Select(k => new Row(k.Action, null, null, KeyCap(k.Keys)))]);
         yield return new Group(L.Text("SettingsView.Zoom.3c7f2a91"),

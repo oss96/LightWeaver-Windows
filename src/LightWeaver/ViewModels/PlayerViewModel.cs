@@ -6,6 +6,13 @@ using LightWeaver.Settings;
 
 namespace LightWeaver.ViewModels;
 
+/// <summary>An external subtitle the player cannot offer: still loading, or failed or unplayable.</summary>
+public sealed record ExternalSubtitleOption(string Url, string? Title, string? Language, bool Failed = false)
+{
+    private string Name => Title ?? Language ?? L.Text("MpvPlayer.External.8bf7fc85");
+    public string Display => Failed ? L.Format("Player.SubtitleUnavailable", Name) : L.Format("Player.SubtitleNotReady", Name);
+}
+
 public sealed record SyncPlayInfo(string GroupName, IReadOnlyList<string> Participants, string? State);
 
 /// <summary>A selectable track row in the overlay popups. Id -1 = "Off" (subtitles).
@@ -165,6 +172,41 @@ public sealed class PlayerViewModel : ObservableObject
     public ObservableCollection<TrackOption> VideoTracks { get; } = [];
     public ObservableCollection<TrackOption> AudioTracks { get; } = [];
     public ObservableCollection<TrackOption> SubtitleTracks { get; } = [];
+    public ObservableCollection<ExternalSubtitleOption> UnavailableSubtitles { get; } = [];
+    private bool _externalSubtitlesLoading;
+    private bool _externalSubtitlesFailed;
+    public string ExternalSubtitleStatus => _externalSubtitlesLoading ? L.Text("Player.ExternalSubtitlesLoading")
+        : _externalSubtitlesFailed ? L.Text("Player.ExternalSubtitlesUnavailable") : "";
+
+    public void ResetExternalSubtitles(bool loading = false, bool failed = false)
+    {
+        UnavailableSubtitles.Clear();
+        _externalSubtitlesLoading = loading;
+        _externalSubtitlesFailed = failed;
+        OnPropertyChanged(nameof(ExternalSubtitleStatus));
+    }
+
+    /// <summary>Lists the item's external subtitles as unavailable and returns the ones to load;
+    /// image subtitles stay unavailable.</summary>
+    public IReadOnlyList<ExternalSubtitle> SetExternalSubtitles(IEnumerable<ExternalSubtitle> subtitles)
+    {
+        ResetExternalSubtitles();
+        var distinct = subtitles.DistinctBy(s => s.Url).ToList();
+        foreach (var subtitle in distinct)
+            UnavailableSubtitles.Add(new(subtitle.Url, subtitle.Title, subtitle.Language, Failed: !subtitle.IsText));
+        return distinct.Where(s => s.IsText).ToList();
+    }
+
+    public void CompleteExternalSubtitle(string url, bool success)
+    {
+        for (var i = 0; i < UnavailableSubtitles.Count; i++)
+        {
+            if (UnavailableSubtitles[i].Url != url) continue;
+            if (success) UnavailableSubtitles.RemoveAt(i);
+            else UnavailableSubtitles[i] = UnavailableSubtitles[i] with { Failed = true };
+            return;
+        }
+    }
 
     /// <summary>The item's alternate versions. Empty for local files and direct URLs: there is
     /// no server item behind them, so there is nothing to switch to.</summary>
@@ -393,6 +435,8 @@ public sealed class PlayerViewModel : ObservableObject
         if (_player is null || generation != _player.LoadGeneration)
             return;
         var tracks = TrackNames?.Invoke(_player.Tracks) ?? _player.Tracks;
+        foreach (var ready in tracks.Where(t => t.Type == "sub" && t.ExternalFilename is not null))
+            CompleteExternalSubtitle(ready.ExternalFilename!, true);
         VideoTracks.Clear();
         foreach (var t in tracks.Where(t => t.Type == "video"))
             VideoTracks.Add(new TrackOption(t.Id, t.Display, t.Selected) { DisplayProvider = () => t.Display });
@@ -1518,6 +1562,9 @@ public sealed class PlayerViewModel : ObservableObject
     /// <summary>mpv's real mute flag (M13) — independent of Volume, so unmuting
     /// restores the prior level. Follows the player via MuteChanged.</summary>
     public bool IsMuted => _isMuted;
+
+    /// <summary>The level as the volume readout shows it, "45%", in invariant digits.</summary>
+    public string VolumeReadout => ((int)Math.Round(_volume)).ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
 
     /// <summary>True from a load until mpv can display frames. The transport bar is hidden while
     /// it holds: before this the OSD rendered a normal-looking bar parked at 0:00, which is

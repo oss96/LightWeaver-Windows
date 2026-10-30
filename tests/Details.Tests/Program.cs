@@ -263,6 +263,14 @@ Check(FullscreenStyle.Exit(minimizedNow: true, restored) == FullscreenExit.Saved
     "minimized in full screen: the saved placement goes back, so restoring later is not monitor-sized");
 Check(FullscreenStyle.MinimizedPlacementFlags(maximized) == FullscreenStyle.RestoreToMaximized && FullscreenStyle.MinimizedPlacementFlags(restored) == 0,
     "and a window that was maximized restores maximized");
+const uint NoZOrder = 0x0004, NoActivate = 0x0010;
+Check(FullscreenStyle.FillingFlags(FullscreenStyle.NoMove | FullscreenStyle.NoSize | NoZOrder | NoActivate) == (NoZOrder | NoActivate),
+    "a move of the content in full screen always takes the window's whole client area, whatever it meant to keep");
+var secondWork = new ScreenRect(3840, 340, 6400, 1732);
+Check(WindowFrame.MaximizedClient(new ScreenRect(3840, 343, 6400, 1732), secondWork) == secondWork,
+    "maximized on a 100% monitor next to a 150% one, the client starts at the work area's top, not 3 px below it");
+Check(WindowFrame.MaximizedClient(new ScreenRect(0, -3, 3840, 2088), new ScreenRect(0, 0, 3840, 2088)).Top == 0,
+    "nor above it on a monitor at a higher scale than the main one");
 
 Check(FullscreenIntent.Toggle(growingIntoFullscreen: true, osFullscreen: false) == FullscreenToggle.CancelGrow,
     "the toggle during a grow into full screen ends the grow in the window, not in full screen again");

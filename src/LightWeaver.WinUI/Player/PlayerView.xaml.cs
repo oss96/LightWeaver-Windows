@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -23,10 +24,14 @@ public sealed partial class PlayerView : UserControl
 {
     private static readonly TimeSpan IdleAfter = TimeSpan.FromMilliseconds(2500);
     private static readonly double[] Steps = [-0.1, 0.1];
+    private static readonly TimeSpan VolumePillHold = TimeSpan.FromMilliseconds(1200);
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _volumePillHide;
     private PlaybackController? _controller;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _idle;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _stats;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _cursorWatch;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _groupClick;
+    private int _groupClickSequence;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _downloadedRange;
     private FlyoutBase? _openFlyout;
     private bool _updatingSeek;
@@ -56,6 +61,14 @@ public sealed partial class PlayerView : UserControl
         _cursorWatch = DispatcherQueue.CreateTimer();
         _cursorWatch.Interval = TimeSpan.FromMilliseconds(150);
         _cursorWatch.Tick += (_, _) => { if (!PointerOverVideo()) ShowCursor(true); };
+        _groupClick = DispatcherQueue.CreateTimer();
+        _groupClick.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime());
+        _groupClick.IsRepeating = false;
+        _groupClick.Tick += (_, _) =>
+        {
+            _groupClick.Stop();
+            ApplyPendingGroupClick();
+        };
         _downloadedRange = DispatcherQueue.CreateTimer();
         _downloadedRange.Interval = TimeSpan.FromSeconds(1);
         _downloadedRange.Tick += (_, _) => { if (_controller?.DownloadedSeconds is not null) UpdateBars(); };
@@ -70,6 +83,7 @@ public sealed partial class PlayerView : UserControl
         {
             ShowCursor(true);
             _downloadedRange.Stop();
+            _groupClick.Stop();
         };
     }
 
@@ -112,6 +126,7 @@ public sealed partial class PlayerView : UserControl
         _compact = compact;
         EndTimeEdit();
         TopArea.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        VolumePill.Margin = compact ? new Thickness(0, 10, 12, 0) : new Thickness(0, 72, 16, 0);
         if (compact)
         {
             _idle.Stop();
@@ -145,7 +160,27 @@ public sealed partial class PlayerView : UserControl
         controller.Stopped += (_, _) => { EndTimeEdit(); HideFailure(); ShowCursor(true); };
         controller.Failed += (_, failure) => ShowFailure(failure);
         controller.ViewModel.FullscreenRequested += () => FullscreenRequested?.Invoke(this, EventArgs.Empty);
+        controller.ViewModel.VolumeFeedback += () => DispatcherQueue.TryEnqueue(ShowVolumePill);
         Refresh();
+    }
+
+    /// <summary>Shows the level, with the mute state in its glyph, for 1.2 s after the user changes
+    /// either, without waking the controls.</summary>
+    private void ShowVolumePill()
+    {
+        if (Vm is not { } vm) return;
+        VolumePillIcon.Glyph = vm.IsMuted ? Theme.Icons.Mute : Theme.Icons.Volume;
+        VolumePillText.Text = vm.VolumeReadout;
+        VolumePill.Visibility = Visibility.Visible;
+        if (_volumePillHide is null)
+        {
+            _volumePillHide = DispatcherQueue.CreateTimer();
+            _volumePillHide.Interval = VolumePillHold;
+            _volumePillHide.IsRepeating = false;
+            _volumePillHide.Tick += (_, _) => VolumePill.Visibility = Visibility.Collapsed;
+        }
+        _volumePillHide.Stop();
+        _volumePillHide.Start();
     }
 
     /// <summary>Playback failed (design 14b): over the black video, Retry at the same position, the
@@ -542,7 +577,8 @@ public sealed partial class PlayerView : UserControl
 
     /// <summary>A click on the video closes an open flyout, or pauses and resumes at once. The second
     /// press of a double-click does nothing itself; the double-tap then puts back the state from before
-    /// the first, set explicitly so a SyncPlay group never sees two pauses.</summary>
+    /// the first. In a SyncPlay group the click waits out the double-click time instead, and a second
+    /// press cancels it, so a double-click for full screen sends the group nothing.</summary>
     private void OnVideoPressed(object sender, PointerRoutedEventArgs e)
     {
         if (!ReferenceEquals(e.OriginalSource, Root)) return;
@@ -559,12 +595,42 @@ public sealed partial class PlayerView : UserControl
             && Math.Abs(point.Position.X - last.Position.X) <= 6 && Math.Abs(point.Position.Y - last.Position.Y) <= 6)
         {
             _lastVideoPress = null;
+            if (_groupClick.IsRunning)
+            {
+                _groupClick.Stop();
+                _clickRequested = false;
+            }
             return;
         }
         _lastVideoPress = (point.Timestamp, point.Position);
-        _pausedBeforeClick = vm.IsPaused;
+        var pausedBefore = vm.IsPaused;
+        if (_groupClick.IsRunning)
+        {
+            _groupClick.Stop();
+            if (ApplyPendingGroupClick()) pausedBefore = !_pausedBeforeClick;
+        }
+        _pausedBeforeClick = pausedBefore;
         _clickRequested = true;
+        if (vm.SyncPlay is not null)
+        {
+            _groupClickSequence = _controller?.Sequence ?? -1;
+            _groupClick.Start();
+            return;
+        }
         vm.IsPaused = !_pausedBeforeClick;
+    }
+
+    /// <summary>Applies a group click that was waiting out the double-click time; false, and the
+    /// click dropped, when another playback has started since it was made.</summary>
+    private bool ApplyPendingGroupClick()
+    {
+        if (!_clickRequested || _controller?.Sequence != _groupClickSequence || Vm is not { } vm)
+        {
+            _clickRequested = false;
+            return false;
+        }
+        vm.IsPaused = !_pausedBeforeClick;
+        return true;
     }
 
     /// <summary>A double-click on the video toggles full screen, playing or paused as before it. The
@@ -760,8 +826,64 @@ public sealed partial class PlayerView : UserControl
         var vm = Vm!;
         var subtitles = Column(L.Text("Player.Subtitles"));
         subtitles.MinWidth = 220;
-        foreach (var option in vm.SubtitleTracks)
-            subtitles.Children.Add(Choice("PlayerSubtitleOption", "PlayerSubtitle", option.Display, option.IsSelected, () => vm.SelectSubtitle(option)));
+        var rows = new StackPanel();
+        var status = new TextBlock { FontSize = 12, Foreground = Ui.Resource<Brush>("LwText2Brush"), TextWrapping = TextWrapping.Wrap };
+        AutomationProperties.SetAutomationId(status, "PlayerExternalSubtitleStatus");
+        status.SetBinding(TextBlock.TextProperty, new Microsoft.UI.Xaml.Data.Binding { Source = vm, Path = new PropertyPath(nameof(vm.ExternalSubtitleStatus)) });
+        void UpdateRows()
+        {
+            var focused = rows.Children.OfType<RadioButton>().FirstOrDefault(r => r.FocusState != FocusState.Unfocused);
+            var focusedId = focused?.Tag;
+            var focusState = focused?.FocusState ?? FocusState.Programmatic;
+            rows.Children.Clear();
+            foreach (var option in vm.SubtitleTracks)
+            {
+                var row = Choice("PlayerSubtitleOption", "PlayerSubtitle", option.LiveDisplay, option.IsSelected, () => vm.SelectSubtitle(option));
+                row.Tag = option.Id;
+                rows.Children.Add(row);
+                if (Equals(focusedId, option.Id)) row.Focus(focusState);
+            }
+            foreach (var option in vm.UnavailableSubtitles)
+            {
+                var row = Choice("PlayerSubtitleUnavailable", "PlayerSubtitle", option.Display, false, () => { });
+                row.IsEnabled = false;
+                rows.Children.Add(row);
+            }
+        }
+        var refreshQueued = false;
+        var subscribed = false;
+        void OnRowsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (refreshQueued) return;
+            refreshQueued = true;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                refreshQueued = false;
+                if (subscribed) UpdateRows();
+            });
+        }
+        void Subscribe()
+        {
+            subscribed = true;
+            vm.SubtitleTracks.CollectionChanged += OnRowsChanged;
+            vm.UnavailableSubtitles.CollectionChanged += OnRowsChanged;
+        }
+        rows.Loaded += (_, _) =>
+        {
+            if (subscribed) return;
+            Subscribe();
+            UpdateRows();
+        };
+        rows.Unloaded += (_, _) =>
+        {
+            subscribed = false;
+            vm.SubtitleTracks.CollectionChanged -= OnRowsChanged;
+            vm.UnavailableSubtitles.CollectionChanged -= OnRowsChanged;
+        };
+        Subscribe();
+        UpdateRows();
+        subtitles.Children.Add(rows);
+        subtitles.Children.Add(status);
         var offset = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
         var value = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 52, TextAlignment = TextAlignment.Center };
         AutomationProperties.SetAutomationId(value, "PlayerSubtitleOffset");
@@ -960,7 +1082,7 @@ public sealed partial class PlayerView : UserControl
     /// title bar, caption buttons, resize borders, another window, or a closed player.</summary>
     private bool PointerOverVideo()
     {
-        if (XamlRoot is not { } root || PointerSite.OverContent(Microsoft.UI.Win32Interop.GetWindowFromWindowId(root.ContentIslandEnvironment.AppWindowId)) is not { } pixels) return false;
+        if (XamlRoot is not { ContentIslandEnvironment: { } island } root || PointerSite.OverContent(Microsoft.UI.Win32Interop.GetWindowFromWindowId(island.AppWindowId)) is not { } pixels) return false;
         var point = new Windows.Foundation.Point(pixels.X / root.RasterizationScale, pixels.Y / root.RasterizationScale);
         return VisualTreeHelper.FindElementsInHostCoordinates(point, Root).Any();
     }
