@@ -15,7 +15,7 @@ using Windows.System;
 
 namespace LightWeaver.WinUI.Search;
 
-public sealed partial class AdvancedSearchPage : UserControl
+public sealed partial class AdvancedSearchPage : UserControl, INavPage
 {
     /// <summary>Below this page width the filter panel is not docked (design 05, 5d).</summary>
     public const double DockWidth = 1100;
@@ -40,14 +40,19 @@ public sealed partial class AdvancedSearchPage : UserControl
         _shell = shell;
         _app = shell.Model;
         _model = new AdvancedSearchModel((q, start, limit, ct) => _app.Jellyfin.AdvancedSearchAsync(q, start, limit, ct), overrides: _overrides,
-            removals: ItemRemovals.ForProfile(shell.CacheProfileKey));
+            removals: ItemRemovals.ForProfile(shell.CacheProfileKey), cache: QueryCache.Searches, profileKey: shell.CacheProfileKey);
         if (seed is not null) _model.Filters = seed;
         InitializeComponent();
 
         Results.ItemsSource = _model.Items;
         _model.PropertyChanged += OnModelChanged;
         _model.Items.CollectionChanged += (_, _) => QueueResultsPass();
-        _model.Answered += (_, _) => ReloadCards();
+        _model.Answered += (_, _) =>
+        {
+            ReloadCards();
+            _shell.CachedDataShown(this);
+        };
+        _model.Failed += (_, _) => _shell.CachedDataShown(this);
         _model.Resynced += (_, _) => ReloadCards();
         GenreBox.Suggest = SuggestGenresAsync;
         PersonBox.Suggest = SuggestPeopleAsync;
@@ -73,6 +78,12 @@ public sealed partial class AdvancedSearchPage : UserControl
     public string Term { get => _model.Term; set => _model.Term = value; }
 
     public void RemoveItems(IReadOnlySet<Guid> ids) => _model.RemoveItems(ids);
+
+    public DateTime? CachedAtUtc => _model.ShownAtUtc;
+
+    public void LoadCached() { if (!_model.HasResults && !_model.HasFailed) _ = _model.RefreshNowAsync(); }
+
+    public void Reload() => _ = _model.ReloadAsync();
 
     public bool IsPanelOpen => _panelOpen;
 

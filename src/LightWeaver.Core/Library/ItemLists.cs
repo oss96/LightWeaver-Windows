@@ -30,6 +30,8 @@ public static class ItemLists
         => ReferenceEquals(a, b) || (a.Id == b.Id
             && a.Name == b.Name
             && a.Type == b.Type
+            && a.IsVirtual == b.IsVirtual
+            && a.PremiereDate == b.PremiereDate
             && a.SeriesName == b.SeriesName
             && a.IndexNumber == b.IndexNumber
             && a.ParentIndexNumber == b.ParentIndexNumber

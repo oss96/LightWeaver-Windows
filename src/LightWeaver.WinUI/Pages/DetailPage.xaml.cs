@@ -11,11 +11,13 @@ using LightWeaver.ViewModels;
 using LightWeaver.WinUI.Controls;
 using LightWeaver.WinUI.Services;
 using LightWeaver.WinUI.Shell;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 
@@ -82,14 +84,16 @@ public sealed partial class DetailPage : UserControl, INavPage
             Open = p => shell.OpenPerson(p.Id, p.Name),
             EmptyText = () => L.Text("Detail.NoCast"),
         };
-        Grid.SetColumn(_cast, 1);
-        Rows.Children.Add(_similar);
-        Rows.Children.Add(_cast);
+        SimilarPanel.Child = _similar;
+        CastPanel.Child = _cast;
+        LostFocus += (_, e) => { if (ReferenceEquals(e.OriginalSource, this)) IsTabStop = false; };
         _similar.HoldPlace();
         _cast.HoldPlace();
 
         _childSpacing = (ChildGrid.ColumnSpacing, ChildGrid.RowSpacing);
         GridHeading.Visibility = _layout == DetailLayout.Movie ? Visibility.Collapsed : Visibility.Visible;
+        ShuffleButton.Visibility = _layout is DetailLayout.Series or DetailLayout.Season ? Visibility.Visible : Visibility.Collapsed;
+        HoldFormatChips();
         UpNextLeadFlyout.Attach(UpNextButton, Session.ServerUrl, Session.UserId, SeriesId);
         Scroller.ViewChanged += (_, _) => PreviewMoved?.Invoke(this, EventArgs.Empty);
         Preview.SizeChanged += (_, _) => PreviewMoved?.Invoke(this, EventArgs.Empty);
@@ -123,8 +127,11 @@ public sealed partial class DetailPage : UserControl, INavPage
     public void SetPlayerAttached(bool attached)
     {
         Bar.Visibility = PreviewPlay.Visibility = attached || _target is null ? Visibility.Collapsed : Visibility.Visible;
-        PreviewInfo.Visibility = attached || _layout == DetailLayout.Movie || _target is null ? Visibility.Collapsed : Visibility.Visible;
+        PreviewInfo.Visibility = attached || _layout == DetailLayout.Movie || PreviewItem is null ? Visibility.Collapsed : Visibility.Visible;
     }
+
+    /// <summary>What the preview's lines describe: the title Play starts, or a virtual page's own item.</summary>
+    private MediaItem? PreviewItem => _target ?? (_item.IsVirtual ? _item : null);
 
     private CardScale _scale = CardScale.None;
 
@@ -181,18 +188,22 @@ public sealed partial class DetailPage : UserControl, INavPage
         var (item, series, target) = (_item, _series, _target);
         try
         {
+            var headerReadAt = _overrides.Mark();
             if (await Session.GetItemAsync(_item.Id) is { } fresh && generation == _generation) _item = fresh;
             if (generation != _generation) return;
             Scroller.Visibility = Visibility.Visible;
             RemovedMessage.Visibility = Visibility.Collapsed;
-            (_played, _favorite) = (_item.Played, _item.IsFavorite);
+            _overrides.Reconcile(headerReadAt, [_item]);
+            (_played, _favorite) = _overrides.Of(_item);
             _series = _layout is DetailLayout.Season or DetailLayout.Episode && SeriesId is { } seriesId ? await Session.GetItemAsync(seriesId) : null;
             if (generation != _generation) return;
             if (!refresh || !SameHeader(item, _item) || !SameHeader(series, _series)) Render();
             else ApplyTexts();
 
+            var readAt = _overrides.Mark();
             var children = await LoadChildrenAsync(generation);
             if (generation != _generation) return;
+            _overrides.Reconcile(readAt, children.Where(child => child.Id != _item.Id));
             ShowChildren(children);
             var sameTarget = refresh && target is not null && _target is not null && ItemLists.SameShown(target, _target);
             if (!sameTarget) RenderPreview();
@@ -227,15 +238,15 @@ public sealed partial class DetailPage : UserControl, INavPage
                 _target = DetailModel.NextEpisode(_removals.Filter(all.Result));
                 return _removals.Filter(seasons.Result);
             case DetailLayout.Season when SeriesId is { } series:
-                var episodes = await Session.GetEpisodesAsync(series, _item.Id);
+                var episodes = DetailModel.SeasonEpisodes(await Session.GetEpisodesAsync(series, _item.Id, includeVirtual: true), DateTimeOffset.Now);
                 if (generation != _generation) return [];
                 var surviving = _removals.Filter(episodes);
                 _target = DetailModel.NextEpisode(surviving);
                 return surviving;
             case DetailLayout.Episode when SeriesId is { } series && _item.SeasonId is { } season:
-                var siblings = await Session.GetEpisodesAsync(series, season);
+                var siblings = DetailModel.SeasonEpisodes(await Session.GetEpisodesAsync(series, season, includeVirtual: true), DateTimeOffset.Now);
                 if (generation != _generation) return [];
-                _target = _removals.Contains(_item.Id) ? null : _item;
+                _target = _removals.Contains(_item.Id) || !_item.IsPlayable ? null : _item;
                 return _removals.Filter(siblings);
             case DetailLayout.Movie:
                 _target = _item;
@@ -346,7 +357,8 @@ public sealed partial class DetailPage : UserControl, INavPage
         Overview.Text = _item.Overview ?? "";
         Overview.Visibility = Overview.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         Overview.MaxLines = _layout == DetailLayout.Movie ? 0 : 4;
-        TechBlock.Visibility = _layout == DetailLayout.Movie ? Visibility.Visible : Visibility.Collapsed;
+        TechBlock.Visibility = _layout is DetailLayout.Movie or DetailLayout.Episode && !_item.IsVirtual ? Visibility.Visible : Visibility.Collapsed;
+        DownloadButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;
         InfoPlay.Visibility = _layout == DetailLayout.Movie ? Visibility.Visible : Visibility.Collapsed;
         _ = LoadBackdropAsync();
         ApplyTexts();
@@ -357,12 +369,16 @@ public sealed partial class DetailPage : UserControl, INavPage
         var hasTarget = _target is not null;
         PreviewPlay.Visibility = Bar.Visibility = hasTarget ? Visibility.Visible : Visibility.Collapsed;
         InfoPlay.IsEnabled = hasTarget;
-        PreviewInfo.Visibility = _layout != DetailLayout.Movie && _target is not null ? Visibility.Visible : Visibility.Collapsed;
+        var shown = PreviewItem;
+        PreviewInfo.Visibility = _layout != DetailLayout.Movie && shown is not null ? Visibility.Visible : Visibility.Collapsed;
+        if (shown is not null)
+        {
+            PreviewTitle.Text = _layout == DetailLayout.Episode ? shown.SeriesName ?? "" : shown.Name;
+            var parts = new[] { DetailModel.EpisodeTag(shown), _layout == DetailLayout.Episode ? shown.Name : "", DetailModel.Runtime(shown.RuntimeTicks) };
+            PreviewSubtitle.Text = string.Join(" · ", parts.Where(p => p.Length > 0));
+        }
         if (_target is { } target)
         {
-            PreviewTitle.Text = _layout == DetailLayout.Episode ? target.SeriesName ?? "" : target.Name;
-            var parts = new[] { DetailModel.EpisodeTag(target), _layout == DetailLayout.Episode ? target.Name : "", DetailModel.Runtime(target.RuntimeTicks) };
-            PreviewSubtitle.Text = string.Join(" · ", parts.Where(p => p.Length > 0));
             _start = DetailModel.DefaultStart(target);
             var runtime = target.RuntimeTicks is > 0 ? TimeSpan.FromTicks(target.RuntimeTicks.Value) : TimeSpan.Zero;
             _settingStart = true;
@@ -378,14 +394,48 @@ public sealed partial class DetailPage : UserControl, INavPage
 
     private void RenderStreams()
     {
-        VideoLine.Text = _streams?.Video.FirstOrDefault()?.Display ?? "";
+        TechChips.Children.Clear();
+        foreach (var chip in DetailModel.TechnicalChips(_streams)) TechChips.Children.Add(Chip(chip));
         ApplyTexts();
+    }
+
+    /// <summary>Names the tracks Play uses on the Video, Audio and Subtitles drop-downs, which are
+    /// blank and disabled until the streams are known; Video only shows, as Play takes no video track.</summary>
+    private void MarkTracks()
+    {
+        var tracks = _streams is null ? null : DetailModel.Tracks(_streams, _audioIndex, _subtitleIndex);
+        Name(VideoTracks, VideoTracksText, tracks?.Video, t => L.Format("Detail.VideoIs", t));
+        Name(AudioTracks, AudioTracksText, tracks?.Audio, t => L.Format("Detail.AudioIs", t));
+        Name(SubtitleTracks, SubtitleTracksText, tracks?.Subtitles, t => L.Format("Detail.SubtitlesAre", t));
+        AudioTracks.IsEnabled = _streams is { Audio.Count: > 1 };
+        SubtitleTracks.IsEnabled = _streams is { Subtitles.Count: > 0 };
+
+        static void Name(Button button, TextBlock text, IReadOnlyList<TrackLine>? lines, Func<string, string> name)
+        {
+            text.Text = lines is null ? "" : lines.FirstOrDefault(l => l.IsChosen)?.Text ?? L.Text("Detail.NoTracks");
+            AutomationProperties.SetName(button, name(text.Text));
+            ToolTipService.SetToolTip(button, text.Text.Length > 0 ? text.Text : null);
+        }
+    }
+
+    /// <summary>An invisible badge holds the format badges' line from the start, so the streams that
+    /// fill it later never move what is below.</summary>
+    private void HoldFormatChips()
+    {
+        var probe = Chip("4K");
+        AutomationProperties.SetAccessibilityView(probe.Child, AccessibilityView.Raw);
+        TechProbe.Children.Add(probe);
     }
 
     /// <summary>The seasons or episodes. The same list again updates the cards in place.</summary>
     private void ShowChildren(IReadOnlyList<MediaItem> children)
     {
-        var current = _layout == DetailLayout.Series ? DetailModel.SeasonOf(children, _target) : _target;
+        var current = _layout switch
+        {
+            DetailLayout.Series => DetailModel.SeasonOf(children, _target),
+            DetailLayout.Episode => _item,
+            _ => _target,
+        };
         var shown = ChildGrid.Children.OfType<MediaCard>().ToList();
         if (shown.Count == ChildGrid.Children.Count && shown.Select(c => c.Item?.Id).SequenceEqual(children.Select(c => (Guid?)c.Id)))
         {
@@ -406,7 +456,7 @@ public sealed partial class DetailPage : UserControl, INavPage
                 Session = Session,
                 Overrides = _overrides,
                 Title = _layout == DetailLayout.Series ? null : e => e.IndexNumber is { } n ? L.Format("Detail.EpisodeNumbered", n, e.Name) : e.Name,
-                Subtitle = _layout == DetailLayout.Series ? null : e => HomeSections.TimeLeft(e) is { Length: > 0 } left ? left : DetailModel.Runtime(e.RuntimeTicks),
+                Subtitle = _layout == DetailLayout.Series ? null : EpisodeSubtitle,
                 Count = _layout == DetailLayout.Series ? s => s.UnplayedItemCount : null,
                 IsCurrent = current?.Id == child.Id,
                 FollowsCardScale = true,
@@ -417,6 +467,11 @@ public sealed partial class DetailPage : UserControl, INavPage
         }
         PlaceChildren();
     }
+
+    /// <summary>An episode card's second line: when it airs or that it is missing, else the time left or its runtime.</summary>
+    private static string EpisodeSubtitle(MediaItem episode)
+        => DetailModel.Availability(episode, DateTimeOffset.Now) is { Length: > 0 } availability ? availability
+            : HomeSections.TimeLeft(episode) is { Length: > 0 } left ? left : DetailModel.Runtime(episode.RuntimeTicks);
 
     private async Task LoadBackdropAsync()
     {
@@ -440,7 +495,8 @@ public sealed partial class DetailPage : UserControl, INavPage
     {
         RemovedMessage.Text = L.Text("MainWindow.ThisItemIsNoLongerOnTheServer.3c9e51a7");
         GridHeading.Text = _layout == DetailLayout.Series ? L.Text("Detail.Seasons") : L.Text("Detail.Episodes");
-        NextLabel.Text = _layout == DetailLayout.Episode ? L.Text("Detail.ThisEpisode") : L.Text("Detail.NextEpisode");
+        NextLabel.Text = _target is null && _item.IsVirtual ? DetailModel.Availability(_item, DateTimeOffset.Now)
+            : _layout == DetailLayout.Episode ? L.Text("Detail.ThisEpisode") : L.Text("Detail.NextEpisode");
         var play = _start > TimeSpan.Zero ? L.Text("Detail.Resume") : L.Text("Detail.Play");
         SetLabel(InfoPlayText, InfoPlaySpare, play, _start > TimeSpan.Zero ? L.Text("Detail.Play") : L.Text("Detail.Resume"));
         SetButtonName(BarPlay, play);
@@ -465,8 +521,7 @@ public sealed partial class DetailPage : UserControl, INavPage
 
         var audio = _streams?.Audio.FirstOrDefault(a => a.Index == _audioIndex)?.Display ?? L.Text("Detail.Default");
         var subtitle = _streams?.Subtitles.FirstOrDefault(s => s.Index == _subtitleIndex)?.Display ?? L.Text("Detail.Off");
-        AudioLine.Text = audio;
-        SubtitleLine2.Text = subtitle;
+        MarkTracks();
         AudioButton.IsEnabled = _streams is { Audio.Count: > 1 };
         SubtitleButton.IsEnabled = _streams is { Subtitles.Count: > 0 };
         SetButtonName(AudioButton, L.Format("Detail.AudioIs", audio));
@@ -484,6 +539,7 @@ public sealed partial class DetailPage : UserControl, INavPage
         ApplyAutoFullscreen();
 
         ApplyDownloadState();
+        SetButtonName(ShuffleButton, L.Text("Playlist.Shuffle"));
 
         _similar.ApplyTexts();
         _cast.ApplyTexts();
@@ -522,6 +578,9 @@ public sealed partial class DetailPage : UserControl, INavPage
         ApplyTexts();
     }
 
+    /// <summary>Shuffle on a show or a season: its unwatched episodes in random order.</summary>
+    private void OnShuffle(object sender, RoutedEventArgs e) => _ = ItemMenu.ShuffleAsync(_shell, Session, _item);
+
     /// <summary>Shows <paramref name="text"/> in a label as wide as the wider of it and
     /// <paramref name="other"/>, its invisible twin, so a toggle or a late answer never changes the
     /// button's width.</summary>
@@ -557,7 +616,7 @@ public sealed partial class DetailPage : UserControl, INavPage
         Rows.Measure(new Size(Math.Max(0, width - spacing.Horizontal), double.PositiveInfinity));
         var frame = DetailModel.Frame(width, height, Rows.DesiredSize.Height, _previewAspect, spacing);
         if (TopRow.Height.Value != frame.PreviewHeight) TopRow.Height = new GridLength(frame.PreviewHeight);
-        if (SideColumn.Width.Value != frame.SideWidth) SideColumn.Width = new GridLength(frame.SideWidth);
+        if (SideColumn.Width.Value != frame.SideWidth) SideColumn.Width = RowsSideColumn.Width = new GridLength(frame.SideWidth);
         ApplyChildGrid(frame.SideWidth - Side.BorderThickness.Left - Side.BorderThickness.Right - SidePanel.Padding.Left - SidePanel.Padding.Right);
     }
 
@@ -704,18 +763,26 @@ public sealed partial class DetailPage : UserControl, INavPage
         ApplyTexts();
     }
 
-    private void OnAudio(object sender, RoutedEventArgs e)
+    private void OnAudio(object sender, RoutedEventArgs e) => ShowAudioChoices(AudioButton, "DetailAudioOption", inPanel: false);
+
+    private void OnAudioTracks(object sender, RoutedEventArgs e) => ShowAudioChoices(AudioTracks, "DetailAudioTrackOption", inPanel: true);
+
+    private void ShowAudioChoices(Button anchor, string automationId, bool inPanel)
     {
         if (_streams is not { } streams) return;
-        ShowChoices(AudioButton, "DetailAudioOption", streams.Audio.Select(a => (a.Display, a.Index == _audioIndex, (Action)(() => _audioIndex = a.Index))));
+        ShowChoices(anchor, automationId, streams.Audio.Select(a => (a.Display, a.Index == _audioIndex, (Action)(() => _audioIndex = a.Index))), inPanel);
     }
 
-    private void OnSubtitles(object sender, RoutedEventArgs e)
+    private void OnSubtitles(object sender, RoutedEventArgs e) => ShowSubtitleChoices(SubtitleButton, "DetailSubtitleOption", inPanel: false);
+
+    private void OnSubtitleTracks(object sender, RoutedEventArgs e) => ShowSubtitleChoices(SubtitleTracks, "DetailSubtitleTrackOption", inPanel: true);
+
+    private void ShowSubtitleChoices(Button anchor, string automationId, bool inPanel)
     {
         if (_streams is not { } streams) return;
         var options = new List<(string, bool, Action)> { (L.Text("Detail.Off"), _subtitleIndex is null, () => _subtitleIndex = null) };
         options.AddRange(streams.Subtitles.Select(s => (s.Display, s.Index == _subtitleIndex, (Action)(() => _subtitleIndex = s.Index))));
-        ShowChoices(SubtitleButton, "DetailSubtitleOption", options);
+        ShowChoices(anchor, automationId, options, inPanel);
     }
 
     /// <summary>The player's quality tiers and its "Always transcode" switch; Play starts with what
@@ -782,10 +849,17 @@ public sealed partial class DetailPage : UserControl, INavPage
         _ = LoadVersionStreamsAsync(target, versionId, _generation);
     }
 
-    /// <summary>A radio menu under a bar button; a choice applies at once and Play uses it.</summary>
-    private void ShowChoices(Button anchor, string automationId, IEnumerable<(string Label, bool Selected, Action Choose)> options)
+    /// <summary>A radio menu above a bar button, or below a drop-down of the info panel
+    /// (<paramref name="inPanel"/>), clear of the button so it never opens under the pointer; a choice
+    /// applies at once and Play uses it.</summary>
+    private void ShowChoices(Button anchor, string automationId, IEnumerable<(string Label, bool Selected, Action Choose)> options, bool inPanel = false)
     {
-        var menu = FastUi.Flyout(new MenuFlyout { Placement = FlyoutPlacementMode.Top, MenuFlyoutPresenterStyle = Ui.Resource<Style>("LwPlayerMenuPresenter") });
+        var menu = FastUi.Flyout(new MenuFlyout());
+        if (!inPanel)
+        {
+            menu.Placement = FlyoutPlacementMode.Top;
+            menu.MenuFlyoutPresenterStyle = Ui.Resource<Style>("LwPlayerMenuPresenter");
+        }
         foreach (var (label, selected, choose) in options)
         {
             var item = new RadioMenuFlyoutItem { Text = label, IsChecked = selected, GroupName = automationId };
@@ -793,40 +867,60 @@ public sealed partial class DetailPage : UserControl, INavPage
             item.Click += (_, _) => { choose(); ApplyTexts(); };
             menu.Items.Add(item);
         }
-        menu.ShowAt(anchor);
+        if (!inPanel)
+        {
+            menu.ShowAt(anchor);
+            return;
+        }
+        if (anchor.FocusState != FocusState.Keyboard) menu.Closed += (_, _) => DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => ReleaseFocus(anchor));
+        var clear = new Rect(0, -MenuShadowAbove, anchor.ActualWidth, anchor.ActualHeight + MenuShadowAbove + MenuShadowBelow);
+        menu.ShowAt(anchor, new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft, ExclusionRect = clear });
     }
+
+    /// <summary>How far a menu's shadow reaches below a menu that opens above the button, and above one
+    /// that opens below it: the button's exclusion grows by these so the menu's popup window, shadow
+    /// included, stays off the pointer.</summary>
+    private const double MenuShadowAbove = 20, MenuShadowBelow = 4;
+
+    /// <summary>After a pointer pick the page takes focus, which draws no ring, so Space and the
+    /// player's other keys reach the window instead of the drop-down; a keyboard user keeps it. Only
+    /// while the menu's button still holds focus: focus the user moved meanwhile stays where it went.</summary>
+    private void ReleaseFocus(Button anchor)
+    {
+        if (XamlRoot is not { } root || !ReferenceEquals(FocusManager.GetFocusedElement(root), anchor)) return;
+        IsTabStop = true;
+        if (!Focus(FocusState.Programmatic)) IsTabStop = false;
+    }
+
+    private bool _changingWatched;
 
     private async void OnToggleWatched(object sender, RoutedEventArgs e)
     {
+        if (_changingWatched) return;
+        _changingWatched = true;
         var target = !_played;
-        _played = target;
-        ApplyTexts();
         try
         {
-            if (!await Session.SetPlayedAsync(_item.Id, target)) { _played = !target; ApplyTexts(); }
+            if (await ChangeHeaderAsync(UserDataField.Played, target, () => Session.SetPlayedAsync(_item.Id, target)))
+                await LoadAsync();
         }
-        catch (Exception ex)
-        {
-            _played = !target;
-            ApplyTexts();
-            _shell.ReportFailure(ex);
-        }
+        finally { _changingWatched = false; }
     }
 
     private async void OnToggleFavorite(object sender, RoutedEventArgs e)
     {
         var target = !_favorite;
-        _favorite = target;
+        await ChangeHeaderAsync(UserDataField.Favorite, target, () => Session.SetFavoriteAsync(_item.Id, target));
+    }
+
+    private async Task<bool> ChangeHeaderAsync(UserDataField field, bool value, Func<Task<bool>> send)
+    {
+        var change = _overrides.ChangeAsync(_item, field, value, send);
+        (_played, _favorite) = _overrides.Of(_item);
         ApplyTexts();
-        try
-        {
-            if (!await Session.SetFavoriteAsync(_item.Id, target)) { _favorite = !target; ApplyTexts(); }
-        }
-        catch (Exception ex)
-        {
-            _favorite = !target;
-            ApplyTexts();
-            _shell.ReportFailure(ex);
-        }
+        var accepted = await change;
+        (_played, _favorite) = _overrides.Of(_item);
+        ApplyTexts();
+        return accepted;
     }
 }

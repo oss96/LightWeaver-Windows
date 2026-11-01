@@ -44,7 +44,17 @@ var season = new MediaItem { Id = Guid.NewGuid(), Name = "Season 7", Type = Base
 Check(HomeSections.Title(season) == "The Office" && HomeSections.Subtitle(HomeSection.RecentlyAdded, season) == "Season 7", "a season card is titled with its show, the season under it");
 var orphan = new MediaItem { Id = Guid.NewGuid(), Name = "Season 7", Type = BaseItemDto_Type.Season, IndexNumber = 7 };
 Check(HomeSections.Title(orphan) == "Season 7" && HomeSections.Subtitle(HomeSection.RecentlyAdded, orphan) == "", "a season without its show's name keeps its own");
-Check(HomeSections.TimeLeft(Movie("Unstarted", runtime: 90 * Minute)) == "", "nothing left to show for an unstarted title");
+var showId = Guid.NewGuid();
+var newEpisode = new MediaItem
+{
+    Id = Guid.NewGuid(), Name = "Signals", Type = BaseItemDto_Type.Episode, SeriesName = "The Dispatch", SeriesId = showId,
+    PrimaryImageTag = "still", SeriesPrimaryImageTag = "poster",
+};
+Check(HomeSections.SeriesPoster(HomeSection.RecentlyAdded, newEpisode) == (showId, "poster"), "a Recently Added episode card shows its show's poster");
+Check(HomeSections.SeriesPoster(HomeSection.Favorites, newEpisode) is null, "other rows keep the episode's own artwork");
+Check(HomeSections.SeriesPoster(HomeSection.RecentlyAdded, dispatch) is null, "an episode whose show has no poster keeps its own artwork");
+Check(HomeSections.SeriesPoster(HomeSection.RecentlyAdded, season) is null, "a season keeps its own poster");
+Check(HomeSections.TimeLeft(Movie("Unstarted", runtime: 90 * Minute)) == "","nothing left to show for an unstarted title");
 Check(HomeSections.TimeLeft(Movie("Almost", position: 89 * Minute + 50 * TimeSpan.TicksPerSecond, runtime: 90 * Minute)) == "1 min left", "the last seconds still read 1 min left");
 
 // --- Next Up badge: episodes after the next one ----------------------------------------------
@@ -68,6 +78,12 @@ Check(HomeSections.Filters(HomeSection.NextUp).SequenceEqual([SectionFilter.All,
 Check(HomeSections.IsWide(HomeSection.ContinueWatching) && HomeSections.IsWide(HomeSection.NextUp) && !HomeSections.IsWide(HomeSection.RecentlyAdded), "wide cards for Continue Watching and Next Up");
 var newest = HomeSections.Apply([Movie("Old", addedDaysAgo: 30), Movie("New", addedDaysAgo: 0)], SectionFilter.All, SectionSort.DateAdded);
 Check(newest[0].Name == "New", "Date added puts the newest first");
+Check(HomeSections.CacheQuery(HomeSection.ContinueWatching, SectionFilter.Movies, SectionSort.Name) == HomeSections.CacheQuery(HomeSection.ContinueWatching, SectionFilter.All, SectionSort.ServerOrder)
+    && HomeSections.CacheQuery(HomeSection.NextUp, SectionFilter.All, SectionSort.ServerOrder) != HomeSections.CacheQuery(HomeSection.Favorites, SectionFilter.All, SectionSort.ServerOrder),
+    "a section that loads whole caches one answer for every filter and sort");
+Check(HomeSections.CacheQuery(HomeSection.RecentlyAdded, SectionFilter.Movies, SectionSort.Name) != HomeSections.CacheQuery(HomeSection.RecentlyAdded, SectionFilter.All, SectionSort.Name)
+    && HomeSections.CacheQuery(HomeSection.RecentlyAdded, SectionFilter.All, SectionSort.Name) != HomeSections.CacheQuery(HomeSection.RecentlyAdded, SectionFilter.All, SectionSort.ServerOrder),
+    "Recently Added caches each filter and sort, which the server answers");
 
 // --- Recently Added: the row and its See all list each video library's newest titles ------------
 MediaItem Library(string name, string? type) => new() { Id = Guid.NewGuid(), Name = name, Type = BaseItemDto_Type.CollectionFolder, CollectionType = type };
@@ -218,7 +234,6 @@ ledger.Remove([readded]);
 ledger.Restore([readded]);
 await HomeSnapshot.RemoveAsync("u@s", new HashSet<Guid> { readded }, recorded: true);
 Check(!ledger.Contains(readded), "a delayed cache cleanup keeps a title re-added after its removal");
-Directory.Delete(appData, true);
 
 // --- Card scale: rows grow with the window from 1440 DIP, up to 1.5x (Tokens.xaml values) -------
 CardScale ScaleAt(double width) => CardScale.For(width, 1440, 1.5, 0.5);
@@ -239,5 +254,160 @@ Check(ScaleAt(2150).MovesTo(ScaleAt(2200), 1.5) && !at2560.MovesTo(ScaleAt(3840)
 Check(!CardScale.NeedsSharperArt(666, 760) && CardScale.NeedsSharperArt(666, 770), "artwork loads again only past 15 % growth");
 Check(!CardScale.NeedsSharperArt(0, 2000), "a card without artwork loads nothing on resize");
 
+var paging = new CardRowPaging();
+Check(paging.Destination(0, 900, 3000, 296, 14, 1) == 620, "wide cards move by the two complete cards that fit");
+Check(paging.Destination(0, 916, 3000, 296, 14, 1) == 930, "exactly fitting cards include the final gap allowance");
+Check(paging.Destination(0, 100, 3000, 296, 14, 1) == 310, "a narrow viewport still advances one card");
+Check(paging.Destination(170, 900, 3000, 296, 14, 1) == 930, "manual partial scrolling resumes at a whole card");
+Check(paging.Destination(0, 900, 0, 296, 14, 1) == 0, "a short row stays still");
+Check(paging.Destination(0, 900, 3000, 296, 14, -1) == 0, "previous clamps at the reading-order start");
+Check(paging.Destination(2790, 900, 3000, 296, 14, 1) == 3000, "the final page clamps to the content edge");
+Check(paging.Destination(0, 1200, 4000, 444, 21, 1) == 930, "scaled cards use their scaled gaps");
+paging.Track(10, 620);
+Check(paging.Destination(100, 900, 3000, 296, 14, 1) == 1240, "rapid next clicks accumulate from the destination");
+Check(paging.Destination(100, 900, 3000, 296, 14, -1) == 0, "a rapid reversal returns to the previous page");
+paging.Track(11, 1240);
+paging.Complete(10);
+Check(paging.Target == 1240, "an interrupted operation cannot clear its replacement");
+paging.Complete(11);
+Check(paging.Target is null, "matching completion releases the requested offset");
+paging.Track(12, 1860);
+paging.Reset();
+paging.Complete(12);
+Check(paging.Target is null && paging.Destination(310, 900, 3000, 296, 14, 1) == 930,
+    "interaction or geometry changes discard the old destination and late completion");
+paging.Track(13, 620);
+paging.Track(-1, 930);
+Check(paging.Target is null, "a rejected scroll does not retain a destination");
+
+Check(paging.WheelDestination(500, 3000, -120, false, false) == 620,
+    "wheel down advances the row in reading order");
+Check(paging.WheelDestination(500, 3000, -120, false, true) == 620,
+    "wheel down advances the RTL row in reading order too");
+Check(paging.WheelDestination(500, 3000, 120, false, true) == 380,
+    "wheel up moves toward the RTL row start");
+Check(paging.WheelDestination(500, 3000, 120, true, false) == 620
+    && paging.WheelDestination(500, 3000, -120, true, false) == 380,
+    "horizontal wheel follows physical right and left in LTR");
+Check(paging.WheelDestination(500, 3000, 120, true, true) == 380
+    && paging.WheelDestination(500, 3000, -120, true, true) == 620,
+    "horizontal wheel reverses logical offset in RTL");
+Check(paging.WheelDestination(0, 0, -120, false, false) is null
+    && paging.WheelDestination(100, 3000, 0, false, false) is null,
+    "short rows and zero wheel input leave the event to the page");
+Check(paging.WheelDestination(0, 3000, 120, false, false) == 0
+    && paging.WheelDestination(3000, 3000, -120, false, false) == 3000,
+    "overflowing rows still own outward wheel input at both boundaries");
+paging.Track(20, 620);
+var wheelTarget = paging.WheelDestination(100, 3000, -30, false, false);
+Check(wheelTarget == 650, "wheel during a chevron animation adds to the requested page");
+paging.Track(21, wheelTarget!.Value);
+paging.Complete(20);
+Check(paging.Target == 650 && paging.WheelDestination(110, 3000, -30, false, false) == 680,
+    "small rapid wheel deltas accumulate despite an old chevron completion");
+Check(paging.WheelDestination(110, 3000, 30, false, false) == 620,
+    "wheel reversal subtracts from the pending destination");
+Check(paging.Destination(110, 900, 3000, 296, 14, 1) == 1240,
+    "chevron after wheel resumes whole-card paging from the pending destination");
+paging.Track(22, 1240);
+paging.Complete(21);
+Check(paging.Target == 1240, "old wheel completion cannot clear a newer chevron request");
+paging.Complete(22);
+Check(paging.WheelDestination(1240, 3000, -1, false, false) == 1241,
+    "completed requests use the actual offset and retain fine wheel deltas");
+paging.Track(23, 2990);
+Check(paging.WheelDestination(1500, 3000, int.MinValue, false, false) == 3000,
+    "large wheel input clamps without integer overflow");
+paging.Reset();
+Check(paging.WheelDestination(200, 3000, -120, false, false) == 320,
+    "layout or native input cancellation discards the pending wheel target");
+
+var homeProfile = "layout-test";
+var dragBounds = new[]
+{
+    (LightWeaver.Settings.HomeSectionId.Resume, 100d, 40d),
+    (LightWeaver.Settings.HomeSectionId.NextUp, 144d, 40d),
+    (LightWeaver.Settings.HomeSectionId.Latest, 188d, 40d),
+};
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, 105) == (LightWeaver.Settings.HomeSectionId.Resume, false), "pointer above the first midpoint inserts before the first row");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, 150) == (LightWeaver.Settings.HomeSectionId.NextUp, false), "pointer in a later row upper half inserts before that row");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, 180) == (LightWeaver.Settings.HomeSectionId.Latest, false), "pointer below a middle row midpoint inserts before the following row");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, 225) == (LightWeaver.Settings.HomeSectionId.Latest, true), "pointer below the last midpoint inserts after the last row");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, 142) == (LightWeaver.Settings.HomeSectionId.NextUp, false), "gaps between rows still select an insertion position");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget(dragBounds, double.NaN) is null, "invalid pointer position cannot commit a move");
+Check(LightWeaver.Settings.HomeSectionOrder.DropTarget([], 120) is null, "an unloaded editor cannot commit a move");
+var dragLayout = new List<LightWeaver.Settings.HomeSectionPref>
+{
+    new(LightWeaver.Settings.HomeSectionId.Resume, true),
+    new(LightWeaver.Settings.HomeSectionId.Libraries, false),
+    new(LightWeaver.Settings.HomeSectionId.NextUp, false),
+    new(LightWeaver.Settings.HomeSectionId.Latest, true),
+    new(LightWeaver.Settings.HomeSectionId.Favorites, true),
+};
+var draggedDown = LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, LightWeaver.Settings.HomeSectionId.Resume, LightWeaver.Settings.HomeSectionId.Latest, true);
+Check(draggedDown.Select(p => p.Id).SequenceEqual([LightWeaver.Settings.HomeSectionId.NextUp, LightWeaver.Settings.HomeSectionId.Libraries, LightWeaver.Settings.HomeSectionId.Latest, LightWeaver.Settings.HomeSectionId.Resume, LightWeaver.Settings.HomeSectionId.Favorites]), "dropping after a later section moves down without shifting the legacy slot");
+var draggedUp = LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, LightWeaver.Settings.HomeSectionId.Favorites, LightWeaver.Settings.HomeSectionId.Resume, false);
+Check(draggedUp[0].Id == LightWeaver.Settings.HomeSectionId.Favorites && draggedUp[1] == dragLayout[1], "dropping before the first section moves up and preserves the legacy preference");
+Check(LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, LightWeaver.Settings.HomeSectionId.Resume, LightWeaver.Settings.HomeSectionId.Resume, true).SequenceEqual(dragLayout), "dropping a section onto itself changes nothing");
+Check(LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, LightWeaver.Settings.HomeSectionId.Resume, LightWeaver.Settings.HomeSectionId.Libraries, true).SequenceEqual(dragLayout), "a legacy or missing target cannot reorder sections");
+Check(LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, LightWeaver.Settings.HomeSectionId.Libraries, LightWeaver.Settings.HomeSectionId.Resume, false).SequenceEqual(dragLayout), "the legacy section cannot become a drag source");
+var editableIds = dragLayout.Where(p => p.Id != LightWeaver.Settings.HomeSectionId.Libraries).Select(p => p.Id).ToArray();
+foreach (var source in editableIds)
+    foreach (var target in editableIds)
+        foreach (var after in new[] { false, true })
+        {
+            var reordered = LightWeaver.Settings.HomeSectionOrder.Move(dragLayout, source, target, after);
+            Check(reordered.Count == dragLayout.Count && reordered.Select(p => p.Id).Distinct().Count() == reordered.Count
+                && reordered.All(p => dragLayout.Single(original => original.Id == p.Id).Enabled == p.Enabled)
+                && reordered[1] == dragLayout[1], $"drag {source} {(after ? "after" : "before")} {target} preserves all preferences");
+        }
+Check(!HomeSections.IsRowVisible(true, false, false, false), "cold Home waits before showing placeholders");
+Check(HomeSections.IsRowVisible(true, false, false, true), "cold Home shows enabled placeholders after the delay");
+Check(!HomeSections.IsRowVisible(false, false, false, true), "disabling a section during cold loading hides its placeholders");
+Check(HomeSections.IsRowVisible(true, false, false, true), "re-enabling during cold loading restores placeholders before items arrive");
+Check(HomeSections.IsRowVisible(true, true, true, true), "loaded rows with items replace cold placeholders");
+Check(!HomeSections.IsRowVisible(true, false, true, true), "a loaded empty row hides even after the placeholder delay");
+Check(!HomeSections.IsRowVisible(false, true, true, false), "disabled cached rows stay hidden");
+var otherProfile = "other-layout-test";
+var layout = LightWeaver.Settings.HomeLayoutStore.Load(homeProfile);
+var reversed = layout.AsEnumerable().Reverse().Select(p => p with { Enabled = false }).ToList();
+LightWeaver.Settings.HomeLayoutStore.Save(otherProfile, layout);
+LightWeaver.Settings.HomeLayoutStore.Save(homeProfile, reversed);
+var savedLayout = LightWeaver.Settings.HomeLayoutStore.Load(homeProfile);
+Check(savedLayout.SequenceEqual(reversed), "all-hidden Home layout preserves order, including the legacy Libraries preference");
+var favoriteIndex = savedLayout.FindIndex(p => p.Id == LightWeaver.Settings.HomeSectionId.Favorites);
+savedLayout[favoriteIndex] = savedLayout[favoriteIndex] with { Enabled = true };
+LightWeaver.Settings.HomeLayoutStore.Save(homeProfile, savedLayout);
+Check(LightWeaver.Settings.HomeLayoutStore.Load(homeProfile).SequenceEqual(savedLayout), "a section can be enabled again without resetting other toggles or row order");
+Check(LightWeaver.Settings.HomeLayoutStore.Load(otherProfile).SequenceEqual(layout), "changing Home switches preserves another profile's choices");
+// --- Home layout: the Downloads row is off until turned on, and each app saves its own rows ----
+var layoutKey = LightWeaver.Settings.HomeLayoutStore.ProfileKey(Guid.NewGuid(), "https://tower");
+var fresh = LightWeaver.Settings.HomeLayoutStore.Load(layoutKey);
+Check(fresh.Select(p => p.Id).SequenceEqual(Enum.GetValues<LightWeaver.Settings.HomeSectionId>()), "a fresh profile gets every row in default order");
+Check(fresh.All(p => p.Enabled == (p.Id != LightWeaver.Settings.HomeSectionId.Downloads)), "every row is on but Downloads");
+Check(LightWeaver.Settings.HomeLayoutStore.Defaults().SequenceEqual(fresh), "Reset gives the fresh layout");
+LightWeaver.Settings.HomeLayoutStore.Save(layoutKey, [new(LightWeaver.Settings.HomeSectionId.Favorites, false), new(LightWeaver.Settings.HomeSectionId.Resume, true)]);
+var stale = LightWeaver.Settings.HomeLayoutStore.Load(layoutKey);
+Check(stale.Take(2).SequenceEqual([new(LightWeaver.Settings.HomeSectionId.Favorites, false), new(LightWeaver.Settings.HomeSectionId.Resume, true)])
+    && stale.Single(p => p.Id == LightWeaver.Settings.HomeSectionId.Downloads) is { Enabled: false }, "a layout saved before Downloads existed gets it appended, off");
+var withDownloads = stale.Select(p => p.Id == LightWeaver.Settings.HomeSectionId.Downloads ? p with { Enabled = true } : p).ToList();
+LightWeaver.Settings.HomeLayoutStore.Save(layoutKey, withDownloads);
+LightWeaver.Settings.HomeLayoutStore.Save(layoutKey, [.. withDownloads.Where(p => p.Id != LightWeaver.Settings.HomeSectionId.Downloads).Reverse()]);
+Check(LightWeaver.Settings.HomeLayoutStore.Load(layoutKey).Single(p => p.Id == LightWeaver.Settings.HomeSectionId.Downloads) is { Enabled: true },
+    "saving the rows one app shows keeps the row only the other app shows");
+
+// --- Downloads row after an offline start: no session, so the server comes from the profile key ---
+Check(LightWeaver.Settings.HomeLayoutStore.ServerOf(layoutKey) == "https://tower", "a profile key gives back its server");
+Check(LightWeaver.Settings.HomeLayoutStore.ServerOf("") is null && LightWeaver.Settings.HomeLayoutStore.ServerOf("not-a-profile@https://tower") is null
+    && LightWeaver.Settings.HomeLayoutStore.ServerOf(LightWeaver.Settings.HomeLayoutStore.ProfileKey(Guid.NewGuid(), null)) is null, "anything else gives no server");
+var offlineDownload = new LightWeaver.Downloads.DownloadItem
+{
+    ItemId = Guid.NewGuid(), ServerUrl = "https://tower/", Title = "Paper Moons", FilePath = "x.mkv", Status = LightWeaver.Downloads.DownloadStatus.Completed,
+};
+Check(LightWeaver.Downloads.DownloadsModel.HomeItems([offlineDownload], LightWeaver.Settings.HomeLayoutStore.ServerOf(layoutKey)).Single().Id == offlineDownload.ItemId,
+    "an offline start lists the profile's downloads without a session");
+
+
+Directory.Delete(appData, true);
 Console.WriteLine($"{checks} checks passed.");
 return 0;

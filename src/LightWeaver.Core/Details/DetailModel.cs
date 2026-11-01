@@ -3,6 +3,7 @@ using Jellyfin.Sdk.Generated.Models;
 using LightWeaver.Jellyfin;
 using LightWeaver.Localization;
 using LightWeaver.Player;
+using LightWeaver.Playlists;
 using LightWeaver.Search;
 
 namespace LightWeaver.Details;
@@ -19,8 +20,15 @@ public sealed record PlaybackChoice(string? VersionId, int? AudioIndex, int? Sub
     public PlaybackChoice AtOriginalQuality() => this with { MaxBitrateMbps = 0, ForceTranscode = false };
 }
 
-/// <summary>The detail page's rules, free of UI: layout, the next episode, chips and the default
-/// stream picks.</summary>
+/// <summary>One line of the info panel's tracks list: a track, or the subtitles' Off line without an
+/// index, and whether Play uses it.</summary>
+public sealed record TrackLine(int? Index, string Text, bool IsChosen);
+
+/// <summary>The info panel's tracks list (<see cref="DetailModel.Tracks"/>), one list per track type.</summary>
+public sealed record TrackList(IReadOnlyList<TrackLine> Video, IReadOnlyList<TrackLine> Audio, IReadOnlyList<TrackLine> Subtitles);
+
+/// <summary>The detail page's rules, free of UI: layout, the next episode, chips, the default
+/// stream picks and Shuffle's queue.</summary>
 public static class DetailModel
 {
     public static DetailLayout LayoutOf(MediaItem item) => item.Type switch
@@ -32,9 +40,10 @@ public static class DetailModel
     };
 
     /// <summary>The episode Play starts ("Next episode to play in this show"): the first unwatched
-    /// one after the last watched; with nothing watched, a started one, else the first.</summary>
-    public static MediaItem? NextEpisode(IReadOnlyList<MediaItem> episodesInOrder)
+    /// playable one after the last watched; with nothing watched, a started one, else the first.</summary>
+    public static MediaItem? NextEpisode(IReadOnlyList<MediaItem> episodes)
     {
+        var episodesInOrder = episodes.Where(e => e.IsPlayable).ToList();
         if (episodesInOrder.Count == 0) return null;
         var lastPlayed = -1;
         for (var i = 0; i < episodesInOrder.Count; i++)
@@ -45,12 +54,24 @@ public static class DetailModel
         return episodesInOrder.FirstOrDefault(e => !e.Played) ?? episodesInOrder[0];
     }
 
+    /// <summary>The episodes a season shows: those with media and the upcoming ones, not the missing.</summary>
+    public static IReadOnlyList<MediaItem> SeasonEpisodes(IEnumerable<MediaItem> episodes, DateTimeOffset now)
+        => episodes.Where(e => !e.IsVirtual || e.IsUpcoming(now)).ToList();
+
     /// <summary>The season holding <paramref name="episode"/>, else the first season with an
     /// unwatched episode, else the first.</summary>
     public static MediaItem? SeasonOf(IReadOnlyList<MediaItem> seasons, MediaItem? episode)
         => seasons.FirstOrDefault(s => episode?.SeasonId is { } id && s.Id == id)
             ?? seasons.FirstOrDefault(s => s.UnplayedItemCount is > 0)
             ?? seasons.FirstOrDefault();
+
+    /// <summary>What a virtual item says where a title offers Play: its air date while upcoming,
+    /// else that it is missing; empty for an item with media.</summary>
+    public static string Availability(MediaItem item, DateTimeOffset now)
+        => !item.IsVirtual ? ""
+            : !item.IsUpcoming(now) ? L.Text("Detail.Missing")
+            : item.PlaybackRelease is { Length: > 0 } airs ? L.Format("Detail.UpcomingOn", airs)
+            : L.Text("Detail.Upcoming");
 
     /// <summary>The info chips: year, age rating, community rating, runtime.</summary>
     public static IReadOnlyList<string> Chips(MediaItem item)
@@ -72,9 +93,35 @@ public static class DetailModel
         return minutes >= 60 ? L.Format("Detail.RuntimeHours", minutes / 60, minutes % 60) : L.Format("Detail.RuntimeMinutes", minutes);
     }
 
-    /// <summary>The technical chips of the default source: resolution, aspect, codec, range.</summary>
+    /// <summary>The format badges of the source Play uses, as the WPF app showed them: the resolution
+    /// class (4K, 1080p, 720p, SD), the dynamic range unless SDR, and the default audio track's format.</summary>
     public static IReadOnlyList<string> TechnicalChips(MediaSourceStreams? streams)
-        => streams is null ? [] : [.. streams.Summary.Where(f => f.Id != "Audio").Select(f => f.Value)];
+    {
+        if (streams is null) return [];
+        string? Field(string id) => streams.Summary.FirstOrDefault(f => f.Id == id)?.Value;
+        var chips = new List<string>();
+        if (ResolutionClass(Field("Resolution")) is { } resolution) chips.Add(resolution);
+        if (Field("Range") is { Length: > 0 } range && !range.Equals("SDR", StringComparison.OrdinalIgnoreCase)) chips.Add(range);
+        if (Field("Audio") is { Length: > 0 } audio) chips.Add(audio);
+        return chips;
+    }
+
+    /// <summary>"3840x2160" as 4K, 1080p, 720p or SD by its width; null when malformed.</summary>
+    private static string? ResolutionClass(string? resolution)
+    {
+        var x = resolution?.IndexOf('x') ?? -1;
+        if (x <= 0 || !int.TryParse(resolution.AsSpan(0, x), NumberStyles.None, CultureInfo.InvariantCulture, out var width)) return null;
+        return width >= 3400 ? "4K" : width >= 1900 ? "1080p" : width >= 1200 ? "720p" : L.Text("ItemDetailView.Sd.c03901ee");
+    }
+
+    /// <summary>Shuffle on a show or a season: its unwatched episodes in random order, or all of
+    /// them once every one is watched.</summary>
+    public static IReadOnlyList<MediaItem> ShuffleQueue(IEnumerable<MediaItem> episodes, Random random)
+    {
+        var playable = episodes.Where(e => e.IsPlayable).ToList();
+        var unwatched = playable.Where(e => !e.Played).ToList();
+        return PlaylistModel.Shuffled(unwatched.Count > 0 ? unwatched : playable, random);
+    }
 
     /// <summary>"S1 · E3"; empty when the numbers are unknown.</summary>
     public static string EpisodeTag(MediaItem episode)
@@ -89,6 +136,20 @@ public static class DetailModel
     /// else the source's default, else none.</summary>
     public static int? DefaultSubtitle(IReadOnlyList<MediaStreamChoice> subtitles, string? preferredLanguage)
         => (Preferred(subtitles, preferredLanguage) ?? subtitles.FirstOrDefault(s => s.IsDefault))?.Index;
+
+    /// <summary>The info panel's tracks list: every video, audio and subtitle track of the source Play
+    /// uses, in the source's order, marking the ones Play uses: the default video track (else the
+    /// first) and the audio and subtitle picks. The subtitles start with Off, as the bar's menu does,
+    /// marked when subtitles are off.</summary>
+    public static TrackList Tracks(MediaSourceStreams streams, int? audioIndex, int? subtitleIndex)
+    {
+        var video = (streams.Video.FirstOrDefault(v => v.IsDefault) ?? streams.Video.FirstOrDefault())?.Index;
+        var off = new TrackLine(null, L.Text("Detail.Off"), subtitleIndex is null);
+        return new TrackList(TrackLines(streams.Video, video), TrackLines(streams.Audio, audioIndex), [off, .. TrackLines(streams.Subtitles, subtitleIndex)]);
+    }
+
+    private static IReadOnlyList<TrackLine> TrackLines(IReadOnlyList<MediaStreamChoice> streams, int? chosen)
+        => streams.Select(s => new TrackLine(s.Index, s.Display, s.Index == chosen)).ToList();
 
     /// <summary>Whether the bar shows the version drop-down: by the loaded versions once they are
     /// known (<paramref name="loadedVersions"/>), before that by the count the title's list entry

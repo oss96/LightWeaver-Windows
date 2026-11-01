@@ -47,6 +47,16 @@ Check(DownloadsModel.Sections([olderDone]).Single().Section == DownloadSection.D
 Check(DownloadsModel.BadgeCount([running, paused, queued1, queued2, failed, olderDone]) == 3, "the badge counts running and queued items");
 Check(DownloadsModel.BadgeCount([olderDone]) == 0, "no badge when the queue is empty");
 
+// --- Home's Downloads row -------------------------------------------------------------------------
+var captured = new MediaItem { Id = Guid.NewGuid(), Name = "Signals", Type = BaseItemDto_Type.Episode, SeriesName = "The Dispatch" };
+var capturedDone = Item("The Dispatch", DownloadStatus.Completed, 70) with { ItemId = captured.Id, PlaybackMetadata = captured };
+var otherServer = Item("Elsewhere", DownloadStatus.Completed, 80) with { ServerUrl = "https://attic" };
+var home = DownloadsModel.HomeItems([olderDone, running, capturedDone, failed, otherServer, newerDone], "https://TOWER/");
+Check(home.Select(i => i.Id).SequenceEqual([capturedDone.ItemId, newerDone.ItemId, olderDone.ItemId]), "Home lists this server's downloaded titles only, newest first");
+Check(ReferenceEquals(home[0], captured), "a download's captured metadata is its Home card");
+Check(home[1].Name == "Paper Moons", "a download without captured metadata shows its title");
+Check(DownloadsModel.HomeItems([newerDone], null).Count == 0, "no server, no Downloads row");
+
 // --- Row lines -----------------------------------------------------------------------------------
 var line = DownloadsModel.ProgressLine(running, 12.4 * MB, offline: false);
 Check(line == "1.2 of 3.4 GB · 12.4 MB/s · 4 min left", "running line: " + line);

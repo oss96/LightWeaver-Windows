@@ -1,5 +1,6 @@
 using LightWeaver.Imaging;
 using LightWeaver.Jellyfin;
+using LightWeaver.Library;
 using LightWeaver.Localization;
 using LightWeaver.Player;
 using LightWeaver.ViewModels;
@@ -237,7 +238,12 @@ public sealed partial class MainWindow
         try
         {
             var removed = (message.ItemsRemoved ?? []).Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty).Where(id => id != Guid.Empty).ToHashSet();
-            if (removed.Count > 0) await LightWeaver.Home.HomeSnapshot.RemoveAsync(profileKey, removed, recorded: true);
+            if (removed.Count > 0)
+            {
+                await LightWeaver.Home.HomeSnapshot.RemoveAsync(profileKey, removed, recorded: true);
+                await QueryCache.Sections.RemoveAsync(profileKey, removed, recorded: true);
+                await QueryCache.Searches.RemoveAsync(profileKey, removed, recorded: true);
+            }
             await Task.Run(async () =>
             {
                 if (blanket) await BrowseFolderCache.InvalidateProfileAsync(profileKey).ConfigureAwait(false);

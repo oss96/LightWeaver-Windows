@@ -356,8 +356,9 @@ public sealed partial class MainWindow
         if (queue.Count == 0) return;
         var target = queue[Math.Clamp(start, 0, queue.Count - 1)];
         if (ItemUnavailable(target)) return;
-        queue = ItemRemovals.ForProfile(Model.ActiveSessionKey).Filter(queue);
-        start = queue.ToList().FindIndex(item => item.Id == target.Id);
+        var removals = ItemRemovals.ForProfile(Model.ActiveSessionKey);
+        (queue, start) = PlayableItems.Select(queue, start, item => !removals.Contains(item.Id));
+        if (queue.Count == 0) return;
         _previewPage = null;
         var playback = Playback();
         _surface!.Hold(from?.Picture, Stretch.Uniform);
@@ -522,7 +523,7 @@ public sealed partial class MainWindow
     {
         if (_playerLayer is null || _playerView is null) return;
         CancelTransition();
-        _playerMode = PlayerMode.Full;
+        SetPlayerMode(PlayerMode.Full);
         _playerLayer.Visibility = Visibility.Visible;
         _playerLayer.HorizontalAlignment = HorizontalAlignment.Stretch;
         _playerLayer.VerticalAlignment = VerticalAlignment.Stretch;
@@ -544,7 +545,7 @@ public sealed partial class MainWindow
         if (_playerLayer is null || _playerView is null) return;
         CancelTransition();
         var bounds = PreviewBounds(page);
-        _playerMode = PlayerMode.Preview;
+        SetPlayerMode(PlayerMode.Preview);
         _playerLayer.Visibility = Visibility.Visible;
         _playerLayer.HorizontalAlignment = HorizontalAlignment.Left;
         _playerLayer.VerticalAlignment = VerticalAlignment.Top;
@@ -603,7 +604,7 @@ public sealed partial class MainWindow
     /// hidden; the player has the keyboard from the first frame.</summary>
     private void GrowFrom(string name, Windows.Foundation.Rect from, Action? then)
     {
-        _playerMode = PlayerMode.Full;
+        SetPlayerMode(PlayerMode.Full);
         _playerView?.SetCompact(false);
         _playerView?.SetChromeHidden(true);
         _playerView?.Focus(FocusState.Programmatic);
@@ -704,6 +705,14 @@ public sealed partial class MainWindow
         transform.TranslateX = transform.TranslateY = 0;
     }
 
+    /// <summary>The player's place changed; the update's progress toast stays off the full player.</summary>
+    private void SetPlayerMode(PlayerMode mode)
+    {
+        if (_playerMode == mode) return;
+        _playerMode = mode;
+        AnnounceUpdate();
+    }
+
     private void HidePlayer()
     {
         LeaveMiniPlayer();
@@ -713,7 +722,7 @@ public sealed partial class MainWindow
         _surface?.Reset();
         SetOsFullscreen(false);
         DetachPreviewPage();
-        _playerMode = PlayerMode.Hidden;
+        SetPlayerMode(PlayerMode.Hidden);
     }
 
     /// <summary>The detail page the player belongs to gets its own preview and bar back.</summary>
@@ -729,6 +738,25 @@ public sealed partial class MainWindow
 
     /// <summary>Esc while the player is full goes to the player first.</summary>
     private bool HandlePlayerEscape() => _playerMode == PlayerMode.Full && (LeaveMiniPlayer() || _playerView?.HandleEscape() == true);
+
+    /// <summary>The mouse's back button or Alt+Left: the full player is left as its Back button
+    /// leaves it, onto the detail page it came from; elsewhere the page history goes back.</summary>
+    private void GoBack()
+    {
+        switch (HistoryGestures.Back(_playerMode == PlayerMode.Full, _miniPlayer, _transition is not null))
+        {
+            case HistoryAction.Navigate: _nav.Back(); break;
+            case HistoryAction.LeaveMiniPlayer: LeaveMiniPlayer(); break;
+            case HistoryAction.LeavePlayer: LeavePlayer(); break;
+        }
+    }
+
+    /// <summary>The mouse's forward button or Alt+Right: the page history goes forward, unless the
+    /// full player is up.</summary>
+    private void GoForward()
+    {
+        if (HistoryGestures.Forward(_playerMode == PlayerMode.Full) == HistoryAction.Navigate) _nav.Forward();
+    }
 
     /// <summary>A player key pressed while the focus is elsewhere on the page (the detail page
     /// around the preview): handled by the player when it is on screen.</summary>

@@ -12,15 +12,36 @@ public enum UpdateNoticePlace
     Elsewhere,
     Login,
     UpdatesPane,
+    FullPlayer,
 }
 
 /// <summary>When to tell about an update outside Settings, as the WPF app's update banner did: once
 /// per version when one is found and nothing downloads it on its own (the notify-only policy, or a
 /// release without an installer), and once when it is downloaded and ready. A notice counts as told
-/// once it is toasted or Settings › Updates shows it; on Login it waits.</summary>
+/// once it is toasted or Settings › Updates shows it; on Login it waits. While it downloads, a lasting
+/// progress toast stands in for the banner's progress, until dismissed.</summary>
 public sealed class UpdateNotices
 {
     private readonly HashSet<(Version, bool)> _told = [];
+    private readonly HashSet<Version> _progressDismissed = [];
+
+    /// <summary>The download progress toast's text for this status at <paramref name="place"/>, or null
+    /// when none belongs on screen: nothing downloads, the download's toast was dismissed, or the place
+    /// is Login, Settings › Updates (which shows the progress) or the full player.</summary>
+    public string? Progress(UpdateStatus status, UpdateNoticePlace place)
+    {
+        if (status is not { Phase: UpdatePhase.Downloading, Update: { } update } || place != UpdateNoticePlace.Elsewhere
+            || _progressDismissed.Contains(update.Version)) return null;
+        return status.Progress is { } progress
+            ? L.Format("MainWindow.DownloadingUpdate.e0bc4a8a", update.DisplayVersion, Math.Floor(progress * 100) / 100)
+            : L.Format("MainWindow.DownloadingUpdate.e964dce1", update.DisplayVersion);
+    }
+
+    /// <summary>The user closed the progress toast: it stays away for the rest of this version's download.</summary>
+    public void DismissProgress(UpdateStatus status)
+    {
+        if (status.Update is { } update) _progressDismissed.Add(update.Version);
+    }
 
     /// <summary>The toast this status calls for at <paramref name="place"/>, or null when it calls for
     /// none, was told already, or is not to be toasted there.</summary>

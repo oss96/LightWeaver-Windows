@@ -5,6 +5,15 @@ using LightWeaver.Library;
 using LightWeaver.Localization;
 using LightWeaver.Search;
 
+// Cached answers are written under AppPaths; keep them out of an app's real profile.
+var appData = Path.Combine(Path.GetTempPath(), "lw-search-appdata-" + Guid.NewGuid().ToString("N"));
+Environment.SetEnvironmentVariable("LIGHTWEAVER_TEST_APPDATA_ROOT", appData);
+if (!string.Equals(LightWeaver.AppPaths.Root, Path.GetFullPath(appData), StringComparison.OrdinalIgnoreCase))
+{
+    Console.Error.WriteLine($"Refusing to run: app data resolves to {LightWeaver.AppPaths.Root}, not the test folder. "
+        + "Only Debug builds honour LIGHTWEAVER_TEST_APPDATA_ROOT; run this test without -c Release.");
+    return 1;
+}
 L.Initialize("en");
 var checks = 0;
 void Check(bool condition, string name)
@@ -57,6 +66,11 @@ Check((d with { Sort = SearchSort.ReleaseDate, Descending = true }).ToQuery(null
 Check((d with { Types = [] }).ToQuery(null).ItemTypes.Count == AdvancedSearchFilters.DefaultTypes.Count, "no type ticked searches the default kinds");
 Check((d with { Types = [SearchType.Collections] }).ToQuery(null).ItemTypes.SequenceEqual([BaseItemKind.BoxSet]), "collections map to box sets");
 Check(example.Without(FilterKind.Rating) is { MinRating: 0, ActiveCount: 4 }, "removing a token clears only that filter");
+Check(example.CacheQuery(" night") == example.CacheQuery("night ") && example.CacheQuery("night") != example.CacheQuery("day")
+    && example.CacheQuery(null) != example.Without(FilterKind.Rating).CacheQuery(null), "the same server query shares a cached answer, another query does not");
+var personId = Guid.NewGuid();
+Check(AdvancedSearchFilters.ForPerson(personId, "Ada Moreno").CacheQuery(null) == AdvancedSearchFilters.ForPerson(personId, "Ada M.").CacheQuery(null),
+    "a person's display name is not part of the cached query");
 
 // --- Keyed diff ------------------------------------------------------------------------------
 // A refresh hands back new copies of mostly the same titles. Titles that stay must not be removed
@@ -164,6 +178,29 @@ var film = new MediaItem { Id = Guid.NewGuid(), Name = "Glass Season" };
 async Task CheckOverrides()
 {
     var overrides = new UserDataOverrides();
+    Check(UserDataOverrides.BadgeCount(true, 8) is null, "watched season hides the stale unwatched count");
+    Check(UserDataOverrides.BadgeCount(false, 8) == 8, "unwatched season retains its count after rollback");
+    Check(UserDataOverrides.BadgeCount(false, null) is null, "cards without a count stay without one");
+    var header = new UserDataOverrides();
+    await header.ChangeAsync(film, UserDataField.Played, true, () => Task.FromResult(true));
+    var headerReadAt = header.Mark();
+    var headerReply = new TaskCompletionSource<MediaItem>();
+    var favoriteReply = new TaskCompletionSource<bool>();
+    var favoriting = header.ChangeAsync(film, UserDataField.Favorite, true, () => favoriteReply.Task);
+    headerReply.SetResult(new MediaItem { Id = film.Id, Name = film.Name, Played = true, IsFavorite = false });
+    var staleHeader = await headerReply.Task;
+    header.Reconcile(headerReadAt, [staleHeader]);
+    Check(header.Of(staleHeader) == (true, true), "watched reload preserves a favorite toggle still pending after its GET began");
+    favoriteReply.SetResult(true);
+    await favoriting;
+    header.Reconcile(headerReadAt, [staleHeader]);
+    Check(header.Of(staleHeader) == (true, true), "late stale header cannot undo a favorite accepted after its GET began");
+    var siblingsReadAt = header.Mark();
+    var sibling = new MediaItem { Id = film.Id, Name = film.Name, Played = true, IsFavorite = true };
+    header.Reconcile(siblingsReadAt, new[] { sibling }.Where(child => child.Id != staleHeader.Id));
+    Check(header.Of(staleHeader) == (true, true), "siblings reconciliation leaves the stale header's accepted favorite override intact");
+    await header.ChangeAsync(staleHeader, UserDataField.Favorite, false, () => Task.FromResult(false));
+    Check(header.Of(staleHeader) == (true, true), "a rejected unfavorite after siblings reconciliation restores the accepted favorite");
     await overrides.ChangeAsync(film, UserDataField.Favorite, true, () => Task.FromResult(true));
     Check(overrides.Of(film) == (false, true), "a change shows at once and stays once the server accepts it");
     var favouriteOffElsewhere = new MediaItem { Id = film.Id, Name = film.Name, IsFavorite = false };
@@ -410,9 +447,90 @@ await UiThread.RunAsync(async () =>
     await single.ReloadAsync();
     Check(pageOverrides.Of(single.Items[0]) == (true, false),
         "after a favourite set here and Watched set on another device, Refresh shows the server's state");
+
+    // A query the profile asked before opens on its last answer while the server is asked again.
+    var answersCache = new QueryCache("search-test", 4);
+    const string SearchProfile = "search-user@tower";
+    var noir = AdvancedSearchFilters.Default with { Genres = ["Noir"] };
+    await answersCache.StoreAsync(SearchProfile, noir.CacheQuery(null), Enumerable.Range(0, 70).Select(Item).ToList(), 70, DateTime.UtcNow.AddDays(-1), 0);
+    var stored = await answersCache.ReadAsync(SearchProfile, noir.CacheQuery(null));
+    var serverAnswer = new TaskCompletionSource();
+    var asked = new List<int>();
+    var reopened = new AdvancedSearchModel(async (q, start, limit, ct) =>
+    {
+        asked.Add(limit);
+        await serverAnswer.Task;
+        return (Enumerable.Range(0, Math.Min(limit, 80)).Select(Item).ToList(), 80);
+    }, clock, cache: answersCache, profileKey: SearchProfile) { Filters = noir };
+    var reopening = reopened.RefreshNowAsync();
+    for (var i = 0; i < 200 && asked.Count == 0; i++) await Task.Delay(10);
+    Check(reopened.Items.Count == 70 && reopened.TotalCount == 70 && reopened.IsUpdating && reopened.ShownAtUtc == stored?.SavedAtUtc,
+        "the cached answer shows at once, still updating, with when the server gave it");
+    Check(asked.SequenceEqual([2 * AdvancedSearchModel.PageSize]), $"the server is asked for every cached page ({string.Join(", ", asked)})");
+    serverAnswer.SetResult();
+    await reopening;
+    Check(reopened.Items.Count == 80 && !reopened.IsUpdating && reopened.ShownAtUtc > stored?.SavedAtUtc, "the server's answer replaces it");
+    await Task.Delay(100);
+    Check((await answersCache.ReadAsync(SearchProfile, noir.CacheQuery(null)))?.TotalCount == 70,
+        "a new answer is not kept before it has stood for a moment");
+    clock.Advance(AdvancedSearchModel.RememberAfter);
+    QueryCacheEntry? kept = null;
+    for (var i = 0; i < 200 && kept is not { TotalCount: 80 }; i++)
+    {
+        kept = await answersCache.ReadAsync(SearchProfile, noir.CacheQuery(null));
+        if (kept is not { TotalCount: 80 }) await Task.Delay(10);
+    }
+    Check(kept is { TotalCount: 80, Items.Count: 80 }, "and is kept for the next time");
+
+    var unreachable = new AdvancedSearchModel((q, start, limit, ct) => throw new HttpRequestException("offline"), clock,
+        cache: answersCache, profileKey: SearchProfile) { Filters = noir };
+    await unreachable.RefreshNowAsync();
+    Check(unreachable.HasFailed && unreachable.Items.Count == 80 && unreachable.ShownAtUtc == kept?.SavedAtUtc,
+        "with the server unreachable the cached answer stays, with when it was given");
+    var failures = 0;
+    unreachable.Failed += (_, _) => failures++;
+    unreachable.Filters = noir with { Genres = ["Western"] };
+    await unreachable.RefreshNowAsync();
+    await unreachable.RefreshNowAsync();
+    Check(unreachable.HasFailed && unreachable.ShownAtUtc is null && failures == 2,
+        "offline, a query with no cached answer does not claim the titles left from another, and every failure is announced");
+    var unasked = new AdvancedSearchModel((q, start, limit, ct) => throw new HttpRequestException("offline"), clock,
+        cache: answersCache, profileKey: SearchProfile) { Filters = noir with { Genres = ["Western"] } };
+    await unasked.RefreshNowAsync();
+    Check(unasked.HasFailed && !unasked.HasResults && unasked.ShownAtUtc is null, "a query never answered has nothing to show offline");
+
+    var typed = new List<string?>();
+    var typing = new AdvancedSearchModel(async (q, start, limit, ct) =>
+    {
+        typed.Add(q.Term);
+        await Task.Yield();
+        return (Enumerable.Range(start, limit).Select(Item).ToList(), 120);
+    }, clock, cache: answersCache, profileKey: SearchProfile);
+    typing.Term = "ma";
+    clock.Advance(AdvancedSearchModel.Debounce);
+    for (var i = 0; i < 200 && typed.Count < 1; i++) await Task.Delay(10);
+    await UiThread.Settle();
+    await typing.LoadMoreAsync();
+    Check(typing.Items.Count == 120 && await answersCache.ReadAsync(SearchProfile, AdvancedSearchFilters.Default.CacheQuery("ma")) is null,
+        "paging before a query settles does not cache its transient prefix");
+    typing.Term = "mat";
+    clock.Advance(AdvancedSearchModel.Debounce);
+    for (var i = 0; i < 200 && (!typed.Contains("mat") || typing.IsUpdating); i++) await Task.Delay(10);
+    await UiThread.Settle();
+    clock.Advance(AdvancedSearchModel.RememberAfter);
+    QueryCacheEntry? settled = null;
+    for (var i = 0; i < 200 && settled is null; i++)
+    {
+        settled = await answersCache.ReadAsync(SearchProfile, AdvancedSearchFilters.Default.CacheQuery("mat"));
+        if (settled is null) await Task.Delay(10);
+    }
+    Check(settled is not null && await answersCache.ReadAsync(SearchProfile, AdvancedSearchFilters.Default.CacheQuery("ma")) is null,
+        "a term typed on keeps only the answer that stood, not its prefixes");
+    Check(await answersCache.ReadAsync("other-user@tower", noir.CacheQuery(null)) is null, "another profile does not see the answers");
 });
 
 Console.WriteLine($"{checks} checks passed");
+if (Directory.Exists(appData)) Directory.Delete(appData, recursive: true);
 return 0;
 
 /// <summary>A row with a key and a version, standing in for a title and its newer copy.</summary>

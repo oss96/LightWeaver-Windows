@@ -2,7 +2,7 @@
 <!-- Library grid (design 02): poster grid of one library with a watched filter, a multi-select
      genre filter, sort (key and order), display options (poster size, titles) and an A–Z rail on
      the trailing edge while sorted by name. The toolbar wraps under the title when it does not
-     fit beside it. -->
+     fit beside it. A collection (box set) lists its titles in the same grid. -->
 <UserControl
     x:Class="LightWeaver.WinUI.Pages.LibraryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

@@ -62,5 +62,21 @@ var shuffled = PlaylistModel.Shuffled(Enumerable.Range(0, 50), new Random(7));
 Check(shuffled.Order().SequenceEqual(Enumerable.Range(0, 50)) && !shuffled.SequenceEqual(Enumerable.Range(0, 50)), "Shuffle keeps every item in a new order");
 Check(PlaylistModel.UndoTime == TimeSpan.FromSeconds(6), "Undo is offered for 6 s");
 
+var virtualEpisode = new MediaItem { Id = Guid.NewGuid(), Name = "Upcoming", Type = BaseItemDto_Type.Episode, IsVirtual = true };
+var mixed = new[] { virtualEpisode, harbor, pilot, harbor, virtualEpisode };
+var playable = PlayableItems.Select(mixed, 3);
+Check(playable.Items.SequenceEqual([harbor, pilot, harbor]) && playable.Index == 2,
+    "filtering retains the selected occurrence of a repeated movie");
+Check(PlayableItems.Select(mixed, 0).Index == 0 && PlayableItems.Select(mixed, 4).Index == 2,
+    "a virtual selection chooses the next playable entry or the final survivor");
+Check(PlayableItems.Select([virtualEpisode], 0) is { Items.Count: 0, Index: -1 },
+    "an entirely virtual playlist cannot start playback");
+Check(PlayableItems.Select([], 0) is { Items.Count: 0, Index: -1 }, "an empty playlist has no selection");
+var withRemoval = PlayableItems.Select(mixed, 3, item => item.Id != pilot.Id);
+Check(withRemoval.Items.SequenceEqual([harbor, harbor]) && withRemoval.Index == 1,
+    "removal filtering also preserves the selected occurrence");
+Check(PlayableItems.Select(PlaylistModel.Shuffled(mixed, new Random(3)), 0).Items.All(item => item.IsPlayable),
+    "shuffle cannot submit virtual entries");
+
 Console.WriteLine($"{checks} checks passed.");
 return 0;

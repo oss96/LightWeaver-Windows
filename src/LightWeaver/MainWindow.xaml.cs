@@ -1612,7 +1612,7 @@ public partial class MainWindow : Window
     private void OnBrowseItemSelected(Jellyfin.MediaItem item)
     {
         Diagnostics.AppLog.Detail("main", $"event=interaction action=open-item item={item.Id:N} type={item.Type}");
-        if (item.IsPlayable)
+        if (item.IsPlayable || item.IsVirtual && !item.IsBrowsable)
         {
             var detail = new ItemDetailView(_app, _settings, item);
             detail.PlayRequested += OnDetailPlayRequested;

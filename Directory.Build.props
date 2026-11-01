@@ -2,7 +2,7 @@
 
   <!-- The one LightWeaver version: the app, its libraries, the installer and the update check read it. -->
   <PropertyGroup>
-    <Version>2.0.2</Version>
+    <Version>2.1.0</Version>
   </PropertyGroup>
 
 </Project>

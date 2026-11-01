@@ -19,6 +19,9 @@ public interface IAppShell
     /// <summary>Changes with every play or stop; 0 before anything has played.</summary>
     int PlaybackIntent { get; }
 
+    /// <summary>The order of plays that wait for a lookup, so only the newest one starts.</summary>
+    LightWeaver.Player.PlayRequests PlayRequests { get; }
+
     /// <summary>The full player (or the mini-player) covers the page; page shortcuts stay off.</summary>
     bool PlayerCoversPage { get; }
 
@@ -104,8 +107,8 @@ public interface IAppShell
     /// <summary>A server request failed; an unreachable server swaps the page for the offline view.</summary>
     void ReportFailure(Exception ex);
 
-    /// <summary>A page put data from the cache on screen; offline, it shows under the banner
-    /// instead of the unreachable view.</summary>
+    /// <summary>A page put data from the cache on screen, or found none for what it shows now;
+    /// offline, it shows under the banner or gives way to the unreachable view.</summary>
     void CachedDataShown(INavPage page);
 
     /// <summary>The profile signed in without "Stay signed in": its saved token is removed when the app closes.</summary>

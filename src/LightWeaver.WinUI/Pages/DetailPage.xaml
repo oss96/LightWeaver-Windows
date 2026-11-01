@@ -198,6 +198,10 @@
                                     </Grid>
                                 </StackPanel>
                             </Button>
+                            <Button x:Name="ShuffleButton" Style="{StaticResource LwButton}" Width="32" Padding="0" Click="OnShuffle" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="DetailShuffle">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Shuffle}" />
+                            </Button>
                             <Button x:Name="DownloadButton" Style="{StaticResource LwButton}" Width="32" Padding="0" Click="OnDownload"
                                     AutomationProperties.AutomationId="DetailDownload">
                                 <FontIcon x:Name="DownloadIcon" Style="{StaticResource LwIcon}" FontSize="15" Glyph="{x:Bind t:Icons.Download}" />
@@ -214,8 +218,15 @@
                         </c:WrapPanel>
 
                         <StackPanel x:Name="TechBlock" Spacing="8" Visibility="Collapsed" Margin="0,4,0,0">
-                            <c:WrapPanel x:Name="TechChips" HorizontalSpacing="6" VerticalSpacing="6" AutomationProperties.AutomationId="DetailTechChips" />
-                            <Grid ColumnSpacing="12" RowSpacing="4">
+                            <Grid>
+                                <c:WrapPanel x:Name="TechProbe" HorizontalSpacing="6" VerticalSpacing="6" Opacity="0" IsHitTestVisible="False" />
+                                <c:WrapPanel x:Name="TechChips" HorizontalSpacing="6" VerticalSpacing="6" AutomationProperties.AutomationId="DetailTechChips" />
+                            </Grid>
+                            <!-- Every track of the source Play uses, in a drop-down per type; audio and subtitles
+                                 choose what Play uses, as the bar's menus do. Buttons that open a menu below
+                                 them, like the bar's version drop-down: a ComboBox opens its list under the
+                                 pointer, where WinUI shows a busy cursor until it is ready. -->
+                            <Grid x:Name="TechLines" ColumnSpacing="12" RowSpacing="6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -225,12 +236,42 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Video}" />
-                                <TextBlock x:Name="VideoLine" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailVideoLine" />
-                                <TextBlock Grid.Row="1" FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Audio}" />
-                                <TextBlock x:Name="AudioLine" Grid.Row="1" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailAudioLine" />
-                                <TextBlock Grid.Row="2" FontSize="12" Foreground="{StaticResource LwText2Brush}" Text="{loc:Text Key=Detail.Subtitles}" />
-                                <TextBlock x:Name="SubtitleLine2" Grid.Row="2" Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DetailSubtitleLine" />
+                                <TextBlock FontSize="12" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" Text="{loc:Text Key=Detail.Video}" />
+                                <Button x:Name="VideoTracks" Grid.Column="1" Style="{StaticResource LwButton}" Padding="10,0" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" IsEnabled="False" AutomationProperties.AutomationId="DetailVideoTracks">
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="VideoTracksText" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <FontIcon Grid.Column="1" Style="{StaticResource LwIcon}" FontSize="10" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                                    </Grid>
+                                </Button>
+                                <TextBlock Grid.Row="1" FontSize="12" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" Text="{loc:Text Key=Detail.Audio}" />
+                                <Button x:Name="AudioTracks" Grid.Row="1" Grid.Column="1" Style="{StaticResource LwButton}" Padding="10,0" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" IsEnabled="False" Click="OnAudioTracks" AutomationProperties.AutomationId="DetailAudioTracks">
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="AudioTracksText" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <FontIcon Grid.Column="1" Style="{StaticResource LwIcon}" FontSize="10" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                                    </Grid>
+                                </Button>
+                                <TextBlock Grid.Row="2" FontSize="12" Foreground="{StaticResource LwText2Brush}" VerticalAlignment="Center" Text="{loc:Text Key=Detail.Subtitles}" />
+                                <Button x:Name="SubtitleTracks" Grid.Row="2" Grid.Column="1" Style="{StaticResource LwButton}" Padding="10,0" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" IsEnabled="False" Click="OnSubtitleTracks" AutomationProperties.AutomationId="DetailSubtitleTracks">
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="SubtitleTracksText" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <FontIcon Grid.Column="1" Style="{StaticResource LwIcon}" FontSize="10" Glyph="{x:Bind t:Icons.ExpandMore}" />
+                                    </Grid>
+                                </Button>
                             </Grid>
                         </StackPanel>
 
@@ -252,12 +293,17 @@
                 </ScrollViewer>
             </Grid>
 
-            <!-- Bottom: More like this and Cast and crew. -->
+            <!-- Bottom: More like this under the preview and Cast and crew under the info panel, each in a
+                 panel like the info panel. -->
             <Grid x:Name="Rows" Grid.Row="1" Grid.ColumnSpan="2" ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="3*" />
-                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="RowsSideColumn" Width="360" />
                 </Grid.ColumnDefinitions>
+                <Border x:Name="SimilarPanel" Padding="16,12,12,16" CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwPanelBrush}"
+                        BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1" />
+                <Border x:Name="CastPanel" Grid.Column="1" Padding="16,12,12,16" CornerRadius="{StaticResource LwGroupRadius}" Background="{StaticResource LwPanelBrush}"
+                        BorderBrush="{StaticResource LwStrokeBrush}" BorderThickness="1" />
             </Grid>
         </Grid>
     </ScrollViewer>

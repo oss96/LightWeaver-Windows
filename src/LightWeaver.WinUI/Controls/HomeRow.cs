@@ -17,6 +17,7 @@ internal sealed partial class HomeRow : CardRow
         Section = section;
         CardTitle = HomeSections.Title;
         CardSubtitle = i => HomeSections.Subtitle(section, i);
+        CardPoster = i => HomeSections.SeriesPoster(section, i);
     }
 
     public HomeSection Section { get; }

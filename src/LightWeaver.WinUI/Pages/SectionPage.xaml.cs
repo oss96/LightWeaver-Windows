@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using LightWeaver.Home;
 using LightWeaver.Jellyfin;
 using LightWeaver.Library;
@@ -17,12 +16,15 @@ public sealed partial class SectionPage : UserControl, INavPage
     private const int MaxItems = 600;
     private static readonly TimeSpan SkeletonDelay = TimeSpan.FromMilliseconds(150);
     private readonly IAppShell _shell;
+    private readonly string _profileKey;
     private readonly ItemRemovals _removals;
     private readonly HomeSection _section;
     private readonly UserDataOverrides _overrides = new();
     private readonly List<MediaItem> _all = [];
-    private IReadOnlyList<MediaItem> _shown = [];
+    private readonly KeyedList<MediaItem, Guid> _shown = new(item => item.Id);
     private RecentlyAddedFeed? _feed;
+    private int? _cachedTotal;
+    private DateTime? _shownAtUtc;
     private CancellationTokenSource? _feedCts;
     private bool _loadingMore;
     private SectionFilter _filter = SectionFilter.All;
@@ -34,7 +36,8 @@ public sealed partial class SectionPage : UserControl, INavPage
     public SectionPage(IAppShell shell, HomeSection section)
     {
         _shell = shell;
-        _removals = ItemRemovals.ForProfile(shell.CacheProfileKey);
+        _profileKey = shell.CacheProfileKey;
+        _removals = ItemRemovals.ForProfile(_profileKey);
         _section = section;
         _sort = HomeSections.DefaultSort(section);
         InitializeComponent();
@@ -71,20 +74,31 @@ public sealed partial class SectionPage : UserControl, INavPage
     }
 
     /// <summary>Recently Added pages from the server as the grid scrolls; the other sections load whole.</summary>
-    private bool Paged => _section == HomeSection.RecentlyAdded;
+    private bool Paged => HomeSections.IsPaged(_section);
+
+    private string CacheQuery => HomeSections.CacheQuery(_section, _filter, _sort);
+
+    /// <summary>The page belongs to the profile it was built for; an answer for another is dropped.</summary>
+    private bool SameProfile => _profileKey == _shell.CacheProfileKey;
 
     public void OnShown() { if (_loaded) _ = LoadAsync(); }
 
     public void Reload() => _ = LoadAsync();
 
+    public DateTime? CachedAtUtc => _shownAtUtc;
+
+    public void LoadCached() { if (!_loaded) _ = LoadAsync(); }
+
     public void RemoveItems(IReadOnlySet<Guid> ids)
     {
         _all.RemoveAll(item => ids.Contains(item.Id));
         _feed?.RemoveItems(ids);
-        if (Paged && _shown is ObservableCollection<MediaItem> shown)
+        if (Paged)
         {
-            for (var i = shown.Count - 1; i >= 0; i--)
-                if (ids.Contains(shown[i].Id)) shown.RemoveAt(i);
+            var before = _shown.Count;
+            for (var i = _shown.Count - 1; i >= 0; i--)
+                if (ids.Contains(_shown[i].Id)) _shown.RemoveAt(i);
+            if (_cachedTotal is { } total) _cachedTotal = Math.Max(_shown.Count, total - (before - _shown.Count));
         }
         Show();
     }
@@ -103,19 +117,25 @@ public sealed partial class SectionPage : UserControl, INavPage
         var skeleton = RevealSkeletonSoon();
         try
         {
+            if (!_loaded && await QueryCache.Sections.ReadAsync(_profileKey, CacheQuery, readAt) is { } cached)
+            {
+                if (load != _load || !SameProfile) return;
+                ShowLoaded(cached.Items, cached.SavedAtUtc);
+                _shell.CachedDataShown(this);
+            }
+            if (_shell.Connectivity.IsOffline) return;
+            var askedAt = DateTime.UtcNow;
             var total = int.MaxValue;
             while (items.Count < Math.Min(total, MaxItems))
             {
                 var (page, count) = await PageAsync(jellyfin, items.Count);
-                if (load != _load) return;
+                if (load != _load || !SameProfile) return;
                 total = count;
                 items.AddRange(page);
                 if (page.Count == 0) break;
             }
-            _loaded = true;
-            _all.Clear();
-            _all.AddRange(_removals.Filter(items, readAt));
-            Show();
+            ShowLoaded(_removals.Filter(items, readAt), askedAt);
+            Remember(items, total, askedAt, readAt);
         }
         catch (Exception ex)
         {
@@ -127,6 +147,20 @@ public sealed partial class SectionPage : UserControl, INavPage
             if (load == _load) SkeletonScroller.Visibility = Visibility.Collapsed;
         }
     }
+
+    private void ShowLoaded(IEnumerable<MediaItem> items, DateTime atUtc)
+    {
+        _loaded = true;
+        _shownAtUtc = atUtc;
+        _all.Clear();
+        _all.AddRange(items);
+        SkeletonScroller.Visibility = Visibility.Collapsed;
+        Show();
+    }
+
+    /// <summary>Keeps the server's answer for the next visit and for offline.</summary>
+    private void Remember(IReadOnlyList<MediaItem> items, int total, DateTime answeredAtUtc, long readAt)
+        => _ = QueryCache.Sections.StoreAsync(_profileKey, CacheQuery, items, total, answeredAtUtc, readAt);
 
     /// <summary>Shows the library grid's skeleton after <see cref="SkeletonDelay"/> while nothing
     /// has loaded yet, unless the request cancels the returned source first, as it does once it ends.</summary>
@@ -146,33 +180,59 @@ public sealed partial class SectionPage : UserControl, INavPage
     /// of the order is read for the pages after it. Played titles stay
     /// out when the user's server preference keeps them out of the Home row. The same titles in the
     /// same order update the cards in place and keep the scroll position; <paramref name="fresh"/>
-    /// (a new filter or sort) reads one page.</summary>
+    /// (a new filter or sort) reads one page, or as far as its cached answer went. Offline, a new
+    /// filter or sort with no cached answer leaves the page to the window's unreachable view.</summary>
     private async Task LoadFeedAsync(bool fresh)
     {
         _feedCts?.Cancel();
         var cts = _feedCts = new CancellationTokenSource();
         var jellyfin = _shell.Model.Jellyfin;
         var wanted = fresh ? PageSize : Math.Max(PageSize, _shown.Count);
+        var cachedShown = false;
+        var readAt = _removals.Mark();
         var skeleton = RevealSkeletonSoon();
         try
         {
+            var cached = fresh || Items.ItemsSource is null ? await QueryCache.Sections.ReadAsync(_profileKey, CacheQuery, readAt) : null;
+            if (cts.IsCancellationRequested || !SameProfile) return;
+            if (cached is not null)
+            {
+                cachedShown = true;
+                _feed = null;
+                _cachedTotal = cached.TotalCount;
+                _shownAtUtc = cached.SavedAtUtc;
+                _loaded = true;
+                SkeletonScroller.Visibility = Visibility.Collapsed;
+                ShowItems(cached.Items);
+                ShowFeedState();
+                _shell.CachedDataShown(this);
+                wanted = Math.Max(wanted, cached.Items.Count);
+            }
+            if (_shell.Connectivity.IsOffline)
+            {
+                if (fresh && cached is null)
+                {
+                    _shownAtUtc = null;
+                    _shell.CachedDataShown(this);
+                }
+                return;
+            }
+            var askedAt = DateTime.UtcNow;
             var unplayedOnly = await jellyfin.HidesPlayedInLatestAsync(cts.Token);
             var feed = new RecentlyAddedFeed(RecentList.For(_filter, _sort),
                 (list, count, ct) => jellyfin.GetRecentlyAddedHeadAsync(list.Kinds, list.SortBy, list.Order, unplayedOnly, count, ct),
                 (list, ct) => jellyfin.GetRecentlyAddedOrderAsync(list.Kinds, list.SortBy, list.Order, unplayedOnly, ct),
                 jellyfin.GetRecentlyAddedTitlesAsync, _removals);
             await feed.NextAsync(wanted, cts.Token);
-            if (cts.IsCancellationRequested) return;
+            if (cts.IsCancellationRequested || !SameProfile) return;
             var items = feed.Shown.ToList();
             _feed = feed;
+            _cachedTotal = null;
+            _shownAtUtc = askedAt;
             _loaded = true;
-            if (Items.ItemsSource is not null && ItemLists.SameIds(_shown, items)) MediaCard.RefreshRealized(Items, items);
-            else
-            {
-                _shown = new ObservableCollection<MediaItem>(items);
-                Items.ItemsSource = _shown;
-            }
+            ShowItems(items);
             ShowFeedState();
+            Remember(items, feed.Total ?? items.Count, askedAt, readAt);
             LoadMoreIfNear();
         }
         catch (OperationCanceledException)
@@ -180,7 +240,11 @@ public sealed partial class SectionPage : UserControl, INavPage
         }
         catch (Exception ex)
         {
-            if (!cts.IsCancellationRequested) _shell.ReportFailure(ex);
+            if (!cts.IsCancellationRequested)
+            {
+                if (fresh && !cachedShown) _shownAtUtc = null;
+                _shell.ReportFailure(ex);
+            }
         }
         finally
         {
@@ -189,20 +253,30 @@ public sealed partial class SectionPage : UserControl, INavPage
         }
     }
 
+    /// <summary>Follows the newer list by key, so titles the grid already shows keep their cards
+    /// and take their newer copies.</summary>
+    private void ShowItems(IReadOnlyList<MediaItem> items)
+    {
+        Items.ItemsSource ??= _shown;
+        _shown.Sync(items);
+        MediaCard.RefreshRealized(Items, _shown);
+    }
+
     /// <summary>The next page once the grid is scrolled to within two screens of its end, or does not
     /// fill the window yet.</summary>
     private async void LoadMoreIfNear()
     {
         if (_feed is not { HasMore: true } feed || _loadingMore || _feedCts is not { IsCancellationRequested: false } cts || Scroller.ViewportHeight <= 0
-            || Scroller.ExtentHeight - Scroller.VerticalOffset - Scroller.ViewportHeight > 2 * Scroller.ViewportHeight
-            || _shown is not ObservableCollection<MediaItem> shown) return;
+            || Scroller.ExtentHeight - Scroller.VerticalOffset - Scroller.ViewportHeight > 2 * Scroller.ViewportHeight) return;
         _loadingMore = true;
+        var readAt = _removals.Mark();
         try
         {
             var inserts = await feed.NextAsync(PageSize, cts.Token);
-            if (cts.IsCancellationRequested || !ReferenceEquals(feed, _feed)) return;
-            foreach (var insert in inserts) shown.Insert(insert.Index, insert.Item);
+            if (cts.IsCancellationRequested || !ReferenceEquals(feed, _feed) || !SameProfile) return;
+            foreach (var insert in inserts) _shown.Insert(insert.Index, insert.Item);
             ShowFeedState();
+            Remember([.. _shown], feed.Total ?? _shown.Count, _shownAtUtc ?? DateTime.UtcNow, readAt);
         }
         catch (OperationCanceledException)
         {
@@ -221,7 +295,7 @@ public sealed partial class SectionPage : UserControl, INavPage
 
     private void ShowFeedState()
     {
-        var total = _feed?.Total ?? _shown.Count;
+        var total = _feed?.Total ?? _cachedTotal ?? _shown.Count;
         CountText.Text = L.Format("Section.ItemCount", total);
         EmptyState.Visibility = _loaded && total == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -233,8 +307,7 @@ public sealed partial class SectionPage : UserControl, INavPage
         _ => jellyfin.GetFavoritesPagedAsync(start, PageSize),
     };
 
-    /// <summary>Lists the items; the same items in the same order (a refresh) update the cards in
-    /// place instead of resetting the grid.</summary>
+    /// <summary>Lists the items for the filter and sort; titles that stay keep their cards.</summary>
     private void Show()
     {
         if (Paged)
@@ -242,11 +315,7 @@ public sealed partial class SectionPage : UserControl, INavPage
             ShowFeedState();
             return;
         }
-        var shown = HomeSections.Apply(_all, _filter, _sort);
-        var same = Items.ItemsSource is not null && ItemLists.SameIds(_shown, shown);
-        _shown = shown;
-        if (same) MediaCard.RefreshRealized(Items, shown);
-        else Items.ItemsSource = shown;
+        ShowItems(HomeSections.Apply(_all, _filter, _sort));
         CountText.Text = _section == HomeSection.NextUp ? L.Format("Section.ShowCount", _shown.Count) : L.Format("Section.ItemCount", _shown.Count);
         EmptyState.Visibility = _loaded && _shown.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -260,6 +329,7 @@ public sealed partial class SectionPage : UserControl, INavPage
         card.Overrides = _overrides;
         card.Title = HomeSections.Title;
         card.Subtitle = i => HomeSections.Subtitle(_section, i);
+        card.Poster = i => HomeSections.SeriesPoster(_section, i);
         card.MenuOptions = _section == HomeSection.ContinueWatching ? new ItemMenuOptions(RemoveFromContinueWatching) : null;
         card.Item = _shown[e.Index];
     }
@@ -278,11 +348,13 @@ public sealed partial class SectionPage : UserControl, INavPage
             ToastHost.Show(ToastKind.Error, L.Text("Home.RemoveFailed"));
             return;
         }
+        Remember([.. _all], _all.Count, _shownAtUtc ?? DateTime.UtcNow, _removals.Mark());
         ToastHost.Show(ToastKind.Success, L.Text("Home.RemovedFromContinueWatching"), L.Text("Toast.Undo"), async () =>
         {
             if (!await jellyfin.SetResumePositionAsync(item.Id, item.ResumePositionTicks)) return;
             _all.Insert(Math.Min(index, _all.Count), item);
             Show();
+            Remember([.. _all], _all.Count, _shownAtUtc ?? DateTime.UtcNow, _removals.Mark());
         });
     }
 

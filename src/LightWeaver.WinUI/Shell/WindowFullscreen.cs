@@ -226,12 +226,17 @@ internal sealed partial class WindowFullscreen
     }
 
     /// <summary>While the window covers its monitor its whole rect is client area, whatever the
-    /// title bar code would reserve for a frame, and the XAML content fills it.</summary>
+    /// title bar code would reserve for a frame, the XAML content fills it and the caption buttons stay hidden.</summary>
     private static unsafe void Subclass(nint hwnd)
     {
-        if (Subclassed.Add(hwnd)) SetWindowSubclass(hwnd, (nint)(delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint>)&WindowProc, SubclassId, 0);
-        var content = FindWindowExW(hwnd, 0, ContentBridgeClass, null);
-        if (content != 0 && Subclassed.Add(content)) SetWindowSubclass(content, (nint)(delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint>)&ContentProc, SubclassId, 0);
+        SubclassOnce(hwnd, &WindowProc);
+        SubclassOnce(FindWindowExW(hwnd, 0, ContentBridgeClass, null), &ContentProc);
+        SubclassOnce(FindWindowExW(hwnd, 0, CaptionButtonsClass, null), &CaptionButtonsProc);
+    }
+
+    private static unsafe void SubclassOnce(nint hwnd, delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint> proc)
+    {
+        if (hwnd != 0 && Subclassed.Add(hwnd)) SetWindowSubclass(hwnd, (nint)proc, SubclassId, 0);
     }
 
     /// <summary>A style change that keeps the rect (WS_MAXIMIZE or the frame put back) moves nothing,
@@ -260,6 +265,19 @@ internal sealed partial class WindowFullscreen
             position->Width = client.Right;
             position->Height = client.Bottom;
             position->Flags = FullscreenStyle.FillingFlags(position->Flags);
+        }
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+    }
+
+    /// <summary>The Windows App SDK shows its caption buttons again when the window is activated, and
+    /// they would then sit over the video; while the window covers its monitor no move of them shows them.</summary>
+    [UnmanagedCallersOnly]
+    private static unsafe nint CaptionButtonsProc(nint hwnd, uint message, nint wParam, nint lParam, nuint id, nuint data)
+    {
+        if (message == WmWindowPosChanging && s_covering != 0 && GetParent(hwnd) == s_covering)
+        {
+            var position = (WindowPos*)lParam;
+            position->Flags = FullscreenStyle.HiddenFlags(position->Flags);
         }
         return DefSubclassProc(hwnd, message, wParam, lParam);
     }

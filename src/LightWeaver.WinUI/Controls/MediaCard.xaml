@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Item card, Windows variant of the design's Card.dc.html: artwork (2:3 poster, 16:9 wide, 3:4
-     person or square) with 8 px corners, title and subtitle below. Hover lightens the artwork,
+<!-- Item card, Windows variant of the design's Card.dc.html: artwork (2:3 poster, 16:9 wide or
+     square) with 8 px corners, or a circle for a person, title and subtitle below. Hover lightens the artwork,
      draws a 1 px inner ring and shows the round play button in the centre and the action pill
      (mark watched, more); a watched title shows a check badge, a count badge replaces it.
      Resumable items show a progress bar. The current item of a list (the episode on show) has a
@@ -17,6 +17,13 @@
     <StackPanel x:Name="Body" Spacing="7">
         <c:AspectGrid x:Name="Art" CornerRadius="{StaticResource LwCardRadius}" Background="{StaticResource LwPlaceholderBrush}">
             <Image x:Name="Picture" Stretch="UniformToFill" />
+            <Border x:Name="UpcomingBadge" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6,6,0,0"
+                    MinHeight="22" Padding="8,1" CornerRadius="10" Background="#8C000000" Visibility="Collapsed" IsHitTestVisible="False">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <FontIcon Style="{StaticResource LwIcon}" FontSize="13" Foreground="White" Glyph="{x:Bind t:Icons.Clock}" />
+                    <TextBlock x:Name="UpcomingText" FontSize="11.5" FontWeight="SemiBold" Foreground="White" />
+                </StackPanel>
+            </Border>
             <Border x:Name="HoverWash" Background="#0DFFFFFF" Visibility="Collapsed" />
             <Border x:Name="HoverRing" BorderBrush="#29FFFFFF" BorderThickness="1" CornerRadius="{StaticResource LwCardRadius}" Visibility="Collapsed" />
             <Border x:Name="CurrentRing" BorderBrush="{StaticResource LwAccentFgBrush}" BorderThickness="2" CornerRadius="{StaticResource LwCardRadius}" Visibility="Collapsed" />

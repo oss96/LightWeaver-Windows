@@ -20,12 +20,18 @@ public sealed class AdvancedSearchModel : ObservableObject
         AdvancedSearchQuery query, int startIndex, int limit, CancellationToken cancellationToken);
 
     public static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>How long a new query's answer has to stay before it is cached, so the prefixes of
+    /// a term typed on do not push earlier searches out.</summary>
+    public static readonly TimeSpan RememberAfter = TimeSpan.FromSeconds(2);
     public const int PageSize = 60;
 
     private readonly SearchFunc _search;
     private readonly TimeProvider _time;
     private readonly UserDataOverrides? _overrides;
     private readonly ItemRemovals _removals;
+    private readonly QueryCache? _cache;
+    private readonly string _profileKey;
     private AdvancedSearchFilters _filters = AdvancedSearchFilters.Default;
     private string _term = "";
     private int _totalCount;
@@ -39,21 +45,35 @@ public sealed class AdvancedSearchModel : ObservableObject
     private bool _resyncOwed;
     private bool _resyncing;
     private bool _loadingMore;
+    private bool _settled;
     private CancellationTokenSource? _pending;
 
     /// <summary><paramref name="overrides"/> are the page's watched and favourite changes; each
-    /// answer replaces the ones it already carries.</summary>
-    public AdvancedSearchModel(SearchFunc search, TimeProvider? time = null, UserDataOverrides? overrides = null, ItemRemovals? removals = null)
+    /// answer replaces the ones it already carries. With a <paramref name="cache"/>, a query opens
+    /// on the profile's last answer to it while the server is asked, and keeps every answer.</summary>
+    public AdvancedSearchModel(SearchFunc search, TimeProvider? time = null, UserDataOverrides? overrides = null, ItemRemovals? removals = null,
+        QueryCache? cache = null, string profileKey = "")
     {
         _search = search;
         _time = time ?? TimeProvider.System;
         _overrides = overrides;
         _removals = removals ?? new();
+        _cache = cache;
+        _profileKey = profileKey;
     }
 
     /// <summary>Raised after an answer to a query landed, whether or not it changed
-    /// <see cref="Items"/>: the view re-reads its cards and checks whether to load more.</summary>
+    /// <see cref="Items"/>: the view re-reads its cards and checks whether to load more. A cached
+    /// answer raises it too, before the server's.</summary>
     public event EventHandler? Answered;
+
+    /// <summary>When the server gave the titles shown: at the request for a live answer, earlier for a
+    /// cached one; null when a query with no cached answer failed, so what is shown is not its answer.</summary>
+    public DateTime? ShownAtUtc { get; private set; }
+
+    /// <summary>A query failed (server unreachable, timeout); <see cref="ShownAtUtc"/> says whether
+    /// the titles shown still answer it.</summary>
+    public event EventHandler? Failed;
 
     /// <summary>A quiet resync replaced the loaded titles; paging may continue from them.</summary>
     public event EventHandler? Resynced;
@@ -179,6 +199,7 @@ public sealed class AdvancedSearchModel : ObservableObject
             foreach (var item in kept.Where(item => shown.Add(item.Id))) Items.Add(item);
             _pages++;
             TotalCount = items.Count == 0 ? Items.Count : Math.Max(Items.Count, remaining);
+            if (_settled) Remember(_filters, _term, ShownAtUtc ?? _time.GetUtcNow().UtcDateTime, readAt);
         }
         catch (Exception)
         {
@@ -213,6 +234,7 @@ public sealed class AdvancedSearchModel : ObservableObject
         {
             var sentAt = _overrides?.Mark() ?? 0;
             var readAt = _removals.Mark();
+            var askedAt = _time.GetUtcNow().UtcDateTime;
             var (items, total) = await _search(_filters.ToQuery(_term), 0, limit, token);
             if (generation != _generation) return;
             _resyncing = false;
@@ -226,6 +248,9 @@ public sealed class AdvancedSearchModel : ObservableObject
             Items.Sync(items);
             TotalCount = Math.Max(Items.Count, total);
             _pages = 1;
+            ShownAtUtc = askedAt;
+            if (_settled) Remember(_filters, _term, askedAt, readAt);
+            else _ = RememberSettledAsync(generation, _filters, _term, askedAt, readAt, token);
             Resynced?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception) when (generation != _generation)
@@ -247,6 +272,7 @@ public sealed class AdvancedSearchModel : ObservableObject
         if (_resyncing) _resyncOwed = true;
         _resyncing = false;
         IsReloading = reloading;
+        if (!reloading) _settled = false;
         IsUpdating = true;
         return _pending;
     }
@@ -268,10 +294,20 @@ public sealed class AdvancedSearchModel : ObservableObject
     {
         var filters = _filters;
         var term = _term;
+        var reloading = IsReloading;
+        var cachedShown = false;
         try
         {
             var sentAt = _overrides?.Mark() ?? 0;
             var readAt = _removals.Mark();
+            if (!reloading && _cache is not null && await _cache.ReadAsync(_profileKey, filters.CacheQuery(term), readAt) is { } cached)
+            {
+                if (generation != _generation) return;
+                ShowCached(cached);
+                cachedShown = true;
+                limit = Math.Max(limit, (cached.Items.Count + PageSize - 1) / PageSize * PageSize);
+            }
+            var askedAt = _time.GetUtcNow().UtcDateTime;
             var (items, total) = await _search(filters.ToQuery(term), 0, limit, token);
             var hint = total == 0 ? await FindHintAsync(filters, term, token) : null;
             if (generation != _generation) return;
@@ -283,10 +319,17 @@ public sealed class AdvancedSearchModel : ObservableObject
             Items.Sync(items);
             TotalCount = Math.Max(Items.Count, total);
             Hint = hint;
+            ShownAtUtc = askedAt;
             HasFailed = false;
             HasResults = true;
             IsUpdating = false;
             IsReloading = false;
+            if (reloading)
+            {
+                _settled = true;
+                Remember(filters, term, askedAt, readAt);
+            }
+            else _ = RememberSettledAsync(generation, filters, term, askedAt, readAt, token);
             Answered?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception) when (generation != _generation)
@@ -295,10 +338,41 @@ public sealed class AdvancedSearchModel : ObservableObject
         }
         catch (Exception)
         {
+            if (!reloading && !cachedShown && _cache is not null) ShownAtUtc = null;
             HasFailed = true;
             IsUpdating = false;
             IsReloading = false;
+            Failed?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    /// <summary>The query's last answer while the server is asked: the grid shows it, still marked
+    /// as updating, and its count; the empty state and its hint wait for the server.</summary>
+    private void ShowCached(QueryCacheEntry cached)
+    {
+        Items.Sync(cached.Items);
+        TotalCount = Math.Max(Items.Count, cached.TotalCount);
+        Hint = null;
+        ShownAtUtc = cached.SavedAtUtc;
+        HasResults = true;
+        Answered?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Keeps the loaded titles as the answer to these filters and text.</summary>
+    private void Remember(AdvancedSearchFilters filters, string term, DateTime answeredAtUtc, long readAt)
+        => _ = _cache?.StoreAsync(_profileKey, filters.CacheQuery(term), Items, TotalCount, answeredAtUtc, readAt);
+
+    /// <summary>Remembers a new query's answer once it has stood for <see cref="RememberAfter"/>
+    /// without a newer query.</summary>
+    private async Task RememberSettledAsync(int generation, AdvancedSearchFilters filters, string term, DateTime answeredAtUtc, long readAt,
+        CancellationToken token)
+    {
+        if (_cache is null) return;
+        try { await Task.Delay(RememberAfter, _time, token); }
+        catch (OperationCanceledException) { return; }
+        if (generation != _generation) return;
+        _settled = true;
+        Remember(filters, term, answeredAtUtc, readAt);
     }
 
     /// <summary>Asks, in parallel, how many titles each active filter's removal would show, and

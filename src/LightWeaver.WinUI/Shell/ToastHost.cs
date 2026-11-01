@@ -18,11 +18,13 @@ public enum ToastKind { Info, Success, Error, Download }
 /// or retried; a download that started or was queued shows the download arrow and lasts as info
 /// does. Hovering pauses the timer. They fade in and out in 120 ms. A toast with the merge key of
 /// one on screen replaces it in place; over video, toasts without an action show as compact toasts
-/// on player glass. A toast never takes focus on its own.</summary>
+/// on player glass. A lasting toast, such as an update's download progress, stays until dismissed or
+/// removed, is never the one that drops, and never goes over video. A toast never takes focus on its own.</summary>
 public sealed partial class ToastHost : StackPanel
 {
     private const int MaxToasts = 3;
     private static readonly Duration Fade = new(TimeSpan.FromMilliseconds(120));
+    private readonly HashSet<UIElement> _lasting = [];
 
     public ToastHost()
     {
@@ -39,6 +41,9 @@ public sealed partial class ToastHost : StackPanel
     /// <summary>Shows the toast over video instead, when the player is full; false otherwise.</summary>
     public static Func<ToastKind, string, string?, bool>? OverVideo { get; set; }
 
+    /// <summary>The user closed the toast with this merge key.</summary>
+    public static event Action<string>? Dismissed;
+
     /// <summary>The glyph and its colour that mark a toast of this kind, here and over video.</summary>
     public static (string Glyph, Color Color) Mark(ToastKind kind) => kind switch
     {
@@ -54,29 +59,65 @@ public sealed partial class ToastHost : StackPanel
         Current?.Add(kind, message, action, onAction, mergeKey);
     }
 
-    public void Add(ToastKind kind, string message, string? action, Action? onAction, string? mergeKey = null)
+    /// <summary>Shows a lasting toast, or changes only the text of the one with this merge key.</summary>
+    public static void ShowLasting(ToastKind kind, string message, string mergeKey)
     {
-        var toast = Build(kind, message, action, onAction, out var timer);
+        if (Current is not { } host) return;
+        if (host.Find(mergeKey) is { Child: StackPanel row } toast && row.Children[1] is TextBlock text)
+        {
+            if (text.Text == message) return;
+            text.Text = message;
+            AutomationProperties.SetName(toast, message);
+            return;
+        }
+        host.Add(kind, message, null, null, mergeKey, lasting: true);
+    }
+
+    /// <summary>Fades out the toast with this merge key, if one is on screen.</summary>
+    public static void Remove(string mergeKey)
+    {
+        if (Current is not { } host || host.Find(mergeKey) is not { } toast) return;
+        toast.Tag = null;
+        Animate(toast, 1, 0, () => host.Take(toast), "toast_out");
+    }
+
+    private void Take(UIElement toast)
+    {
+        Children.Remove(toast);
+        _lasting.Remove(toast);
+    }
+
+    private Border? Find(string mergeKey)
+        => Children.OfType<Border>().FirstOrDefault(c => c.Tag is string key && key == mergeKey);
+
+    public void Add(ToastKind kind, string message, string? action, Action? onAction, string? mergeKey = null, bool lasting = false)
+    {
+        var toast = Build(kind, message, action, onAction, lasting, out var timer);
         toast.Tag = mergeKey;
         var merged = mergeKey is null ? -1 : Children.ToList().FindIndex(c => c is FrameworkElement { Tag: string key } && key == mergeKey);
+        if (lasting) _lasting.Add(toast);
         if (merged >= 0)
         {
-            Children.RemoveAt(merged);
+            Take(Children[merged]);
             Children.Insert(merged, toast);
         }
         else
         {
-            while (Children.Count >= MaxToasts) Children.RemoveAt(0);
+            while (Children.Count >= MaxToasts) Take(Children.FirstOrDefault(c => !_lasting.Contains(c)) ?? Children[0]);
             Children.Add(toast);
             Animate(toast, 0, 1, null, "toast_in");
         }
         timer?.Start();
     }
 
-    private Border Build(ToastKind kind, string message, string? action, Action? onAction, out DispatcherTimer? timer)
+    private Border Build(ToastKind kind, string message, string? action, Action? onAction, bool lasting, out DispatcherTimer? timer)
     {
         Border toast = null!;
-        void Dismiss() => Animate(toast, 1, 0, () => Children.Remove(toast), "toast_out");
+        void Dismiss()
+        {
+            toast.Tag = null;
+            Animate(toast, 1, 0, () => Take(toast), "toast_out");
+        }
 
         var (glyph, color) = Mark(kind);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
@@ -111,7 +152,12 @@ public sealed partial class ToastHost : StackPanel
         };
         AutomationProperties.SetName(close, L.Text("Toast.Dismiss"));
         AutomationProperties.SetAutomationId(close, "ToastDismiss");
-        close.Click += (_, _) => Dismiss();
+        close.Click += (_, _) =>
+        {
+            var key = toast.Tag as string;
+            Dismiss();
+            if (key is not null) Dismissed?.Invoke(key);
+        };
         row.Children.Add(close);
 
         toast = new Border
@@ -137,7 +183,7 @@ public sealed partial class ToastHost : StackPanel
         toast.GettingFocus += RefuseFallingFocus;
 
         timer = null;
-        if (kind != ToastKind.Error)
+        if (kind != ToastKind.Error && !lasting)
         {
             var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(action is null ? 4 : 6) };
             t.Tick += (_, _) => { t.Stop(); Dismiss(); };

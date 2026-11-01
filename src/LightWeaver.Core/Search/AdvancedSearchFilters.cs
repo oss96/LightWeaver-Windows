@@ -173,6 +173,10 @@ public sealed record AdvancedSearchFilters
         Order = Descending ? SortOrder.Descending : SortOrder.Ascending,
     };
 
+    /// <summary>The query in <see cref="Library.QueryCache.Searches"/>: the server query, so
+    /// filters that ask the same question share an answer.</summary>
+    public string CacheQuery(string? term) => System.Text.Json.JsonSerializer.Serialize(ToQuery(term) with { PersonName = null });
+
     private static BaseItemKind Kind(SearchType type) => type switch
     {
         SearchType.Movies => BaseItemKind.Movie,

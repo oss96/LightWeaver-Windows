@@ -53,6 +53,9 @@ public sealed class MediaItem
     /// <see cref="ProductionYear"/>, which is all the app carried before and is useless for an
     /// episode — every episode of a series shares one production year.</summary>
     public DateTimeOffset? PremiereDate { get; init; }
+    /// <summary>Whether the server knows the item from metadata alone, with no media behind it: an
+    /// upcoming or a missing episode. Such an item is never playable.</summary>
+    public bool IsVirtual { get; init; }
     /// <summary>When the item was added to the library — the "Date added" sort key. Null unless
     /// the query asked for <c>ItemFields.DateCreated</c>.</summary>
     public DateTimeOffset? DateCreated { get; init; }
@@ -160,6 +163,7 @@ public sealed class MediaItem
             ParentIndexNumber = ParentIndexNumber,
             ProductionYear = ProductionYear,
             PremiereDate = PremiereDate,
+            IsVirtual = IsVirtual,
             DateCreated = DateCreated,
             DateLastMediaAdded = DateLastMediaAdded,
             RuntimeTicks = RuntimeTicks,
@@ -190,8 +194,15 @@ public sealed class MediaItem
         };
     }
 
-    public bool IsPlayable => Type is BaseItemDto_Type.Movie or BaseItemDto_Type.Episode
+    public bool IsPlayable => !IsVirtual && Type is BaseItemDto_Type.Movie or BaseItemDto_Type.Episode
         or BaseItemDto_Type.Audio or BaseItemDto_Type.MusicVideo or BaseItemDto_Type.Video;
+
+    /// <summary>A virtual item whose local air day is not over at <paramref name="now"/>; one without
+    /// an air date counts as announced, so upcoming. A virtual item that already aired is missing.</summary>
+    public bool IsUpcoming(DateTimeOffset now)
+        => IsVirtual && (PremiereDate is not { } aired || aired.ToLocalTime().Date >= now.ToLocalTime().Date);
+
+    public bool IsUpcomingEpisode(DateTimeOffset now) => Type == BaseItemDto_Type.Episode && IsUpcoming(now);
 
     /// <summary>Top-level library view (Home "Libraries" rail / nav rail). These render as a
     /// collection-type icon tile rather than a poster. Individual box sets/folders are not

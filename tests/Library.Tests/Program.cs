@@ -82,6 +82,13 @@ Check(ItemLists.SameIds(all, [.. all]), "the same items in the same order have t
 Check(!ItemLists.SameIds(all, [.. all.AsEnumerable().Reverse()]), "a reordered answer is not the same list");
 Check(!ItemLists.SameIds(all, all.Take(4).ToList()), "a shorter answer is not the same list");
 Check(ItemLists.SameShown(kestrel, kestrelAgain), "an unchanged copy shows the same");
+var availabilityId = Guid.NewGuid();
+var upcoming = new MediaItem { Id = availabilityId, Name = "Pilot", Type = BaseItemDto_Type.Episode, IsVirtual = true };
+var available = new MediaItem { Id = availabilityId, Name = "Pilot", Type = BaseItemDto_Type.Episode };
+Check(!ItemLists.SameShown(upcoming, available) && !ItemLists.SameShown(available, upcoming),
+    "same-id availability transitions invalidate cards and detail headers in both directions");
+Check(!ItemLists.SameShown(upcoming, new MediaItem { Id = availabilityId, Name = "Pilot", Type = BaseItemDto_Type.Episode, IsVirtual = true, PremiereDate = DateTimeOffset.Now }),
+    "a new air date invalidates availability text");
 Check(!ItemLists.SameShown(kestrel, kestrelWatched), "a copy now watched shows differently");
 Check(!ItemLists.SameShown([kestrel, all[1]], [kestrelWatched, all[1]]), "one changed card makes the list show differently");
 
@@ -324,6 +331,100 @@ Check(LightWeaver.Navigation.OfflinePlan.For(true, "downloads", null) == LightWe
     && LightWeaver.Navigation.OfflinePlan.For(true, "settings", null) == LightWeaver.Navigation.OfflineShow.Page
     && LightWeaver.Navigation.OfflinePlan.For(false, "home", null) == LightWeaver.Navigation.OfflineShow.Page,
     "local pages and online navigation remain available without cached data");
+
+// --- Query cache: See all sections and Advanced Search open on their last answer -------------
+var queries = new QueryCache("test", 2);
+const string QueryUser = "query-user@tower";
+var queryRemovals = ItemRemovals.ForProfile(QueryUser);
+var answeredAt = queryRemovals.Mark();
+var askedAt = DateTime.UtcNow.AddMinutes(-5);
+await queries.StoreAsync(QueryUser, "a", all, 40, askedAt, answeredAt);
+var answer = await queries.ReadAsync(QueryUser, "a");
+Check(answer is { TotalCount: 40 } && Names(answer.Items) == Names(all) && answer.SavedAtUtc == askedAt,
+    "a stored answer reads back with the server's count and when it was given");
+Check(await queries.ReadAsync("other-user@tower", "a") is null && await queries.ReadAsync(QueryUser, "b") is null
+    && await queries.ReadAsync("", "a") is null, "an answer belongs to its profile and query only");
+L.Initialize("de");
+Check(await queries.ReadAsync(QueryUser, "a") is null, "another UI language has its own answers");
+L.Initialize("en");
+Check(await new QueryCache("other", 2).ReadAsync(QueryUser, "a") is null, "each cache has its own answers");
+
+var arrival = all[1];
+var readBefore = queryRemovals.Mark();
+queryRemovals.Remove([arrival.Id]);
+Check(await queries.ReadAsync(QueryUser, "a") is { TotalCount: 39 } read && read.Items.All(i => i.Id != arrival.Id),
+    "a title removed since the answer stays out of it");
+await queries.StoreAsync(QueryUser, "late", all, all.Count, DateTime.UtcNow, readBefore);
+Check(await queries.ReadAsync(QueryUser, "late", readBefore) is { } late && late.Items.All(i => i.Id != arrival.Id) && late.TotalCount == all.Count - 1,
+    "an answer read before a removal is stored without the removed title");
+queryRemovals.Restore([arrival.Id]);
+
+var many = Enumerable.Range(0, QueryCache.MaxItems + 50).Select(i => Item("Title " + i)).ToList();
+await queries.StoreAsync(QueryUser, "many", many, 2000, DateTime.UtcNow, queryRemovals.Mark());
+Check(await queries.ReadAsync(QueryUser, "many") is { TotalCount: 2000 } capped && capped.Items.Count == QueryCache.MaxItems,
+    $"an answer keeps its first {QueryCache.MaxItems} titles and the server's count");
+Check(await queries.ReadAsync(QueryUser, "a") is null, "past its capacity the cache forgets the least recently stored query");
+
+await queries.StoreAsync(QueryUser, "late", all, all.Count, DateTime.UtcNow, queryRemovals.Mark());
+await queries.StoreAsync(QueryUser, "fresh", all, all.Count, DateTime.UtcNow, queryRemovals.Mark());
+Check(await queries.ReadAsync(QueryUser, "late") is not null && await queries.ReadAsync(QueryUser, "many") is null,
+    "storing a query again keeps it over older ones");
+
+var removedFromAnswers = all[0];
+await queries.StoreAsync("query-other@tower", "fresh", all, all.Count, DateTime.UtcNow, ItemRemovals.ForProfile("query-other@tower").Mark());
+await queries.RemoveAsync(QueryUser, new HashSet<Guid> { removedFromAnswers.Id });
+Check(await queries.ReadAsync(QueryUser, "fresh") is { } pruned && pruned.Items.All(i => i.Id != removedFromAnswers.Id) && pruned.TotalCount == all.Count - 1,
+    "a title the server removed is dropped from the stored answers");
+Check(await queries.ReadAsync("query-other@tower", "fresh") is { Items.Count: 5 }, "another profile's answers are left alone");
+queryRemovals.Restore([removedFromAnswers.Id]);
+var show = Guid.NewGuid();
+var season = Guid.NewGuid();
+MediaItem EpisodeOf(string name, Guid? series = null, Guid? parent = null) => new()
+{
+    Id = Guid.NewGuid(), Name = name, Type = BaseItemDto_Type.Episode, SeriesId = series, ParentId = parent
+};
+List<MediaItem> nextUp = [EpisodeOf("Pilot", series: show), EpisodeOf("Finale", parent: season), Item("Kept")];
+await queries.StoreAsync(QueryUser, "next", nextUp, 3, DateTime.UtcNow, queryRemovals.Mark());
+await queries.RemoveAsync(QueryUser, new HashSet<Guid> { show, season });
+Check(await queries.ReadAsync(QueryUser, "next") is { TotalCount: 1 } orphaned && Names(orphaned.Items) == "Kept",
+    "removing a show or a season drops its episodes from the stored answers");
+queryRemovals.Remove([show]);
+await queries.StoreAsync(QueryUser, "next", nextUp, 3, DateTime.UtcNow, queryRemovals.Mark());
+Check(await queries.ReadAsync(QueryUser, "next") is { } recorded && recorded.Items.All(i => i.SeriesId != show),
+    "an answer stored after a show's removal leaves its episodes out");
+queryRemovals.Restore([show]);
+
+var olderStore = queries.StoreAsync(QueryUser, "order", all, all.Count, DateTime.UtcNow, queryRemovals.Mark());
+var newer = queries.StoreAsync(QueryUser, "order", all.Take(2).ToList(), 2, DateTime.UtcNow, queryRemovals.Mark());
+await Task.WhenAll(newer, olderStore);
+Check(await queries.ReadAsync(QueryUser, "order") is { Items.Count: 2 }, "of two stores of one query the later call wins");
+
+var blockedKey = queries.Key(QueryUser, "blocked");
+Task blockedStore;
+using (await LightWeaver.Imaging.MetadataCache.LockAsync(blockedKey))
+{
+    blockedStore = queries.StoreAsync(QueryUser, "blocked", all, all.Count, DateTime.UtcNow, queryRemovals.Mark());
+    await queries.InvalidateProfileAsync(QueryUser);
+}
+await blockedStore;
+Check(await queries.ReadAsync(QueryUser, "blocked") is null, "clearing rejects a previously submitted store blocked on its entry lock");
+queryRemovals.Remove([arrival.Id]);
+queryRemovals.Restore([arrival.Id]);
+await queries.StoreAsync(QueryUser, "restored", [arrival], 1, DateTime.UtcNow, queryRemovals.Mark());
+await queries.RemoveAsync(QueryUser, new HashSet<Guid> { arrival.Id }, recorded: true);
+Check(await queries.ReadAsync(QueryUser, "restored") is { Items.Count: 1, TotalCount: 1 },
+    "a delayed removal message preserves a freshly stored title restored since that message");
+var languageStore = queries.StoreAsync(QueryUser, "language", all, all.Count, DateTime.UtcNow, queryRemovals.Mark());
+L.Initialize("de");
+await languageStore;
+Check(await queries.ReadAsync(QueryUser, "language") is null, "a pending store keeps the language from its submission");
+L.Initialize("en");
+Check(await queries.ReadAsync(QueryUser, "language") is not null, "the pending answer is available in its original language");
+
+await queries.InvalidateProfileAsync(QueryUser);
+Check(await queries.ReadAsync(QueryUser, "fresh") is null && await queries.ReadAsync(QueryUser, "late") is null,
+    "clearing a profile drops all its answers");
+Check(await queries.ReadAsync("query-other@tower", "fresh") is not null, "clearing a profile keeps other profiles' answers");
 
 Console.WriteLine($"{checks} checks passed.");
 if (Directory.Exists(appData)) Directory.Delete(appData, recursive: true);

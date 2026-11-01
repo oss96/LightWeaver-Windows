@@ -363,6 +363,10 @@ in `uiautomationcore!UiaNodeTraverser::Traverse`. A full-screen stress loop (40 
 each followed by a walk of the whole UIA tree) saw a new caption buttons window after every exit and
 12 to 15 failed walks in full screen; keeping the caption, that window kept one runtime id and no walk
 failed. Full screen hides that window with `ShowWindow` instead, and leaving shows it again.
+The SDK shows it again whenever the window is activated (Alt+Tab back, a restore from minimized),
+and it then stayed over the video through resizes and DPI changes (guest probe, 2026-11-01). So a
+subclass on the caption buttons window takes `SWP_SHOWWINDOW` out of every `WM_WINDOWPOSCHANGING`
+while its parent covers the monitor (`FullscreenStyle.HiddenFlags`).
 
 `MarkFullscreenWindow` runs from the dispatcher queue, after the window change rather than inside it:
 the change runs in a `CompositionTarget.Rendering` callback, `MarkFullscreenWindow` sends to the
@@ -432,6 +436,25 @@ foreground covers it without activating or rising. Leaving never activates the w
 the minimized state when it applies. While covering, the subclass also reasserts on
 `WM_STYLECHANGED`, so a style change that keeps the rect (`WS_MAXIMIZE` or the frame put back)
 is undone too; the reassertion ignores the style change it makes itself.
+
+## v2 Home layout and the Downloads row
+
+`home-layout.json` (`Settings/HomeLayoutStore.cs`) is shared by the 1.x WPF Home and v2. Each
+shows only some of the ids: `Libraries` is the WPF app's alone, `Downloads` v2's alone, and the
+WPF Home throws on an id it has no rail for, so it drops `Downloads` when it loads. `Save` keeps
+every saved entry the caller left out, after the given ones, so saving from either app keeps the
+other's row and its switch. A section missing from the file is appended as
+`EnabledByDefault` has it: on, except `Downloads`. Reset writes `Defaults()`.
+
+The Downloads row (`HomePage.ShowDownloads`) is built from `DownloadManager.Snapshot()` through
+`DownloadsModel.HomeItems`: completed downloads of the profile's server, newest first, each as its
+`PlaybackMetadata` (or its name and poster when a download has none). It is local, so it shows
+before and without the server. The server comes from Home's profile key
+(`HomeLayoutStore.ServerOf`), not the session: a start without the server opens cached Home under
+the saved profile while `JellyfinService.ServerUrl` is still empty. `DownloadsChanged` fires on every progress tick from the download
+thread; the page queues one UI visit at a time and refills the row only when its list of ids
+changed. A card opens the detail page, or plays the download through `IAppShell.Play` while
+`Connectivity.IsOffline`.
 
 ## v2 Recently Added See all
 
@@ -747,9 +770,36 @@ it re-laid itself out up to five times after opening).
   action keeps one width (each label sits over an invisible twin with its other text, Play/Resume,
   Mark watched/Watched, Favorite/Favorited), and the trailer button keeps its slot at the end of the
   row, invisible, unfocusable and out of UI Automation until the title has a trailer; the seasons
-  or episodes heading shows from the start.
+  or episodes heading shows from the start. A movie's or an episode's format badges get their own
+  line, held from the start by one invisible probe chip (`TechProbe`).
   These fill top to bottom, and the children arrive after the item lookup, so later text does not
   push the grid.
+- **Tracks**: a movie or an episode has Video, Audio and Subtitles drop-downs under its format
+  badges: `LwButton`s (`VideoTracks`, `AudioTracks`, `SubtitleTracks`) named by `MarkTracks` (from
+  `ApplyTexts`) after the track `DetailModel.Tracks` marks as the one Play uses (subtitles start
+  with Off, a `TrackLine` without an index). Audio and Subtitles open the same radio menus as the
+  bar's buttons (`ShowAudioChoices`, `ShowSubtitleChoices`), placed below the drop-down with the
+  button as `ExclusionRect`, so a pick sets `_audioIndex` / `_subtitleIndex` for both. Video is never
+  enabled, since `PlaybackChoice` has no video track; Audio is enabled with two or more tracks,
+  Subtitles with one or more, as on the bar. A drop-down keeps its height blank, so the streams
+  answering, a version switch (`_streams` null until its own arrive) and a failed lookup never move
+  what is below. They are not `ComboBox`es: a ComboBox opens its list as a popup window under the
+  pointer, and Windows shows the busy cursor over it until its input is ready (microsoft-ui-xaml
+  #8829, open since Windows App SDK 1.4); `tests/FastUi.Tests` fails on a ComboBox in the page. The
+  exclusion is the button grown by the menu's shadow (`MenuShadowAbove` 20, `MenuShadowBelow` 4), so
+  a menu that flips above keeps its shadow off the pointer too. A menu opened with the pointer hands
+  focus to the page once it closes, if its button still holds focus then (`ReleaseFocus`, as
+  `HoldFocusForPage` does for the page host),
+  so Space and the player's other keys reach the window instead of reopening the drop-down; a
+  keyboard user keeps focus on the button.
+- **Row panels**: More like this and Cast and crew each sit in a `Border` drawn like the info panel
+  (`LwPanelBrush`, `LwStrokeBrush`, `LwGroupRadius`, padding 16,12,12,16). `Rows`' second column
+  (`RowsSideColumn`) takes the side panel's width from the same `DetailModel.Frame` pass, so More
+  like this is as wide as the preview and Cast and crew as the info panel. The rows' height does not
+  depend on their width, so measuring them before the frame still holds.
+- **Round people**: a `CardKind.Person` card (here, on the Cast page and in search) has square
+  artwork with a corner radius of half its width (art, hover and current rings), captions centred,
+  and its picture 1.5 × the width tall and top-aligned, so a 2:3 portrait shows its top two thirds.
 - **Version drop-down**: the bar's `DetailVersion` button is 160 wide whatever the version is
   called, and `DetailModel.ShowsVersions` decides whether it shows: the loaded versions once
   `GetMediaVersionsAsync` has answered for the target, before that `MediaItem.MediaSourceCount`,
@@ -787,6 +837,36 @@ false. Retry keeps the tier and the switch; "Play at original quality" uses
 `PlaybackChoice.AtOriginalQuality`, which also drops Always transcode, so it really plays the file.
 Versions, which the player lists in its Quality flyout, have their own drop-down on the detail
 page (see "v2 detail page: laid out once").
+
+## v2 format badges, collections and Shuffle
+
+Three 1.x features, ported for 2.0 (2026-10-23).
+
+- **Format badges**: `DetailModel.TechnicalChips` reads the `Summary` fields of the
+  `MediaSourceStreams` the detail page already loads for the version Play uses
+  (`JellyfinService.GetMediaStreamsAsync`): the `Resolution` field as 4K (width 3400 and up), 1080p
+  (1900), 720p (1200) or SD, the `Range` field unless it is SDR (`HdrLabel`: HDR10, HDR10+, HLG,
+  Dolby Vision), and the `Audio` field (`AudioPillLabel`: ATMOS or DTS:X when the stream's profile
+  names them, else the codec and channels). These are the WPF detail view's gem pills; v2 draws
+  them as the info panel's chips. A movie and an episode show them; a show or a season does not.
+- **Collections**: `MainWindow.OpenItem` opens a `BoxSet` as a `LibraryPage` under the key
+  `collection:<id>` (kept like a library, `reuse: true`), so the top bar selects no destination
+  and keeps its Libraries label. `LibraryLoader` pages the box set's children with `ParentId` and
+  shares the browse folder cache with the WPF app, as for a library. A box set's titles are
+  linked children, so its genre filter lists the genres of the loaded titles instead of asking
+  `/Genres` for the folder.
+- **Shuffle**: `DetailModel.ShuffleQueue` keeps the playable episodes, then the unwatched ones
+  (all of them when every one is watched), and shuffles them (`PlaylistModel.Shuffled`).
+  `ItemMenu.ShuffleAsync` reads the episodes (`GetSeriesEpisodesAsync` for a show,
+  `GetEpisodesAsync` for a season) and hands the queue to `IAppShell.PlayQueue`, so
+  `PlaybackController.Play` sets the queue, or submits it to a SyncPlay group, as a playlist's
+  Shuffle does. An empty queue shows the WPF app's "Nothing playable in here." toast.
+  Removed episodes leave the list first (`ItemRemovals.Filter` from a mark taken before the
+  lookup). Shuffle and a card's Play on a show, a season or a playlist claim one
+  `IAppShell.PlayRequests` order: a lookup that returns after a newer request, a play, a stop or a
+  profile switch plays nothing. An episode the player plays on into its show (`PlayFromEpisodeAsync`) takes
+  its playback intent when asked and keeps it when its queue lookup starts it, so a newer Shuffle
+  still waiting for its episodes starts after it instead of being dropped.
 
 ## v2 links and dropped files
 
@@ -897,7 +977,22 @@ profile; a deleted title that is playing finishes and leaves the queue when the 
 A 404 does not mark the whole server unreachable.
 
 `INavPage.CachedAtUtc` and `OfflinePlan` choose between a cached page and the existing unreachable
-view. The shell owns one timestamped cached-results banner and Retry now action. Home and library
+view. Queries no library folder holds keep their last answer in a `QueryCache`
+(`LightWeaver.Core/Library`): an entry per profile, UI language and query in the metadata cache,
+at most 600 titles with the server's count and when it answered, and a per-profile index that
+forgets the least recently stored query past the cache's capacity. `QueryCache.Sections` holds
+the See more grids (`HomeSections.CacheQuery`: one entry for a section that loads whole and
+filters locally, one per filter and sort for Recently Added's visited range); `QueryCache.Searches`
+holds 24 Advanced Search answers, keyed by the server query (`AdvancedSearchFilters.CacheQuery`,
+without the person's display name). `SectionPage` paints the entry without a skeleton, then the
+server's answer updates the cards in place through a `KeyedList`; offline it
+stops at the entry. `AdvancedSearchModel` applies the entry as an answer that is still updating,
+asks the server for every cached page, and stores a new query's answer after two seconds without
+a newer query. Reloads are stored immediately; appended pages and resyncs are stored once the
+query has settled. Entries
+are filtered through `ItemRemovals` on read and write, pruned by a library message's removed ids,
+and dropped with the browse cache in Settings. The shell owns one timestamped cached-results
+banner and Retry now action. Home and library
 cache reads use the saved profile identity during offline startup and are generation-checked
 before replacing page content. `DownloadTracks` maps per-download audio/subtitle choices to each
 file and to its eventual mpv tracks; these choices are saved with the download record.
@@ -1224,3 +1319,36 @@ server. `DownloadManager` now discards that response and restarts once from byte
 Range, the same single restart a 416 gets, logging `event=range_misaligned outcome=restart` with
 the requested and returned offsets. `PartialStreamFixture` covers a server that ignores Range
 (200 with the whole file) and one that answers 206 from byte 0 whatever was asked.
+
+### Card row paging
+
+WinUI card rows use ScrollView compositor scrolling. Their row automation IDs belong to the loaded ScrollPresenter, which exposes the scroll pattern, so row-scoped automation finds the cards and paging state. Chevron clicks target a page of whole
+cards and cap the animation at 180 ms, with the system motion preference respected.
+CardRowPaging tracks the requested destination and scroll correlation ID so rapid clicks
+accumulate and stale completions cannot clear a newer request. Layout and content changes
+clear the pending destination; native touch scrolling and focus navigation can interrupt paging.
+
+ScrollView ignores native MouseWheel input. CardRow handles unhandled PointerWheelChanged events
+across the cards, header and transparent gaps, leaving Ctrl+wheel to interface zoom. Vertical
+wheel down advances in reading order; horizontal wheel follows physical left/right, reversing
+the offset delta in RTL. Each wheel delta unit moves one DIP, retaining high-resolution input.
+Wheel and chevron requests share the pending destination, correlation tracking and motion policy.
+Requests already at that destination do not replace the in-flight operation. Overflowing rows
+consume wheel input even at their boundaries; rows without overflow let the page scroll.
+Host logic and FastUi checks cover the destination math and source wiring. UI Automation
+ScrollPattern coverage does not exercise physical wheel routing; that remains a runtime gate.
+
+## Home section controls
+
+`HomePage.Sections.cs` exposes the existing `HomeLayoutStore` preferences directly on Home.
+The customize button and rows share a grid inside the page scroller; the first visible
+row reserves trailing header space for it. The button stays rooted while rows collapse,
+so switches can hide every row without detaching the flyout anchor. The flyout lists the
+current layout order, filters out the legacy Libraries row, and saves individual toggles
+without replacing other profile choices. Settings changes are applied on Home re-entry.
+
+`HomeSectionDrag` handles section drag/drop in both Home and Settings. Dedicated WinUI Thumb controls capture pointer dragging locally,
+so section movement never enters the shell file-drop handler or an operating-system drag loop.
+Each editor tracks its own active source, calculates insertion from row midpoints, cancels on
+Escape, canceled capture or unloading, and rechecks the active profile before saving. `HomeSectionOrder.Move` preserves toggle states
+and the legacy Libraries slot. The same handles support Alt+Up/Down for keyboard reordering.

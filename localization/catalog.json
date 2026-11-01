@@ -1047,6 +1047,13 @@
         "src/LightWeaver.WinUI/Controls/ItemMenu.cs"
       ]
     },
+    "Card.AirDateUnannounced": {
+      "text": "Air date unannounced",
+      "context": "Upcoming episode card subtitle when no air date is available",
+      "sources": [
+        "src/LightWeaver.WinUI/Controls/MediaCard.xaml.cs"
+      ]
+    },
     "Card.AvailableOffline": {
       "text": "Available offline",
       "context": "Card badge for a downloaded title",
@@ -1254,6 +1261,13 @@
         "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
       ]
     },
+    "Detail.Missing": {
+      "text": "Not in the library",
+      "context": "Card line and detail page preview label of an episode the server lists from metadata only, whose air date has passed",
+      "sources": [
+        "src/LightWeaver.Core/Details/DetailModel.cs"
+      ]
+    },
     "Detail.MoreLikeThis": {
       "text": "More like this",
       "context": "Detail page row of similar titles; its title opens the full list",
@@ -1282,10 +1296,18 @@
         "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
       ]
     },
+    "Detail.NoTracks": {
+      "text": "None",
+      "context": "Detail info panel: the Video or Audio drop-down's text when the title has no track of that type",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
+      ]
+    },
     "Detail.Off": {
       "text": "Off",
-      "context": "Detail page subtitles choice: no subtitles",
+      "context": "Detail page subtitles choice: no subtitles; also the first line of the info panel's subtitle tracks",
       "sources": [
+        "src/LightWeaver.Core/Details/DetailModel.cs",
         "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
       ]
     },
@@ -1394,6 +1416,21 @@
         "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
       ]
     },
+    "Detail.Upcoming": {
+      "text": "Upcoming",
+      "context": "Upcoming episode badge and undated episode detail preview label",
+      "sources": [
+        "src/LightWeaver.Core/Details/DetailModel.cs",
+        "src/LightWeaver.WinUI/Controls/MediaCard.xaml.cs"
+      ]
+    },
+    "Detail.UpcomingOn": {
+      "text": "Upcoming · {0}",
+      "context": "Card line and detail page preview label of an episode that has not aired yet; {0} its air date",
+      "sources": [
+        "src/LightWeaver.Core/Details/DetailModel.cs"
+      ]
+    },
     "Detail.VersionIs": {
       "text": "Version: {0}",
       "context": "Detail page version drop-down accessible name and tooltip; {0} the version's name",
@@ -1406,6 +1443,13 @@
       "context": "Detail info panel label for the video stream",
       "sources": [
         "src/LightWeaver.WinUI/Pages/DetailPage.xaml"
+      ]
+    },
+    "Detail.VideoIs": {
+      "text": "Video: {0}",
+      "context": "Detail info panel video drop-down accessible name; {0} the video track Play uses",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs"
       ]
     },
     "Detail.Watched": {
@@ -2654,6 +2698,36 @@
         "src/LightWeaver/Player/GpuCapabilities.cs"
       ]
     },
+    "Home.AllSectionsHidden": {
+      "text": "All Home sections are hidden",
+      "context": "Home empty state when every section is switched off",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
+      ]
+    },
+    "Home.CustomizeSections": {
+      "text": "Customize Home sections",
+      "context": "Home section customize button tooltip and accessible name",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
+      ]
+    },
+    "Home.ReorderSection": {
+      "text": "Move {0}",
+      "context": "Accessible name for a Home section drag handle; {0} is the section name",
+      "sources": [
+        "src/LightWeaver.WinUI/Controls/HomeSectionDrag.cs",
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
+      ]
+    },
+    "Home.ReorderHint": {
+      "text": "Drag to reorder. Alt+Up or Alt+Down moves one position.",
+      "context": "Home section drag handle tooltip and keyboard alternative",
+      "sources": [
+        "src/LightWeaver.WinUI/Controls/HomeSectionDrag.cs",
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
+      ]
+    },
     "Home.ContinueWatching": {
       "text": "Continue Watching",
       "context": "Home row and section title",
@@ -2663,25 +2737,33 @@
         "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
       ]
     },
+    "Home.Downloads": {
+      "text": "Downloads",
+      "context": "Home row of downloaded titles, and its name in Settings > Home",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/HomePage.cs",
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
+      ]
+    },
     "Home.EmptyBrowse": {
       "text": "Browse your library",
       "context": "Home empty state button: opens the full library list",
       "sources": [
-        "src/LightWeaver.WinUI/Pages/HomePage.cs"
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
       ]
     },
     "Home.EmptyText": {
       "text": "Start something from your library and it shows up here.",
       "context": "Home empty state text",
       "sources": [
-        "src/LightWeaver.WinUI/Pages/HomePage.cs"
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
       ]
     },
     "Home.EmptyTitle": {
       "text": "Nothing here yet",
       "context": "Home empty state title (no rows at all)",
       "sources": [
-        "src/LightWeaver.WinUI/Pages/HomePage.cs"
+        "src/LightWeaver.WinUI/Pages/HomePage.Sections.cs"
       ]
     },
     "Home.Episode": {
@@ -3066,6 +3148,7 @@
       "text": "SD",
       "context": "private static string? ResolutionLabel(string resolution)",
       "sources": [
+        "src/LightWeaver.Core/Details/DetailModel.cs",
         "src/LightWeaver/Views/ItemDetailView.xaml.cs"
       ]
     },
@@ -3682,6 +3765,20 @@
       "context": "Library empty state button",
       "sources": [
         "src/LightWeaver.WinUI/Pages/LibraryPage.xaml"
+      ]
+    },
+    "Library.CollectionEmpty": {
+      "text": "This collection is empty",
+      "context": "Empty state title of a collection (box set) page without titles",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/LibraryPage.xaml.cs"
+      ]
+    },
+    "Library.CollectionEmptyHint": {
+      "text": "Add movies or shows to this collection on your Jellyfin server.",
+      "context": "Empty state text of a collection (box set) page without titles",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/LibraryPage.xaml.cs"
       ]
     },
     "Library.CountFiltered": {
@@ -4661,6 +4758,7 @@
       "text": "Downloading update {0} — {1:P0}",
       "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
       "sources": [
+        "src/LightWeaver.Core/Updates/UpdateNotices.cs",
         "src/LightWeaver/MainWindow.xaml.cs"
       ]
     },
@@ -4668,6 +4766,7 @@
       "text": "Downloading update {0}…",
       "context": "private void OnUpdateStatusChanged(UpdateStatus status)",
       "sources": [
+        "src/LightWeaver.Core/Updates/UpdateNotices.cs",
         "src/LightWeaver/MainWindow.xaml.cs"
       ]
     },
@@ -4879,6 +4978,7 @@
       "text": "Nothing playable in here.",
       "context": "private async void OnPlayAllRequested(Jellyfin.MediaItem source, bool shuffle)",
       "sources": [
+        "src/LightWeaver.WinUI/Controls/ItemMenu.cs",
         "src/LightWeaver/MainWindow.xaml.cs"
       ]
     },
@@ -7788,9 +7888,10 @@
     },
     "Playlist.Shuffle": {
       "text": "Shuffle",
-      "context": "Play a playlist in random order",
+      "context": "Play a playlist, or a show's or season's unwatched episodes, in random order (menu entry and button)",
       "sources": [
         "src/LightWeaver.WinUI/Controls/ItemMenu.cs",
+        "src/LightWeaver.WinUI/Pages/DetailPage.xaml.cs",
         "src/LightWeaver.WinUI/Pages/PlaylistPage.xaml"
       ]
     },

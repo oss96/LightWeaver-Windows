@@ -43,9 +43,12 @@ XAML) — that breaks RTX Video HDR and HDR passthrough, which are core requirem
   hash.
 - Every UI-text handoff must include a translation-editor link filtered to the strings
   created or modified by that work. Use `http://127.0.0.1:5386/?changed=<base-commit>` with
-  the full commit hash from before the change. Start the local editor before handing over
-  the link; it opens its session link in the user's browser, after which plain links work
-  there. Use a fixed base commit so the filter still works after committing the change.
+  the full commit hash from before the change. Before sharing any translation-editor link
+  for the user to inspect or approve translations, check that the local editor server is
+  running and start it if it is not. Confirm it responds before handing over the link.
+  Starting the editor opens its session link in the user's browser, after which plain
+  links work there. Use a fixed base commit so the filter still works after committing
+  the change.
 - `dotnet build -warnaserror` must pass before every commit. Warnings are errors here; do not
   commit around them.
 - Tests: add or update a unit test (`tests/*.Tests`) with every logic change, and the static

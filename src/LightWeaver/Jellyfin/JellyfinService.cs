@@ -1130,7 +1130,20 @@ public sealed class JellyfinService : IDisposable
         return Map(result?.Items);
     }
 
-    public async Task<List<MediaItem>> GetEpisodesAsync(Guid seriesId, Guid seasonId)
+    /// <summary>A season's episodes in order; with <paramref name="includeVirtual"/> also the ones the
+    /// server knows from metadata alone (upcoming and missing). The /Shows route returns those only to
+    /// a user with "Display missing episodes within seasons" on; a season's own children always
+    /// carry them, in the season's order, so they come from there.</summary>
+    public async Task<List<MediaItem>> GetEpisodesAsync(Guid seriesId, Guid seasonId, bool includeVirtual = false)
+    {
+        var episodes = GetSeasonEpisodesAsync(seriesId, seasonId);
+        if (!includeVirtual) return await episodes.ConfigureAwait(false);
+        var children = GetSeasonChildrenAsync(seasonId);
+        await Task.WhenAll(episodes, children).ConfigureAwait(false);
+        return SeasonEpisodes.WithVirtual(episodes.Result, children.Result);
+    }
+
+    private async Task<List<MediaItem>> GetSeasonEpisodesAsync(Guid seriesId, Guid seasonId)
     {
         var result = await WithRetry(() => _client.Shows[seriesId].Episodes.GetAsync(cfg =>
         {
@@ -1146,6 +1159,17 @@ public sealed class JellyfinService : IDisposable
             // Virtual/missing episodes (metadata-only placeholders) are neither
             // playable nor downloadable; hiding them matches Jellyfin's default UX.
             cfg.QueryParameters.IsMissing = false;
+            cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
+        })).ConfigureAwait(false);
+        return Map(result?.Items);
+    }
+
+    private async Task<List<MediaItem>> GetSeasonChildrenAsync(Guid seasonId)
+    {
+        var result = await WithRetry(() => _client.Items.GetAsync(cfg =>
+        {
+            cfg.QueryParameters.ParentId = seasonId;
+            cfg.QueryParameters.IncludeItemTypes = [BaseItemKind.Episode];
             cfg.QueryParameters.Fields = [ItemFields.Overview, .. DetailPreviewFields];
         })).ConfigureAwait(false);
         return Map(result?.Items);
@@ -1891,6 +1915,7 @@ public sealed class JellyfinService : IDisposable
             ParentIndexNumber = dto.ParentIndexNumber,
             ProductionYear = dto.ProductionYear,
             PremiereDate = dto.PremiereDate,
+            IsVirtual = dto.LocationType == BaseItemDto_LocationType.Virtual,
             DateCreated = dto.DateCreated,
             DateLastMediaAdded = dto.DateLastMediaAdded,
             RuntimeTicks = dto.RunTimeTicks ?? dto.CumulativeRunTimeTicks,

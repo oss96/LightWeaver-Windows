@@ -4,8 +4,9 @@ using System.Text.Json.Serialization;
 
 namespace LightWeaver.Settings;
 
-/// <summary>The five Home rails, in default order (Phase 7 M11).</summary>
-public enum HomeSectionId { Resume, NextUp, Latest, Favorites, Libraries }
+/// <summary>The Home rails, in default order (Phase 7 M11). <see cref="Libraries"/> is the 1.x
+/// app's only and <see cref="Downloads"/> v2's only.</summary>
+public enum HomeSectionId { Resume, NextUp, Latest, Favorites, Libraries, Downloads }
 
 /// <summary>One rail's layout preference: its position is its list index.</summary>
 public sealed record HomeSectionPref(HomeSectionId Id, bool Enabled);
@@ -37,10 +38,22 @@ public static class HomeLayoutStore
     /// cold caches and a reset Home.</summary>
     public static string ProfileKey(Guid userId, string? serverUrl) => $"{userId:N}@{serverUrl}";
 
+    /// <summary>The server URL of a <see cref="ProfileKey"/>; null for anything else or an empty URL.</summary>
+    public static string? ServerOf(string? profileKey)
+        => profileKey is { Length: > 33 } key && key[32] == '@' && Guid.TryParseExact(key[..32], "N", out _) ? key[33..] : null;
+
+    /// <summary>Whether a section is on before the user chooses: every rail but Downloads.</summary>
+    public static bool EnabledByDefault(HomeSectionId id) => id != HomeSectionId.Downloads;
+
+    /// <summary>Every section in default order, each on or off by <see cref="EnabledByDefault"/>.</summary>
+    public static List<HomeSectionPref> Defaults()
+        => [.. Enum.GetValues<HomeSectionId>().Select(id => new HomeSectionPref(id, EnabledByDefault(id)))];
+
     /// <summary>The saved layout for the profile, reconciled (port of Velly's
     /// HomeSectionsStore.load): duplicates and unknown ids are dropped, sections the
-    /// file doesn't know yet are appended at the end, enabled — so both a stale file
-    /// and a fresh profile yield a complete five-section layout.</summary>
+    /// file doesn't know yet are appended at the end, on or off by
+    /// <see cref="EnabledByDefault"/>, so both a stale file and a fresh profile yield
+    /// every section.</summary>
     public static List<HomeSectionPref> Load(string profileKey)
     {
         List<HomeSectionPref>? saved = null;
@@ -65,6 +78,8 @@ public static class HomeLayoutStore
         return Reconcile(saved);
     }
 
+    /// <summary>Saves the profile's layout; a section the layout leaves out keeps its saved entry,
+    /// after the given ones, so each app can save the sections it shows.</summary>
     public static void Save(string profileKey, List<HomeSectionPref> layout)
     {
         Dictionary<string, List<HomeSectionPref>> all = [];
@@ -79,6 +94,10 @@ public static class HomeLayoutStore
         {
             // unreadable: rewrite with just this profile
         }
+        var kept = all.TryGetValue(profileKey, out var saved)
+            ? saved.Where(p => Enum.IsDefined(p.Id) && layout.All(l => l.Id != p.Id))
+            : [];
+        layout = [.. layout, .. kept];
         all[profileKey] = layout;
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
         var tmp = Path + ".tmp";
@@ -100,7 +119,7 @@ public static class HomeLayoutStore
                     result.Add(pref);
         foreach (var id in Enum.GetValues<HomeSectionId>())
             if (result.All(p => p.Id != id))
-                result.Add(new HomeSectionPref(id, Enabled: true));
+                result.Add(new HomeSectionPref(id, EnabledByDefault(id)));
         return result;
     }
 }

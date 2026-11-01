@@ -115,7 +115,7 @@ public partial class HomeView : UserControl
             if (int.TryParse(Environment.GetEnvironmentVariable("LIGHTWEAVER_SLOW_LOAD_MS"), out var slowMs) && slowMs > 0)
                 await Task.Delay(slowMs);
             _profileKey = HomeLayoutStore.ProfileKey(_app.Jellyfin.UserId, _app.Jellyfin.ServerUrl);
-            _layout = HomeLayoutStore.Load(_profileKey);
+            _layout = [.. HomeLayoutStore.Load(_profileKey).Where(p => p.Id != HomeSectionId.Downloads)];
             ApplyOrder();
 
             var jf = _app.Jellyfin;

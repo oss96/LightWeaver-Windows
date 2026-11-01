@@ -55,8 +55,8 @@ public sealed partial class MainWindow : IAppShell
         Root.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnAnyPointerPressed), handledEventsToo: true);
         Bar.MorphRequested += OnMorphRequested;
         Bar.MorphItemInvoked += OnMorphItemInvoked;
-        AddAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu, () => _nav.Back());
-        AddAccelerator(VirtualKey.Right, VirtualKeyModifiers.Menu, () => _nav.Forward());
+        AddAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu, GoBack);
+        AddAccelerator(VirtualKey.Right, VirtualKeyModifiers.Menu, GoForward);
         AddAccelerator(VirtualKey.F, VirtualKeyModifiers.Control, Bar.FocusSearch);
         AddAccelerator((VirtualKey)0xBC, VirtualKeyModifiers.Control, () => { if (_nav.Current?.Key != "login") OpenSettings(); });
         InitializeSessions();
@@ -93,9 +93,12 @@ public sealed partial class MainWindow : IAppShell
 
     public void ReturnHome() { if (!_nav.BackTo("home")) GoHome(); }
 
+    /// <summary>A title's detail page; a playlist opens its own page and a collection its titles in a
+    /// library grid.</summary>
     public void OpenItem(MediaItem item)
     {
         if (item.Type == global::Jellyfin.Sdk.Generated.Models.BaseItemDto_Type.Playlist) OpenPlaylist(item);
+        else if (item.Type == global::Jellyfin.Sdk.Generated.Models.BaseItemDto_Type.BoxSet) _nav.Go("collection:" + item.Id.ToString("N"), () => new LibraryPage(this, item), reuse: true);
         else _nav.Go("item:" + item.Id.ToString("N"), () => new DetailPage(this, item));
     }
 
@@ -113,7 +116,7 @@ public sealed partial class MainWindow : IAppShell
 
     public void OpenDownloads() => _nav.Go("downloads", () => new DownloadsPage(this));
 
-    public void OpenSettings() => _nav.Go("settings", () => new SettingsPage(this));
+    public void OpenSettings() => _nav.Go("settings", () => NewSettingsPage());
 
     public nint WindowHandle => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
@@ -121,6 +124,8 @@ public sealed partial class MainWindow : IAppShell
 
 
     public int PlaybackIntent => _playback?.Intent ?? 0;
+
+    public LightWeaver.Player.PlayRequests PlayRequests { get; } = new();
 
     public void Quit() => Close();
 
@@ -245,7 +250,7 @@ public sealed partial class MainWindow : IAppShell
             _ when key.StartsWith("library:", StringComparison.Ordinal) => TopBarDestination.Libraries,
             _ => TopBarDestination.None,
         };
-        Bar.ShowChoice(_nav.CurrentPage is LibraryPage library ? LibraryChoice(library.Library) : null,
+        Bar.ShowChoice(_nav.CurrentPage is LibraryPage library && key.StartsWith("library:", StringComparison.Ordinal) ? LibraryChoice(library.Library) : null,
             _nav.CurrentPage is PlaylistPage playlist ? PlaylistChoice(playlist.Playlist) : null);
         Bar.IsAdvancedOpen = _search is not null && ReferenceEquals(_nav.CurrentPage, _search) && _search.IsPanelOpen;
         var login = key == "login";
@@ -277,8 +282,8 @@ public sealed partial class MainWindow : IAppShell
     public void CachedDataShown(INavPage page)
     {
         if (!_connectivity.IsOffline || !ReferenceEquals(page, _nav.CurrentPage)) return;
-        if (!ReferenceEquals(ShownPage, page)) ShowCurrent();
-        else if (OfflinePlan.For(true, _nav.Current?.Key ?? "", page.CachedAtUtc) == OfflineShow.CachedPage) ShowCachedBanner(page.CachedAtUtc);
+        if (ReferenceEquals(ShownPage, page) && OfflinePlan.For(true, _nav.Current?.Key ?? "", page.CachedAtUtc) == OfflineShow.CachedPage) ShowCachedBanner(page.CachedAtUtc);
+        else ShowCurrent();
     }
 
     private DateTime? _cachedBannerAt;
@@ -498,8 +503,8 @@ public sealed partial class MainWindow : IAppShell
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var props = e.GetCurrentPoint(Root).Properties;
-        if (props.IsXButton1Pressed) { _nav.Back(); e.Handled = true; }
-        else if (props.IsXButton2Pressed) { _nav.Forward(); e.Handled = true; }
+        if (props.IsXButton1Pressed) { GoBack(); e.Handled = true; }
+        else if (props.IsXButton2Pressed) { GoForward(); e.Handled = true; }
     }
 
     private void AddAccelerator(VirtualKey key, VirtualKeyModifiers modifiers, Action action)

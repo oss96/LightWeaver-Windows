@@ -1,4 +1,5 @@
 using Jellyfin.Sdk.Generated.Models;
+using LightWeaver.Details;
 using LightWeaver.Jellyfin;
 using LightWeaver.Library;
 using LightWeaver.Localization;
@@ -14,7 +15,7 @@ namespace LightWeaver.WinUI.Controls;
 internal sealed record ItemMenuOptions(Action<MediaItem>? RemoveFromContinueWatching = null, Action<MediaItem>? Rename = null, Action<MediaItem>? Delete = null);
 
 /// <summary>The item context menu (design 03, 3a): opened by a card's ⋯, a right-click or
-/// Shift+F10. Play or resume, watched state, favourites, series and info.</summary>
+/// Shift+F10. Play or resume (Shuffle for a show or a season), watched state, favourites, series and info.</summary>
 internal static class ItemMenu
 {
     public static MenuFlyout Build(IAppShell shell, JellyfinService session, MediaItem item, (bool Played, bool Favorite) state,
@@ -44,6 +45,11 @@ internal static class ItemMenu
                 play.KeyboardAcceleratorTextOverride = L.Text("ItemMenu.EnterKey");
                 menu.Items.Add(play);
             }
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
+        else if (item.Type is BaseItemDto_Type.Series or BaseItemDto_Type.Season)
+        {
+            menu.Items.Add(Entry("ItemMenuShuffle", L.Text("Playlist.Shuffle"), Theme.Icons.Shuffle, () => _ = ShuffleAsync(shell, session, item, origin)));
             menu.Items.Add(new MenuFlyoutSeparator());
         }
 
@@ -116,6 +122,31 @@ internal static class ItemMenu
         if (options?.Rename is { } rename || options?.Delete is not null) menu.Items.Add(new MenuFlyoutSeparator());
         if (options?.Rename is { } renamePlaylist) menu.Items.Add(Entry("ItemMenuRename", L.Text("Playlist.Rename"), Theme.Icons.Edit, () => renamePlaylist(playlist)));
         if (options?.Delete is { } delete) menu.Items.Add(Entry("ItemMenuDelete", L.Text("Playlist.Delete"), Theme.Icons.Delete, () => delete(playlist)));
+    }
+
+    /// <summary>Plays a show's or a season's unwatched episodes in random order as the queue
+    /// (<see cref="DetailModel.ShuffleQueue"/>); a toast says when there is nothing to play. A lookup
+    /// that a later Shuffle or card Play, a play, a stop or a session switch overtakes plays nothing.</summary>
+    public static async Task ShuffleAsync(IAppShell shell, JellyfinService session, MediaItem item, PlayOrigin? origin = null)
+    {
+        var request = shell.PlayRequests.Claim();
+        var intent = shell.PlaybackIntent;
+        var active = shell.Model.Jellyfin;
+        var removals = ItemRemovals.ForProfile(shell.CacheProfileKey);
+        var readAt = removals.Mark();
+        try
+        {
+            IReadOnlyList<MediaItem> episodes = item.Type == BaseItemDto_Type.Series ? await session.GetSeriesEpisodesAsync(item.Id)
+                : (item.SeriesId ?? item.ParentId) is { } seriesId ? await session.GetEpisodesAsync(seriesId, item.Id) : [];
+            if (!shell.PlayRequests.IsLatest(request) || shell.PlaybackIntent != intent || !ReferenceEquals(shell.Model.Jellyfin, active)) return;
+            var queue = DetailModel.ShuffleQueue(removals.Filter(episodes, readAt), Random.Shared);
+            if (queue.Count == 0) Shell.ToastHost.Show(Shell.ToastKind.Info, L.Text("MainWindow.NothingPlayableInHere.380074e4"));
+            else shell.PlayQueue(queue, 0, origin);
+        }
+        catch (Exception ex)
+        {
+            shell.ReportFailure(ex);
+        }
     }
 
     /// <summary>A playback position as people read it: 42:10, or 1:02:10 past an hour.</summary>

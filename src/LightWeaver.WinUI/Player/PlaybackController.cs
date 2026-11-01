@@ -232,6 +232,13 @@ internal sealed class PlaybackController : IDisposable
     /// plays from <paramref name="index"/>; an episode alone continues into the rest of its show.</summary>
     public void Play(MediaItem item, PlaybackChoice? choice, IReadOnlyList<MediaItem>? queue = null, int index = 0, JellyfinService? session = null)
     {
+        if (queue is { Count: > 0 })
+        {
+            (queue, index) = PlayableItems.Select(queue, index);
+            if (queue.Count == 0) return;
+            item = queue[index];
+        }
+        else if (!item.IsPlayable) return;
         var owner = session ?? _app.Jellyfin;
         if (SyncPlay?.TrySubmit(queue is { Count: > 0 } ? queue : [item], queue is { Count: > 0 } ? index : 0, choice?.Start.Ticks ?? 0, owner) == true)
         {
@@ -323,7 +330,8 @@ internal sealed class PlaybackController : IDisposable
     }
 
     /// <summary>An episode started alone plays on into the episodes after it ("watch from here").
-    /// Anything started, stopped or disposed during the lookup wins over it.</summary>
+    /// Anything started, stopped or disposed during the lookup wins over it. Its start keeps the
+    /// intent taken here, so a newer play still waiting for its own lookup is not overtaken by it.</summary>
     private async Task PlayFromEpisodeAsync(MediaItem episode, Guid seriesId, PlaybackChoice? choice, JellyfinService session)
     {
         var intent = ++_intent;
@@ -343,7 +351,7 @@ internal sealed class PlaybackController : IDisposable
             if (at >= 0 && episodes.Skip(at).Where(e => e.IsPlayable).ToList() is { Count: > 1 } slice)
             {
                 _app.Queue.Set(slice, 0);
-                Start(slice[0], choice, session);
+                Start(slice[0], choice, session, intentTaken: true);
                 return;
             }
         }
@@ -358,7 +366,7 @@ internal sealed class PlaybackController : IDisposable
             return;
         }
         _app.Queue.Clear();
-        Start(episode, choice, session);
+        Start(episode, choice, session, intentTaken: true);
     }
 
     /// <summary>The title asked for was deleted on the server before it could start.</summary>
@@ -388,9 +396,9 @@ internal sealed class PlaybackController : IDisposable
         Start(item, null, _session);
     }
 
-    private void Start(MediaItem item, PlaybackChoice? choice, JellyfinService? session = null, DownloadItem? download = null, bool detached = false)
+    private void Start(MediaItem item, PlaybackChoice? choice, JellyfinService? session = null, DownloadItem? download = null, bool detached = false, bool intentTaken = false)
     {
-        _intent++;
+        if (!intentTaken) _intent++;
         if (!EnsurePlayer())
         {
             _surface.CancelHold();
@@ -557,8 +565,7 @@ internal sealed class PlaybackController : IDisposable
     private bool DownloadMatchesSession(DownloadItem download, JellyfinService? session = null)
     {
         var server = (session ?? Session).ServerUrl;
-        if (string.IsNullOrEmpty(server) && _shell.CacheProfileKey is { Length: > 33 } profile
-            && profile[32] == '@' && Guid.TryParseExact(profile[..32], "N", out _)) server = profile[33..];
+        if (string.IsNullOrEmpty(server)) server = HomeLayoutStore.ServerOf(_shell.CacheProfileKey);
         return Uri.TryCreate(download.ServerUrl, UriKind.Absolute, out var saved) && Uri.TryCreate(server, UriKind.Absolute, out var active)
             && saved.GetLeftPart(UriPartial.Path).TrimEnd('/') == active.GetLeftPart(UriPartial.Path).TrimEnd('/');
     }

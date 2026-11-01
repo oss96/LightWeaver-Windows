@@ -3,7 +3,9 @@ using LightWeaver.Jellyfin;
 using LightWeaver.Library;
 using LightWeaver.Localization;
 using LightWeaver.WinUI.Shell;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -31,7 +33,9 @@ internal partial class CardRow : StackPanel
     private readonly Button _openButton;
     private readonly Button _previous;
     private readonly Button _next;
-    private readonly ScrollViewer _scroller;
+    private readonly Grid _header;
+    private readonly ScrollView _scroller;
+    private readonly CardRowPaging _paging = new();
     private readonly StackPanel _cards;
     private readonly TextBlock _empty;
     private readonly List<MediaItem> _items = [];
@@ -49,6 +53,8 @@ internal partial class CardRow : StackPanel
         _kind = kind;
         _cardWidth = cardWidth;
         Spacing = HeaderGap;
+        Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        PointerWheelChanged += OnPointerWheelChanged;
 
         _title = new TextBlock { FontSize = TitleSize, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         var titleContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -61,7 +67,7 @@ internal partial class CardRow : StackPanel
 
         _previous = PageButton(Theme.Icons.ChevronLeft, prefix + "Previous" + key, -1);
         _next = PageButton(Theme.Icons.ChevronRight, prefix + "Next" + key, 1);
-        var header = new Grid();
+        var header = _header = new Grid();
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(openButton);
@@ -74,24 +80,56 @@ internal partial class CardRow : StackPanel
         Children.Add(header);
 
         _cards = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Gap };
-        _scroller = new ScrollViewer
+        _scroller = new ScrollView
         {
-            HorizontalScrollMode = ScrollMode.Enabled,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            VerticalScrollMode = ScrollMode.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            ContentOrientation = ScrollingContentOrientation.Horizontal,
+            HorizontalScrollMode = ScrollingScrollMode.Enabled,
+            HorizontalScrollBarVisibility = ScrollingScrollBarVisibility.Hidden,
+            VerticalScrollMode = ScrollingScrollMode.Disabled,
+            VerticalScrollBarVisibility = ScrollingScrollBarVisibility.Hidden,
+            ZoomMode = ScrollingZoomMode.Disabled,
+            IgnoredInputKinds = ScrollingInputKinds.MouseWheel,
             IsTabStop = false,
             Content = _cards,
         };
-        AutomationProperties.SetAutomationId(_scroller, prefix + "Items" + key);
+        _scroller.Loaded += (_, _) =>
+        {
+            if (_scroller.ScrollPresenter is { } presenter)
+                AutomationProperties.SetAutomationId(presenter, prefix + "Items" + key);
+        };
         _scroller.ViewChanged += (_, _) => UpdatePaging();
-        _scroller.SizeChanged += (_, _) => UpdatePaging();
+        _scroller.SizeChanged += (_, _) => CancelPaging();
+        _scroller.ExtentChanged += (_, _) => CancelPaging();
+        _scroller.ScrollAnimationStarting += (_, args) =>
+        {
+            if (args.Animation is Vector3KeyFrameAnimation animation)
+                animation.Duration = TimeSpan.FromMilliseconds(180);
+        };
+        _scroller.ScrollCompleted += (_, args) =>
+        {
+            _paging.Complete(args.CorrelationId);
+            UpdatePaging();
+        };
+        _scroller.StateChanged += (_, _) =>
+        {
+            if (_scroller.State == ScrollingInteractionState.Interaction) CancelPaging(stop: false);
+        };
+        _scroller.PreviewKeyDown += (_, _) => CancelPaging();
+        _scroller.BringingIntoView += (_, _) => CancelPaging();
+        RegisterPropertyChangedCallback(FlowDirectionProperty, (_, _) => CancelPaging());
+        Unloaded += (_, _) => CancelPaging();
         _empty = new TextBlock { FontSize = EmptySize, Foreground = Ui.Resource<Brush>("LwText2Brush"), VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed };
         Children.Add(new Grid { Children = { _scroller, _empty } });
         ApplyTexts();
     }
 
     public bool IsEmpty => _items.Count == 0;
+
+    public string SectionTitle => _titleText();
+
+    public void ReserveHeaderEnd(double width)
+        => _header.Margin = FlowDirection == FlowDirection.RightToLeft
+            ? new Thickness(width, 0, 0, 0) : new Thickness(0, 0, width, 0);
 
     /// <summary>The quiet line an empty row shows in the place it holds; set, the row holds its
     /// place (<see cref="HoldPlace"/>) instead of collapsing when it has nothing.</summary>
@@ -107,6 +145,7 @@ internal partial class CardRow : StackPanel
     /// without moving anything.</summary>
     public void HoldPlace()
     {
+        CancelPaging();
         _holding = true;
         _cards.Children.Clear();
         for (var i = 0; i < SkeletonCards; i++) _cards.Children.Add(Placeholder(visible: false));
@@ -151,6 +190,7 @@ internal partial class CardRow : StackPanel
     public void ApplyScale(CardScale scale)
     {
         if (scale == _scale) return;
+        CancelPaging();
         _scale = scale;
         Spacing = scale.Space(HeaderGap);
         _title.FontSize = scale.Font(TitleSize);
@@ -177,6 +217,9 @@ internal partial class CardRow : StackPanel
     /// <summary>The card's second line.</summary>
     public Func<MediaItem, string>? CardSubtitle { get; init; }
 
+    /// <summary>The poster a card shows instead of its item's own; the item's unless set.</summary>
+    public Func<MediaItem, (Guid Id, string Tag)?>? CardPoster { get; init; }
+
     /// <summary>Whether cards offer hover actions (watched, favourite); off where the server is away.</summary>
     public bool ShowCardActions { get; init; } = true;
 
@@ -188,6 +231,7 @@ internal partial class CardRow : StackPanel
     /// only for new items, so a refresh with the same answer changes nothing on screen.</summary>
     public void SetItems(IReadOnlyList<MediaItem> items, Func<MediaItem, int?>? count = null)
     {
+        if (!_items.Select(item => item.Id).SequenceEqual(items.Select(item => item.Id))) CancelPaging();
         _count = count;
         var existing = new Dictionary<Guid, Queue<MediaCard>>();
         foreach (var card in _cards.Children.OfType<MediaCard>())
@@ -244,19 +288,21 @@ internal partial class CardRow : StackPanel
     /// <summary>Grey placeholder cards, shown when loading takes longer than 150 ms.</summary>
     public void ShowSkeleton()
     {
+        CancelPaging();
         _cards.Children.Clear();
         for (var i = 0; i < 8; i++)
             _cards.Children.Add(new Border { Width = CardWidth, Height = SkeletonHeight, CornerRadius = Ui.Resource<CornerRadius>("LwCardRadius"), Background = Ui.Resource<Brush>("LwPlaceholderBrush") });
         Visibility = Visibility.Visible;
     }
 
-    private double SkeletonHeight => _kind switch { CardKind.Wide => CardWidth * 9 / 16, CardKind.Person => CardWidth * 4 / 3, CardKind.Square => CardWidth, _ => CardWidth * 1.5 };
+    private double SkeletonHeight => _kind switch { CardKind.Wide => CardWidth * 9 / 16, CardKind.Person or CardKind.Square => CardWidth, _ => CardWidth * 1.5 };
 
     /// <summary>Takes an item out of the row and returns where it was, for Undo.</summary>
     public int Remove(MediaItem item)
     {
         var index = _items.FindIndex(i => i.Id == item.Id);
         if (index < 0) return -1;
+        CancelPaging();
         _items.RemoveAt(index);
         _cards.Children.RemoveAt(index);
         Visibility = _items.Count > 0 || EmptyText is not null ? Visibility.Visible : Visibility.Collapsed;
@@ -267,6 +313,7 @@ internal partial class CardRow : StackPanel
 
     public void Insert(int index, MediaItem item)
     {
+        CancelPaging();
         index = Math.Clamp(index, 0, _items.Count);
         _items.Insert(index, item);
         _cards.Children.Insert(index, Card(item));
@@ -300,6 +347,7 @@ internal partial class CardRow : StackPanel
             MenuOptions = _menu,
             Title = CardTitle,
             Subtitle = CardSubtitle,
+            Poster = CardPoster,
             Count = _count,
             ShowActions = ShowCardActions && _kind != CardKind.Person,
             FollowsCardScale = true,
@@ -321,15 +369,51 @@ internal partial class CardRow : StackPanel
     /// <summary>Moves by the whole cards that fit, so the next page starts on a card edge.</summary>
     private void Page(int direction)
     {
-        var stride = CardWidth + CardGap;
-        var perPage = Math.Max(1, Math.Floor((_scroller.ViewportWidth + CardGap) / stride));
-        var first = Math.Round(_scroller.HorizontalOffset / stride) + direction * perPage;
-        _scroller.ChangeView(Math.Clamp(first * stride, 0, _scroller.ScrollableWidth), null, null, disableAnimation: true);
+        var target = _paging.Destination(_scroller.HorizontalOffset, _scroller.ViewportWidth,
+            _scroller.ScrollableWidth, CardWidth, CardGap, direction);
+        ScrollTo(target);
+    }
+
+    private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Handled || e.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)) return;
+        var wheel = e.GetCurrentPoint(this).Properties;
+        var target = _paging.WheelDestination(_scroller.HorizontalOffset, _scroller.ScrollableWidth,
+            wheel.MouseWheelDelta, wheel.IsHorizontalMouseWheel, FlowDirection == FlowDirection.RightToLeft);
+        if (target is not { } destination) return;
+        e.Handled = true;
+        ScrollTo(destination);
+    }
+
+    private void ScrollTo(double target)
+    {
+        if (target == (_paging.Target ?? _scroller.HorizontalOffset)) return;
+        var correlationId = _scroller.ScrollTo(target, 0,
+            new ScrollingScrollOptions(ScrollingAnimationMode.Auto, ScrollingSnapPointsMode.Ignore));
+        _paging.Track(correlationId, target);
+        UpdatePaging();
+    }
+
+    private void CancelPaging(bool stop = true)
+    {
+        var pending = _paging.Target.HasValue;
+        _paging.Reset();
+        if (pending && stop)
+            _scroller.ScrollTo(_scroller.HorizontalOffset, 0,
+                new ScrollingScrollOptions(ScrollingAnimationMode.Disabled, ScrollingSnapPointsMode.Ignore));
+        UpdatePaging();
     }
 
     private void UpdatePaging()
     {
-        _previous.IsEnabled = _items.Count > 0 && _scroller.HorizontalOffset > 1;
-        _next.IsEnabled = _items.Count > 0 && _scroller.HorizontalOffset < _scroller.ScrollableWidth - 1;
+        var offset = _paging.Target ?? _scroller.HorizontalOffset;
+        var previous = _items.Count > 0 && offset > 1;
+        var next = _items.Count > 0 && offset < _scroller.ScrollableWidth - 1;
+        var previousFocus = _previous.FocusState;
+        var nextFocus = _next.FocusState;
+        _previous.IsEnabled = previous;
+        _next.IsEnabled = next;
+        if (!previous && next && previousFocus != FocusState.Unfocused) _next.Focus(previousFocus);
+        if (!next && previous && nextFocus != FocusState.Unfocused) _previous.Focus(nextFocus);
     }
 }

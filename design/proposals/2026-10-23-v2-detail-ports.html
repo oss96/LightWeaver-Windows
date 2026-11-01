@@ -1,0 +1,191 @@
+<!doctype html>
+<!--
+  Proposal: format badges, collection pages and Shuffle for shows and seasons in v2 (designer skill,
+  2026-10-23). One suggestion per feature, applied at once: parity with the WPF v1 app for 2.0.
+  System: DESIGN.md, Tokens.xaml values (LwPanelBrush, LwBoxBrush, LwStrokeBrush, LwTokenRadius,
+  LwControlRadius, LwCardRadius, LwText2Brush), the owner's detail sketches in project/uploads/
+  (movie-details.png draws the technical chip line under the actions), 02 Library Grid.dc.html,
+  Menu.dc.html and 06 Playlists.dc.html (6a: a playlist card's menu has Play and Shuffle).
+  Current state: drawn from DetailPage.xaml and LibraryPage.xaml; the app is not launched on the
+  desktop host. Titles are invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>v2 detail ports. Proposal 2026-10-23</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .doc { padding: 48px 56px 80px; display: flex; flex-direction: column; gap: 36px; max-width: 1400px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  h3 { font: 600 13px ui-monospace, Menlo, monospace; color: #555; margin: 0 0 8px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: #333; max-width: 960px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+
+  .win { background: #202020; border-radius: 6px; padding: 16px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; }
+  .panel { width: 360px; padding: 16px 18px 18px; border-radius: 8px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.07);
+           display: flex; flex-direction: column; gap: 10px; }
+  .title { font-size: 22px; font-weight: 600; }
+  .sub { font-size: 12.5px; color: rgba(255,255,255,.78); }
+  .link { font-size: 12.5px; color: #F08C9C; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 2px 7px 3px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); font-size: 11.5px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn { height: 32px; padding: 0 12px 0 10px; border-radius: 4px; display: flex; gap: 6px; align-items: center; font-size: 13px;
+         background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); }
+  .btn.accent { background: #B83A52; border-color: transparent; font-weight: 600; }
+  .btn.icon { width: 32px; padding: 0; justify-content: center; }
+  .ic { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 14px; }
+  .lines { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+  .lines span:nth-child(odd) { color: rgba(255,255,255,.78); }
+  .genres { font-size: 12px; color: rgba(255,255,255,.78); }
+  .overview { font-size: 13px; line-height: 20px; }
+  .heading { font-size: 15px; font-weight: 600; margin-top: 8px; }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 3px; border-radius: 4px; }
+  .was { text-decoration: line-through; opacity: .45; }
+
+  .lib { width: 760px; padding: 0; overflow: hidden; }
+  .libhead { padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .libtitle { display: flex; gap: 10px; align-items: baseline; }
+  .libtitle b { font-size: 26px; letter-spacing: -0.01em; }
+  .libtitle span { font-size: 13px; color: rgba(255,255,255,.78); }
+  .tools { display: flex; gap: 8px; align-items: center; }
+  .seg { display: flex; padding: 2px; border-radius: 4px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); font-size: 12.5px; }
+  .seg i { font-style: normal; padding: 5px 12px; border-radius: 3px; }
+  .seg i.on { background: rgba(255,255,255,.1); }
+  .tool { height: 32px; padding: 0 8px 0 10px; border-radius: 4px; display: flex; gap: 6px; align-items: center; font-size: 12.5px;
+          background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); }
+  .grid { padding: 0 24px 24px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px 14px; }
+  .card .art { aspect-ratio: 2 / 3; border-radius: 8px; background: #2A2A2A; }
+  .card .t { font-size: 13px; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .y { font-size: 11.5px; color: rgba(255,255,255,.78); }
+  .empty { height: 260px; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; }
+  .empty .ic { font-size: 44px; color: rgba(255,255,255,.545); }
+  .empty b { font-size: 17px; }
+  .empty span { font-size: 13px; color: rgba(255,255,255,.78); }
+
+  .menu { width: 272px; padding: 4px; border-radius: 8px; background: rgba(44,44,44,.97); border: 1px solid rgba(255,255,255,.09);
+          box-shadow: 0 8px 16px rgba(0,0,0,.26); font: 13px "Segoe UI Variable Text", "Segoe UI", system-ui; color: #fff; }
+  .mi { height: 32px; padding: 0 10px; border-radius: 4px; display: flex; gap: 10px; align-items: center; }
+  .mi .ic { width: 16px; }
+  .sep { height: 1px; margin: 4px 0; background: rgba(255,255,255,.08); }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 · design/proposals · 2026-10-23</div>
+    <h1>Format badges, collections and Shuffle</h1>
+    <p>Three WPF features the owner picked for 2.0. The handoff draws the detail info panel's
+    technical chip line (<code>movie-details.png</code>: 1920x812, 2.35:1, HEVC Main 10, SDR), which v2
+    declared but never filled. It does not draw a collection's page, Shuffle for a show or a season,
+    or a menu for a show's card. Each suggestion below stays inside the system.</p>
+  </header>
+
+  <section>
+    <h2>A. Format badges in the drawn chip line <span class="impact">within the system</span></h2>
+    <ul>
+      <li>The line under the actions holds the WPF app's badges, as the info chips draw them
+      (<code>LwBoxBrush</code>, 1 px <code>LwStrokeBrush</code>, <code>LwTokenRadius</code>, 11.5):
+      4K, 1080p, 720p or SD; the HDR format unless SDR; the default audio track's format.</li>
+      <li>The raw resolution, aspect and codec of the sketch stay out of the chips: the Video line
+      below already names them, and the WPF app showed the badges.</li>
+      <li>The line belongs to the version Play uses and follows a version picked in the bar. An
+      invisible chip holds its place from the start, so the page still lays out once.</li>
+      <li>An episode shows the chip line too (without the three lines, which the preview's bar
+      covers). A show or a season shows none.</li>
+    </ul>
+    <div class="row">
+      <div><h3>Movie, as sketched</h3><div class="win"><div class="panel">
+        <div class="title">Harbor Lights</div>
+        <div class="chips"><span class="chip">2019</span><span class="chip">PG-13</span><span class="chip">★ 7.4</span><span class="chip">2 h 4 min</span></div>
+        <div class="actions"><span class="btn accent"><span class="ic">&#xE768;</span>Play</span><span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span><span class="btn"><span class="ic">&#xEB51;</span>Favorite</span><span class="btn icon"><span class="ic">&#xE896;</span></span></div>
+        <div class="chips was"><span class="chip">3840x1608</span><span class="chip">2.39:1</span><span class="chip">HEVC Main 10</span><span class="chip">Dolby Vision</span></div>
+        <div class="lines"><span>Video</span><span>4K HEVC Dolby Vision</span><span>Audio</span><span>English · TrueHD · 7.1 · Default</span><span>Subtitles</span><span>Off</span></div>
+      </div></div></div>
+      <div><h3>Movie, suggested</h3><div class="win"><div class="panel">
+        <div class="title">Harbor Lights</div>
+        <div class="chips"><span class="chip">2019</span><span class="chip">PG-13</span><span class="chip">★ 7.4</span><span class="chip">2 h 4 min</span></div>
+        <div class="actions"><span class="btn accent"><span class="ic">&#xE768;</span>Play</span><span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span><span class="btn"><span class="ic">&#xEB51;</span>Favorite</span><span class="btn icon"><span class="ic">&#xE896;</span></span></div>
+        <div class="chips new"><span class="chip">4K</span><span class="chip">Dolby Vision</span><span class="chip">ATMOS 7.1</span></div>
+        <div class="lines"><span>Video</span><span>4K HEVC Dolby Vision</span><span>Audio</span><span>English · TrueHD · 7.1 · Default</span><span>Subtitles</span><span>Off</span></div>
+      </div></div></div>
+      <div><h3>Episode, suggested (SDR)</h3><div class="win"><div class="panel">
+        <div class="link">The Long Meridian</div>
+        <div class="title">Low Tide</div>
+        <div class="sub">S2 · E5</div>
+        <div class="chips"><span class="chip">2021</span><span class="chip">TV-14</span><span class="chip">48 min</span></div>
+        <div class="actions"><span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span><span class="btn"><span class="ic">&#xEB51;</span>Favorite</span><span class="btn icon"><span class="ic">&#xE896;</span></span></div>
+        <div class="chips new"><span class="chip">1080p</span><span class="chip">DD+ 5.1</span></div>
+        <div class="genres">Drama · Mystery</div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>B. A collection opens as the library grid <span class="impact">within the system</span></h2>
+    <ul>
+      <li>A box set opens 02's grid with the collection's name as the title and "N items" as the
+      count: the same filter, genres, sort, display options and A–Z rail, a page at a time as it
+      loads. Each title opens its own page.</li>
+      <li>The top bar selects nothing and keeps "Libraries", as on a detail page: a collection is
+      a title, not a library.</li>
+      <li>An empty collection reads "This collection is empty" and "Add titles to it on the
+      server.", without the dashboard link.</li>
+    </ul>
+    <div class="row">
+      <div><h3>Collection</h3><div class="win lib">
+        <div class="libhead"><div class="libtitle"><b>Harbor Lights Collection</b><span>5 items</span></div>
+          <div class="tools"><div class="seg"><i class="on">All</i><i>Unplayed</i><i>Played</i></div><span class="tool">Genre: All <span class="ic">&#xE70D;</span></span><span class="tool"><span class="ic">&#xE74A;</span>Name <span class="ic">&#xE70D;</span></span><span class="tool"><span class="ic">&#xF0E2;</span></span></div></div>
+        <div class="grid">
+          <div class="card"><div class="art"></div><div class="t">Harbor Lights</div><div class="y">2019</div></div>
+          <div class="card"><div class="art"></div><div class="t">Harbor Lights: Undertow</div><div class="y">2021</div></div>
+          <div class="card"><div class="art"></div><div class="t">Harbor Lights: Landfall</div><div class="y">2023</div></div>
+          <div class="card"><div class="art"></div><div class="t">Harbor Lights Stories</div><div class="y">2022</div></div>
+          <div class="card"><div class="art"></div><div class="t">The Lighthouse Keeper</div><div class="y">2024</div></div>
+        </div></div></div>
+      <div><h3>Empty collection</h3><div class="win lib" style="width:420px">
+        <div class="libhead"><div class="libtitle"><b>New Collection</b><span>0 items</span></div></div>
+        <div class="empty"><span class="ic">&#xE8F1;</span><b>This collection is empty</b><span>Add titles to it on the server.</span></div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>C. Shuffle for a show or a season <span class="impact">within the system</span></h2>
+    <ul>
+      <li>Detail page: an icon button beside the actions, the size and style of Download
+      (<code>LwButton</code>, 32 × 32, <code>Icons.Shuffle</code> at 15), tooltip "Shuffle". Shown on
+      a show and a season from the start, so it never moves the row.</li>
+      <li>A show's or a season's card menu starts with Shuffle, where a title's menu has Play and a
+      playlist's (6a) has Play and Shuffle.</li>
+      <li>Behaviour as in the WPF app: the unwatched episodes (every episode once all are watched)
+      in random order become the queue and play in the full-window player; with nothing playable,
+      the info toast says "Nothing playable in here."</li>
+    </ul>
+    <div class="row">
+      <div><h3>Show, info panel</h3><div class="win"><div class="panel">
+        <div class="title">The Long Meridian</div>
+        <div class="chips"><span class="chip">2020</span><span class="chip">TV-14</span><span class="chip">★ 8.1</span></div>
+        <div class="actions"><span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span><span class="btn"><span class="ic">&#xEB51;</span>Favorite</span><span class="btn icon new"><span class="ic">&#xE8B1;</span></span><span class="btn icon"><span class="ic">&#xE896;</span></span></div>
+        <div class="genres">Drama · Mystery</div>
+        <div class="heading">Seasons</div>
+      </div></div></div>
+      <div><h3>Show card menu</h3><div class="win"><div class="menu">
+        <div class="mi new"><span class="ic">&#xE8B1;</span>Shuffle</div>
+        <div class="sep"></div>
+        <div class="mi"><span class="ic">&#xE73E;</span>Mark as played</div>
+        <div class="mi"><span class="ic">&#xEB51;</span>Add to favorites</div>
+        <div class="mi"><span class="ic">&#xECC8;</span>Add to playlist</div>
+        <div class="mi"><span class="ic">&#xE896;</span>Download all</div>
+        <div class="sep"></div>
+        <div class="mi"><span class="ic">&#xE946;</span>Info</div>
+      </div></div></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

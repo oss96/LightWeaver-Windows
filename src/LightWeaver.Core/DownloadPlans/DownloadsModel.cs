@@ -99,6 +99,16 @@ public static class DownloadsModel
             .Where(s => s.Item2.Count > 0)];
     }
 
+    /// <summary>Home's Downloads row: the downloaded titles of <paramref name="serverUrl"/>, newest
+    /// first, each as the metadata captured at enqueue, or its name and art where none was.</summary>
+    public static IReadOnlyList<MediaItem> HomeItems(IEnumerable<DownloadItem> items, string? serverUrl)
+        => [.. items.Where(i => i.Status == DownloadStatus.Completed && SameServer(i.ServerUrl, serverUrl))
+            .OrderByDescending(i => i.AddedTimestampMs)
+            .Select(i => i.PlaybackMetadata ?? new MediaItem { Id = i.ItemId, Name = i.Title, PosterUrl = i.PosterUrl })];
+
+    private static bool SameServer(string a, string? b)
+        => b is not null && string.Equals(a.TrimEnd('/'), b.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The Downloads badge: running and queued items; gone when the queue is empty.</summary>
     public static int BadgeCount(IEnumerable<DownloadItem> items) => items.Count(i => i.Status is DownloadStatus.Downloading or DownloadStatus.Queued);
 

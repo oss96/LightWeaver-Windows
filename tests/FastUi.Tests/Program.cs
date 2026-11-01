@@ -86,6 +86,10 @@ void Requires(string file, params string[] snippets)
     foreach (var snippet in snippets.Where(s => !text.Contains(s, StringComparison.Ordinal)))
         failures.Add($"src/LightWeaver.WinUI/{file} lacks {snippet}");
 }
+Requires("Pages/SectionPage.xaml.cs", "QueryCache.Sections.ReadAsync", "wanted = Math.Max(wanted, cached.Items.Count)",
+    "_shownAtUtc = null", "_shell.CachedDataShown(this)", "_shown.Sync(items)", "MediaCard.RefreshRealized(Items, _shown)");
+Requires("Search/AdvancedSearchPage.xaml.cs", "UserControl, INavPage", "cache: QueryCache.Searches", "CachedAtUtc => _model.ShownAtUtc",
+    "_model.Failed += (_, _) => _shell.CachedDataShown(this)", "!_model.HasResults && !_model.HasFailed");
 Requires("Shell/MainWindow.Profile.cs", "\"ProfilePlayLink\"", "L.Text(\"Profile.PlayLinkShortcut\")", "\"ProfileOpenFile\"", "L.Text(\"Profile.OpenFileShortcut\")",
     "link.Click += (_, _) => _ = OpenStreamAsync()", "file.Click += (_, _) => _ = OpenFileAsync()");
 Requires("Shell/MainWindow.Files.cs", "VirtualKey.L, VirtualKeyModifiers.Control, () => _ = OpenStreamAsync()", "VirtualKey.O, VirtualKeyModifiers.Control, () => _ = OpenFileAsync()",
@@ -104,6 +108,7 @@ Requires("Pages/SettingsPage.cs", "UpdatePane.For(", "Updater.OnPolicyChanged();
 Requires("Player/PlayerView.xaml", "PlayerPositionButton", "PlayerTimeEdit", "OnTimeEditKeyDown", "OnTimeEditLostFocus");
 Requires("Player/PlayerView.xaml.cs", "TimeInput.TryParse(", "vm.Seek(TimeInput.Target(");
 Requires("Player/PlaybackController.cs", "UpNextLead.For(", "SubtitleCarryOver");
+Requires("Player/PlaybackController.cs", "Start(slice[0], choice, session, intentTaken: true)", "Start(episode, choice, session, intentTaken: true)", "if (!intentTaken) _intent++;");
 Requires("Pages/SettingsPage.cs", "UpNextPreferences.MaximumCountdownSeconds", "SettingsUpNextLead", "SettingsZoomLimit", "KeyChords.IsZoomChord(");
 Requires("Shell/MainWindow.Zoom.cs", "Root.PreviewKeyDown += OnZoomKey", "UiZoom.SetLimitToScreen(", "UiZoom.Wheel(");
 Requires("Shell/MainWindow.Navigation.cs", "CachedBanner.IsOpen", "OfflinePlan.For(", "CachedRetryNow");
@@ -117,6 +122,20 @@ Requires("Pages/DetailPage.xaml.cs", "VersionButton.Opacity = showVersions ? 1 :
 if (Says("Pages/DetailPage.xaml.cs", "VersionButton.Visibility") || Declares("Pages/DetailPage.xaml", "VersionButton", "Collapsed"))
     failures.Add("Pages/DetailPage: the version drop-down gives up its slot; hide it with Opacity like the trailer button");
 Requires("Pages/DetailPage.xaml.cs", "PlayerViewModel.QualityTierMbps", "\"DetailForceTranscode\"", "_quality, _forceTranscode)");
+// 10. A Recently Added episode card shows its show's poster, in the row and in See all.
+Requires("Controls/HomeRow.cs", "CardPoster = i => HomeSections.SeriesPoster(section, i);");
+Requires("Pages/SectionPage.xaml.cs", "card.Poster = i => HomeSections.SeriesPoster(_section, i);");
+Requires("Controls/CardRow.cs", "Poster = CardPoster,");
+Requires("Controls/MediaCard.xaml.cs", "(CardKind.Poster, { } s) when Poster?.Invoke(item) is { } poster => s.GetPrimaryImageUrl(poster.Id, poster.Tag, width),");
+// 11. The info panel offers every track in a drop-down per type, which holds its height before the
+//     streams answer and opens its menu below itself, never under the pointer (a ComboBox there shows
+//     WinUI's busy cursor); More like this and Cast and crew sit in panels under the preview and the info
+//     panel, as wide as each; people are circles.
+Requires("Pages/DetailPage.xaml", "x:Name=\"VideoTracks\"", "x:Name=\"AudioTracks\"", "x:Name=\"SubtitleTracks\"", "x:Name=\"SimilarPanel\"", "x:Name=\"CastPanel\"", "x:Name=\"RowsSideColumn\"");
+Requires("Pages/DetailPage.xaml.cs", "DetailModel.Tracks(", "RowsSideColumn.Width = new GridLength(frame.SideWidth)", "new Rect(0, -MenuShadowAbove, anchor.ActualWidth, anchor.ActualHeight + MenuShadowAbove + MenuShadowBelow)", "ReleaseFocus");
+if (Says("Pages/DetailPage.xaml", "<ComboBox"))
+    failures.Add("Pages/DetailPage: a ComboBox opens its list under the pointer, where WinUI shows a busy cursor; use a drop-down button with a menu");
+Requires("Controls/MediaCard.xaml.cs", "CardKind.Person => 1,", "private bool IsRound => _kind == CardKind.Person;");
 var shellTree = XDocument.Load(Path.Combine(app, "Shell/MainWindow.xaml"));
 var zoomNames = shellTree.Descendants().Where(e => e.Name.LocalName == "ZoomBox")
     .SelectMany(e => e.Attributes().Where(a => a.Name.LocalName == "Name").Select(a => a.Value)).ToHashSet();
@@ -163,6 +182,83 @@ foreach (var path in files.Where(p => p.EndsWith(".cs", StringComparison.Ordinal
     foreach (Match m in Regex.Matches(text, @"\.ContentIslandEnvironment\s*\."))
         failures.Add($"{Rel(path)}:{text.AsSpan(0, m.Index).Count('\n') + 1} ContentIslandEnvironment dereferenced without a null check");
 }
+
+Requires("Shell/MainWindow.Player.cs", "PlayableItems.Select(queue, start,", "if (queue.Count == 0) return;");
+Requires("Player/PlaybackController.cs", "PlayableItems.Select(queue, index)", "else if (!item.IsPlayable) return;");
+Requires("Pages/DetailPage.xaml.cs", "ItemLists.SameShown(a, b)", "DownloadButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;");
+Requires("Controls/MediaCard.xaml", "x:Name=\"UpcomingBadge\"", "x:Bind t:Icons.Clock", "IsHitTestVisible=\"False\"");
+Requires("Controls/MediaCard.xaml.cs", "_item?.IsUpcomingEpisode(DateTimeOffset.Now)", "IsTabStop = !_isPlaceholder && !_upcoming;",
+    "_item.PlaybackRelease is { Length: > 0 } date", "L.Text(\"Card.AirDateUnannounced\")", "L.Text(\"Detail.Upcoming\")",
+    "!_upcoming && _hovered", "_showActions && !_upcoming", "if (_upcoming || _item is not { } item) return;",
+    "if (_upcoming || !_showActions", "owner._upcoming ? AutomationControlType.Text", "owner._upcoming ? null : this",
+    "FocusManager.TryMoveFocus(");
+var cardSource = File.ReadAllText(Path.Combine(app, "Controls", "MediaCard.xaml.cs"));
+if (cardSource.Contains("UpcomingBadge.HorizontalAlignment =", StringComparison.Ordinal)
+    || cardSource.Contains("UpcomingBadge.Margin =", StringComparison.Ordinal))
+    failures.Add("MediaCard: upcoming badge must inherit Grid RTL mirroring without manually swapping its alignment or margin");
+var cardTree = XDocument.Load(Path.Combine(app, "Controls", "MediaCard.xaml"));
+var upcomingBadge = cardTree.Descendants().Single(e => e.Attributes().Any(a => a.Name.LocalName == "Name" && a.Value == "UpcomingBadge"));
+if (upcomingBadge.Attribute("HorizontalAlignment")?.Value != "Left" || upcomingBadge.Attribute("Margin")?.Value != "6,6,0,0")
+    failures.Add("MediaCard: upcoming badge must keep its leading-corner alignment and margin for automatic RTL mirroring");
+var legacyDetail = File.ReadAllText(Path.Combine(root, "src", "LightWeaver", "Views", "ItemDetailView.xaml.cs"));
+if (!legacyDetail.Contains("DownloadButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;", StringComparison.Ordinal)
+    || !legacyDetail.Contains("if (_item.IsVirtual) return;", StringComparison.Ordinal))
+    failures.Add("virtual WPF detail items must hide Download and guard its preload and click");
+
+Requires("Controls/CardRow.cs", "new ScrollView", "ScrollingContentOrientation.Horizontal",
+    "ScrollAnimationStarting +=", "animation.Duration = TimeSpan.FromMilliseconds(180)",
+    "ScrollingAnimationMode.Auto", "ScrollingAnimationMode.Disabled", "IsTabStop = false",
+    "_paging.Destination(", "_paging.Track(correlationId, target)", "_paging.Complete(args.CorrelationId)",
+    "_scroller.ExtentChanged +=", "_scroller.SizeChanged +=", "_scroller.BringingIntoView +=",
+    "_scroller.PreviewKeyDown +=", "ScrollingInteractionState.Interaction",
+    "Unloaded +=", "RegisterPropertyChangedCallback(FlowDirectionProperty",
+    "_next.Focus(previousFocus)", "_previous.Focus(nextFocus)");
+if (Says("Controls/CardRow.cs", "ChangeView(") || Says("Controls/CardRow.cs", "ScrollingAnimationMode.Enabled"))
+    failures.Add("CardRow paging must use bounded compositor motion and respect reduced motion");
+
+Requires("Controls/CardRow.cs", "IgnoredInputKinds = ScrollingInputKinds.MouseWheel",
+    "PointerWheelChanged += OnPointerWheelChanged", "Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent)",
+    "if (e.Handled || e.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)) return;",
+    "_paging.WheelDestination(", "wheel.MouseWheelDelta, wheel.IsHorizontalMouseWheel, FlowDirection == FlowDirection.RightToLeft",
+    "if (target is not { } destination) return;", "e.Handled = true;", "ScrollTo(destination)",
+    "if (target == (_paging.Target ?? _scroller.HorizontalOffset)) return;");
+if (Says("Controls/CardRow.cs", "AddHandler(PointerWheelChangedEvent")
+    || Says("Controls/CardRow.cs", "_scroller.PointerWheelChanged +="))
+    failures.Add("CardRow must route unhandled wheel input across the whole section, including its header");
+
+Requires("Pages/HomePage.cs", "Children = { rows, _customize }", "ApplyVisibility();",
+    "HomeSections.IsRowVisible(!_hidden.Contains(row), !row.IsEmpty, ReferenceEquals(row, _downloads) || _shown is not null, _skeletonsReady)",
+    "var ready = _shown is not null", "_sectionsFlyout?.Hide()");
+Requires("Pages/HomePage.Sections.cs", "HomeCustomizeButton", "HomeSectionToggle", "HomeCustomizeFlyout",
+    "HomeLayoutStore.Load(_profileKey)", "HomeLayoutStore.Save(_profileKey, layout)", "ApplyVisibility();",
+    "ReferenceEquals(row, first) ? 40 : 0", "FlowDirection.RightToLeft", "_customize.Focus(FocusState.Programmatic)",
+    "_sectionToggles.Values.FirstOrDefault()?.Focus(FocusState.Programmatic)", "Visibility: Visibility.Collapsed");
+if (Says("Pages/HomePage.Sections.cs", "new TextBlock { Text = L.Text(\"Home.CustomizeSections\")"))
+    failures.Add("Home section flyout must not add a heading or helper text");
+Requires("Controls/HomeSectionDrag.cs", "new Thumb", "handle.DragStarted +=", "handle.DragDelta +=",
+    "handle.DragCompleted +=", "e.Canceled || !canEdit()", "HomeSectionOrder.DropTarget(", "HomeSectionOrder.Move(layout, source, target, after)",
+    "HomeLayoutStore.Save(profileKey, reordered)", "if (!canEdit()) return;", "VirtualKey.Up or VirtualKey.Down",
+    "handle.CancelDrag()", "handle.Unloaded +=", "_dragged = null", "ClearIndicators();");
+Requires("Controls/HomeSectionDrag.cs", "parent.TransformToVisual(null)", "UIElement.PointerPressedEvent",
+    "UIElement.PointerReleasedEvent", "_releasePending || _pointerId != e.Pointer.PointerId",
+    "generation == _generation", "_position = e.GetCurrentPoint(null).Position", "handle.PointerCanceled +=");
+Requires("Pages/HomePage.Sections.cs", "new PathIcon", "LwHomeSectionsIcon");
+if (Says("Controls/HomeSectionDrag.cs", "Theme.Icons.Drag") || Says("Pages/HomePage.Sections.cs", "Ui.Icon(Theme.Icons.Tune"))
+    failures.Add("Home customization must retain its approved sliders icon and use a six-dot reorder grip");
+var homeStyles = XDocument.Load(Path.Combine(app, "Theme/Styles.xaml"));
+var gripStyle = homeStyles.Descendants().FirstOrDefault(e => e.Name.LocalName == "Style" && e.Attributes().Any(a => a.Name.LocalName == "Key" && a.Value == "LwHomeSectionGrip"));
+if (gripStyle?.Descendants().Count(e => e.Name.LocalName == "Ellipse") != 6)
+    failures.Add("Home section reorder grip must contain six dots");
+Requires("Pages/HomePage.cs", "if (visible && !ReferenceEquals(row, _downloads) && _shown is null");
+Requires("Pages/HomePage.Sections.cs", "new HomeSectionDrag(", "HomeSectionDrag\"", "drag.Attach(");
+Requires("Pages/SettingsPage.cs", "new HomeSectionDrag(", "SettingsHomeDrag\"", "drag.Attach(");
+
+Requires("Controls/MediaCard.xaml.cs", "UserDataOverrides.BadgeCount(_played,", "var accepted = await change;", "revision == _playedRevision", "ReferenceEquals(_item, item)", "ReferenceEquals(Session, session)", "Item = fresh;");
+Requires("Pages/DetailPage.xaml.cs", "if (_changingWatched) return;", "await LoadAsync();", "_overrides.Reconcile(readAt, children.Where(child => child.Id != _item.Id));",
+    "var headerReadAt = _overrides.Mark();", "_overrides.Reconcile(headerReadAt, [_item]);", "(_played, _favorite) = _overrides.Of(_item);",
+    "ChangeHeaderAsync(UserDataField.Favorite", "ChangeHeaderAsync(UserDataField.Played");
+
+Requires("Controls/CardRow.cs", "_scroller.ScrollPresenter is { } presenter", "AutomationProperties.SetAutomationId(presenter, prefix + \"Items\" + key)");
 
 foreach (var f in failures) Console.WriteLine("FAIL " + f);
 Console.WriteLine($"Fast UI check: {files.Count} files, {flyouts} flyouts, {failures.Count} failures.");

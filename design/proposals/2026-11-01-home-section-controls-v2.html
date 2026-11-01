@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home section controls, revised A</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:var(--font-sans,'Segoe UI',sans-serif);color:var(--foreground,#fff)}.window{background:#202020;color:#fff;border:1px solid #ffffff17;border-radius:8px;overflow:hidden;font:13px 'Segoe UI Variable Text','Segoe UI',sans-serif}.bar{height:56px;padding:0 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #ffffff0f}.nav{display:flex;white-space:nowrap;border-radius:8px;border:1px solid #ffffff17;background:#ffffff08}.nav span{padding:9px 10px}.nav span:first-child{border-bottom:2px solid #f08c9c;background:#ffffff0f}.search{flex:1;min-width:40px;background:#ffffff0f;border:1px solid #ffffff17;border-bottom-color:#ffffff60;border-radius:4px;padding:7px 10px;color:#ffffff8b}.page{background:#3a3a3a4d;padding:18px 24px 28px;min-height:420px;position:relative}.row{margin-bottom:28px}.head{height:32px;display:flex;align-items:center;gap:4px;margin-bottom:12px}.head h2{font-size:15px;font-weight:600;margin:0;flex:1}.window button{color:inherit;font:inherit;cursor:pointer;background:transparent;border:1px solid transparent;border-radius:4px;height:32px;min-width:32px;padding:5px}.window button:hover{background:#ffffff0a}.window button:focus-visible,input:focus-visible{outline:2px solid #f08c9c;outline-offset:2px}.window button[aria-expanded=true]{background:#b83a522b;border-color:#f08c9c60}.separator{width:1px;height:16px;background:#ffffff17;margin:0 5px}.icon{display:grid;place-items:center}.icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5}.rail{display:flex;gap:14px;overflow:hidden}.card{flex:0 0 206px}.art{height:104px;border:1px dashed #ffffff20;border-radius:8px;background:#2a2a2a;display:grid;place-items:center;color:#ffffff64;font-size:11.5px}.caption{font-size:11.5px;color:#ffffffc8;margin-top:7px}.popup{position:absolute;z-index:2;right:24px;top:54px;width:268px;padding:8px 16px;background:#2c2c2cf7;border:1px solid #ffffff17;border-radius:8px;box-shadow:0 6px 20px #0006}.setting{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;cursor:pointer}.switch{appearance:none;margin:0;width:40px;height:20px;flex-shrink:0;border:1px solid #ffffff8b;border-radius:12px;position:relative;background:transparent;cursor:pointer}.switch:before{content:'';position:absolute;width:10px;height:10px;border-radius:50%;background:#ffffffc8;left:4px;top:4px}.switch:checked{background:#f08c9c;border-color:#f08c9c}.switch:checked:before{left:24px;background:#202020}.empty{padding:80px 0;text-align:center;color:#ffffffc8}.empty-head{height:32px;display:flex;justify-content:flex-end;margin-bottom:12px}[hidden]{display:none!important}@media(max-width:480px){.page{padding:18px 16px 24px}.bar{gap:8px;padding:0 8px}.nav span{padding:9px 6px;font-size:11px}.nav span:last-child{display:none}.popup{right:16px;width:min(268px,calc(100% - 32px))}.card{flex-basis:190px}}
+</style>
+</head>
+<body>
+<div class="window">
+<div class="bar"><span aria-hidden="true">‹ &nbsp; ›</span><div class="nav"><span>Home</span><span>Libraries</span><span>Playlists</span></div><div class="search">Search</div><span aria-hidden="true">↓ &nbsp; ⚙</span></div>
+<div class="page">
+<div id="rows"></div>
+<button id="customize" class="icon" title="Customize Home sections" aria-label="Customize Home sections" aria-controls="sections" aria-expanded="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5h16M2 10h16M2 15h16M6 2v6M14 7v6M8 12v6"/></svg></button>
+<div id="sections" class="popup" role="group" aria-label="Home sections"></div>
+</div>
+</div>
+<script>
+const names=['Continue watching','Next up','Recently added','Favorites'];
+const rows=document.querySelector('#rows'),button=document.querySelector('#customize'),panel=document.querySelector('#sections');
+panel.innerHTML=names.map((name,i)=>'<label class="setting"><span>'+name+'</span><input class="switch" type="checkbox" checked aria-label="'+name+'" data-index="'+i+'"></label>').join('');
+function draw(){
+ const focus=document.activeElement;
+ button.remove();
+ const enabled=[...panel.querySelectorAll('input')].map(x=>x.checked);
+ const shown=names.filter((_,i)=>enabled[i]);
+ rows.innerHTML=shown.length?shown.slice(0,2).map(name=>'<section class="row"><div class="head"><h2>'+name+' ›</h2><button aria-label="Previous page">‹</button><button aria-label="Next page">›</button></div><div class="rail">'+[1,2,3].map(()=>'<div class="card"><div class="art">Artwork placeholder</div><div class="caption">Media title</div></div>').join('')+'</div></section>').join(''):'<div class="empty-head"></div><div class="empty">All Home sections are hidden.</div>';
+ const head=rows.querySelector('.head')||rows.querySelector('.empty-head');
+ if(shown.length){const divider=document.createElement('span');divider.className='separator';divider.setAttribute('aria-hidden','true');head.append(divider);}
+ head.append(button);
+ if(focus===button)button.focus();
+}
+function close(restoreFocus){panel.hidden=true;button.setAttribute('aria-expanded','false');if(restoreFocus)button.focus();}
+panel.querySelectorAll('input').forEach(input=>input.addEventListener('change',draw));
+button.addEventListener('click',()=>{if(panel.hidden){panel.hidden=false;button.setAttribute('aria-expanded','true');panel.querySelector('input').focus();}else close(true);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();close(true);}});
+document.addEventListener('click',e=>{if(!panel.hidden&&!panel.contains(e.target)&&!button.contains(e.target))close(false);});
+draw();
+</script>
+</body>
+</html>

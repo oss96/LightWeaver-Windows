@@ -244,6 +244,18 @@ Check(notices.Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDo
 Check(new UpdateNotices().Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDownloadAndInstall, Away) is { Ready: true }, "elsewhere it is");
 Check(notices.Next(new(UpdatePhase.Error, Found()), UpdatePolicy.ManualInstall, Away) is null, "a failure is not announced");
 
+var downloading = new UpdateStatus(UpdatePhase.Downloading, Found(), 996, 1000);
+var progress = new UpdateNotices();
+Check(progress.Progress(downloading, Away) == L.Format("MainWindow.DownloadingUpdate.e0bc4a8a", "9.0.0", 0.99),
+    "a download shows its progress, never rounded up to done");
+Check(progress.Progress(downloading with { TotalBytes = null }, Away) == "Downloading update 9.0.0…", "without a size it shows no percentage");
+Check(progress.Progress(downloading, UpdateNoticePlace.UpdatesPane) is null && progress.Progress(downloading, UpdateNoticePlace.Login) is null
+    && progress.Progress(downloading, UpdateNoticePlace.FullPlayer) is null, "not on Settings › Updates, on Login or over the full player");
+Check(progress.Progress(new(UpdatePhase.ReadyToInstall, Found()), Away) is null && progress.Progress(new(UpdatePhase.Error, Found()), Away) is null,
+    "a finished or failed download shows no progress");
+progress.DismissProgress(downloading);
+Check(progress.Progress(downloading, Away) is null, "a dismissed progress stays away for that download");
+
 // --- The updater as v2 runs it: the folder tidied on start, each policy, and the installer on exit ---
 var installer = Encoding.UTF8.GetBytes("installer for 9.0.0");
 Environment.SetEnvironmentVariable("LIGHTWEAVER_UPDATE_SHA256", Convert.ToHexString(SHA256.HashData(installer)));

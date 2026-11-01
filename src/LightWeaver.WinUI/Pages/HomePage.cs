@@ -1,3 +1,4 @@
+using LightWeaver.Downloads;
 using LightWeaver.Home;
 using LightWeaver.Jellyfin;
 using LightWeaver.Library;
@@ -22,6 +23,10 @@ public sealed partial class HomePage : Grid, INavPage
     private readonly HomeRow _nextUp;
     private readonly HomeRow _recent;
     private readonly HomeRow _favorites;
+    private readonly CardRow _downloads;
+    private readonly Dictionary<Guid, string> _downloadLines = [];
+    private List<Guid> _downloadIds = [];
+    private bool _downloadsQueued;
     private readonly StackPanel _empty;
     private readonly TextBlock _emptyTitle;
     private readonly TextBlock _emptyText;
@@ -33,7 +38,8 @@ public sealed partial class HomePage : Grid, INavPage
     private readonly string _profileKey;
     private readonly ItemRemovals _removals;
     private bool _loading;
-    private HashSet<HomeRow> _hidden = [];
+    private bool _skeletonsReady;
+    private HashSet<CardRow> _hidden = [];
     private CardScale _scale = CardScale.None;
 
     public HomePage(IAppShell shell)
@@ -45,9 +51,18 @@ public sealed partial class HomePage : Grid, INavPage
         _nextUp = new HomeRow(shell, HomeSection.NextUp, _overrides);
         _recent = new HomeRow(shell, HomeSection.RecentlyAdded, _overrides);
         _favorites = new HomeRow(shell, HomeSection.Favorites, _overrides);
+        _downloads = new CardRow(shell, "HomeRow", "Downloads", () => L.Text("Home.Downloads"), shell.OpenDownloads, CardKind.Wide,
+            Ui.Resource<double>("LwHomeWideCardWidth"), _overrides)
+        {
+            CardTitle = HomeSections.Title,
+            CardSubtitle = item => _downloadLines.GetValueOrDefault(item.Id, ""),
+            Open = item => { if (shell.Connectivity.IsOffline) shell.Play(item); else shell.OpenItem(item); },
+        };
         var rows = _rows = new StackPanel { Spacing = RowGap, Padding = new Thickness(24, 18, 24, 28) };
         foreach (var row in Rows) { row.Visibility = Visibility.Collapsed; rows.Children.Add(row); }
-        var scroller = new ScrollViewer { Content = rows, HorizontalScrollMode = ScrollMode.Disabled, IsTabStop = false };
+        InitializeSections();
+        var content = new Grid { Children = { rows, _customize } };
+        var scroller = new ScrollViewer { Content = content, HorizontalScrollMode = ScrollMode.Disabled, IsTabStop = false };
         AutomationProperties.SetAutomationId(scroller, "HomeScroller");
         Children.Add(scroller);
 
@@ -66,14 +81,24 @@ public sealed partial class HomePage : Grid, INavPage
 
         ApplyTexts();
         if (HomeSnapshot.Last(_profileKey) is { } last) Show(last);
+        ShowDownloads();
         LiveText.Observe(this, (_, _) => DispatcherQueue.TryEnqueue(ApplyTexts));
-        Loaded += (_, _) => { if (!_loadedOnce && !_loading) _ = LoadAsync(); };
+        Loaded += (_, _) =>
+        {
+            shell.Downloads.DownloadsChanged += OnDownloadsChanged;
+            ShowDownloads();
+            if (!_loadedOnce && !_loading) _ = LoadAsync();
+        };
+        Unloaded += (_, _) => shell.Downloads.DownloadsChanged -= OnDownloadsChanged;
         SizeChanged += (_, e) => ApplyScale(e.NewSize.Width);
+        RegisterPropertyChangedCallback(FlowDirectionProperty, (_, _) => PlaceCustomizeButton());
+        Unloaded += (_, _) => _sectionsFlyout?.Hide();
+        PlaceCustomizeButton();
     }
 
     public IAppShell Shell { get; }
 
-    private IEnumerable<HomeRow> Rows => [_continue, _nextUp, _recent, _favorites];
+    private IEnumerable<CardRow> Rows => [_continue, _nextUp, _recent, _favorites, _downloads];
 
     /// <summary>Grows the cards, captions, headings and the gaps between rows with the window
     /// (<see cref="CardScale"/>), in steps while the window is dragged.</summary>
@@ -86,13 +111,17 @@ public sealed partial class HomePage : Grid, INavPage
         foreach (var row in Rows) row.ApplyScale(scale);
     }
 
-    public void OnShown() { if (_loadedOnce && !_loading) _ = LoadAsync(); }
+    public void OnShown()
+    {
+        ApplyVisibility();
+        if (_loadedOnce && !_loading) _ = LoadAsync();
+    }
 
     /// <summary>The rows in the order Settings › Home gives them; turned-off rows stay hidden.</summary>
     private void ApplyLayout()
     {
         var layout = Settings.HomeLayoutStore.Load(_profileKey);
-        var ordered = new List<HomeRow>();
+        var ordered = new List<CardRow>();
         _hidden = [];
         foreach (var pref in layout)
         {
@@ -109,12 +138,13 @@ public sealed partial class HomePage : Grid, INavPage
             }
     }
 
-    private HomeRow? RowFor(Settings.HomeSectionId id) => id switch
+    private CardRow? RowFor(Settings.HomeSectionId id) => id switch
     {
         Settings.HomeSectionId.Resume => _continue,
         Settings.HomeSectionId.NextUp => _nextUp,
         Settings.HomeSectionId.Latest => _recent,
         Settings.HomeSectionId.Favorites => _favorites,
+        Settings.HomeSectionId.Downloads => _downloads,
         _ => null,
     };
 
@@ -142,7 +172,10 @@ public sealed partial class HomePage : Grid, INavPage
                 _ = Task.Delay(SkeletonDelay).ContinueWith(_ =>
                 {
                     if (_loading && load == _load && _shown is null)
-                        foreach (var row in Rows.Take(3)) row.ShowSkeleton();
+                    {
+                        _skeletonsReady = true;
+                        ApplyVisibility();
+                    }
                 }, TaskScheduler.FromCurrentSynchronizationContext());
                 var started = System.Diagnostics.Stopwatch.StartNew();
                 var cached = await HomeSnapshot.ReadAsync(profileKey);
@@ -210,11 +243,41 @@ public sealed partial class HomePage : Grid, INavPage
         ApplyVisibility();
     }
 
+    private void OnDownloadsChanged()
+    {
+        if (_downloadsQueued) return;
+        _downloadsQueued = true;
+        DispatcherQueue.TryEnqueue(ShowDownloads);
+    }
+
+    /// <summary>Fills the Downloads row from the downloads on this device, online or offline: the
+    /// server is the profile's, since an offline start opens Home without a session.</summary>
+    private void ShowDownloads()
+    {
+        _downloadsQueued = false;
+        var downloads = Shell.Downloads.Snapshot();
+        var items = DownloadsModel.HomeItems(downloads, Settings.HomeLayoutStore.ServerOf(_profileKey));
+        if (items.Select(i => i.Id).SequenceEqual(_downloadIds)) return;
+        _downloadIds = [.. items.Select(i => i.Id)];
+        _downloadLines.Clear();
+        foreach (var download in downloads) _downloadLines[download.ItemId] = download.Subtitle ?? "";
+        _downloads.SetItems(items);
+        ApplyVisibility();
+    }
+
     private void ApplyVisibility()
     {
         ApplyLayout();
-        foreach (var row in Rows) row.Visibility = _hidden.Contains(row) || row.IsEmpty ? Visibility.Collapsed : Visibility.Visible;
-        _empty.Visibility = Rows.Where(r => !_hidden.Contains(r)).All(r => r.IsEmpty) ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var row in Rows)
+        {
+            var visible = HomeSections.IsRowVisible(!_hidden.Contains(row), !row.IsEmpty, ReferenceEquals(row, _downloads) || _shown is not null, _skeletonsReady);
+            if (visible && !ReferenceEquals(row, _downloads) && _shown is null && row.Visibility != Visibility.Visible) row.ShowSkeleton();
+            row.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+        var ready = _shown is not null || Rows.Where(r => !_hidden.Contains(r)).All(r => ReferenceEquals(r, _downloads));
+        _empty.Visibility = ready && Rows.All(r => r.Visibility == Visibility.Collapsed) ? Visibility.Visible : Visibility.Collapsed;
+        PlaceCustomizeButton();
+        ApplyEmptyTexts();
     }
 
     /// <summary>Takes the item off Continue Watching at once, with Undo in a toast (design 03, note 4).</summary>
@@ -237,8 +300,7 @@ public sealed partial class HomePage : Grid, INavPage
     private void ApplyTexts()
     {
         foreach (var row in Rows) row.ApplyTexts();
-        _emptyTitle.Text = L.Text("Home.EmptyTitle");
-        _emptyText.Text = L.Text("Home.EmptyText");
-        _emptyButton.Content = L.Text("Home.EmptyBrowse");
+        ApplySectionTexts();
+        ApplyEmptyTexts();
     }
 }

@@ -1,0 +1,311 @@
+<!doctype html>
+<!--
+  Proposal: the detail page's tracks list and the bounded More like this / Cast and crew rows
+  (designer skill, 2026-10-31, Kaneo LWW-51). One suggestion per problem.
+  System: DESIGN.md, Tokens.xaml values (LwWindowBrush #202020, LwPanelBrush #05FFFFFF,
+  LwStrokeBrush #12FFFFFF, LwGroupRadius 8, LwCardRadius 8, LwPlaceholderBrush #2A2A2A,
+  LwText2Brush #C8FFFFFF, LwAccentFgBrush #F08C9C, LwDetailPosterWidth 140, LwDetailPersonWidth 120),
+  the owner's sketches in project/uploads/ (movie-details.png, episode-details.png draw both rows
+  inside their own bordered boundary).
+  Current state: drawn from DetailPage.xaml, CardRow.cs and MediaCard.xaml; no capture of the
+  running app was available to this session. Titles, names and tracks are invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Detail tracks and rows. Proposal 2026-10-31</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e5e1; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .doc { padding: 48px 56px 80px; display: flex; flex-direction: column; gap: 36px; max-width: 1480px; }
+  .crumb { font-size: 13px; color: #666; }
+  h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  h3 { font: 600 13px ui-monospace, Menlo, monospace; color: #555; margin: 0 0 8px; }
+  p, li { font-size: 14.5px; line-height: 1.55; color: #333; max-width: 980px; }
+  .impact { font: 600 11.5px system-ui; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,28,48,.35); color: #8a1c30; }
+  code { font: 12px ui-monospace, Menlo, monospace; background: rgba(0,0,0,.05); padding: 0 3px; border-radius: 3px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+
+  .win { background: #202020; border-radius: 6px; padding: 16px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: #fff; }
+  .panel { width: 360px; padding: 16px 18px 18px; border-radius: 8px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.07);
+           display: flex; flex-direction: column; gap: 10px; }
+  .title { font-size: 22px; font-weight: 600; }
+  .sub { font-size: 12.5px; color: rgba(255,255,255,.78); }
+  .link { font-size: 12.5px; color: #F08C9C; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 2px 7px 3px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); font-size: 11.5px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn { height: 32px; padding: 0 12px 0 10px; border-radius: 4px; display: flex; gap: 6px; align-items: center; font-size: 13px;
+         background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); }
+  .btn.accent { background: #B83A52; border-color: transparent; font-weight: 600; }
+  .btn.icon { width: 32px; padding: 0; justify-content: center; }
+  .ic { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 14px; }
+  .tech { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .lines { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+  .lines .k { color: rgba(255,255,255,.78); }
+  .lines .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tracks { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; align-items: start; }
+  .tracks .k { color: rgba(255,255,255,.78); line-height: 18px; }
+  .tracks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .tracks li { font-size: 12px; line-height: 18px; color: rgba(255,255,255,.78); display: flex; gap: 4px; white-space: nowrap; overflow: hidden; }
+  .tracks li .m { width: 14px; flex: none; font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 11px; color: #F08C9C; }
+  .tracks li.on { color: #fff; }
+  .tracks li .t { overflow: hidden; text-overflow: ellipsis; }
+  .tracks .group + .k { margin-top: 4px; }
+  .tracks .group + .k + .group { margin-top: 4px; }
+  .genres { font-size: 12px; color: rgba(255,255,255,.78); }
+  .overview { font-size: 13px; line-height: 20px; }
+  .heading { font-size: 15px; font-weight: 600; margin-top: 8px; }
+  .held { opacity: 0; }
+  .new { outline: 1px dashed rgba(240,140,156,.9); outline-offset: 4px; border-radius: 4px; }
+  .note { font: 12px system-ui; color: #555; margin-top: 8px; max-width: 392px; }
+
+  .rows { width: 1240px; display: grid; grid-template-columns: 3fr 2fr; gap: 14px; align-items: stretch; }
+  .rowbox { min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; }
+  .rowbox.bound { padding: 12px 0 16px 16px; border-radius: 8px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.07); }
+  .rowhead { display: flex; justify-content: space-between; align-items: center; }
+  .rowbox.bound .rowhead { padding-right: 10px; }
+  .open { display: flex; gap: 6px; align-items: center; font-size: 17px; font-weight: 600; padding: 3px 8px 3px 0; }
+  .open .ic { font-size: 15px; }
+  .paging { display: flex; gap: 2px; }
+  .paging span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 4px; font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 12px; color: rgba(255,255,255,.78); }
+  .cards { display: flex; gap: 14px; overflow: hidden; }
+  .card { flex: none; display: flex; flex-direction: column; gap: 7px; }
+  .card .art { border-radius: 8px; background: #2A2A2A; display: grid; place-items: center; color: rgba(255,255,255,.35); font-size: 11px; }
+  .card.poster { width: 140px; } .card.poster .art { height: 210px; }
+  .card.person { width: 120px; } .card.person .art { height: 160px; }
+  .card.person.round .art { height: 120px; border-radius: 50%; }
+  .card.person.round .cap { text-align: center; }
+  .cap { padding: 0 2px; display: flex; flex-direction: column; gap: 2px; }
+  .cap b { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap span { font-size: 11.5px; color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <header>
+    <div class="crumb">LightWeaver v2 · Detail page · LWW-51</div>
+    <h1>The tracks list and bounded rows</h1>
+    <p>Two changes from the owner's notes: list every track of a movie or an episode in the info panel and show none for a
+      show or a season, and put More like this and Cast and crew each inside a boundary like the info panel, with round
+      portraits. What the page does stays the same: the bar's Audio and Subtitles menus still choose the tracks, and the rows
+      still open, page, scroll and open their full lists as they do now.</p>
+  </header>
+
+  <section>
+    <h2>1 · Every track, in the tracks block</h2>
+    <p><span class="impact">within the system</span> &nbsp;The Video, Audio and Subtitles lines under the format badges list every
+      track of the version Play uses, one per line, instead of only the chosen one. The track Play will use is marked with a check in
+      <code>LwAccentFgBrush</code> and set in <code>LwTextBrush</code>; the others are in <code>LwText2Brush</code>. A title
+      without subtitles reads “None”. An episode now shows the lines too; a show and a season show no tracks block, as before.</p>
+    <p>The page still lays out once. The tracks arrive after the page opens and their number is unknown until then, so the part of
+      the panel below them (genres, overview and, on an episode, the Episodes heading and grid) shows when the tracks are in, rather
+      than appearing at once and being pushed down. The tracks lookup starts as the page opens, beside the item lookup, and comes
+      from the disk cache for a title opened within the hour. Choosing another version from the bar keeps the previous lines, dimmed,
+      until its own tracks replace them; the overview may move once then, which is the user's own action.</p>
+
+    <div class="row">
+      <div>
+        <h3>now · movie</h3>
+        <div class="win">
+          <div class="panel">
+            <div class="title">The Long Tide</div>
+            <div class="chips"><span class="chip">2019</span><span class="chip">PG-13</span><span class="chip">★ 7.4</span><span class="chip">2h 11m</span></div>
+            <div class="actions">
+              <span class="btn accent"><span class="ic">&#xE768;</span>Play</span>
+              <span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span>
+              <span class="btn"><span class="ic">&#xEB51;</span>Favorite</span>
+              <span class="btn icon"><span class="ic">&#xE896;</span></span>
+            </div>
+            <div class="tech">
+              <div class="chips"><span class="chip">4K</span><span class="chip">HDR10</span><span class="chip">ATMOS 7.1</span></div>
+              <div class="lines">
+                <span class="k">Video</span><span class="v">2160p HEVC HDR10</span>
+                <span class="k">Audio</span><span class="v">English - Dolby TrueHD + Atmos - 7.1 - Default</span>
+                <span class="k">Subtitles</span><span class="v">Off</span>
+              </div>
+            </div>
+            <div class="genres">Drama · Adventure</div>
+            <div class="overview">A lighthouse keeper on a failing island station takes in a stranded cartographer, and the two map a coast that keeps changing under them.</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3>suggested · movie</h3>
+        <div class="win">
+          <div class="panel">
+            <div class="title">The Long Tide</div>
+            <div class="chips"><span class="chip">2019</span><span class="chip">PG-13</span><span class="chip">★ 7.4</span><span class="chip">2h 11m</span></div>
+            <div class="actions">
+              <span class="btn accent"><span class="ic">&#xE768;</span>Play</span>
+              <span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span>
+              <span class="btn"><span class="ic">&#xEB51;</span>Favorite</span>
+              <span class="btn icon"><span class="ic">&#xE896;</span></span>
+            </div>
+            <div class="tech">
+              <div class="chips"><span class="chip">4K</span><span class="chip">HDR10</span><span class="chip">ATMOS 7.1</span></div>
+              <div class="tracks new">
+                <span class="k">Video</span>
+                <ul class="group"><li class="on"><span class="m">&#xE73E;</span><span class="t">2160p HEVC HDR10</span></li></ul>
+                <span class="k">Audio</span>
+                <ul class="group">
+                  <li class="on"><span class="m">&#xE73E;</span><span class="t">English - Dolby TrueHD + Atmos - 7.1 - Default</span></li>
+                  <li><span class="m"></span><span class="t">English - AC3 - 5.1</span></li>
+                  <li><span class="m"></span><span class="t">German - DTS - 5.1</span></li>
+                  <li><span class="m"></span><span class="t">Commentary (English) - AAC - Stereo</span></li>
+                </ul>
+                <span class="k">Subtitles</span>
+                <ul class="group">
+                  <li><span class="m"></span><span class="t">English - PGSSUB</span></li>
+                  <li><span class="m"></span><span class="t">English SDH - SUBRIP</span></li>
+                  <li><span class="m"></span><span class="t">German - PGSSUB</span></li>
+                  <li><span class="m"></span><span class="t">German Forced - PGSSUB - Forced</span></li>
+                  <li><span class="m"></span><span class="t">French - PGSSUB</span></li>
+                  <li><span class="m"></span><span class="t">Arabic - SUBRIP - External</span></li>
+                </ul>
+              </div>
+            </div>
+            <div class="genres">Drama · Adventure</div>
+            <div class="overview">A lighthouse keeper on a failing island station takes in a stranded cartographer, and the two map a coast that keeps changing under them.</div>
+          </div>
+        </div>
+        <p class="note">Subtitles are off here, so no subtitle line carries the check. The marks follow the bar's Audio and Subtitles menus.</p>
+      </div>
+
+      <div>
+        <h3>suggested · while the tracks load</h3>
+        <div class="win">
+          <div class="panel">
+            <div class="title">The Long Tide</div>
+            <div class="chips"><span class="chip">2019</span><span class="chip">PG-13</span><span class="chip">★ 7.4</span><span class="chip">2h 11m</span></div>
+            <div class="actions">
+              <span class="btn accent"><span class="ic">&#xE768;</span>Play</span>
+              <span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span>
+              <span class="btn"><span class="ic">&#xEB51;</span>Favorite</span>
+              <span class="btn icon"><span class="ic">&#xE896;</span></span>
+            </div>
+            <div class="tech">
+              <div class="chips held"><span class="chip">4K</span></div>
+            </div>
+            <div class="genres held">Drama · Adventure</div>
+            <div class="overview held">A lighthouse keeper on a failing island station takes in a stranded cartographer, and the two map a coast that keeps changing under them.</div>
+          </div>
+        </div>
+        <p class="note">The first frame on a first visit: the badge line holds its place (as today), and nothing below it shows
+          until the tracks are in, so nothing is ever pushed down. The tracks lookup starts as the page opens; within the hour it comes from the disk cache.</p>
+      </div>
+
+      <div>
+        <h3>suggested · episode</h3>
+        <div class="win">
+          <div class="panel">
+            <div class="link">Harbour Lights</div>
+            <div class="title">The Breakwater</div>
+            <div class="sub">S2:E4</div>
+            <div class="chips"><span class="chip">2022</span><span class="chip">TV-14</span><span class="chip">48m</span></div>
+            <div class="actions">
+              <span class="btn"><span class="ic">&#xE73E;</span>Mark watched</span>
+              <span class="btn"><span class="ic">&#xEB51;</span>Favorite</span>
+              <span class="btn icon"><span class="ic">&#xE896;</span></span>
+            </div>
+            <div class="tech">
+              <div class="chips"><span class="chip">1080p</span><span class="chip">DD+ 5.1</span></div>
+              <div class="tracks new">
+                <span class="k">Video</span>
+                <ul class="group"><li class="on"><span class="m">&#xE73E;</span><span class="t">1080p H264 SDR</span></li></ul>
+                <span class="k">Audio</span>
+                <ul class="group">
+                  <li class="on"><span class="m">&#xE73E;</span><span class="t">English - E-AC3 - 5.1 - Default</span></li>
+                  <li><span class="m"></span><span class="t">Spanish - AAC - Stereo</span></li>
+                </ul>
+                <span class="k">Subtitles</span>
+                <ul class="group">
+                  <li class="on"><span class="m">&#xE73E;</span><span class="t">English - SUBRIP</span></li>
+                  <li><span class="m"></span><span class="t">Spanish - SUBRIP</span></li>
+                </ul>
+              </div>
+            </div>
+            <div class="genres">Drama · Crime</div>
+            <div class="overview">The harbour board votes on the breakwater, and Ines finds out who paid for the survey.</div>
+            <div class="heading">Episodes</div>
+          </div>
+        </div>
+        <p class="note">An episode gains the lines it did not have. The Episodes grid below follows the tracks in.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · More like this and Cast and crew in their own boundary, round portraits</h2>
+    <p><span class="impact">within the system</span> &nbsp;Each row sits in a panel drawn like the info panel
+      (<code>LwPanelBrush</code>, 1 px <code>LwStrokeBrush</code>, <code>LwGroupRadius</code>), as the owner's movie and episode
+      sketches draw them. The heading, the arrow, the ‹ › paging and sideways scrolling stay as they are, inside the panel; cards
+      start 16 in and clip at the panel's trailing edge (rows clip at the trailing edge). Both panels share the row's height.
+      In Cast and crew the portrait becomes a circle of the card's width (<code>LwDetailPersonWidth</code>, 120, scaled with the
+      window like today), with the name and role centred under it; the cards stay top-aligned, so their tops line up with the
+      posters beside them and the space below them is the panel's. The
+      placeholders, the empty line, the scale above 1440 and the card's own behaviour do not change. Only this row's portraits
+      turn round; the full Cast and crew page and people in search keep their 3 : 4 portraits.</p>
+
+    <h3>now</h3>
+    <div class="win">
+      <div class="rows">
+        <div class="rowbox">
+          <div class="rowhead"><span class="open">More like this <span class="ic">&#xE72A;</span></span><span class="paging"><span>&#xE76B;</span><span>&#xE76C;</span></span></div>
+          <div class="cards">
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Salt Road</b><span>2017</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>North of the Pier</b><span>2021</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Ledger</b><span>2015</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>The Quiet Sound</b><span>2020</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Fathom</b><span>2018</span></div></div>
+          </div>
+        </div>
+        <div class="rowbox">
+          <div class="rowhead"><span class="open">Cast and crew <span class="ic">&#xE72A;</span></span><span class="paging"><span>&#xE76B;</span><span>&#xE76C;</span></span></div>
+          <div class="cards">
+            <div class="card person"><div class="art">portrait</div><div class="cap"><b>Maren Okafor</b><span>Ada Lind</span></div></div>
+            <div class="card person"><div class="art">portrait</div><div class="cap"><b>Tomás Reyes</b><span>Keeper Hale</span></div></div>
+            <div class="card person"><div class="art">portrait</div><div class="cap"><b>Yui Brandt</b><span>Director</span></div></div>
+            <div class="card person"><div class="art">portrait</div><div class="cap"><b>Callum Teague</b><span>Writer</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">suggested</h3>
+    <div class="win">
+      <div class="rows">
+        <div class="rowbox bound new">
+          <div class="rowhead"><span class="open">More like this <span class="ic">&#xE72A;</span></span><span class="paging"><span>&#xE76B;</span><span>&#xE76C;</span></span></div>
+          <div class="cards">
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Salt Road</b><span>2017</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>North of the Pier</b><span>2021</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Ledger</b><span>2015</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>The Quiet Sound</b><span>2020</span></div></div>
+            <div class="card poster"><div class="art">poster</div><div class="cap"><b>Fathom</b><span>2018</span></div></div>
+          </div>
+        </div>
+        <div class="rowbox bound new">
+          <div class="rowhead"><span class="open">Cast and crew <span class="ic">&#xE72A;</span></span><span class="paging"><span>&#xE76B;</span><span>&#xE76C;</span></span></div>
+          <div class="cards">
+            <div class="card person round"><div class="art">portrait</div><div class="cap"><b>Maren Okafor</b><span>Ada Lind</span></div></div>
+            <div class="card person round"><div class="art">portrait</div><div class="cap"><b>Tomás Reyes</b><span>Keeper Hale</span></div></div>
+            <div class="card person round"><div class="art">portrait</div><div class="cap"><b>Yui Brandt</b><span>Director</span></div></div>
+            <div class="card person round"><div class="art">portrait</div><div class="cap"><b>Callum Teague</b><span>Writer</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommendation</h2>
+    <p>Take both. The tracks list stays where the owner marked it and keeps the page's lays-out-once rule by showing the rest of
+      the panel once the tracks are in; the rows follow the owner's own sketches with no new token or variant beyond a round
+      portrait option on the detail row's person cards.</p>
+  </section>
+</main>
+</body>
+</html>

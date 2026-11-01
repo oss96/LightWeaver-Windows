@@ -28,6 +28,8 @@ public sealed class UserDataOverrides
     public (bool Played, bool Favorite) Of(MediaItem item)
         => (Value(item.Id, UserDataField.Played) ?? item.Played, Value(item.Id, UserDataField.Favorite) ?? item.IsFavorite);
 
+    public static int? BadgeCount(bool played, int? count) => played ? null : count;
+
     /// <summary>Shows <paramref name="value"/> at once and sends it after the field's earlier
     /// changes for the item. When the server refuses it (or the request throws) and no newer change
     /// to the field has been made, the field returns to the last value the server accepted. True

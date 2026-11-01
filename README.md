@@ -37,14 +37,18 @@ one repo each) rather than one cross-platform build.
   drop-down
 - Playback speed from 0.5x to 2x, in the speed flyout or with `+` / `-`
 
+Marking a season watched updates its badge immediately and refreshes the open season's
+episode cards after the server accepts the change. Failed changes restore the previous badge.
+
 ### Player
 
-- **Preview and full screen**: Play on a detail page plays in the preview. The preview has the video's shape, decided when the page opens from the size the list it was opened from carried (an anamorphic DVD is 16:9 or 4:3 rather than its stored 1.25:1; a show, a season or a title without a known size is 16:9), and keeps it: a video of another shape plays letterboxed inside it. It is as large as fits beside the info panel while it and the "More like this" and "Cast and crew" rows, side by side below it, stay in the window; when the window is too short for that, the info panel takes the spare width. The rows never press the preview under 300 DIP tall; in a shorter window the page scrolls them into view. Before playback the preview carries the player's own bar: its seek bar sets where Play starts, back and forward move that start, a version drop-down (when the title has two or more versions) and the audio, subtitle and quality buttons set what plays, with the quality menu offering the player's tiers and "Always transcode", Info shows the media info and full screen plays straight into full screen. Full screen (the bar's button, `F` or a
+- **Preview and full screen**: Play on a detail page plays in the preview. The preview has the video's shape, decided when the page opens from the size the list it was opened from carried (an anamorphic DVD is 16:9 or 4:3 rather than its stored 1.25:1; a show, a season or a title without a known size is 16:9), and keeps it: a video of another shape plays letterboxed inside it. It is as large as fits beside the info panel while it and the "More like this" row below it and the "Cast and crew" row below the info panel stay in the window; when the window is too short for that, the info panel takes the spare width. The rows never press the preview under 300 DIP tall; in a shorter window the page scrolls them into view. Before playback the preview carries the player's own bar: its seek bar sets where Play starts, back and forward move that start, a version drop-down (when the title has two or more versions) and the audio, subtitle and quality buttons set what plays, with the quality menu offering the player's tiers and "Always transcode", Info shows the media info and full screen plays straight into full screen. Full screen (the bar's button, `F` or a
   double-click on the video) grows it to fill the screen and back again, playing or paused as it
   was; the preview's "Auto full screen" switch opens every Play full screen. Esc leaves full screen;
   Back returns to the preview, paused. Full screen covers the whole monitor the window is on,
   edge to edge, without Windows' window animation, and the taskbar (an auto-hidden one too) stays
-  under it, with the title, Back and the bar over the video; leaving it puts the window back in one
+  under it, with the title, Back and the bar over the video and no window caption buttons, also
+  after switching away and back or a display scale change; leaving it puts the window back in one
   step (a maximized window is maximized again and never passes through its restored size; a
   restored or snapped one returns to its exact rect), and
   the video then shrinks onto the preview. Either way the page is laid out for the new size
@@ -117,26 +121,43 @@ one repo each) rather than one cross-platform build.
 
 ### Browsing and library
 
-- **Home**: Continue Watching, Next Up, Recently Added and Favorites rows (empty rows are left
-  out). "Title →" opens the row as a full grid (**See more**) with a filter, sort and card size;
-  ‹ › page through a row. Recently Added lists each video library's newest (new episodes under
+- Home and detail row chevrons advance by the whole cards that fit in the viewport, with a
+  180 ms compositor slide. Windows' reduced-motion setting makes paging immediate. Rapid clicks
+  advance from the requested page. The mouse wheel over a section, including its header, scrolls
+  cards horizontally; outside sections it scrolls the page vertically. Overflowing rows keep wheel
+  input at their ends; short rows let the page scroll. Ctrl+wheel still zooms the interface.
+  Wheel and chevron input accumulate together; touch scrolling, resizing and changed items cancel
+  the pending target.
+- **Home**: Continue Watching, Next Up, Recently Added and Favorites rows, and a Downloads row you
+  turn on in Settings › Home (empty rows are left out). Downloads lists this server's downloaded
+  titles, newest first, also while the server is away; its "Title →" opens the Downloads page, and
+  a card opens the title, or plays the download while offline. The other rows' "Title →" opens the
+  row as a full grid (**See more**) with a filter, sort and card size;
+  ‹ › slide a row by a page of whole cards. Recently Added lists each video library's newest (new episodes under
   their show, dated by the newest episode), newest first across the libraries; a season card is
-  titled with its show, the season under it. Its See more is the whole list in the same order,
+  titled with its show, the season under it, and an episode card shows its show's poster. Its See more is the whole list in the same order,
   read from the server a page at a time as you scroll, like a library (skeleton cards while the
   first page loads, which comes before the full order is read): movies and videos by the
   date they were added and shows by the date of their newest episode, merged newest first (or by
   name), with no cap; watched titles stay out when the server's "hide played in latest" setting
-  keeps them out of the row. Next Up
+  keeps them out of the row. A See more grid opens on the list it last showed for the profile
+  (Recently Added: for that filter and sort, as far as you scrolled) and then updates it from the
+  server. Next Up
   shows how many episodes follow. A started title's card fills
   its progress bar to the share watched, at any card size. Hovering or focusing a card
   shows a round play button on its artwork: it plays or resumes a title, plays the next episode
   of a show or season, and plays a playlist. Every card has a ⋯ / right-click menu: play or
-  resume, play from the beginning, mark played, favourites, go to series, info (Ctrl+I), and in
+  resume, play from the beginning (Shuffle on a show or season), mark played, favourites, go to series, info (Ctrl+I), and in
   Continue Watching "Remove", with Undo. Info on a title with a file opens its media info: for
   each version the container, path, size and bitrate, then every video stream (codec, profile,
   resolution, frame rate, range, bitrate, color details), audio stream (codec, channel layout,
   language, bitrate, sample rate, default) and subtitle (language, codec, default, forced,
-  external), with Copy; on a show, season or collection it opens the detail page. On start, Home
+  external), with Copy; on a show or season it opens the detail page, on a collection its titles. On start, Home
+  has a customize icon beside the first visible row's paging controls. Its compact flyout
+  toggles sections immediately, using the same per-profile preferences as Settings > Home.
+  Drag a section by its six-dot handle in either list to reorder it, or focus the handle and press
+  Alt+Up or Alt+Down. Both editors save the same order.
+  The icon remains available with every section hidden and adds no extra header row. On start, Home
   paints the rows it last showed for the profile (kept in the metadata cache) at once and then
   updates them from the server, touching only the cards that changed. On a window wider than
   1440 DIP the Home rows and the detail page's More like this, Cast and crew and season and
@@ -175,23 +196,39 @@ one repo each) rather than one cross-platform build.
 - **Library grid**: All / Unplayed / Played, a multi-select genre filter (also a removable chip),
   sort by name, date added, release date, rating or runtime in either order, poster size and
   titles (remembered per library), and an A–Z rail while sorted by name. The whole library loads
-  in the background; the last copy shows at once.
+  in the background; the last copy shows at once. A collection (box set) opens as the same grid
+  of its titles, each of which opens its own page.
 - **Detail pages** for movies, shows, seasons and episodes. The large preview on the left is the
   player before playback: its bottom bar sets the start time (drag the seek bar; a started title
   starts at its resume point), the version, audio, subtitles and quality, and Play uses them.
   The right panel is the info panel for a movie, the seasons of a show (the next episode to play
   is shown in the preview) or the episodes of a season. Seasons fill as many columns as fit
   posters the size of More like this, episodes as many as fit Home's wide cards, at least two, so
-  a wider panel shows more of them rather than bigger ones. With an OMDb API key in Settings,
+  a wider panel shows more of them rather than bigger ones. A movie or an episode shows format
+  badges for the version Play uses, under the actions: 4K, 1080p, 720p or SD, the HDR format
+  (HDR10, HDR10+, HLG, Dolby Vision) and the default audio track's format (such as ATMOS 7.1,
+  DTS:X 7.1, DD+ 5.1), and under them Video, Audio and Subtitles drop-downs listing every track of
+  that version; picking audio or subtitles there sets what Play uses, as the bar's menus do. A show or a season has Shuffle beside its actions: its unwatched episodes
+  (every episode once all are watched) in random order as the queue. With an OMDb API key in Settings,
   IMDb, Rotten Tomatoes and Metacritic scores fill a line under the chips. Below are "More like
   this →" (opens Advanced Search for the same kind of title and genre) and "Cast and crew →"
-  (everyone credited). The page is laid out once, in its final shape, as it opens: the rows hold
+  (everyone credited; people show as round portraits throughout the app), each in its own panel. The page is laid out once, in its final shape, as it opens: the rows hold
   their place from the start (skeleton cards after 150 ms), a row with nothing to show keeps it
   with a quiet line such as "No similar titles", and everything that arrives later fills space
   that was already there instead of moving the preview, the rows or the panel. On a show, a
   season or an episode, the Up Next button (a stopwatch, beside Download) sets when the Up Next
   card appears for that whole show: Global (the Settings value), 15, 30 or 60 s, or a custom
   5 to 300 s.
+- **Upcoming episodes**: an episode the server knows from its metadata but has no file for yet
+  is listed in its season's episodes, with a quiet clock-and-"Upcoming" corner badge and its air
+  date below. Upcoming episode cards have no navigation, hover actions or keyboard tab stop;
+  screen readers can still read their title and availability. An unknown date says "Air date
+  unannounced". When media arrives, refreshing restores the normal card. Its page
+  shows the same line instead of Play, and it is never played, queued or downloaded. One whose
+  air date has passed is "Not in the library"; a season's episodes leave those out, and they
+  only appear when browsing the season's folder in a library. Playlist playback skips virtual
+  entries and preserves repeated entries. Refreshing an episode updates its actions when its
+  media availability changes.
 - **Search** from the top bar: results appear as you type, grouped into Movies, Shows, People,
   Collections and Episodes, with chips that filter by category and "More filters", which carries
   the query into Advanced search. Each group's row fills the window's width and clips at its
@@ -209,6 +246,8 @@ one repo each) rather than one cross-platform build.
   everything loaded so far: the grid keeps its scroll position and stays fully visible while
   "Updating" shows, titles that stay keep their cards and artwork, and only titles that were
   added, removed, moved or changed on the server update. A failed refresh keeps the results.
+  A search asked before opens on its last saved answer for the profile while the server is
+  asked again. Results are saved after the query has settled, including pages loaded by scrolling.
   An episode without artwork of its own (a special, an extra) shows its show's poster, here and
   on every poster card. Back returns to the results as you left them.
 - **Person page**: photo, roles, birth and bio (More expands it), and the filmography grouped by
@@ -239,7 +278,8 @@ one repo each) rather than one cross-platform build.
   been deleted from the server. A downloaded episode offers Up Next and the episodes around it
   while its server is reachable. The player names a download's audio and subtitle tracks from the
   languages saved with it, where the file itself carries none.
-- Cached Home and library pages remain browsable when the server is unreachable. A banner gives
+- Cached Home, library, See more and Advanced Search pages remain browsable when the server is
+  unreachable. A banner gives
   the cached results' timestamp and offers Retry now. With no saved results, the server-unreachable
   page still offers Downloads. Cached data stays scoped to the saved server and profile.
 - **Downloads**: Download (or Download all for a season or show) from any card's ⋯ menu or a
@@ -334,7 +374,8 @@ one repo each) rather than one cross-platform build.
   when Windows logs off or shuts down). Choosing **Install now** under that last policy installs
   silently and starts the new version afterwards. Staging is resumable and replaces its metadata
   atomically, and stale setups in the `updates` folder are removed at start. The WPF app shows a
-  found update in a banner; v2 says so once in a toast outside Settings → Updates
+  found update in a banner; v2 says so once in a toast outside Settings → Updates, and while an
+  update downloads it keeps a toast with the download's progress up until it finishes or you close it
 - Diagnostics logging: a crash file for any exception that escapes the UI thread, another thread
   or an unobserved task. Settings → Diagnostics switches verbose logging, shows the tail of the
   log, opens the log folder and exports the logs as one ZIP
@@ -542,7 +583,7 @@ are listed there under Navigation.
 | `Ctrl+L` | Play a link |
 | `Ctrl+F` | Search |
 | `Ctrl+,` | Settings |
-| `Alt+Left` / `Alt+Right`, mouse side buttons | Back / Forward |
+| `Alt+Left` / `Alt+Right`, mouse side buttons | Back / Forward; in the full player, Back leaves the player as its Back button does and Forward does nothing |
 | `F5` | Refresh Advanced search |
 
 Click the video to pause and resume; click the elapsed time to type a position; drop a file or
@@ -619,6 +660,8 @@ Gold-Violet "Shallan" seal as an Icon Composer bundle (SVG layers plus `icon.jso
 `src/LightWeaver.WinUI/Assets/LightWeaver.ico` is rendered from it: a `#251B3E` rounded plate under
 the gold layers, at 16–256 px. The exe, the window, the taskbar, Alt-Tab and the installer all use
 that file, and so does the WPF app's exe.
+
+Card-row UI checks address each row's scrolling presenter, keeping paging and cast-card checks scoped to that row.
 
 ## Contributing
 

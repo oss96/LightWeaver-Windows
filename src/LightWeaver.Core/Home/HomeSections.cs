@@ -17,7 +17,19 @@ public enum SectionSort { ServerOrder, Name, DateAdded }
 /// <summary>What each Home section shows and how its header filters and sorts it.</summary>
 public static class HomeSections
 {
+    public static bool IsRowVisible(bool enabled, bool hasItems, bool hasSnapshot, bool skeletonsReady)
+        => enabled && (hasSnapshot ? hasItems : skeletonsReady);
+
     public static bool IsWide(HomeSection section) => section is HomeSection.ContinueWatching or HomeSection.NextUp;
+
+    /// <summary>Recently Added pages from the server for each filter and sort; the other sections
+    /// load whole and filter and sort what they hold.</summary>
+    public static bool IsPaged(HomeSection section) => section == HomeSection.RecentlyAdded;
+
+    /// <summary>The section's query in <see cref="Library.QueryCache.Sections"/>: one per section,
+    /// and one per filter and sort for a paged section.</summary>
+    public static string CacheQuery(HomeSection section, SectionFilter filter, SectionSort sort)
+        => IsPaged(section) ? $"{section}:{filter}:{sort}" : section.ToString();
 
     public static IReadOnlyList<SectionFilter> Filters(HomeSection section) => section switch
     {
@@ -77,6 +89,12 @@ public static class HomeSections
     /// <summary>A card's title: the show for an episode or a season, the item otherwise.</summary>
     public static string Title(MediaItem item)
         => item.Type is BaseItemDto_Type.Episode or BaseItemDto_Type.Season && !string.IsNullOrWhiteSpace(item.SeriesName) ? item.SeriesName : item.Name;
+
+    /// <summary>The show's poster (its id and Primary image tag) for a Recently Added episode card,
+    /// which is titled with its show; null where the card shows the item's own artwork.</summary>
+    public static (Guid Id, string Tag)? SeriesPoster(HomeSection section, MediaItem item)
+        => section == HomeSection.RecentlyAdded && item.Type == BaseItemDto_Type.Episode
+            && item.SeriesId is { } series && item.SeriesPrimaryImageTag is { Length: > 0 } tag ? (series, tag) : null;
 
     /// <summary>A card's second line in the section (design 03 and the Home sketch).</summary>
     public static string Subtitle(HomeSection section, MediaItem item)

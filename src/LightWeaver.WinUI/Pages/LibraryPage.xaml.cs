@@ -1,4 +1,6 @@
 using System.Globalization;
+using Jellyfin.Sdk.Generated.Models;
+using LightWeaver.Details;
 using LightWeaver.Jellyfin;
 using LightWeaver.Library;
 using LightWeaver.Localization;
@@ -32,8 +34,12 @@ public sealed partial class LibraryPage : UserControl, INavPage
     private DateTime? _itemsAtUtc;
     private CancellationTokenSource? _loadCts;
 
-    /// <summary>The library this page shows.</summary>
+    /// <summary>The library this page shows, or a collection (box set) whose titles it lists.</summary>
     internal MediaItem Library => _library;
+
+    /// <summary>A collection (box set): its titles are linked to it rather than filed under it, so the
+    /// genre filter reads their genres, and it has its own empty state.</summary>
+    private bool IsCollection => _library.Type == BaseItemDto_Type.BoxSet;
 
     public LibraryPage(IAppShell shell, MediaItem library)
     {
@@ -171,10 +177,10 @@ public sealed partial class LibraryPage : UserControl, INavPage
         if (!empty) return;
         var filtered = _query.IsFiltered && _all.Count > 0;
         EmptyIcon.Glyph = filtered ? Theme.Icons.FilterAltOff : Theme.Icons.VideoLibrary;
-        EmptyTitle.Text = filtered ? L.Text("Library.NothingMatches") : L.Text("Library.Empty");
-        EmptyText.Text = filtered ? string.Join(" · ", ActiveFilterNames()) : L.Text("Library.EmptyHint");
+        EmptyTitle.Text = filtered ? L.Text("Library.NothingMatches") : IsCollection ? L.Text("Library.CollectionEmpty") : L.Text("Library.Empty");
+        EmptyText.Text = filtered ? string.Join(" · ", ActiveFilterNames()) : IsCollection ? L.Text("Library.CollectionEmptyHint") : L.Text("Library.EmptyHint");
         ClearFiltersButton.Visibility = filtered ? Visibility.Visible : Visibility.Collapsed;
-        DashboardLink.Visibility = filtered || DashboardLink.NavigateUri is null ? Visibility.Collapsed : Visibility.Visible;
+        DashboardLink.Visibility = filtered || IsCollection || DashboardLink.NavigateUri is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private IEnumerable<string> ActiveFilterNames()
@@ -227,12 +233,15 @@ public sealed partial class LibraryPage : UserControl, INavPage
         card.Session = _shell.Model.Jellyfin;
         card.Kind = CardKind.Poster;
         card.Overrides = _overrides;
-        card.Subtitle = Year;
+        card.Subtitle = CardLine;
         card.ShowCaption = _view.ShowTitles;
         card.Item = _shown[e.Index];
     }
 
-    private static string Year(MediaItem item) => item.ProductionYear?.ToString(CultureInfo.CurrentUICulture) ?? "";
+    /// <summary>When an upcoming episode airs or that it is missing, else the year.</summary>
+    private static string CardLine(MediaItem item)
+        => DetailModel.Availability(item, DateTimeOffset.Now) is { Length: > 0 } availability ? availability
+            : item.ProductionYear?.ToString(CultureInfo.CurrentUICulture) ?? "";
 
     private void OnWatchedChecked(object sender, RoutedEventArgs e)
     {
@@ -254,7 +263,7 @@ public sealed partial class LibraryPage : UserControl, INavPage
         AutomationProperties.SetAutomationId(flyout, "LibraryGenreFlyout");
         try
         {
-            _genres ??= _shell.Connectivity.IsOffline
+            if (!IsCollection) _genres ??= _shell.Connectivity.IsOffline
                 ? _all.SelectMany(i => i.Genres).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.CurrentCultureIgnoreCase).ToList()
                 : await _shell.Model.Jellyfin.GetGenresAsync(_library.Id);
         }
@@ -264,7 +273,7 @@ public sealed partial class LibraryPage : UserControl, INavPage
             return;
         }
         var counts = _all.SelectMany(i => i.Genres).GroupBy(g => g, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-        foreach (var genre in _genres.Where(counts.ContainsKey))
+        foreach (var genre in (_genres ?? [.. counts.Keys.Order(StringComparer.CurrentCultureIgnoreCase)]).Where(counts.ContainsKey))
         {
             var box = new CheckBox
             {

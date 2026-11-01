@@ -4,6 +4,7 @@ using LightWeaver.Diagnostics;
 using LightWeaver.Downloads;
 using LightWeaver.Imaging;
 using LightWeaver.Jellyfin;
+using LightWeaver.Library;
 using LightWeaver.Localization;
 using LightWeaver.Login;
 using LightWeaver.Player;
@@ -34,8 +35,9 @@ public sealed partial class SettingsPage : Grid, INavPage
     private readonly StackPanel _body = new() { Spacing = 22, Padding = new Thickness(32, 4, 32, 32) };
     private readonly List<(string Key, string Glyph, Func<string> Label, Func<IEnumerable<Group>> Build)> _sectionList = [];
     private string _section = "server";
+    private bool _showedUpdates;
 
-    private sealed record Row(string Label, string? Description, string? Glyph, FrameworkElement Control, string? AutomationId = null, TextBlock? LiveDescription = null);
+    private sealed record Row(string Label, string? Description, string? Glyph, FrameworkElement Control, string? AutomationId = null, TextBlock? LiveDescription = null, Action<Border, Grid>? Configure = null);
     private sealed record Group(string? Title, IReadOnlyList<Row> Rows, IReadOnlyList<Button>? Foot = null, FrameworkElement? Extra = null);
 
     public SettingsPage(IAppShell shell, string? section = null)
@@ -106,6 +108,9 @@ public sealed partial class SettingsPage : Grid, INavPage
     /// <summary>Settings › Updates is on screen, not a search.</summary>
     public bool ShowsUpdates => _section == "updates" && _search.Text.Trim().Length == 0;
 
+    /// <summary><see cref="ShowsUpdates"/> changed, by a section choice or a search.</summary>
+    public event EventHandler? ShowsUpdatesChanged;
+
     /// <summary>Shows one section with the search cleared, also when it is already selected.</summary>
     public void ShowSection(string key)
     {
@@ -141,6 +146,11 @@ public sealed partial class SettingsPage : Grid, INavPage
             && AutomationProperties.GetAutomationId(control) is { Length: > 0 } id ? (Id: id, control.FocusState) : default;
         Build();
         if (focused.Id is not null && FindById(_body, focused.Id) is Control again) FocusWhenLoaded(again, focused.FocusState);
+        if (_showedUpdates != ShowsUpdates)
+        {
+            _showedUpdates = ShowsUpdates;
+            ShowsUpdatesChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private static void FocusWhenLoaded(Control control, FocusState state)
@@ -248,7 +258,7 @@ public sealed partial class SettingsPage : Grid, INavPage
         if (row.AutomationId is { } id) AutomationProperties.SetAutomationId(row.Control, id);
         SetColumn(row.Control, 2);
         grid.Children.Add(row.Control);
-        return new Border
+        var card = new Border
         {
             Background = Ui.Resource<Brush>("LwBoxBrush"),
             BorderBrush = Ui.Resource<Brush>("LwBoxBorderBrush"),
@@ -256,6 +266,8 @@ public sealed partial class SettingsPage : Grid, INavPage
             CornerRadius = new CornerRadius(4),
             Child = grid,
         };
+        row.Configure?.Invoke(card, grid);
+        return card;
     }
 
     // ---- Controls --------------------------------------------------------------------------------
@@ -416,6 +428,7 @@ public sealed partial class SettingsPage : Grid, INavPage
         var jellyfin = _shell.Model.Jellyfin;
         var key = HomeLayoutStore.ProfileKey(jellyfin.UserId, jellyfin.ServerUrl);
         var layout = HomeLayoutStore.Load(key).Where(p => p.Id != HomeSectionId.Libraries).ToList();
+        var drag = new HomeSectionDrag(key, () => key == _shell.CacheProfileKey, ShowLater);
         var rows = new List<Row>();
         for (var i = 0; i < layout.Count; i++)
         {
@@ -443,10 +456,15 @@ public sealed partial class SettingsPage : Grid, INavPage
             controls.Children.Add(up);
             controls.Children.Add(down);
             controls.Children.Add(toggle);
-            rows.Add(new Row(RowName(pref.Id), null, Theme.Icons.Drag, controls));
+            rows.Add(new Row(RowName(pref.Id), null, null, controls, Configure: (card, grid) =>
+            {
+                var handle = drag.Handle(pref.Id, RowName(pref.Id), "SettingsHomeDrag");
+                grid.Children.Add(handle);
+                drag.Attach(card, pref.Id);
+            }));
         }
         yield return new Group(L.Text("Settings.HomeRows"), rows,
-            [ButtonFor(L.Text("Settings.HomeReset"), () => { HomeLayoutStore.Save(key, [.. Enum.GetValues<HomeSectionId>().Select(id => new HomeSectionPref(id, true))]); ShowLater(); }, automationId: "SettingsHomeReset")],
+            [ButtonFor(L.Text("Settings.HomeReset"), () => { HomeLayoutStore.Save(key, HomeLayoutStore.Defaults()); ShowLater(); }, automationId: "SettingsHomeReset")],
             new TextBlock { Text = L.Text("Settings.HomeRowsHint"), FontSize = 12, Foreground = Ui.Resource<Brush>("LwText2Brush"), Margin = new Thickness(2, -4, 0, 6) });
     }
 
@@ -457,8 +475,7 @@ public sealed partial class SettingsPage : Grid, INavPage
         var moved = visible[from];
         visible.RemoveAt(from);
         visible.Insert(to, moved);
-        var libraries = HomeLayoutStore.Load(key).Where(p => p.Id == HomeSectionId.Libraries);
-        HomeLayoutStore.Save(key, [.. visible, .. libraries]);
+        HomeLayoutStore.Save(key, visible);
         ShowLater();
     }
 
@@ -468,6 +485,7 @@ public sealed partial class SettingsPage : Grid, INavPage
         HomeSectionId.NextUp => L.Text("Home.NextUp"),
         HomeSectionId.Latest => L.Text("Home.RecentlyAdded"),
         HomeSectionId.Favorites => L.Text("Home.Favorites"),
+        HomeSectionId.Downloads => L.Text("Home.Downloads"),
         _ => id.ToString(),
     };
 
@@ -648,7 +666,10 @@ public sealed partial class SettingsPage : Grid, INavPage
 
     private async Task ClearBrowseAsync()
     {
-        await BrowseFolderCache.InvalidateProfileAsync(_shell.Model.ActiveSessionKey ?? "");
+        var profileKey = _shell.Model.ActiveSessionKey ?? "";
+        await BrowseFolderCache.InvalidateProfileAsync(profileKey);
+        await QueryCache.Sections.InvalidateProfileAsync(profileKey);
+        await QueryCache.Searches.InvalidateProfileAsync(profileKey);
         ToastHost.Show(ToastKind.Success, L.Text("Settings.Cleared"));
         Show();
     }

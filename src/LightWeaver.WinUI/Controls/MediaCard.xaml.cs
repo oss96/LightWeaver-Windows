@@ -31,6 +31,7 @@ public sealed partial class MediaCard : UserControl
     private bool _focused;
     private bool _menuOpen;
     private bool _showActions = true;
+    private bool _upcoming;
     private int _imageRequest;
     private int _decodedWidth;
     private bool _loadWhenVisible;
@@ -49,6 +50,7 @@ public sealed partial class MediaCard : UserControl
         Art.SizeChanged += (_, e) =>
         {
             if (e.NewSize.Width <= 0) return;
+            if (IsRound) ApplyCorners();
             if (_picturePending)
             {
                 LoadPendingPicture();
@@ -81,7 +83,7 @@ public sealed partial class MediaCard : UserControl
         KeyDown += OnKeyDown;
         ContextRequested += OnContextRequested;
         var info = new KeyboardAccelerator { Key = VirtualKey.I, Modifiers = VirtualKeyModifiers.Control, ScopeOwner = this };
-        info.Invoked += (_, e) => { if (_item is { } item) Shell?.ShowInfo(item); e.Handled = true; };
+        info.Invoked += (_, e) => { if (!_upcoming && _item is { } item) Shell?.ShowInfo(item); e.Handled = true; };
         KeyboardAccelerators.Add(info);
         KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
     }
@@ -113,6 +115,9 @@ public sealed partial class MediaCard : UserControl
 
     /// <summary>Second line under the title; the page decides what it says.</summary>
     internal Func<MediaItem, string>? Subtitle { get; set; }
+
+    /// <summary>The poster a poster card shows instead of the item's own (a show's for its episode); none unless set.</summary>
+    internal Func<MediaItem, (Guid Id, string Tag)?>? Poster { get; set; }
 
     /// <summary>A count shown in the corner badge (Next Up: episodes left after this one).</summary>
     internal Func<MediaItem, int?>? Count { get; set; }
@@ -184,7 +189,21 @@ public sealed partial class MediaCard : UserControl
         {
             _kind = value;
             Art.Ratio = AspectRatio(value);
+            TitleText.TextAlignment = SubText.TextAlignment = IsRound ? TextAlignment.Center : TextAlignment.Start;
+            ApplyCorners();
         }
+    }
+
+    /// <summary>A person's card is a circle the card's width, with the caption centred under it; a
+    /// 2:3 portrait shows from its top, where the face is.</summary>
+    private bool IsRound => _kind == CardKind.Person;
+
+    private void ApplyCorners()
+    {
+        var corners = IsRound ? new CornerRadius(Art.ActualWidth / 2) : Ui.Resource<CornerRadius>("LwCardRadius");
+        Art.CornerRadius = HoverRing.CornerRadius = CurrentRing.CornerRadius = corners;
+        Picture.Height = IsRound ? Art.ActualWidth * 1.5 : double.NaN;
+        Picture.VerticalAlignment = IsRound ? VerticalAlignment.Top : VerticalAlignment.Stretch;
     }
 
     /// <summary>The item shown. A newer copy of the same item (a refresh) keeps the artwork on
@@ -262,7 +281,7 @@ public sealed partial class MediaCard : UserControl
     /// <summary>True when the badge changed.</summary>
     private bool UpdateOfflineBadge()
     {
-        var shown = _item is { } item && Downloads.DownloadManager.Instance?.IsDownloaded(item.Id) == true ? Visibility.Visible : Visibility.Collapsed;
+        var shown = _item is { } item && !item.IsUpcomingEpisode(DateTimeOffset.Now) && Downloads.DownloadManager.Instance?.IsDownloaded(item.Id) == true ? Visibility.Visible : Visibility.Collapsed;
         if (OfflineBadge.Visibility == shown) return false;
         OfflineBadge.Visibility = shown;
         return true;
@@ -270,18 +289,26 @@ public sealed partial class MediaCard : UserControl
 
     internal void Refresh()
     {
+        _upcoming = _item?.IsUpcomingEpisode(DateTimeOffset.Now) == true;
         var blank = _isPlaceholder ? BlankLine : "";
         TitleText.Text = _item is null ? blank : Title?.Invoke(_item) ?? _item.Name;
-        SubText.Text = _item is null ? blank : Subtitle?.Invoke(_item) ?? "";
+        SubText.Text = _item is null ? blank : _upcoming
+            ? _item.PlaybackRelease is { Length: > 0 } date ? date : L.Text("Card.AirDateUnannounced")
+            : Subtitle?.Invoke(_item) ?? "";
+        UpcomingText.Text = L.Text("Detail.Upcoming");
+        UpcomingBadge.Visibility = _upcoming ? Visibility.Visible : Visibility.Collapsed;
         var name = SubText.Text.Length > 0 ? $"{TitleText.Text}, {SubText.Text}" : TitleText.Text;
+        if (_upcoming) name = $"{name}, {UpcomingText.Text}";
         AutomationProperties.SetName(this, OfflineBadge.Visibility == Visibility.Visible ? $"{name}, {L.Text("Card.AvailableOffline")}" : name);
         ToolTipService.SetToolTip(OfflineBadge, L.Text("Card.AvailableOffline"));
         UpdateState();
+        if (_upcoming && _focused && XamlRoot is { } root)
+            FocusManager.TryMoveFocus(FocusNavigationDirection.Next, new FindNextElementOptions { SearchRoot = root.Content });
     }
 
     internal void Invoke()
     {
-        if (_item is not { } item) return;
+        if (_upcoming || _item is not { } item) return;
         if (Invoked is { } handler) handler(this, item);
         else Shell?.OpenItem(item);
     }
@@ -291,7 +318,7 @@ public sealed partial class MediaCard : UserControl
     private static double AspectRatio(CardKind kind) => kind switch
     {
         CardKind.Wide => 16.0 / 9,
-        CardKind.Person => 3.0 / 4,
+        CardKind.Person => 1,
         CardKind.Square => 1,
         _ => 2.0 / 3,
     };
@@ -303,6 +330,7 @@ public sealed partial class MediaCard : UserControl
         (CardKind.Wide, { } s) when item.Type == BaseItemDto_Type.Episode && item.PrimaryImageTag is { Length: > 0 } tag => s.GetPrimaryImageUrl(item.Id, tag, width),
         (CardKind.Wide, { } s) when item.BackdropImageTag is { Length: > 0 } tag => s.GetBackdropImageUrl(item.Id, tag, width),
         (CardKind.Wide, _) when item.ThumbUrl is { } thumb => thumb,
+        (CardKind.Poster, { } s) when Poster?.Invoke(item) is { } poster => s.GetPrimaryImageUrl(poster.Id, poster.Tag, width),
         (_, { } s) when item.PrimaryImageTag is { Length: > 0 } tag => s.GetPrimaryImageUrl(item.Id, tag, width),
         (_, { } s) when item.SeriesId is { } series && item.SeriesPrimaryImageTag is { Length: > 0 } tag => s.GetPrimaryImageUrl(series, tag, width),
         _ => item.PosterUrl ?? item.ThumbUrl,
@@ -362,21 +390,23 @@ public sealed partial class MediaCard : UserControl
     // focus and UI Automation can reach them; they only take pointer input while shown.
     private void UpdateState()
     {
-        var active = _hovered || _focused || _menuOpen;
-        HoverWash.Visibility = HoverRing.Visibility = _hovered ? Visibility.Visible : Visibility.Collapsed;
-        Actions.Visibility = _showActions ? Visibility.Visible : Visibility.Collapsed;
+        IsTabStop = !_isPlaceholder && !_upcoming;
+        UseSystemFocusVisuals = !_upcoming;
+        var active = !_upcoming && (_hovered || _focused || _menuOpen);
+        HoverWash.Visibility = HoverRing.Visibility = !_upcoming && _hovered ? Visibility.Visible : Visibility.Collapsed;
+        Actions.Visibility = _showActions && !_upcoming ? Visibility.Visible : Visibility.Collapsed;
         Actions.Opacity = active ? 1 : 0;
         Actions.IsHitTestVisible = active;
-        PlayButton.Visibility = _showActions && _item is { } playable && CanPlay(playable) ? Visibility.Visible : Visibility.Collapsed;
+        PlayButton.Visibility = _showActions && !_upcoming && _item is { } playable && CanPlay(playable) ? Visibility.Visible : Visibility.Collapsed;
         PlayButton.Opacity = active ? 1 : 0;
         PlayButton.IsHitTestVisible = active;
 
-        var count = _item is null ? null : Count?.Invoke(_item);
+        var count = UserDataOverrides.BadgeCount(_played, _item is null ? null : Count?.Invoke(_item));
         CountText.Text = count?.ToString(System.Globalization.CultureInfo.CurrentUICulture) ?? "";
-        CountBadge.Visibility = count is > 0 ? Visibility.Visible : Visibility.Collapsed;
-        WatchedBadge.Visibility = _played && count is not > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CountBadge.Visibility = !_upcoming && count is > 0 ? Visibility.Visible : Visibility.Collapsed;
+        WatchedBadge.Visibility = !_upcoming && _played && count is not > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        var progress = _item is { PlayedPercentage: > 0 and < 100 } && !_played ? _item.PlayedPercentage!.Value / 100 : 0;
+        var progress = !_upcoming && _item is { PlayedPercentage: > 0 and < 100 } && !_played ? _item.PlayedPercentage!.Value / 100 : 0;
         ProgressTrack.Visibility = progress > 0 ? Visibility.Visible : Visibility.Collapsed;
         ProgressDone.Width = new GridLength(progress, GridUnitType.Star);
         ProgressLeft.Width = new GridLength(1 - progress, GridUnitType.Star);
@@ -413,32 +443,43 @@ public sealed partial class MediaCard : UserControl
 
     private async void OnToggleWatched(object sender, RoutedEventArgs e)
     {
-        if (_item is not { } item || Session is not { } session) return;
+        if (_upcoming || _item is not { } item || Session is not { } session) return;
         var target = !_played;
         await ChangeAsync(item, UserDataField.Played, target, () => session.SetPlayedAsync(item.Id, target));
     }
 
     /// <summary>Shows the user's change at once and again once the server has answered (the
     /// overrides decide whether a refusal is undone).</summary>
+    private int _playedRevision;
+
     private async Task ChangeAsync(MediaItem item, UserDataField field, bool value, Func<Task<bool>> send)
     {
+        var revision = field == UserDataField.Played ? ++_playedRevision : _playedRevision;
+        var session = Session;
         var overrides = Overrides ??= new UserDataOverrides();
         var change = overrides.ChangeAsync(item, field, value, send);
         ShowUserData(item);
-        await change;
+        var accepted = await change;
         ShowUserData(item);
+        if (!accepted || field != UserDataField.Played || session is null
+            || item.Type is not (BaseItemDto_Type.Season or BaseItemDto_Type.Series)) return;
+        try
+        {
+            var fresh = await session.GetItemAsync(item.Id);
+            if (fresh is not null && revision == _playedRevision && ReferenceEquals(_item, item) && ReferenceEquals(Session, session))
+                Item = fresh;
+        }
+        catch (Exception ex) { Shell?.ReportFailure(ex); }
     }
 
     private void OnMore(object sender, RoutedEventArgs e) => ShowMenu(MoreButton, null);
 
-    private static int s_playRequests;
-
     /// <summary>Plays or resumes a title; a show or season plays its next episode, a playlist its items.
-    /// A lookup that a later card's Play, a play, a stop or a session switch overtakes plays nothing.</summary>
+    /// A lookup that a later card's Play or Shuffle, a play, a stop or a session switch overtakes plays nothing.</summary>
     private async void OnPlay(object sender, RoutedEventArgs e)
     {
-        if (_item is not { } item || Session is not { } session || Shell is not { } shell) return;
-        var request = ++s_playRequests;
+        if (_upcoming || _item is not { } item || Session is not { } session || Shell is not { } shell) return;
+        var request = shell.PlayRequests.Claim();
         var origin = Origin;
         if (item.IsPlayable)
         {
@@ -447,7 +488,7 @@ public sealed partial class MediaCard : UserControl
         }
         var intent = shell.PlaybackIntent;
         var active = shell.Model.Jellyfin;
-        bool Current() => request == s_playRequests && shell.PlaybackIntent == intent && ReferenceEquals(shell.Model.Jellyfin, active);
+        bool Current() => shell.PlayRequests.IsLatest(request) && shell.PlaybackIntent == intent && ReferenceEquals(shell.Model.Jellyfin, active);
         try
         {
             switch (item.Type)
@@ -480,7 +521,7 @@ public sealed partial class MediaCard : UserControl
 
     private void ShowMenu(FrameworkElement target, Windows.Foundation.Point? at)
     {
-        if (!_showActions || _item is not { } item || Session is null || Shell is null) return;
+        if (_upcoming || !_showActions || _item is not { } item || Session is null || Shell is null) return;
         var menu = ItemMenu.Build(Shell, Session, item, Overrides?.Of(item) ?? (_played, _favorite),
             (field, value, send) => ChangeAsync(item, field, value, send), MenuOptions, Origin);
         // The menu takes focus; keep the pill shown under it.
@@ -518,7 +559,7 @@ public sealed partial class MediaCard : UserControl
     /// <summary>Lets UI Automation (and the guest suites) open a card like a button.</summary>
     private sealed partial class MediaCardPeer(MediaCard owner) : FrameworkElementAutomationPeer(owner), IInvokeProvider
     {
-        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+        protected override AutomationControlType GetAutomationControlTypeCore() => owner._upcoming ? AutomationControlType.Text : AutomationControlType.Button;
 
         protected override string GetClassNameCore() => nameof(MediaCard);
 
@@ -526,7 +567,7 @@ public sealed partial class MediaCard : UserControl
         protected override string GetItemStatusCore() => owner.Picture.Source is null ? "" : "artwork";
 
         protected override object? GetPatternCore(PatternInterface patternInterface)
-            => patternInterface == PatternInterface.Invoke ? this : base.GetPatternCore(patternInterface);
+            => patternInterface == PatternInterface.Invoke ? owner._upcoming ? null : this : base.GetPatternCore(patternInterface);
 
         public void Invoke() => owner.Invoke();
     }

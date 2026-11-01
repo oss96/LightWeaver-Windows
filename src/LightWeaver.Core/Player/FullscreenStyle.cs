@@ -29,6 +29,9 @@ public static class FullscreenStyle
     /// <summary>SWP_NOSIZE and SWP_NOMOVE: a SetWindowPos that keeps the size or the position.</summary>
     public const uint NoSize = 0x0001, NoMove = 0x0002;
 
+    /// <summary>SWP_SHOWWINDOW: a SetWindowPos that shows the window.</summary>
+    public const uint ShowWindow = 0x0040;
+
     /// <summary>WPF_RESTORETOMAXIMIZED: a minimized window restores maximized.</summary>
     public const uint RestoreToMaximized = 0x0002;
 
@@ -73,6 +76,10 @@ public static class FullscreenStyle
     /// <summary>The SetWindowPos flags of a move of the window's content made to fill the full-screen
     /// window: its position and size always apply, whatever the move kept.</summary>
     public static uint FillingFlags(uint flags) => flags & ~(NoMove | NoSize);
+
+    /// <summary>The SetWindowPos flags of a move of the caption buttons in full screen: they never show,
+    /// whatever the Windows App SDK asked for.</summary>
+    public static uint HiddenFlags(uint flags) => flags & ~ShowWindow;
 }
 
 /// <summary>The client area of a maximized window as Windows lays it out on any monitor.</summary>

@@ -35,8 +35,8 @@ the chrome stays quiet. Speed is part of the look: states snap, nothing glows, n
   rows 28 apart; above 1440 they grow with the window (`CardScale`, see Rules). The detail page's
   season grid is a poster grid of `LwDetailPosterWidth` and its episode grid one of
   `LwHomeWideCardWidth`, 12 column gap, 14 row gap, at least two columns, both at the rows' scale. On
-  the detail page More like this and Cast and crew share the row below the preview 3 : 2 at every
-  width, and the preview is never under 300 tall (`DetailModel.PreviewMinHeight`); an empty row
+  the detail page More like this sits under the preview and Cast and crew under the info panel,
+  each as wide as the one above it, and the preview is never under 300 tall (`DetailModel.PreviewMinHeight`); an empty row
   keeps its place with a quiet 13 `LwText2Brush` line. Bar height `LwBarHeight` (56). Minimum
   window 900 × 600, fluid to 4K; Advanced Search docks its 300 px filter column at 1100 px and wider.
 - Shape and depth: `LwControlRadius` 4 (buttons, fields), `LwItemRadius` 6, `LwCardRadius` 8 (art),
@@ -44,7 +44,8 @@ the chrome stays quiet. Speed is part of the look: states snap, nothing glows, n
   Depth comes from fills and 1 px strokes; the only shadow is the flyout/toast one.
 - Motion: hover and press snap (no brush transitions, ≤ 80 ms); flyouts and menus open and close
   at once, without WinUI's slide-and-fade (`FastUi.cs`, held by `tests/FastUi.Tests`); nothing over
-  200 ms except the nav morph width (240 ms); toasts in and out in 120 ms; skeletons only after
+  200 ms except the nav morph width (240 ms); a card row's ‹ › slide it a page in 180 ms, cubic
+  ease-out; toasts in and out in 120 ms; skeletons only after
   150 ms; Advanced Search debounces filter changes 150 ms and dims the old grid to 0.6 while
   the request runs (no skeleton swap). Its manual Refresh does not dim: the grid stays at full
   opacity and only the header's Updating indicator shows.
@@ -84,7 +85,7 @@ the chrome stays quiet. Speed is part of the look: states snap, nothing glows, n
 | Screen | Code or route | Design file |
 | --- | --- | --- |
 | Nav morph | `Shell/TopBar.xaml` | `01 Nav Morph.dc.html` |
-| Library grid | `Pages/LibraryPage.xaml` | `02 Library Grid.dc.html` |
+| Library grid, collection | `Pages/LibraryPage.xaml` | `02 Library Grid.dc.html` |
 | See more | `Pages/SectionPage.xaml` | `03 See More.dc.html` |
 | Search | `Pages/SearchPage.cs` | `04 Search.dc.html` |
 | Advanced search | `Search/AdvancedSearchPage.xaml` | `05 Advanced Search.dc.html` |
@@ -159,6 +160,90 @@ Paths in the Code column are under `src/LightWeaver.WinUI/`; design files are un
 
 ## Changes
 
+### 2026-11-01 · Upcoming episodes: quiet corner badge
+- What changed: upcoming episode cards show a clock and localized Upcoming label in a leading
+  corner glass badge, 6 px from the edges, 8,1 padding, 10 px radius, 13 px clock and 11.5 px
+  semibold text. The localized air date stays in the caption; unknown dates say Air date unannounced.
+  Artwork and caption geometry stay unchanged. The parent Grid's inherited FlowDirection mirrors
+  the badge to the right in Arabic; its Left alignment and 6,6,0,0 margin stay unchanged.
+- Behavior: upcoming cards are static readable content, without navigation, Invoke automation,
+  keyboard tab stops, play/menu/watched controls, hover wash or hover ring. Media arrival restores
+  ordinary interaction on refresh. Seasons and already-aired missing episodes keep their behavior.
+- Why: the owner requested upcoming episodes be non-clickable and visibly marked.
+- Proposal: [Upcoming episode badges](design/proposals/2026-11-01-upcoming-episode-badges.html).
+- Chosen option: A, quiet corner badge, reusing the existing black glass treatment and white text.
+
+### 2026-11-01 · Home: an optional Downloads row
+- What changed: Home can show a Downloads row, off until turned on in Settings › Home, where it is
+  listed, ordered and toggled like the other rows (Reset turns it off again). It is a Home row as
+  drawn: "Downloads →" and ‹ ›, wide cards (`LwHomeWideCardWidth`) titled like Continue Watching
+  (the show for an episode) with the download's own line under them (the episode tag or the year),
+  the card's offline badge. It lists the downloaded titles of the signed-in server, newest first,
+  from the device, so it fills offline too; running, queued and failed downloads stay on the
+  Downloads page. The heading opens Downloads; a card opens the title, or plays it while the server
+  is away. An empty Downloads row is left out like the others.
+- Why: the owner asked for Downloads as a new optional Home section.
+- Proposal: none; the row reuses the Home row component unchanged.
+- Chosen option: applied at once at the owner's request.
+### 2026-10-31 · Detail: every track in a drop-down, More like this and Cast and crew in aligned panels
+- What changed:
+  - Info panel: under the format badges, Video, Audio and Subtitles each have a drop-down listing
+    every track of the version Play uses, showing the one Play uses: drawn like the bar's version
+    drop-down, an `LwButton` (32 tall, padding 10,0) as wide as the panel's text column with the
+    track's name (12, trimmed, the full name as its tooltip) and `Icons.ExpandMore` at 10, opening a
+    radio menu (the default menu presenter) below itself. AutomationIds `DetailVideoTracks`,
+    `DetailAudioTracks`, `DetailSubtitleTracks`; names "Video: …", "Audio: …", "Subtitles: …". Audio and Subtitles choose what Play uses, as the bar's menus do, and
+    each follows the other. Subtitles start with Off, as the bar's menu does. Video only shows: Play
+    cannot choose a video track. A drop-down with nothing to choose is disabled; a video or audio type
+    without tracks reads "None". An episode now has the drop-downs too; a show or a season has no
+    tracks block. The drop-downs hold their height, empty and disabled, until the streams answer and
+    while another version's load, so the page still lays out once. Not a `ComboBox`: it opens its
+    list under the pointer, where WinUI shows a busy cursor until the list is ready
+    (microsoft-ui-xaml #8829); the menu keeps clear of the button and its shadow. A menu opened
+    with the pointer gives focus back to the page when it closes, so Space and the player's keys
+    work at once.
+  - More like this sits under the preview and Cast and crew under the info panel, each as wide as
+    the one above it, in a panel drawn like the info panel (`LwPanelBrush`, 1 px `LwStrokeBrush`,
+    `LwGroupRadius`, padding 16,12,12,16); heading, paging and scrolling are unchanged inside it.
+  - Card: a person's card (Cast and crew on the detail page, the full Cast and crew page, people in
+    search) is a circle of the card's width instead of a 3 : 4 portrait, its picture shown from the
+    top, name and role centred, placeholders round too.
+- Why: the owner asked for all tracks in the tracks section of movies and episodes and none on
+  shows and seasons (LWW-45), and for the two rows inside a boundary like the item info, with round
+  people and no change in behaviour (LWW-46); the boundaries are what the owner's movie and episode
+  sketches draw. Afterwards the owner chose round people everywhere and Off as a subtitle choice,
+  and, on seeing the first build (a list of every track, rows 3 : 2), asked for the tracks in
+  drop-downs and for the panels to line up with the preview and the info panel; on the next build
+  the owner saw the busy cursor over the ComboBox lists and asked to be rid of it.
+- Proposal: [`design/proposals/2026-10-31-detail-tracks-and-rows.html`](design/proposals/2026-10-31-detail-tracks-and-rows.html)
+  (the first build's list and 3 : 2 rows; superseded by the owner's follow-up above).
+- Chosen option: the owner's. Departure from the 2026-10-23 entry: an episode shows Video, Audio
+  and Subtitles. Rule changed: the rows no longer share their width 3 : 2.
+
+### 2026-10-31 · An update's download shows its progress outside Settings
+- What changed: while an update downloads, a lasting toast (new component variant: the progress
+  toast) sits at the bottom centre on every page but Login and Settings › Updates: the Download
+  toast drawn as 14c, with "Downloading update X — N %" (or "Downloading update X…" without a size)
+  and the dismiss button, no action and no timer. Its text changes in place, rounding the
+  percentage down; it fades out when the download ends or fails, and the ready toast follows. It
+  stays off the full player and does not go over video. Dismissed, it stays away for the rest of
+  that download.
+- Why: the owner missed the 1.x banner that showed the download's progress; v2 said nothing
+  between "found" and "ready" outside Settings › Updates.
+- Proposal: none; the owner asked for the 1.x pill.
+- Chosen option: the 1.x progress, drawn as the existing toast. Departure from 2026-10-23: that
+  entry's "no banner" stands, and the progress toast is the one notice that lasts.
+
+### 2026-10-31 · Recently Added: an episode card shows its show's poster
+- What changed: in Recently Added (row and See all), an episode card shows its show's poster
+  instead of the episode's 16:9 still cropped to a poster (`HomeSections.SeriesPoster`). The card
+  is already titled with its show. An episode whose show has no poster keeps its own artwork.
+  Other poster cards of episodes (Favorites, a person's titles, search) are unchanged.
+- Why: the server's Latest list groups a show's new episodes under the show but returns a lone new
+  episode as itself, and the owner wanted the show's thumbnail there.
+- Proposal: none; a single fix within the poster card.
+- Chosen option: the single fix.
+
 ### 2026-10-30 · Player: the wheel sets the volume, shown in a readout
 - What changed: the wheel over the full player and the mini-player steps the volume by the Up/Down
   step, one step per notch; Ctrl+wheel stays the zoom and the detail preview leaves the wheel alone.
@@ -232,6 +317,30 @@ The proposal is based on source; native screenshots and UI suite execution remai
 pre-release gate under the maintainer testing policy.
 
 Newest first.
+
+### 2026-10-23 · Format badges, collections and Shuffle for shows and seasons
+- What changed:
+  - Detail info panel: the technical chip line drawn under the actions (`movie-details.png`) holds
+    the WPF app's format badges for the version Play uses, in the info chips' style: 4K, 1080p,
+    720p or SD; the HDR format unless SDR (HDR10, HDR10+, HLG, Dolby Vision); the default audio
+    track's format (ATMOS 7.1, DTS:X 7.1, DD+ 5.1). An episode shows the line too, without the
+    Video, Audio and Subtitles lines. An invisible chip holds the line from the start, so the page
+    still lays out once.
+  - A collection (box set) opens as the library grid (02) of its titles, titled with its name and
+    counted in items; the top bar selects nothing, as on a detail page. An empty one reads "This
+    collection is empty" / "Add movies or shows to this collection on your Jellyfin server."
+    without the dashboard link.
+  - Shuffle for a show or a season: an icon button beside the info panel's actions (`LwButton`,
+    32 × 32, `Icons.Shuffle` at 15, tooltip "Shuffle", AutomationId `DetailShuffle`), and the
+    first entry of a show's or a season's card menu (`ItemMenuShuffle`), as a playlist's menu
+    (6a) has it. It queues the unwatched episodes (all of them once every one is watched) in
+    random order and plays them in the full-window player.
+- Why: the owner picked these three 1.x features for 2.0. v2 declared the chip line but never
+  filled it, opened a box set as an empty movie page, and shuffled playlists only.
+- Proposal: [`design/proposals/2026-10-23-v2-detail-ports.html`](design/proposals/2026-10-23-v2-detail-ports.html).
+- Chosen option: the single suggestion per feature, applied at once (within the system).
+  Departure from the sketch: the chip line shows the WPF badges, not the raw resolution, aspect,
+  codec and range it draws, which the Video line already names.
 
 ### 2026-10-23 · Player: type a time, Up Next timing
 - What changed:
@@ -684,3 +793,15 @@ Newest first.
 - Proposal: [`design/proposals/2026-10-20-advanced-search-live-updates.html`](design/proposals/2026-10-20-advanced-search-live-updates.html).
 - Chosen option: A, manual Refresh button only — owner declined live updates. The status line,
   socket subscriptions, fallback polling and change summaries of option A were not built.
+
+### 2026-11-01: Home section controls
+
+Approved [compact Home section flyout](design/proposals/2026-11-01-home-section-controls-v2.html).
+The customize icon shares the first visible section header with the paging controls. No separate
+toolbar, page title, flyout heading, helper text or footer. The flyout contains section names and
+switches and drag handles only. The control stays available when every row is hidden.
+The same drag handles reorder sections in Settings > Home. Hidden rows retain their place;
+Alt+Up and Alt+Down on a handle provide keyboard reordering.
+
+The Home customize button uses the approved three-slider vector drawing, not the system filter
+glyph. Section reorder handles use six dots in two columns, not the GripperBarVertical glyph.

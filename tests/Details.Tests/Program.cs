@@ -269,6 +269,8 @@ Check(FullscreenStyle.MinimizedPlacementFlags(maximized) == FullscreenStyle.Rest
 const uint NoZOrder = 0x0004, NoActivate = 0x0010;
 Check(FullscreenStyle.FillingFlags(FullscreenStyle.NoMove | FullscreenStyle.NoSize | NoZOrder | NoActivate) == (NoZOrder | NoActivate),
     "a move of the content in full screen always takes the window's whole client area, whatever it meant to keep");
+Check(FullscreenStyle.HiddenFlags(FullscreenStyle.ShowWindow | FullscreenStyle.NoMove | NoZOrder | NoActivate) == (FullscreenStyle.NoMove | NoZOrder | NoActivate),
+    "a move of the caption buttons in full screen never shows them, and keeps everything else it asked for");
 var secondWork = new ScreenRect(3840, 340, 6400, 1732);
 Check(WindowFrame.MaximizedClient(new ScreenRect(3840, 343, 6400, 1732), secondWork) == secondWork,
     "maximized on a 100% monitor next to a 150% one, the client starts at the work area's top, not 3 px below it");
@@ -279,6 +281,14 @@ Check(FullscreenIntent.Toggle(growingIntoFullscreen: true, osFullscreen: false) 
     "the toggle during a grow into full screen ends the grow in the window, not in full screen again");
 Check(FullscreenIntent.Toggle(false, osFullscreen: true) == FullscreenToggle.Exit, "in full screen the toggle leaves it");
 Check(FullscreenIntent.Toggle(false, osFullscreen: false) == FullscreenToggle.Enter, "out of full screen, a shrink included, the toggle enters it");
+
+Check(HistoryGestures.Back(playerFull: true, miniPlayer: false, transitionRunning: false) == HistoryAction.LeavePlayer,
+    "back in the full player leaves it the way its Back button does, instead of moving the page history behind it");
+Check(HistoryGestures.Back(playerFull: true, miniPlayer: true, transitionRunning: false) == HistoryAction.LeaveMiniPlayer, "back in the mini-player returns to the full player, as Esc does");
+Check(HistoryGestures.Back(playerFull: true, miniPlayer: false, transitionRunning: true) == HistoryAction.Ignore, "back during a grow or shrink does not restart it");
+Check(HistoryGestures.Back(playerFull: false, miniPlayer: false, transitionRunning: false) == HistoryAction.Navigate, "back outside the full player, the preview included, goes back in history");
+Check(HistoryGestures.Forward(playerFull: true) == HistoryAction.Ignore && HistoryGestures.Forward(playerFull: false) == HistoryAction.Navigate,
+    "forward moves the history only outside the full player");
 
 Check(FullscreenStyle.Entry(minimizedNow: false, foregroundNow: true) == FullscreenEntry.Cover, "entering in the foreground covers the monitor on top");
 Check(FullscreenStyle.Entry(minimizedNow: false, foregroundNow: false) == FullscreenEntry.CoverBehind, "a window that lost the foreground before the change applies covers it without activating");
@@ -336,6 +346,13 @@ Check(monitor.InDips(1.5) == new LayerRect(0, 0, 2560, 1440) && secondary.InDips
     "the content is laid out for the monitor in that monitor's DIPs before the window covers it: 4K at 150 % is 2560 x 1440");
 Check(new ScreenRect(-11, -11, 3851, 2099).Width == 3862 && work.Height == 2088, "width and height are right minus left and bottom minus top");
 
+// --- Plays that wait for a lookup ------------------------------------------------------------------
+var requests = new PlayRequests();
+var shuffleA = requests.Claim();
+var playB = requests.Claim();
+Check(!requests.IsLatest(shuffleA), "a Shuffle whose lookup returns first does not start once a newer Play was asked for");
+Check(requests.IsLatest(playB), "the newer Play still starts when its lookup returns after the older Shuffle's");
+
 // --- No frame of the previous file ----------------------------------------------------------------
 var gate = new FirstFrameGate();
 Check(!gate.IsHeld && !gate.TryRelease(1, 1), "nothing held, nothing to release");
@@ -369,6 +386,54 @@ Check(DetailModel.NextEpisode(caughtUpWithGap) == caughtUpWithGap[0], "past the 
 var done = new[] { Episode(1, played: true), Episode(2, played: true) };
 Check(DetailModel.NextEpisode(done) == done[0], "a finished show starts over");
 
+// --- Upcoming and missing episodes ---------------------------------------------------------------
+var asOf = new DateTimeOffset(2026, 10, 31, 12, 0, 0, TimeSpan.Zero);
+MediaItem Virtual(int number, DateTimeOffset? airs) => new()
+{
+    Id = Guid.NewGuid(), Name = "Episode " + number, Type = BaseItemDto_Type.Episode, ParentIndexNumber = 1, IndexNumber = number,
+    IsVirtual = true, PremiereDate = airs,
+};
+var upcoming = Virtual(5, asOf.AddDays(4));
+var undated = Virtual(6, null);
+var missing = Virtual(2, asOf.AddDays(-30));
+Check(!upcoming.IsPlayable && !missing.IsPlayable, "an episode without media is not playable");
+Check(upcoming.IsUpcoming(asOf) && undated.IsUpcoming(asOf) && !missing.IsUpcoming(asOf), "upcoming until it airs, missing after; undated counts as upcoming");
+Check(!Episode(1).IsUpcoming(asOf), "an episode with media is never upcoming");
+Check(upcoming.IsUpcomingEpisode(asOf) && undated.IsUpcomingEpisode(asOf), "dated and undated upcoming episodes get a static card badge");
+Check(!missing.IsUpcomingEpisode(asOf) && !Episode(1).IsUpcomingEpisode(asOf), "missing and playable episodes do not get the upcoming card variant");
+Check(!new MediaItem { Id = Guid.NewGuid(), Name = "Season", Type = BaseItemDto_Type.Season, IsVirtual = true }.IsUpcomingEpisode(asOf),
+    "an announced virtual season stays navigable instead of becoming a static episode card");
+Check(!new MediaItem { Id = upcoming.Id, Name = upcoming.Name, Type = BaseItemDto_Type.Episode }.IsUpcomingEpisode(asOf),
+    "same-id media arrival restores normal card interaction");
+var caughtUp = new[] { Episode(1, played: true), Episode(2, played: true), upcoming };
+Check(DetailModel.NextEpisode(caughtUp) == caughtUp[0], "Play never starts an upcoming episode");
+Check(DetailModel.NextEpisode([upcoming, undated]) is null, "a season of upcoming episodes has nothing to play");
+var season = new[] { Episode(1), missing, Episode(3), upcoming, undated };
+Check(DetailModel.SeasonEpisodes(season, asOf).SequenceEqual([season[0], season[2], upcoming, undated]), "a season shows its upcoming episodes, not its missing ones");
+Check(DetailModel.Availability(Episode(1), asOf) == "", "an episode with media says nothing about availability");
+Check(DetailModel.Availability(upcoming, asOf) == "Upcoming · " + upcoming.PlaybackRelease, "an upcoming episode says when it airs");
+Check(DetailModel.Availability(undated, asOf) == "Upcoming", "an undated one only that it is upcoming");
+Check(DetailModel.Availability(missing, asOf) == "Not in the library", "an aired one without media says it is missing");
+Check(upcoming.WithUserData(true, false, 0, null).IsVirtual, "a user-data refresh keeps the item virtual");
+Check(Virtual(7, asOf).IsUpcoming(asOf), "an episode stays upcoming through its air day");
+var withMedia = new[] { Episode(1), Episode(2), Episode(4) };
+var third = Virtual(3, asOf.AddDays(2));
+var fifth = Virtual(5, asOf.AddDays(9));
+var special = new MediaItem { Id = Guid.NewGuid(), Name = "Special", Type = BaseItemDto_Type.Episode, ParentIndexNumber = 0, IndexNumber = 4, IsVirtual = true, PremiereDate = asOf.AddDays(5) };
+var merged = SeasonEpisodes.WithVirtual(withMedia, [withMedia[0], withMedia[1], third, withMedia[2], fifth, special, undated]);
+Check(merged.SequenceEqual([withMedia[0], withMedia[1], third, withMedia[2], fifth, special, undated]),
+    "a season's virtual episodes, specials included, take their place in the season's own order");
+Check(SeasonEpisodes.WithVirtual(withMedia, [third, withMedia[0], withMedia[1], withMedia[2]]).SequenceEqual([third, .. withMedia]),
+    "one the season lists first goes first");
+Check(SeasonEpisodes.WithVirtual(withMedia, [withMedia[0], Episode(9)]).SequenceEqual(withMedia), "an episode with media the list lacks is not added");
+Check(SeasonEpisodes.WithVirtual(merged, [withMedia[0], third, third]).Count == merged.Count, "a virtual episode the list already has is not added again");
+
+// --- Shuffle -------------------------------------------------------------------------------------
+var shuffled = DetailModel.ShuffleQueue(midway, new Random(7));
+Check(shuffled.Count == 2 && shuffled.ToHashSet().SetEquals(midway[2..]), "Shuffle queues the unwatched episodes only");
+Check(DetailModel.ShuffleQueue(done, new Random(7)).ToHashSet().SetEquals(done), "a finished show shuffles every episode");
+Check(DetailModel.ShuffleQueue([Item(BaseItemDto_Type.Season)], new Random(7)).Count == 0, "nothing playable, nothing to shuffle");
+
 // --- Season to show ------------------------------------------------------------------------------
 var s1 = new MediaItem { Id = Guid.NewGuid(), Name = "Season 1", Type = BaseItemDto_Type.Season, UnplayedItemCount = 0 };
 var s2 = new MediaItem { Id = Guid.NewGuid(), Name = "Season 2", Type = BaseItemDto_Type.Season, UnplayedItemCount = 4 };
@@ -396,8 +461,17 @@ var streams = new MediaSourceStreams("source", [], [], [],
     new MediaInfoField("Range", "SDR", "Range"),
     new MediaInfoField("Audio", "DD 5.1", "Audio"),
 ]);
-Check(DetailModel.TechnicalChips(streams).SequenceEqual(["1920x812", "2.35:1", "HEVC Main 10", "SDR"]), "technical chips leave the audio badge out");
-Check(DetailModel.TechnicalChips(null).Count == 0, "no streams, no technical chips");
+Check(DetailModel.TechnicalChips(streams).SequenceEqual(["1080p", "DD 5.1"]), "format badges: the resolution class and the audio, no SDR badge");
+var uhd = new MediaSourceStreams("source", [], [], [],
+[
+    new MediaInfoField("Resolution", "3840x1608", "Resolution"),
+    new MediaInfoField("Range", "Dolby Vision", "Range"),
+    new MediaInfoField("Audio", "ATMOS 7.1", "Audio"),
+]);
+Check(DetailModel.TechnicalChips(uhd).SequenceEqual(["4K", "Dolby Vision", "ATMOS 7.1"]), "format badges: 4K, the HDR format and Atmos");
+Check(DetailModel.TechnicalChips(new MediaSourceStreams("source", [], [], [], [new MediaInfoField("Resolution", "720x576", "Resolution")]))
+    .SequenceEqual(["SD"]), "a DVD frame is SD");
+Check(DetailModel.TechnicalChips(null).Count == 0, "no streams, no format badges");
 Check(DetailModel.EpisodeTag(Episode(3)) == "S1 · E3", "episode tag: " + DetailModel.EpisodeTag(Episode(3)));
 
 // --- Default stream picks ------------------------------------------------------------------------
@@ -410,6 +484,19 @@ var subtitles = new[] { Stream(3, "eng"), Stream(4, "ger") };
 Check(DetailModel.DefaultSubtitle(subtitles, "ger") == 4, "the preferred subtitle language wins");
 Check(DetailModel.DefaultSubtitle(subtitles, "") is null, "subtitles stay off without a preference or a default");
 Check(DetailModel.DefaultSubtitle([Stream(3, "eng"), Stream(4, "ger", isDefault: true)], "") == 4, "the source's default subtitle is used");
+
+// --- The tracks list -----------------------------------------------------------------------------
+var tracked = new MediaSourceStreams("source", [Stream(0, "und")], [Stream(1, "eng", isDefault: true), Stream(2, "ger"), Stream(5, "fre")], [Stream(3, "eng"), Stream(4, "ger")], []);
+var tracks = DetailModel.Tracks(tracked, 2, 4);
+Check(tracks.Video.Count == 1 && tracks.Audio.Count == 3 && tracks.Subtitles.Count == 3, "the tracks list holds every track of each type, subtitles after Off");
+Check(tracks.Subtitles[0] is { Index: null, Text: "Off", IsChosen: false } && tracks.Subtitles.Skip(1).Select(t => t.Index).SequenceEqual([3, 4]), "Off leads the subtitles, as in the bar's menu");
+Check(tracks.Audio.Select(t => t.Index).SequenceEqual([1, 2, 5]) && tracks.Audio[2].Text == "fre", "in the source's order, by their names");
+Check(tracks.Audio.Single(t => t.IsChosen).Index == 2 && tracks.Subtitles.Single(t => t.IsChosen).Index == 4, "the audio and subtitle picks are marked");
+Check(tracks.Video.Single().IsChosen, "the only video track is the one that plays");
+Check(DetailModel.Tracks(tracked, 1, null).Subtitles.Single(t => t.IsChosen).Index is null, "subtitles off: Off is marked and no track");
+var twoVideos = DetailModel.Tracks(tracked with { Video = [Stream(0, "und"), Stream(6, "und", isDefault: true)] }, 1, null);
+Check(twoVideos.Video.Single(t => t.IsChosen).Index == 6, "with two video tracks, the default one is marked");
+Check(DetailModel.Tracks(tracked with { Subtitles = [] }, 1, null).Subtitles is [{ Index: null, IsChosen: true }], "a source without subtitles lists Off alone, marked");
 
 // --- Start time ----------------------------------------------------------------------------------
 Check(DetailModel.ClampStart(TimeSpan.FromMinutes(-1), 90 * Minute) == TimeSpan.Zero, "the start cannot go below zero");

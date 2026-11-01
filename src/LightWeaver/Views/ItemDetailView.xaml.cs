@@ -119,6 +119,7 @@ public partial class ItemDetailView : UserControl
     private void StartDownloadOptionsPreload()
     {
         CancelDownloadOptionsPreload();
+        if (_item.IsVirtual) return;
         CreateDownloadOptionsPreload();
     }
 
@@ -925,6 +926,8 @@ public partial class ItemDetailView : UserControl
             LiveText.Bind(PlayButton, "Content", () => PlayGlyphLabel(L.Text("ItemDetailView.Play.feccb3cc")));
             PlayButton.Style = (Style)FindResource("LwButtonPrimary");
         }
+        PlayButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;
+        if (_item.IsVirtual) ResumeButton.Visibility = Visibility.Collapsed;
 
         if (Jellyfin.WebLinks.TryParse(_item.TrailerUrl, out _))
         {
@@ -1096,6 +1099,7 @@ public partial class ItemDetailView : UserControl
     /// actions on every refresh (IsVisibleChanged), so completion shows on return.</summary>
     private void RefreshDownloadAction()
     {
+        DownloadButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;
         var downloaded = Downloads.DownloadManager.Instance?.IsDownloaded(_item.Id) == true;
         DownloadButton.IsEnabled = !_downloadActionPending;
         DownloadGlyph.Visibility = _downloadWaiting ? Visibility.Collapsed : Visibility.Visible;
@@ -1116,6 +1120,7 @@ public partial class ItemDetailView : UserControl
     /// resolution-picker flow via <see cref="DownloadRequested"/>.</summary>
     private async void OnDownload(object sender, RoutedEventArgs e)
     {
+        if (_item.IsVirtual) return;
         if (Downloads.DownloadManager.Instance is { } manager && manager.IsDownloaded(_item.Id))
         {
             Diagnostics.AppLog.Detail("detail",
