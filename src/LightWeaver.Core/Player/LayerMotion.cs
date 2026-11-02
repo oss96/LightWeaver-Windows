@@ -94,6 +94,10 @@ public static class LayerMotion
         return new MotionPlan(SampleTimes(startT, count), keys, remaining);
     }
 
+    /// <summary>The pose of a layer laid out at the window origin, positioned entirely by the compositor.</summary>
+    public static LayerFrame FrameAtOrigin(LayerRect shown, LayerRect layout, LayerContent content, double radius)
+        => Frame(shown, layout with { X = 0, Y = 0 }, content, radius);
+
     /// <summary>How the layer laid out at <paramref name="layout"/> is drawn to look laid out at
     /// <paramref name="shown"/>: <paramref name="content"/> appears the size and place it would have
     /// there, and the clip cuts the layer to <paramref name="shown"/> with corners of

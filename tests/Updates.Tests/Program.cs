@@ -236,12 +236,32 @@ var notices = new UpdateNotices();
 const UpdateNoticePlace Away = UpdateNoticePlace.Elsewhere;
 Check(notices.Next(new(UpdatePhase.Available, Found()), UpdatePolicy.AutoDownload, Away) is null, "an update the policy downloads by itself is not announced when found");
 Check(notices.Next(new(UpdatePhase.Available, Found()), UpdatePolicy.ManualInstall, UpdateNoticePlace.Login) is null, "on Login a found update waits");
-Check(notices.Next(new(UpdatePhase.Available, Found()), UpdatePolicy.ManualInstall, Away) is { Message: "Version 9.0.0 is available", Ready: false },
+var availableNotice = notices.Next(new(UpdatePhase.Available, Found()), UpdatePolicy.ManualInstall, Away);
+Check(availableNotice is { Message: "Version 9.0.0 is available", Action: UpdateAction.DownloadAndInstall, ActionLabel: "Download and install" },
     "and is announced on the next page");
 Check(notices.Next(new(UpdatePhase.Available, Found()), UpdatePolicy.ManualInstall, Away) is null, "once per version");
 Check(notices.Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDownloadAndInstall, UpdateNoticePlace.UpdatesPane) is null
     && notices.Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDownloadAndInstall, Away) is null, "a ready update Settings › Updates showed is not toasted later");
-Check(new UpdateNotices().Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDownloadAndInstall, Away) is { Ready: true }, "elsewhere it is");
+Check(new UpdateNotices().Next(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.AutoDownloadAndInstall, Away) is { Action: UpdateAction.InstallNow, ActionLabel: "Install now" }, "elsewhere it offers installation");
+Check(new UpdateNotices().Next(new(UpdatePhase.Available, Found(false)), UpdatePolicy.ManualInstall, Away)
+    is { Action: UpdateAction.OpenReleasePage, ActionLabel: "Open release page" }, "without an installer the notice opens the release page directly");
+Check(availableNotice!.CanRun(new(UpdatePhase.Available, Found()), UpdatePolicy.ManualInstall), "the available notice runs against its current version and policy");
+foreach (var phase in new[] { UpdatePhase.Downloading, UpdatePhase.ReadyToInstall, UpdatePhase.Installing, UpdatePhase.Error, UpdatePhase.Checking, UpdatePhase.UpToDate })
+    Check(!availableNotice.CanRun(new(phase, Found()), UpdatePolicy.ManualInstall), $"a stale download notice cannot act during {phase}");
+Check(!availableNotice.CanRun(new(UpdatePhase.Available, Found() with { Version = new Version(10, 0, 0) }), UpdatePolicy.ManualInstall), "a stale notice cannot act on a replacement release");
+Check(!availableNotice.CanRun(new(UpdatePhase.Available, Found()), UpdatePolicy.AutoDownload), "a changed policy invalidates the old download/install action");
+Check(!availableNotice.CanRun(new(UpdatePhase.Available, Found(false)), UpdatePolicy.ManualInstall), "a missing installer invalidates the old download action");
+var failedDownload = new UpdateStatus(UpdatePhase.Error, Found(), Detail: "The update download failed.");
+var retryNotice = UpdateNotice.Failure(failedDownload, UpdatePolicy.ManualInstall);
+Check(retryNotice is { Message: "The update download failed.", ActionLabel: "Retry", Action: UpdateAction.DownloadAndInstall }
+    && retryNotice.CanRun(failedDownload, UpdatePolicy.ManualInstall), "a failed notification download shows its error and offers a direct retry");
+Check(!retryNotice!.CanRun(new(UpdatePhase.Downloading, Found()), UpdatePolicy.ManualInstall), "a retry cannot duplicate a running download");
+Check(retryNotice.CanRemain(failedDownload, UpdatePolicy.ManualInstall, Away), "a valid error Retry stays visible across browsing navigation");
+Check(!retryNotice.CanRemain(failedDownload, UpdatePolicy.ManualInstall, UpdateNoticePlace.UpdatesPane)
+    && !retryNotice.CanRemain(failedDownload, UpdatePolicy.ManualInstall, UpdateNoticePlace.FullPlayer), "Updates and full player suppress the error notice");
+Check(!retryNotice.CanRemain(new(UpdatePhase.Downloading, Found()), UpdatePolicy.ManualInstall, Away), "starting a retry removes the stale error notice");
+Check(!retryNotice.CanRun(failedDownload with { Update = Found() with { Version = new Version(10, 0, 0) } }, UpdatePolicy.ManualInstall), "a retry cannot act on a replacement release");
+Check(UpdateNotice.Failure(new(UpdatePhase.ReadyToInstall, Found()), UpdatePolicy.ManualInstall) is null, "a successful notification action shows no failure");
 Check(notices.Next(new(UpdatePhase.Error, Found()), UpdatePolicy.ManualInstall, Away) is null, "a failure is not announced");
 
 var downloading = new UpdateStatus(UpdatePhase.Downloading, Found(), 996, 1000);

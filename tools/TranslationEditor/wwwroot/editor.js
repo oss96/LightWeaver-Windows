@@ -96,7 +96,7 @@ function fillSelect(id, entries, emptyLabel) {
 function updateOptions() {
   fillSelect('lang', state.workspace.locales.map(item => [item.code, `${item.name} · ${item.code}`]), t('TranslationEditor.AllLanguages'));
   const sources = [...new Set(Object.values(state.workspace.catalog.strings).flatMap(entry => entry.sources))].sort();
-  fillSelect('source', sources.map(source => [source, source.replace('src/LightWeaver/', '')]), t('TranslationEditor.AllSources'));
+  fillSelect('source', sources.map(source => [source, source.replace(/^src\/LightWeaver\.(Core|WinUI)\//, '')]), t('TranslationEditor.AllSources'));
 }
 function readUrl() {
   const params = new URLSearchParams(location.search);

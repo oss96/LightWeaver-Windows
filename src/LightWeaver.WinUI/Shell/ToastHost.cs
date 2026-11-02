@@ -53,10 +53,10 @@ public sealed partial class ToastHost : StackPanel
         _ => (Theme.Icons.InfoSolid, Color.FromArgb(0xFF, 0xF0, 0x8C, 0x9C)),
     };
 
-    public static void Show(ToastKind kind, string message, string? action = null, Action? onAction = null, string? mergeKey = null)
+    public static void Show(ToastKind kind, string message, string? action = null, Action? onAction = null, string? mergeKey = null, bool lasting = false)
     {
         if (action is null && OverVideo?.Invoke(kind, message, mergeKey) == true) return;
-        Current?.Add(kind, message, action, onAction, mergeKey);
+        Current?.Add(kind, message, action, onAction, mergeKey, lasting);
     }
 
     /// <summary>Shows a lasting toast, or changes only the text of the one with this merge key.</summary>

@@ -511,7 +511,7 @@ public sealed partial class MediaCard : UserControl
     }
 
     /// <summary>This card's artwork, which a play started here grows out of.</summary>
-    private PlayOrigin Origin => new(Art, Picture.Source);
+    internal PlayOrigin Origin => new(Art, Picture.Source);
 
     private void OnContextRequested(UIElement sender, ContextRequestedEventArgs e)
     {

@@ -86,6 +86,10 @@ Check(DetailModel.Frame(1050, 600, 300, 16.0 / 9, spacing).PreviewHeight == Deta
     && DetailModel.Frame(1050, 600, 300, 16.0 / 9, spacing).SideWidth >= DetailModel.NarrowSidePanel, "a short 1050 DIP page: the 300 floor, beside a panel of at least 300");
 Check(DetailModel.Frame(1920, 1000, 0, 16.0 / 9, spacing).PreviewHeight > frame.PreviewHeight, "without rows the preview has their room too");
 Check(DetailModel.Frame(1920, 1000, 300, 16.0 / 9, spacing) == frame, "the same page, rows and shape give the same frame: nothing that arrives later is an input");
+var largeFrame = DetailModel.Frame(2560, 1335, 430, 16.0 / 9, spacing);
+Check(Close(largeFrame.PreviewHeight + 430 + spacing.Vertical + spacing.RowGap, 1335)
+    && largeFrame.SideWidth > DetailModel.WideSidePanel,
+    "a large detail page reserves the lower rows before allocating the preview and gives the spare width to the info panel");
 
 // --- The season and episode grid (panel width less 38 DIP of padding and border) -------------------
 Check(DetailModel.ChildGrid(702, 210, 18) == (3, 222), "a 740 DIP panel at 1.5x: three seasons of 222 DIP");
@@ -159,6 +163,41 @@ Check(Near((start.ClipRight - start.ClipLeft) * start.ScaleX, card.Width) && Nea
 Check(Near(start.RadiusX * start.ScaleX, 8) && Near(start.RadiusY * start.ScaleY, 8), "with 8 px corners on screen at any scale");
 Check(Near((start.ClipLeft + start.ClipRight) / 2, window.Width / 2), "the clip is centred on the layer, where the scale is centred");
 var videoShape = new LayerContent(16.0 / 9);
+var cardExit = LayerMotion.Frame(window, card, videoShape, 8);
+Check(cardExit.IsValid && Near(card.CenterX + cardExit.TranslateX, window.CenterX)
+    && Near(card.CenterY + cardExit.TranslateY, window.CenterY), "card exit starts centred on the restored window");
+Check(Near((cardExit.ClipRight - cardExit.ClipLeft) * cardExit.ScaleX, window.Width)
+    && Near((cardExit.ClipBottom - cardExit.ClipTop) * cardExit.ScaleY, window.Height), "card exit initially clips to the whole window even for portrait artwork");
+var cardExitEnd = LayerMotion.Frame(LayerMotion.At(window, card, 1), card, videoShape, 8);
+Check(cardExitEnd.IsValid && Near(cardExitEnd.ScaleX, 1) && Near(cardExitEnd.ScaleY, 1)
+    && Near(cardExitEnd.ClipWidth, card.Width) && Near(cardExitEnd.ClipHeight, card.Height), "card exit lands exactly on the source artwork");
+var positionedTargets = new[] {
+    new LayerRect(18, 106, 344, 194), new LayerRect(1102, 106, 344, 194),
+    new LayerRect(18, 718, 174, 262), new LayerRect(784, 718, 174, 262),
+    new LayerRect(1620, 412, 344, 194), new LayerRect(16, 68, 1180, 664),
+};
+foreach (var target in positionedTargets)
+{
+    var edgesMatch = true;
+    foreach (var shape in new[] { videoShape, poster, LayerContent.Stretched, new LayerContent(16.0 / 9, Covers: true) })
+    foreach (var t in LayerMotion.SampleTimes(0))
+    {
+        var shown = LayerMotion.At(window, target, t);
+        var pose = LayerMotion.FrameAtOrigin(shown, target, shape, 8);
+        double X(double x) => (x - target.Width / 2) * pose.ScaleX + target.Width / 2 + pose.TranslateX;
+        double Y(double y) => (y - target.Height / 2) * pose.ScaleY + target.Height / 2 + pose.TranslateY;
+        edgesMatch &= pose.IsValid && Near(X(pose.ClipLeft), shown.X) && Near(Y(pose.ClipTop), shown.Y)
+            && Near(X(pose.ClipRight), shown.X + shown.Width) && Near(Y(pose.ClipBottom), shown.Y + shown.Height);
+    }
+    Check(edgesMatch, $"origin-laid compositor frames follow every window edge to artwork at {target.X},{target.Y}");
+}
+var lowerRight = positionedTargets[3];
+var relativePose = LayerMotion.Frame(window, lowerRight, videoShape, 8);
+var scaledOffset = lowerRight.X * (relativePose.ScaleX - 1);
+Check(scaledOffset > window.Width, "scaling the lower card's XAML translation would push the video off the right edge");
+var originPose = LayerMotion.FrameAtOrigin(window, lowerRight, videoShape, 8);
+Check(Near(lowerRight.Width / 2 + originPose.TranslateX, window.CenterX)
+    && Near(lowerRight.Height / 2 + originPose.TranslateY, window.CenterY), "origin-laid shrink starts at the window centre without a scaled card offset");
 var shrinkStart = LayerMotion.Frame(window, preview, videoShape, 0);
 Check(Near(Math.Min(preview.Width, preview.Height * 16 / 9) * shrinkStart.ScaleX, Math.Min(window.Width, window.Height * 16 / 9)), "a shrink laid out at the preview draws the video at the window's fitted size first");
 var backdrop = LayerMotion.Frame(card, window, new LayerContent(16.0 / 9, Covers: true), 8);

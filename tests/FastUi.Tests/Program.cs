@@ -103,6 +103,10 @@ Requires("App.xaml.cs", "Services.Updater.StartAsync(");
 Requires("Services/Updater.cs", "new UpdateService(settings)", "service.Start();", "service.TryLaunchInstallAfterExit();");
 Requires("Shell/MainWindow.xaml.cs", "InitializeUpdates();");
 Requires("Shell/MainWindow.Updates.cs", "Updater.OnExit();", "_updateNotices.Next(");
+Requires("Shell/MainWindow.Updates.cs", "notice.ActionLabel", "notice.CanRun(Updater.Status, App.Settings.UpdatePolicy)", "Updater.RunAsync(notice.Action, Quit)");
+Requires("Shell/MainWindow.Updates.cs", "RunUpdateNoticeAsync(notice), \"update\", lasting: true)", "ToastHost.Remove(\"update\")");
+Requires("Shell/MainWindow.Updates.cs", "!visible.CanRemain(Updater.Status, App.Settings.UpdatePolicy, place)", "_visibleUpdateNotice = failure;");
+Requires("Shell/MainWindow.Updates.cs", "UpdateNotice.Failure(Updater.Status, App.Settings.UpdatePolicy)", "ToastHost.Show(ToastKind.Error, failure.Message, failure.ActionLabel", "RunUpdateNoticeAsync(failure)");
 Requires("Pages/SettingsPage.cs", "UpdatePane.For(", "Updater.OnPolicyChanged();", "Updater.RunAsync(pane.Action");
 
 Requires("Player/PlayerView.xaml", "PlayerPositionButton", "PlayerTimeEdit", "OnTimeEditKeyDown", "OnTimeEditLostFocus");
@@ -113,6 +117,41 @@ Requires("Pages/SettingsPage.cs", "UpNextPreferences.MaximumCountdownSeconds", "
 Requires("Shell/MainWindow.Zoom.cs", "Root.PreviewKeyDown += OnZoomKey", "UiZoom.SetLimitToScreen(", "UiZoom.Wheel(");
 Requires("Shell/MainWindow.Navigation.cs", "CachedBanner.IsOpen", "OfflinePlan.For(", "CachedRetryNow");
 Requires("Shell/MainWindow.Downloads.cs", "DownloadAudioChoice", "DownloadSubtitleChoice", "DownloadTracks.ForTitle(", "DownloadTracks.Build(");
+Requires("Shell/IAppShell.cs", "void PlayDownload(DownloadItem download, PlayOrigin? from = null)");
+Requires("Controls/MediaCard.xaml.cs", "internal PlayOrigin Origin => new(Art, Picture.Source)");
+Requires("Controls/CardRow.cs", "Action<MediaItem, PlayOrigin>? Open", "card.Invoked += (_, i) => open(i, card.Origin)");
+Requires("Pages/HomePage.cs", "Open = (item, origin) => { if (shell.Connectivity.IsOffline) shell.Play(item, from: origin); else shell.OpenItem(item); }");
+Requires("Shell/ServerUnreachableView.xaml.cs", "Open = (item, origin) => shell.Play(item, from: origin)");
+Requires("Pages/DownloadsPage.cs", "_shell.PlayDownload(row.Item, row.Origin)", "public PlayOrigin Origin => new(_thumb, _image.Source)");
+var downloadsPage = File.ReadAllText(Path.Combine(app, "Pages/DownloadsPage.cs"));
+if (Regex.Matches(downloadsPage, @"\(\) => _page\.Play\(this\)").Count != 2)
+    failures.Add("Both completed and running downloads must play from their row artwork");
+var playerShell = File.ReadAllText(Path.Combine(app, "Shell/MainWindow.Player.cs"));
+Requires("Shell/MainWindow.Player.cs", "_cardOrigin = from", "_cardPage = _nav.CurrentPage",
+    "SetOsFullscreen(false, () => ShrinkToCard(origin))", "Animate(\"player_shrink_card\"",
+    "ReferenceEquals(_cardOrigin, origin)", "ReferenceEquals(ShownPage, _cardPage)",
+    "if (_leavingCard) ShowFull()", "control.Focus(FocusState.Programmatic)");
+Requires("Shell/MainWindow.Files.cs", "_leavingCard = false", "_cardOrigin = null", "_cardPage = null");
+Requires("Player/LayerTransition.cs", "LayerMotion.FrameAtOrigin(");
+var animationStart = playerShell.IndexOf("private void Animate(", StringComparison.Ordinal);
+var animationEnd = playerShell.IndexOf("private void CancelTransition(", animationStart, StringComparison.Ordinal);
+var playerAnimation = playerShell[animationStart..animationEnd];
+if (!playerAnimation.Contains("ResetTransform();", StringComparison.Ordinal)
+    || !playerAnimation.Contains("SetLayerSize(end)", StringComparison.Ordinal)
+    || !playerAnimation.Contains("SetLayerSize(moved)", StringComparison.Ordinal)
+    || playerAnimation.Contains("SetLayerRect(", StringComparison.Ordinal))
+    failures.Add("Player transitions must keep XAML translation at zero while the compositor positions the layer");
+var cardExitStart = playerShell.IndexOf("private void ShrinkToCard(", StringComparison.Ordinal);
+var cardExitEnd = playerShell.IndexOf("private void ShrinkToPreview(", cardExitStart, StringComparison.Ordinal);
+var cardExit = playerShell[cardExitStart..cardExitEnd];
+if (cardExit.IndexOf("Animate(", StringComparison.Ordinal) >= cardExit.LastIndexOf("_playback?.Stop()", StringComparison.Ordinal))
+    failures.Add("Card playback must stop after its exit animation completes");
+var downloadPlayStart = playerShell.IndexOf("public void PlayDownload(", StringComparison.Ordinal);
+var downloadPlayEnd = playerShell.IndexOf("private bool ItemUnavailable(", downloadPlayStart, StringComparison.Ordinal);
+var downloadPlay = playerShell[downloadPlayStart..downloadPlayEnd];
+foreach (var snippet in new[] { "PlayOrigin? from = null", "_surface!.Hold(from?.Picture, Stretch.Uniform)", "OpenFull(from, App.Settings.AutoFullscreen)" })
+    if (!downloadPlay.Contains(snippet, StringComparison.Ordinal))
+        failures.Add($"Downloaded playback must preserve its animation origin: {snippet}");
 Requires("Shell/MainWindow.RemoteControl.cs", "ItemRemovals.ForProfile(", "RemoveItems(");
 // 9. The detail page offers what the player does before Play: the version drop-down and the
 //    player's quality tiers with Always transcode, carried into the choice Play sends.
@@ -133,6 +172,10 @@ Requires("Controls/MediaCard.xaml.cs", "(CardKind.Poster, { } s) when Poster?.In
 //     panel, as wide as each; people are circles.
 Requires("Pages/DetailPage.xaml", "x:Name=\"VideoTracks\"", "x:Name=\"AudioTracks\"", "x:Name=\"SubtitleTracks\"", "x:Name=\"SimilarPanel\"", "x:Name=\"CastPanel\"", "x:Name=\"RowsSideColumn\"");
 Requires("Pages/DetailPage.xaml.cs", "DetailModel.Tracks(", "RowsSideColumn.Width = new GridLength(frame.SideWidth)", "new Rect(0, -MenuShadowAbove, anchor.ActualWidth, anchor.ActualHeight + MenuShadowAbove + MenuShadowBelow)", "ReleaseFocus");
+var detailSource = File.ReadAllText(Path.Combine(app, "Pages", "DetailPage.xaml.cs"));
+var detailMeasure = Regex.Match(detailSource, @"protected override Size MeasureOverride\(Size availableSize\)\s*\{(?<body>.*?)\n    \}", RegexOptions.Singleline).Groups["body"].Value;
+if (!Regex.IsMatch(detailMeasure, @"base\.MeasureOverride\(availableSize\);.*ApplyLayout\(.*return base\.MeasureOverride\(availableSize\);", RegexOptions.Singleline))
+    failures.Add("DetailPage must measure its control templates before reading the lower rows' desired height, then measure the resulting frame before returning");
 if (Says("Pages/DetailPage.xaml", "<ComboBox"))
     failures.Add("Pages/DetailPage: a ComboBox opens its list under the pointer, where WinUI shows a busy cursor; use a drop-down button with a menu");
 Requires("Controls/MediaCard.xaml.cs", "CardKind.Person => 1,", "private bool IsRound => _kind == CardKind.Person;");
@@ -169,6 +212,7 @@ var lateChoiceEnd = playbackSource.IndexOf("private bool ApplyDownloadSubtitle("
 if (playbackSource[lateChoiceStart..lateChoiceEnd].Contains("Audio", StringComparison.Ordinal))
     failures.Add("late subtitle reconciliation must preserve audio choices made while loading");
 Requires("Player/PlayerView.xaml.cs", "row.IsEnabled = false;", "PlayerSubtitleUnavailable", "vm.UnavailableSubtitles.CollectionChanged += OnRowsChanged;", "vm.UnavailableSubtitles.CollectionChanged -= OnRowsChanged;", "row.Focus(focusState)");
+Requires("Player/PlayerView.xaml.cs", "protected override AutomationPeer OnCreateAutomationPeer() => new PlayerViewPeer(this);", "protected override bool IsKeyboardFocusableCore() => true;");
 
 // 10. In a SyncPlay group a click on the video waits out the double-click time and a second press
 //     cancels it, so a double-click for full screen never pauses and resumes the whole group.
@@ -200,10 +244,6 @@ var cardTree = XDocument.Load(Path.Combine(app, "Controls", "MediaCard.xaml"));
 var upcomingBadge = cardTree.Descendants().Single(e => e.Attributes().Any(a => a.Name.LocalName == "Name" && a.Value == "UpcomingBadge"));
 if (upcomingBadge.Attribute("HorizontalAlignment")?.Value != "Left" || upcomingBadge.Attribute("Margin")?.Value != "6,6,0,0")
     failures.Add("MediaCard: upcoming badge must keep its leading-corner alignment and margin for automatic RTL mirroring");
-var legacyDetail = File.ReadAllText(Path.Combine(root, "src", "LightWeaver", "Views", "ItemDetailView.xaml.cs"));
-if (!legacyDetail.Contains("DownloadButton.Visibility = _item.IsVirtual ? Visibility.Collapsed : Visibility.Visible;", StringComparison.Ordinal)
-    || !legacyDetail.Contains("if (_item.IsVirtual) return;", StringComparison.Ordinal))
-    failures.Add("virtual WPF detail items must hide Download and guard its preload and click");
 
 Requires("Controls/CardRow.cs", "new ScrollView", "ScrollingContentOrientation.Horizontal",
     "ScrollAnimationStarting +=", "animation.Duration = TimeSpan.FromMilliseconds(180)",
@@ -258,6 +298,17 @@ Requires("Pages/DetailPage.xaml.cs", "if (_changingWatched) return;", "await Loa
     "var headerReadAt = _overrides.Mark();", "_overrides.Reconcile(headerReadAt, [_item]);", "(_played, _favorite) = _overrides.Of(_item);",
     "ChangeHeaderAsync(UserDataField.Favorite", "ChangeHeaderAsync(UserDataField.Played");
 
+if (File.Exists(Path.Combine(root, "src", "LightWeaver", "LightWeaver.csproj")))
+    failures.Add("The retired WPF project must not return");
+foreach (var project in Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+    .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj")))
+{
+    var document = XDocument.Load(project);
+    if (document.Descendants("UseWPF").Any(element => element.Value.Equals("true", StringComparison.OrdinalIgnoreCase))
+        || document.Descendants("ProjectReference").Any(element =>
+            element.Attribute("Include")?.Value.Replace('\\', '/').EndsWith("/LightWeaver/LightWeaver.csproj", StringComparison.Ordinal) == true))
+        failures.Add($"{Rel(project)} depends on the retired WPF app");
+}
 Requires("Controls/CardRow.cs", "_scroller.ScrollPresenter is { } presenter", "AutomationProperties.SetAutomationId(presenter, prefix + \"Items\" + key)");
 
 foreach (var f in failures) Console.WriteLine("FAIL " + f);

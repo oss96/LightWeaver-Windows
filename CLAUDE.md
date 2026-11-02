@@ -3,9 +3,8 @@
 ## Project overview
 LightWeaver is a native Windows Jellyfin client around an embedded libmpv player, in C# / .NET 10.
 The shipping app, from 2.0, is a WinUI 3 app on the current design in `DESIGN.md`
-(`src/LightWeaver.WinUI`, built as `LightWeaver.exe`, with the WPF-free shared code linked through
-`src/LightWeaver.Core`). The 1.x WPF (Fluent dark) app (`src/LightWeaver`, on the legacy "woven
-light" design) stays in the repository and the solution but is no longer released. mpv does the
+(`src/LightWeaver.WinUI`, built as `LightWeaver.exe`, with the framework-neutral code in
+`src/LightWeaver.Core`). The legacy WPF app was retired after 2.1 shipped. mpv does the
 decoding and rendering with D3D11 itself, which is what makes RTX Video Super Resolution, RTX Video
 HDR and HDR passthrough possible. It is the Windows member of a per-platform client family
 (LightWeaver-Windows / -MacOS / -Android / -iOS, one repo each).
@@ -15,7 +14,6 @@ HDR and HDR passthrough possible. It is the Windows member of a per-platform cli
 dotnet build
 dotnet run --project src/LightWeaver.WinUI
 dotnet run --project src/LightWeaver.WinUI -- "D:\movie.mkv"
-dotnet run --project src/LightWeaver
 ```
 Requires the .NET 10 SDK and `libmpv-2.dll` (mpv >= 0.40) in `native/win-x64/` or on `PATH`.
 Debug builds use an isolated app-data folder (`%LOCALAPPDATA%\LightWeaver-Debug`), so running the
@@ -25,8 +23,7 @@ lives only in `Directory.Build.props`.
 ## Load-bearing architecture rule
 mpv **renders and presents the video itself** with `vo=gpu-next` on D3D11, into a target it owns:
 in v2 a composition swapchain (`MpvVideoTarget.Composition`) shown by a `SwapChainPanel` behind the
-WinUI controls, configured for HDR from the display's DXGI peak, contrast and primaries; in the
-WPF app a child HWND via `wid`, with the controls in a transparent overlay window. Never route
+WinUI controls, configured for HDR from the display's DXGI peak, contrast and primaries. Never route
 frames through the UI framework (`D3DImage`, the render API into a texture, copying frames into
 XAML) — that breaks RTX Video HDR and HDR passthrough, which are core requirements.
 
@@ -49,7 +46,7 @@ XAML) — that breaks RTX Video HDR and HDR passthrough, which are core requirem
   commit around them.
 - Tests: add or update a unit test (`tests/*.Tests`) with every logic change, and the static
   checks (`tests/FastUi.Tests`, `tests/LocalizationAudit`, `tests/LocalizationRuntime`) with every
-  UI change; both run before a merge. Run `tests/PlaybackHarness` only when asked. The
+  UI change; both run before a merge. Run the framework-neutral contracts in `tests/Contracts.Tests`. The
   maintainer's UI end-to-end suites are updated only when the UI changes, and run before a new
   release is created. Keep tests lean and relevant.
 - After every significant code change, update `README.md`.
@@ -69,7 +66,7 @@ XAML) — that breaks RTX Video HDR and HDR passthrough, which are core requirem
 - `design/claude-design/screen-group-design-spec/` — that handoff, frozen: never edit it
 - `design/proposals/` — design change proposals, each linked from a `DESIGN.md` change entry
 - `design/LightWeaver Jellyfin design system/` and the other `design/` prompts and packages — the
-  legacy "woven light" design of the 1.x WPF shell, kept with it
+  archived "woven light" design of the retired 1.x WPF shell
 
 Open work is tracked by the maintainer outside the repository.
 

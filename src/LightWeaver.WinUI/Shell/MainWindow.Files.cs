@@ -136,6 +136,9 @@ public sealed partial class MainWindow
         var intent = playback.Intent;
         playback.PlayUrl(address);
         if (playback.Intent == intent) return;
+        _leavingCard = false;
+        _cardOrigin = null;
+        _cardPage = null;
         DetachPreviewPage();
         if (_transition is not null || _playerMode != PlayerMode.Full) ShowFull();
     }

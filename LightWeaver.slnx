@@ -1,6 +1,5 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/src/">
-    <Project Path="src/LightWeaver/LightWeaver.csproj" />
     <Project Path="src/LightWeaver.Core/LightWeaver.Core.csproj" />
     <Project Path="src/LightWeaver.WinUI/LightWeaver.WinUI.csproj" />
     <Project Path="src/LightWeaver.Localization/LightWeaver.Localization.csproj" />

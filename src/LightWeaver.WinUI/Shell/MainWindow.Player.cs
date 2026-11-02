@@ -30,6 +30,9 @@ public sealed partial class MainWindow
     private Controls.ZoomBox? _playerZoom;
     private PlayerMode _playerMode = PlayerMode.Hidden;
     private DetailPage? _previewPage;
+    private PlayOrigin? _cardOrigin;
+    private object? _cardPage;
+    private bool _leavingCard;
     private LayerTransition? _transition;
     private LayerTransition? _fullscreenGrow;
     private EventHandler<object>? _transitionRetarget;
@@ -89,6 +92,7 @@ public sealed partial class MainWindow
         _playback.Started += (_, _) =>
         {
             if (_localPlay) return;
+            if (_leavingCard) ShowFull();
             if (_transition is not null && _previewPage is not null && !ReferenceEquals(_nav.CurrentPage, _previewPage))
             {
                 DetachPreviewPage();
@@ -323,6 +327,9 @@ public sealed partial class MainWindow
 
     private void PlayLocal(PlaybackController playback, MediaItem item, PlaybackChoice choice, bool fullscreen, PlayOrigin? from)
     {
+        _leavingCard = false;
+        _cardOrigin = null;
+        _cardPage = null;
         var page = _nav.CurrentPage as DetailPage;
         if (_playerMode == PlayerMode.Preview && playback.Current?.Id == item.Id && ReferenceEquals(page, _previewPage))
         {
@@ -374,7 +381,7 @@ public sealed partial class MainWindow
         OpenFull(from, App.Settings.AutoFullscreen);
     }
 
-    public void PlayDownload(DownloadItem download)
+    public void PlayDownload(DownloadItem download, PlayOrigin? from = null)
     {
         var current = Downloads.Snapshot().FirstOrDefault(d => d.ItemId == download.ItemId) ?? download;
         if (!DownloadsModel.CanPlay(current))
@@ -389,7 +396,7 @@ public sealed partial class MainWindow
         };
         _previewPage = null;
         var playback = Playback();
-        _surface!.Hold(null, Stretch.Uniform);
+        _surface!.Hold(from?.Picture, Stretch.Uniform);
         _localPlay = true;
         try
         {
@@ -399,7 +406,7 @@ public sealed partial class MainWindow
         {
             _localPlay = false;
         }
-        OpenFull(null, App.Settings.AutoFullscreen);
+        OpenFull(from, App.Settings.AutoFullscreen);
     }
 
     private bool ItemUnavailable(MediaItem item)
@@ -413,6 +420,9 @@ public sealed partial class MainWindow
     /// card's artwork when it is still on screen, at once otherwise.</summary>
     private void OpenFull(PlayOrigin? from, bool fullscreen)
     {
+        _leavingCard = false;
+        _cardOrigin = from;
+        _cardPage = _nav.CurrentPage;
         if (_playerMode == PlayerMode.Hidden && from is not null && OriginBounds(from) is { } rect)
         {
             _surface!.SeeThrough = false;
@@ -437,17 +447,48 @@ public sealed partial class MainWindow
     /// stop. The shrink starts once the window is back.</summary>
     private void LeavePlayer()
     {
-        if (_playerMode != PlayerMode.Full) return;
+        if (_playerMode != PlayerMode.Full || _leavingCard) return;
         if (CanReturnToPreview(out _) && _playback is { Failure: null, Player: { } player })
         {
             player.Pause = true;
             SetOsFullscreen(false, ShrinkToPreview);
+        }
+        else if (_cardOrigin is { } origin && CardReturnBounds(origin) is not null)
+        {
+            _leavingCard = true;
+            if (_playback?.Player is { } playing) playing.Pause = true;
+            SetOsFullscreen(false, () => ShrinkToCard(origin));
         }
         else
         {
             SetOsFullscreen(false);
             _playback?.Stop();
         }
+    }
+
+    private Windows.Foundation.Rect? CardReturnBounds(PlayOrigin origin)
+        => ReferenceEquals(_nav.CurrentPage, _cardPage) && ReferenceEquals(ShownPage, _cardPage)
+            ? OriginBounds(origin) : null;
+
+    private void ShrinkToCard(PlayOrigin origin)
+    {
+        if (!_leavingCard || !ReferenceEquals(_cardOrigin, origin) || _playerMode != PlayerMode.Full) return;
+        if (CardReturnBounds(origin) is not { } target)
+        {
+            _playback?.Stop();
+            return;
+        }
+        _playerLayer!.CornerRadius = Controls.Ui.Resource<CornerRadius>("LwCardRadius");
+        _playerView?.SetChromeHidden(true);
+        Animate("player_shrink_card", () => WindowBounds, () => CardReturnBounds(origin) ?? target, () =>
+        {
+            _playback?.Stop();
+            for (DependencyObject? node = origin.Art; node is not null; node = VisualTreeHelper.GetParent(node))
+                if (node is Control control && control.Focus(FocusState.Programmatic)) return;
+            var host = HomeHost.Visibility == Visibility.Visible ? HomeHost : PageHost;
+            host.IsTabStop = true;
+            if (!host.Focus(FocusState.Programmatic)) host.IsTabStop = false;
+        });
     }
 
     /// <summary>The full player shrinks onto the preview it came from, when that page is still shown.</summary>
@@ -523,6 +564,7 @@ public sealed partial class MainWindow
     {
         if (_playerLayer is null || _playerView is null) return;
         CancelTransition();
+        _leavingCard = false;
         SetPlayerMode(PlayerMode.Full);
         _playerLayer.Visibility = Visibility.Visible;
         _playerLayer.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -544,6 +586,9 @@ public sealed partial class MainWindow
     {
         if (_playerLayer is null || _playerView is null) return;
         CancelTransition();
+        _leavingCard = false;
+        _cardOrigin = null;
+        _cardPage = null;
         var bounds = PreviewBounds(page);
         SetPlayerMode(PlayerMode.Preview);
         _playerLayer.Visibility = Visibility.Visible;
@@ -579,10 +624,15 @@ public sealed partial class MainWindow
 
     private void SetLayerRect(Windows.Foundation.Rect rect)
     {
-        _playerLayer!.Width = rect.Width;
-        _playerLayer.Height = rect.Height;
+        SetLayerSize(rect);
         LayerTransform.TranslateX = rect.X;
         LayerTransform.TranslateY = rect.Y;
+    }
+
+    private void SetLayerSize(Windows.Foundation.Rect rect)
+    {
+        _playerLayer!.Width = rect.Width;
+        _playerLayer.Height = rect.Height;
     }
 
     /// <summary>From the preview to the full window over 180 ms, ease-out; a video still loading
@@ -654,7 +704,8 @@ public sealed partial class MainWindow
         _playerLayer.CornerRadius = new CornerRadius(0);
         static LayerRect Of(Windows.Foundation.Rect r) => new(r.X, r.Y, r.Width, r.Height);
         var end = to();
-        SetLayerRect(end);
+        ResetTransform();
+        SetLayerSize(end);
         var motion = new LayerTransition(_playerLayer, Of(from()), Of(end), _surface!.Content, radius, _surface.SeeThrough ? null : _playerBackdrop);
         motion.Completed += (_, _) =>
         {
@@ -666,7 +717,7 @@ public sealed partial class MainWindow
         {
             if (!ReferenceEquals(_transition, motion)) return;
             var moved = to();
-            if (motion.Retarget(Of(from()), Of(moved))) SetLayerRect(moved);
+            if (motion.Retarget(Of(from()), Of(moved))) SetLayerSize(moved);
         };
         _transition = motion;
         _transitionRetarget = retarget;
@@ -715,6 +766,9 @@ public sealed partial class MainWindow
 
     private void HidePlayer()
     {
+        _leavingCard = false;
+        _cardOrigin = null;
+        _cardPage = null;
         LeaveMiniPlayer();
         StopTransition();
         _playerView?.ReleaseChromeHold();

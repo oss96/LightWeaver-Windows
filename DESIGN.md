@@ -6,8 +6,8 @@ Token values: `src/LightWeaver.WinUI/Theme/Tokens.xaml` (control styles in `src/
 This is LightWeaver's current design and the starting point for any design work. The WinUI 3
 shell (v2, `src/LightWeaver.WinUI`) implements it. The "woven light" spec in
 `design/LightWeaver Jellyfin design system/` (v1.0, July 2026: storm surfaces, Marcellus,
-stormlight glows) is the legacy design of the WPF v1 shell (`src/LightWeaver`), which stays
-in the repository as legacy source. New work does not follow it, and v2 uses none of its tokens.
+stormlight glows) is the archived design of the retired WPF v1 shell. Its source project was removed
+after the 2.1 release.
 
 ## Direction
 A native Windows 11 app, not a themed one: Mica window, a content layer under the bar, card fill for

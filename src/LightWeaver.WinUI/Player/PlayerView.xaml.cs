@@ -11,6 +11,7 @@ using LightWeaver.WinUI.Shell;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -1089,4 +1090,16 @@ public sealed partial class PlayerView : UserControl
 
     [LibraryImport("user32.dll", EntryPoint = "ShowCursor")]
     private static partial int NativeShowCursor([MarshalAs(UnmanagedType.Bool)] bool show);
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new PlayerViewPeer(this);
+
+    /// <summary>The player as one focusable pane, so UI Automation reports it when it has the keyboard.</summary>
+    private sealed partial class PlayerViewPeer(PlayerView owner) : FrameworkElementAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Pane;
+
+        protected override string GetClassNameCore() => nameof(PlayerView);
+
+        protected override bool IsKeyboardFocusableCore() => true;
+    }
 }

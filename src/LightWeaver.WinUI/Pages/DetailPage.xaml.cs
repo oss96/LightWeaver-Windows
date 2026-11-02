@@ -81,7 +81,7 @@ public sealed partial class DetailPage : UserControl, INavPage
         _cast = new CardRow(shell, "DetailRow", "Cast", () => L.Text("Detail.CastAndCrew"), () => shell.OpenCast(_item), CardKind.Person, Ui.Resource<double>("LwDetailPersonWidth"), _overrides)
         {
             CardSubtitle = p => p.Overview ?? "",
-            Open = p => shell.OpenPerson(p.Id, p.Name),
+            Open = (p, _) => shell.OpenPerson(p.Id, p.Name),
             EmptyText = () => L.Text("Detail.NoCast"),
         };
         SimilarPanel.Child = _similar;
@@ -604,6 +604,7 @@ public sealed partial class DetailPage : UserControl, INavPage
     /// input, so each size is laid out once.</summary>
     protected override Size MeasureOverride(Size availableSize)
     {
+        base.MeasureOverride(availableSize);
         if (availableSize.Width is > 0 and < double.PositiveInfinity)
             ApplyLayout(availableSize.Width, double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height);
         return base.MeasureOverride(availableSize);

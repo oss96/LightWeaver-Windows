@@ -10,6 +10,9 @@ one repo each) rather than one cross-platform build.
 
 <!-- screenshots -->
 
+The detail preview reserves room for the recommendation and cast rows on first opening, with the
+same size before and after a full-screen round trip.
+
 ## Features
 
 ### Playback and video quality
@@ -271,6 +274,10 @@ episode cards after the server accepts the change. Failed changes restore the pr
 
 ### Downloads and offline
 
+- Starting a title from the Downloads page grows the player out of its thumbnail with the same
+  animation as a library card, including when full screen on play is enabled or the download is
+  still running. The thumbnail stays visible until the first video frame.
+- Clicking a downloaded card on Home while offline uses that same artwork-to-player animation.
 - Choose audio and subtitle tracks for each download. The choices are saved with the file and
   applied when it plays, including while it is still downloading. A season or show download
   matches the choices to each episode, preserving forced subtitles. A downloaded file stays
@@ -347,8 +354,12 @@ episode cards after the server accepts the change. Failed changes restore the pr
 - WinUI's default animations are switched off (`FastUi.cs`), because stock WinUI motion measured
   three to five times slower than the WPF app. `tests/FastUi.Tests` fails when a flyout, template
   or transition brings them back.
+- Leaving playback started from a Home or library card shrinks the video back to that card's
+  artwork after restoring the window, then stops playback and restores keyboard focus. If the
+  source page or card is gone, playback stops immediately. Cards toward the right or bottom use
+  the same direct return path, without scaling their page position.
 - The app's own animations run on the compositor, not the UI thread, so artwork loading or a busy
-  page cannot make them stutter: the player's grow and shrink (laid out once at the end rect,
+  page cannot make them stutter: the player's grow and shrink (laid out once at the end size,
   then scaled, moved and clipped), the nav morph (the pill drawn as a composition shape, the search
   field moved with it), the item slide, the video's fade-in and the toasts. A window that changes
   size while the grow, shrink or morph runs moves its end; with less than a frame left, it lands
@@ -367,15 +378,28 @@ episode cards after the server accepts the change. Failed changes restore the pr
 
 ### Updates, diagnostics, and log privacy
 
-- Self-updater reading GitHub Releases, in both the WPF app and v2, with an immediate
+- Self-updater reading GitHub Releases, with an immediate
   **Settings → Updates → Check for updates** action plus startup and six-hour checks, explicit
   status with download progress, and three policies: notify only (default; **Download and install**
   when you choose), automatic download, or verified silent installation when you normally exit (not
   when Windows logs off or shuts down). Choosing **Install now** under that last policy installs
   silently and starts the new version afterwards. Staging is resumable and replaces its metadata
-  atomically, and stale setups in the `updates` folder are removed at start. The WPF app shows a
-  found update in a banner; v2 says so once in a toast outside Settings → Updates, and while an
+  atomically, and stale setups in the `updates` folder are removed at start. The app announces a
+  found update once in a toast outside Settings → Updates with a direct **Download and install**
+  action, or **Open release page** if no installer is published. A staged update offers **Install now**.
+  A failed notification download shows the error with a direct **Retry** action.
+  Update action notifications stay visible until dismissed or acted on.
+  While an
   update downloads it keeps a toast with the download's progress up until it finishes or you close it
+
+To try update notifications without a newer release, run `python tools/update-fixture.py` and keep
+it running. In another PowerShell session, run the four environment assignments it prints, then
+`dotnet run --project src/LightWeaver.WinUI`. This uses a fresh temporary Debug profile. Sign in to
+reach Home; the fixture offers version 99.0.0 under the default notify-only policy. Click
+**Download and install** in the notification to see progress and the app close. The installer handoff
+is recorded in `installer-launch.jsonl` under the printed temporary profile; no installer runs.
+For **Install now**, select automatic download in Settings before downloading and return to Home.
+Release builds ignore these overrides. Close that PowerShell session after testing to clear them.
 - Diagnostics logging: a crash file for any exception that escapes the UI thread, another thread
   or an unobserved task. Settings → Diagnostics switches verbose logging, shows the tail of the
   log, opens the log folder and exports the logs as one ZIP
@@ -442,22 +466,21 @@ it.
 ## LightWeaver 2 (WinUI 3)
 
 Version 2 moves the whole app to WinUI 3 with a new design, recorded in [DESIGN.md](DESIGN.md), and
-is the shipping app from 2.0. The 1.x WPF app (`src/LightWeaver`, still on the legacy "woven light"
-design) stays in the repository and the solution, and still builds
-(`dotnet run --project src/LightWeaver`), but is no longer released.
+is the shipping app from 2.0. After the 2.1 release, the legacy WPF project and its WPF-only
+playback harness were removed. WinUI is the only app that can be built or launched from this repository.
 
-- `src/LightWeaver.Core` compiles the WPF app's framework-free code (Jellyfin client, downloads,
-  settings, localization, view models) in place, so both apps share it without moving files.
+- `src/LightWeaver.Core` owns the framework-neutral code, including the Jellyfin client, downloads,
+  settings, localization and view models. Sources formerly linked from the WPF project now live here.
 - `src/LightWeaver.WinUI` is the WinUI 3 app, built as `LightWeaver.exe` like 1.x, so taskbar pins,
   GPU profiles and the process name carry over: unpackaged and self-contained, using only the
   WinUI, Foundation, InteractiveExperiences and Runtime parts of the Windows App SDK. A Debug
-  build reuses the WPF Debug build's saved login (`%LOCALAPPDATA%\LightWeaver-Debug`).
+  build keeps the existing Debug app-data directory (`%LOCALAPPDATA%\LightWeaver-Debug`).
 - Window position and size are saved in `window-placement.json`; 1.x's `window-state.json` is not
   read, so the first start of 2.0 opens the window at its default size and place once.
 - A crash file is written for any exception that escapes the UI thread, another thread or an
   unobserved task, and queued log lines are flushed when the window closes.
 
-Tests: `dotnet run --project tests/SearchModel.Tests`, `dotnet run --project tests/Login.Tests`,
+Tests: `dotnet run --project tests/Contracts.Tests`, `dotnet run --project tests/SearchModel.Tests`, `dotnet run --project tests/Login.Tests`,
 `dotnet run --project tests/Home.Tests`,
 `dotnet run --project tests/Library.Tests`, `dotnet run --project tests/Details.Tests`, `dotnet run --project tests/SearchPerson.Tests`, `dotnet run --project tests/Playlists.Tests`, `dotnet run --project tests/Downloads.Tests`, `dotnet run --project tests/Shortcuts.Tests`, `dotnet run --project tests/PlayerSettings.Tests`, `dotnet run --project tests/FrameTiming.Tests`, `dotnet run --project tests/Updates.Tests`, `dotnet run --project tests/SyncPlay.Tests`,
 `dotnet run --project tests/FastUi.Tests -- .`
@@ -472,8 +495,7 @@ scenarios report their own results and timings; their standalone entry points re
 
 The shipped app's NuGet versions live in `src/LightWeaver.Core/LightWeaver.Core.csproj` (the
 Jellyfin client and DPAPI) and `src/LightWeaver.WinUI/LightWeaver.WinUI.csproj` (the Windows App
-SDK). Alongside `Jellyfin.Sdk`, explicit references in Core, as in the WPF app's
-`src/LightWeaver/LightWeaver.csproj`, keep all six Kiota runtime packages on 2.1.2, the set
+SDK). Alongside `Jellyfin.Sdk`, explicit references in Core keep all six Kiota runtime packages on 2.1.2, the set
 `Jellyfin.Sdk` 2026.10.12 (the Jellyfin 12.0 API) is built on, and `Std.UriTemplate` on 2.0.12.
 Renovate can propose updates for each reference. It groups Kiota updates and keeps them below 3.0
 until a separate Jellyfin compatibility migration, and moves the four Windows App SDK packages
@@ -623,16 +645,14 @@ One rule is load-bearing and everything else is arranged around it:
 > mpv **renders and presents the video itself** with `vo=gpu-next` on D3D11, into a target it owns:
 > in the WinUI 3 app a composition swapchain (`MpvVideoTarget.Composition`) shown by a
 > `SwapChainPanel` behind the controls, configured for HDR from the display's peak, contrast and
-> primaries; in the 1.x WPF app a child HWND via `wid`, with the controls in a transparent overlay
-> window. Frames are never routed through the UI framework (`D3DImage`, render-API-to-texture,
+> primaries. Frames are never routed through the UI framework (`D3DImage`, render-API-to-texture,
 > copying frames into XAML, and so on) — that breaks RTX Video HDR and HDR passthrough, which are
 > core requirements.
 
 ## Status
 
-Feature-complete for daily use. LightWeaver 2.0, the WinUI 3 app on the current design in
-[DESIGN.md](DESIGN.md), is the shipping app; the 1.x WPF app, on the legacy "woven light"
-design, stays in the repository but is no longer released. Runs against
+Feature-complete for daily use. LightWeaver 2.1 uses WinUI 3 and the current design in
+[DESIGN.md](DESIGN.md). The legacy WPF app has been removed. Runs against
 **Jellyfin 12.0** and **10.11**. The client uses only current authorization forms, so 12.0 turning
 legacy authorization off does not affect it.
 Authenticated API, session socket and media requests carry the current client version and device
@@ -653,13 +673,13 @@ and every change since the handoff. Token values live in
 The rest of [design/](design/) is the legacy "woven light" design of the WPF app: the design
 prompt, the generated spec (tokens, motion timings, component states, the status indicators the
 app shows, and full-screen mockups for its six screens), and the Advanced Search redesign
-package. It applies to the 1.x WPF app only.
+package. It is archived reference material for the retired 1.x WPF app.
 
 [design/app-icon.icon](design/app-icon.icon) is the app icon source: the
 Gold-Violet "Shallan" seal as an Icon Composer bundle (SVG layers plus `icon.json`).
 `src/LightWeaver.WinUI/Assets/LightWeaver.ico` is rendered from it: a `#251B3E` rounded plate under
 the gold layers, at 16–256 px. The exe, the window, the taskbar, Alt-Tab and the installer all use
-that file, and so does the WPF app's exe.
+that file.
 
 Card-row UI checks address each row's scrolling presenter, keeping paging and cast-card checks scoped to that row.
 

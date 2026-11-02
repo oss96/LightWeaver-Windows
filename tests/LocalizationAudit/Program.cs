@@ -15,9 +15,7 @@ var calls = 0;
 var xamlCalls = 0;
 var allowedBrandText = new HashSet<string>(StringComparer.Ordinal) { "LightWeaver" };
 
-// The WPF app, the WinUI 3 app (v2) and LightWeaver.Core's own files share one catalog.
-// Core links most of its sources from src/LightWeaver; those are audited there once.
-foreach (var path in new[] { "LightWeaver", "LightWeaver.Core", "LightWeaver.WinUI" }
+foreach (var path in new[] { "LightWeaver.Core", "LightWeaver.WinUI" }
     .Select(project => Path.Combine(root, "src", project))
     .Where(Directory.Exists)
     .SelectMany(dir => Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
@@ -43,7 +41,7 @@ foreach (var path in new[] { "LightWeaver", "LightWeaver.Core", "LightWeaver.Win
             if (call.Expression is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "L" } } member
                 || member.Name.Identifier.ValueText is not ("Text" or "Format")) continue;
             // The markup extension forwards the key parsed from XAML, audited below.
-            if (relative is "src/LightWeaver/Localization/TextExtension.cs" or "src/LightWeaver.WinUI/Localization/TextExtension.cs") continue;
+            if (relative is "src/LightWeaver.WinUI/Localization/TextExtension.cs") continue;
             calls++;
             var location = relative + ":" + (call.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
             if (call.ArgumentList.Arguments.FirstOrDefault()?.Expression is not LiteralExpressionSyntax literal

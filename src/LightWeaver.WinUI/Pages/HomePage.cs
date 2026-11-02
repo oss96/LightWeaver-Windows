@@ -56,7 +56,7 @@ public sealed partial class HomePage : Grid, INavPage
         {
             CardTitle = HomeSections.Title,
             CardSubtitle = item => _downloadLines.GetValueOrDefault(item.Id, ""),
-            Open = item => { if (shell.Connectivity.IsOffline) shell.Play(item); else shell.OpenItem(item); },
+            Open = (item, origin) => { if (shell.Connectivity.IsOffline) shell.Play(item, from: origin); else shell.OpenItem(item); },
         };
         var rows = _rows = new StackPanel { Spacing = RowGap, Padding = new Thickness(24, 18, 24, 28) };
         foreach (var row in Rows) { row.Visibility = Visibility.Collapsed; rows.Children.Add(row); }

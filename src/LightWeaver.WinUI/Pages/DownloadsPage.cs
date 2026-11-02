@@ -390,7 +390,7 @@ public sealed partial class DownloadsPage : Grid, INavPage
         else Delete(watched);
     }
 
-    private void Play(DownloadItem item) => _shell.PlayDownload(item);
+    private void Play(Row row) => _shell.PlayDownload(row.Item, row.Origin);
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -456,6 +456,8 @@ public sealed partial class DownloadsPage : Grid, INavPage
     private sealed class Row
     {
         private readonly DownloadsPage _page;
+        private readonly Border _thumb = new() { Width = 80, Height = 45, CornerRadius = new CornerRadius(4), Background = Ui.Resource<Brush>("LwPlaceholderBrush") };
+        private readonly Image _image = new() { Stretch = Stretch.UniformToFill };
         private readonly TextBlock _meta = new() { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
         private readonly TextBlock _languages = new() { FontSize = 12, Foreground = Ui.Resource<Brush>("LwText3Brush"), TextWrapping = TextWrapping.Wrap };
         private readonly Grid _track = new() { Height = 4, CornerRadius = new CornerRadius(2) };
@@ -488,13 +490,11 @@ public sealed partial class DownloadsPage : Grid, INavPage
             Handle.PointerCaptureLost += (_, _) => { if (page._dragFrom >= 0) page.EndDrag(commit: false, to: -1); };
             Root.Children.Add(Handle);
 
-            var thumb = new Border { Width = 80, Height = 45, CornerRadius = new CornerRadius(4), Background = Ui.Resource<Brush>("LwPlaceholderBrush") };
-            var image = new Image { Stretch = Stretch.UniformToFill };
-            thumb.Child = image;
-            SetColumn(thumb, 1);
-            Root.Children.Add(thumb);
+            _thumb.Child = _image;
+            SetColumn(_thumb, 1);
+            Root.Children.Add(_thumb);
             if (item.PosterUrl is { } url && page._shell.Model.FindSessionForUrl(url) is { } session)
-                _ = LoadAsync(image, session, url);
+                _ = LoadAsync(_image, session, url);
 
             var title = new TextBlock { Text = item.Title, FontSize = 13.5, FontWeight = Microsoft.UI.Text.FontWeights.Medium, TextTrimming = TextTrimming.CharacterEllipsis };
             var titleLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -523,6 +523,8 @@ public sealed partial class DownloadsPage : Grid, INavPage
         public Border Handle { get; }
 
         public DownloadItem Item { get; private set; }
+
+        public PlayOrigin Origin => new(_thumb, _image.Source);
 
         public void Update(DownloadItem item, double bytesPerSecond, bool offline)
         {
@@ -572,7 +574,7 @@ public sealed partial class DownloadsPage : Grid, INavPage
             switch (item.Status)
             {
                 case DownloadStatus.Downloading:
-                    _playWhileDownloading = Add("DownloadPlay", Theme.Icons.Play, L.Format("Downloads.PlayItem", name), () => _page.Play(item), L.Text("Downloads.Play"), accent: true);
+                    _playWhileDownloading = Add("DownloadPlay", Theme.Icons.Play, L.Format("Downloads.PlayItem", name), () => _page.Play(this), L.Text("Downloads.Play"), accent: true);
                     if (!offline) Add("DownloadPause", Theme.Icons.Pause, L.Format("Downloads.PauseItem", name), () => _page._downloads.Pause(item.ItemId));
                     Add("DownloadCancel", Theme.Icons.Close, L.Format("Downloads.CancelItem", name), () => _page._downloads.Remove(item.ItemId));
                     break;
@@ -588,7 +590,7 @@ public sealed partial class DownloadsPage : Grid, INavPage
                     Add("DownloadRemoveFailed", Theme.Icons.Close, L.Format("Downloads.RemoveItem", name), () => _page._downloads.Remove(item.ItemId));
                     break;
                 default:
-                    Add("DownloadPlay", Theme.Icons.Play, L.Format("Downloads.PlayItem", name), () => _page.Play(item), L.Text("Downloads.Play"), accent: true);
+                    Add("DownloadPlay", Theme.Icons.Play, L.Format("Downloads.PlayItem", name), () => _page.Play(this), L.Text("Downloads.Play"), accent: true);
                     Add("DownloadDelete", Theme.Icons.Delete, L.Format("Downloads.DeleteItem", name), () => _page.Delete([item]));
                     break;
             }

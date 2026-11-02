@@ -224,7 +224,7 @@ internal partial class CardRow : StackPanel
     public bool ShowCardActions { get; init; } = true;
 
     /// <summary>Opens a card's item; the item page unless set (people open their page).</summary>
-    public Action<MediaItem>? Open { get; init; }
+    public Action<MediaItem, PlayOrigin>? Open { get; init; }
 
     /// <summary>Shows <paramref name="items"/>, keeping the card of every item already shown (moved
     /// into place, its content refreshed without reloading unchanged artwork) and creating cards
@@ -353,7 +353,7 @@ internal partial class CardRow : StackPanel
             FollowsCardScale = true,
         };
         card.ApplyScale(_scale);
-        if (Open is { } open) card.Invoked += (_, i) => open(i);
+        if (Open is { } open) card.Invoked += (_, i) => open(i, card.Origin);
         card.Item = item;
         return card;
     }

@@ -1,19 +1,5 @@
 # Technical notes
 
-## Saved profiles on the login screen
-
-The login form shows the existing localized profile-switcher link when saved credentials exist.
-It routes through the main window's normal profile-switch flow, including cold validation and
-warm-session reuse. The switcher only disables the stored active profile when the current
-Jellyfin service is connected, so a lone saved profile can be chosen from the login form.
-Password sign-in, Quick Connect and profile switching share a UI-thread operation gate.
-The login form disables its account controls, both password fields and the show/hide button
-while an operation is pending, and the switcher
-also checks the gate for menu and keyboard entry points. Quick Connect cancels when its view
-unloads, and authentication completions retain their originating Jellyfin service.
-The guest localization fixture checks profile visibility, selection, cancellation, reconnect,
-warm return, and standard and 700x480 layouts with an isolated synthetic profile store.
-
 ## Jellyfin 12 compatibility
 
 Playlist detail uses `/Playlists/{id}/Items`, preserving every occurrence in server order.
@@ -45,13 +31,8 @@ changes `ItemSortBy.Name` to CleanName. Keep the existing SortName cache key/com
 a measured server/client mismatch requires a change. An empty Similar response collapses
 its row and skeleton; no empty heading remains.
 
-`PlaybackHarness --quality-contract` covers reordered/default/missing media sources,
-occurrence-preserving playlist paging, and queue position with repeated ids. The windowless
-`--jellyfin12-probe` measures server responses as TEST and creates/deletes one private test
-playlist. Missing prerequisites return an incomplete result, never a pass. The guest-only
-`lw-jellyfin12` suite runs production playlist/Similar views with synthetic HTTP plus actual
-TEST PGS playback. Multi-source server data is not currently available in the scanned library;
-the adversarial multi-source responses are exercised through the production SDK contract test.
+The retired WPF playback harness is no longer available. Framework-neutral media-version, saved-selection, Up Next, live-session and SyncPlay contracts
+were retained in `tests/Contracts.Tests`. Current source and model checks live under `tests/*.Tests`; native WinUI acceptance remains a separate guest verification gate.
 
 ## Localization
 
@@ -63,14 +44,14 @@ used for different purposes. Sources identify the UI call sites, not protocol or
 Each translated key carries the SHA-256 hash of its English source. The editor writes the
 current hash after validating the translation. A changed source makes older translations stale.
 Blank cells remove the translation and restore English fallback.
-The German `de` and Arabic `ar` packs each translate all 1691 current keys with matching source
+The German `de` and Arabic `ar` packs each translate all current keys with matching source
 hashes and preserved format placeholders. German keyboard names include `Pos1` and `Entf`.
 
 The shared `src/LightWeaver.Localization` project owns the file schema and placeholder rules.
-The WPF app embeds the catalog and locale files. `Localization.L` selects a saved UI culture
+`LightWeaver.Core` embeds the catalog and locale files. `Localization.L` selects a saved UI culture
 at startup, tries its locale and parent locales, then falls back to English per string.
 Malformed packs are ignored. `L.Text(key)` returns plain text; `L.Format(key, args)` formats
-using the selected UI culture; `{loc:Text Key}` supplies XAML text. Machine parsing keeps
+using the selected UI culture; `{loc:Text Key=Key}` supplies XAML text. Machine parsing keeps
 `CurrentCulture`. UI language selection saves `AppSettings.UiLanguage` and updates the existing interface immediately.
 `L.Source` notifies live XAML bindings, explicit code-created label bindings, and weak view/model
 observers. Cached display bindings are refreshed without editing user inputs, resetting filters,
@@ -116,233 +97,6 @@ are card progress fills (`MediaTemplates.xaml`), the episode-row progress bars o
 and the mini-player's resize grip. Font glyphs never mirror on their own; a directional one opts
 in with `UiDirection.MirrorGlyph`, a centred `ScaleTransform(-1, 1)` bound to the element's flow direction.
 Back, Forward and the see-all chevron use it; media transport glyphs do not.
-
-## Settings controls
-
-`LwDropdown` forwards `ItemTemplateSelector` to its selected-content presenter so
-`DisplayMemberPath` applies to both menu items and the closed combobox. Quality and font
-rows keep their saved values separate from localized labels.
-
-The bitrate picker saves `0` for Unlimited and offers presets plus a validated custom
-integer from 1 to 10000 Mbps. Language changes preserve the selected preset and any custom
-draft. The default subtitle font remains an empty saved value, which mpv resolves to
-`sans-serif`. The download folder shows `DownloadStore.DefaultDirectory` when no override
-is saved; unrelated settings changes keep that empty sentinel rather than saving a Debug path.
-
-`DisplayBrightness` enumerates DXGI adapters and outputs and queries `IDXGIOutput6.GetDesc1`
-for the monitor containing the Settings window. Only an attached HDR output with finite peak
-luminance from 1 to 10000 nits supplies a value. Detection is explicit, creates no rendering
-device, releases every COM reference, and preserves the manual setting when unavailable.
-`MaxLuminance` is the display's reported small-area peak (EDID or override), not a measurement
-or full-screen brightness. The native positive HDR path requires an HDR display for verification.
-
-Settings reuse `GpuCapabilities` for RTX availability and refresh DXGI display information
-off the UI thread every two seconds while loaded. A confirmed SDR output disables RTX HDR
-and its brightness row; unavailable luminance disables Use display value. Unknown detection
-does not invent an unsupported-device verdict. The existing WASAPI probe disables passthrough
-on confirmed incompatible endpoints; an enabled saved preference can still be switched off.
-Capability updates change enabled state and localized tooltips without saving settings.
-Passthrough and normalization remain mutually exclusive, and the countdown follows auto-play.
-
-Subtitle colors display White/Black defaults, named colors and Custom with an explicit hex
-field and a swatch. Empty saved color sentinels remain the mpv defaults. Numeric subtitle
-presets retain arbitrary saved values as Custom; border size accepts 0–20, shadow offset
-accepts -20–20 (including fractional values), and position accepts whole values from 0–150.
-Invalid drafts show a localized error and preserve the last saved value across language changes.
-
-`SettingsStore.Save` never throws; `SettingsStore.LastSaveFailure` records why the latest save
-wrote nothing. `ReadDenied` is set at load when the existing file refuses reads and stays for the
-process, because every later save is refused to protect that file. `WriteFailed` covers IO and
-access failures on the write and clears on the next successful save. Settings shows a pinned
-banner above its scroller from that value after its own saves and whenever the page becomes
-visible, so failures from saves made elsewhere (the player's audio-device pick, a show's Up Next
-lead) appear on return.
-
-Slider `ValueChanged` updates labels and live limits (image cache bytes, folder cache items,
-subtitle scale) on every tick but defers the file write by 500 ms. A thumb drag holds the write
-until `DragCompleted`. Any non-slider save writes the pending value with it; leaving the page and
-`MainWindow.OnClosing` flush it through `SettingsView.FlushPendingSave`. Cache and log readouts
-are re-read whenever the page becomes visible.
-
-Shortcut capture moves a chord with `PlayerActionDispatcher.Rebind`, which unbinds any other
-action whose saved chord is `ChordEquals` to the new one, so Key-enum alias spellings and modifier
-order cannot leave two actions on one key.
-
-## UI zoom in the legacy WPF shell
-
-`Theme/UiZoom` owns one shared `ScaleTransform`, mutated in place, that is the `LayoutTransform`
-of `MainWindow`'s `BrowseLayer` and `ChromeLayer` (banners, toast, modal, shortcuts panel, zoom
-readout) and of the player overlay's `OverlayRoot`. A layout transform re-measures the tree, so
-cards, artwork, icons and text scale together and wrapping grids re-flow to the smaller logical
-width. WPF gives a popup the transforms above it only as it opens, and a ToolTip or ContextMenu,
-whose popup is created outside the visual tree, none at all. `Theme/ZoomPopups` covers both:
-every `Popup` sets `ZoomPopups.Follow`, which keeps an open one's child at the zoom (a popup
-created in code, such as Home's Customize flyout, takes its placement target's), and class handlers give each tooltip and context menu its placement target's scale as it
-opens (100% in the mini-player). Separate windows (media info, the profile switcher) take a
-frozen snapshot, because the shared instance would keep a reference to every closed window that
-held it. The mpv `VideoArea` is never under the
-transform. The overlay drops it in mini mode, whose 480x270 layout is fixed.
-
-Steps follow a browser-style ladder from 50% to 200%. `Ctrl++`, `Ctrl+-` and `Ctrl+0` are
-`AppShortcuts.Chrome` entries; `AppShortcuts.ChromeAliases` adds the numpad keys and
-`Ctrl+Shift+=` (US `+`) without listing them twice in the shortcuts panel. They win over a player
-binding on the same chord in both windows: the main window's KeyBindings run before its player
-keys, and the overlay's forward skips the player bindings for zoom chords. Settings → Shortcuts
-does not let a player action take any registered app chord in the first place:
-`AppShortcuts.OwnerOf` names the app shortcut that owns a chord (an alias answers with its listed
-entry), the key editor refuses such a capture and keeps the old key with a note on the row, and a
-saved binding that already collides (a hand-edited or pre-update settings.json) is flagged but
-left as saved. Space and F11 stay open to Play / pause and Toggle fullscreen, the player actions
-their chrome twins duplicate. Ctrl+wheel is taken
-on the tunnel in both windows and accumulates deltas to one step per 120, so touchpad pinches and
-high-resolution wheels do not jump to either end. The overlay forwards zoom chords to the owner
-even while a panel or flyout owns its keyboard. `AppSettings.UiZoom` persists the level through a
-400 ms debounce, flushed on close, and `MainWindow` applies it before `InitializeComponent`. It
-saves on `UiZoom.PreferredChanged`, not on a change of the applied scale, so a Ctrl+0 that a cap
-keeps from changing the screen is still remembered.
-
-Code that compares a size against the window has to measure in zoomed units: the rail collapse
-and header width use `UiZoom.ToLayout`, the overlay measures `OverlayRoot` rather than the window,
-and the SyncPlay and per-show Up Next flyouts divide the window and monitor bounds by the zoom
-before clamping. The guest route `lw-ui-zoom` drives the production windows with native chords
-and Ctrl+wheel and asserts measured on-screen sizes, the rail breakpoint, grid re-flow, mini
-mode, the overlay's volume-versus-zoom wheel split, an open flyout following a step, tooltips and
-context menus at their owner's zoom, the key editor refusing and flagging app-owned chords, and
-restart persistence.
-
-### Screen cap
-
-`UiZoom.Preferred` is the level the user chose and the one settings.json keeps; the applied
-`Scale` is that, bounded by `Cap`. With `AppSettings.LimitUiZoomToScreen` on (the default), `Cap`
-is `UiZoom.CapFor(client)`: the largest ladder step, never below 100%, at which the maximized
-client area of the window's monitor still holds `MinLayoutWidth` x `MinLayoutHeight` layout units.
-Moving to a smaller screen lowers the applied zoom without touching the preference, so moving back
-restores it. `MainWindow` recomputes the cap in `OnSourceInitialized` (before the first frame) and,
-posted, on `WM_WINDOWPOSCHANGED`, `WM_SETTINGCHANGE`, `WM_DISPLAYCHANGE` and `WM_DPICHANGED`. The
-client is the monitor work area minus the window frame measured in the restored state, which is
-larger than a maximized frame. While limited, `MinWidth`/`MinHeight` grow to the minimum layout
-times the zoom plus the frame, so a small window cannot squeeze the layout either; the cap
-guarantees that minimum fits the work area. Growing to a raised minimum anchors the top-left
-corner, so a posted slide puts the window back on its monitor's work area, only when the window
-was smaller than the new minimum: at once for a restored window (its actual size, not the old
-minimum, decides), at the next restore for a maximized, fullscreen or minimized one whose
-remembered size (`RestoreBounds`) is below the minimum by then, and on leaving the mini-player
-when the remembered size is below the minimum.
-It waits for `WM_EXITSIZEMOVE` while the user drags, so it never fights a move between monitors,
-and a lower minimum, a window already large enough, an ordinary restore or the user's own
-placement (half off-screen, snapped) never moves the window. Turning the setting off asks first through the modal
-host; toggles while that question is open are ignored and the box is set to the answer. The
-readout adds "Screen limit" only when a step in was stopped by the cap.
-
-`MinLayoutWidth`/`MinLayoutHeight` (684x441) are the client of the 700x480 minimum window at
-100%: zoom never gives the UI less room than the app's own smallest window. They were chosen from
-a survey. The `lw-ui-zoom` route runs one child process per simulated screen
-(`LIGHTWEAVER_TEST_WORK_AREA=WxH`, Debug builds only), with the window filling that work area.
-For every step from 100% to 200%, with the limit off, it checks a list of expected controls on
-seven surfaces: login, a library grid with rail and header, Settings, a detail page, the
-shortcuts panel, the zoom-limit warning dialog and the player controls. A control passes when it
-is shown, at least 98% of it survives every clip up to the window after scrolling it into view, a
-hit test at its centre lands on it, and it does not overlap its neighbours. Every control passed
-down to about 632x340 layout units (the header title drops out at 576 wide, a poster card no
-longer fits at 316 tall), but a screenshot review of those layouts found them cramped: the header
-title trimmed to one letter, rail items scrolled out of sight, Settings showing one row. Layouts
-at the design minimum and above reviewed clean, so that is the floor.
-
-The route asserts that the cap never exceeds the step every surface passes at, that it is the
-highest step keeping the design minimum, that everything passes at the cap and in the smallest
-window the cap allows, and, on the 1024x720 screen, the saved preference under a cap, the
-Settings toggle's decline and confirm paths, the restore slide and that Ctrl+0 never reports the
-limit, a preference change hidden by the cap still being saved, and that neither a parked window
-nor one already large enough is moved by a step. It writes screenshots of the cap, one step over
-it and that smallest window, drawn over the window background, for visual review.
-
-## Player overlay
-
-### Seek gesture
-
-`Views/SeekGesture` is the seek bar's press-to-release gesture as one pure state machine (Idle,
-Pressed, Dragging, Released, TornDown). The overlay feeds it the slider's events and acts only on
-the outcome each returns (Commit, Abandon or nothing), so a gesture commits once or not at all.
-Two flags were not enough because WPF reports two different endings through the same event:
-`Thumb.OnMouseLeftButtonUp` releases capture before it raises `DragCompleted`, so every good drag
-sees a `LostMouseCapture`, and so does a drag torn down by Alt+Tab. `Released` (the preview-up seen
-during a drag) tells them apart: a capture loss after it is the release's own and logs nothing.
-A teardown (capture lost mid-gesture, window deactivated, a cancelled `DragCompleted`) moves to
-`TornDown`, logs one `event=seek outcome=abandon`, and absorbs everything until the next press, so
-a thumb that kept its capture through Alt+Tab commits nothing when the button finally comes up.
-On deactivation the overlay also calls `Thumb.CancelDrag()` so the thumb stops tracking input
-aimed at another app. A plain press with no thumb drag captures the slider itself, so a release
-outside the bar still reaches the handler and ends the gesture instead of leaving the bar frozen.
-That capture is posted at Input priority rather than taken in the preview-down: on the knob the
-thumb captures later, in its own bubbling mouse-down, and an earlier slider capture was either
-stolen (an abandon on every knob drag) or kept the press from the thumb. The posted capture tears
-the gesture down when another element holds the mouse, but not when the slider (or an element
-inside it) does: under a UI stall an earlier press's posted capture can take the mouse for the
-next press, and treating that as captured elsewhere ended the next press's own gesture.
-`IsActive` drives `PlayerViewModel.IsSeeking`. `PlaybackHarness --seek-gesture` runs the state
-machine's orderings without a window; it also runs in the default harness run.
-
-### OSD flyouts
-
-WPF keeps a popup on the screen, not inside its window, and does not move an open one with its
-window. `Views/OsdFlyoutPlacement` handles both for the info, quality, speed, queue, tracks and
-audio-device flyouts. On open and on a content size change it sets the offsets from the overlay
-root's layout: left-aligned to the button where that fits, right-aligned where it does not (or
-always, for quality), clamped 8 units inside the overlay, with `MaxWidth`/`MaxHeight` capped to the
-room there so a long list scrolls. All of it is in `OverlayRoot` layout units, so neither UI zoom
-nor monitor DPI enters the arithmetic. The queue flyout is anchored above `SeekSlider` rather than
-on its badge. A real size or location change of the overlay (posted at Loaded priority, since both
-events precede the layout pass) re-places every open flyout and closes one whose button is no
-longer visible, such as in mini mode. A popup does not follow its button either, and a later
-layout pass can move the button after that re-place: the row fit folding or unfolding a group, a
-control the view model shows or hides, the compact padding, a zoom step. So while an attached
-flyout is open the placement watches `OverlayRoot.LayoutUpdated`: each placement records the
-button's origin, and a pass that finds it moved by more than half a unit re-places that flyout
-(`FlyoutReplaced reason=moved`). A pass that finds the button hidden leaves the flyout alone:
-buttons are hidden for a moment around an overlay resize and while a quality change rebuilds the
-row, and closing on those dismissed flyouts mid-use on the guest. A button that stays hidden is
-closed by the settled resize/move pass above. A pass with no move does nothing, which also ends the loop after a
-re-place's own layout pass, and the handler is unsubscribed once no attached flyout is open. A
-content resize places the flyout from the child's `SizeChanged`, inside the layout pass and before
-`LayoutUpdated`, and records the origin too; when the button moved in that same pass, that
-placement forces the popup to reposition itself, since `LayoutUpdated` then sees no move. A
-flyout whose button the fit moves into or out of the overflow tray is closed by the fit instead.
-The popups themselves stay LeftToRight under a right-to-left
-language and translate the button origin back to a left-based coordinate.
-
-### Transport row fit
-
-`UpdateTrackButtons` fits `ControlsRow` by measuring natural widths against the bar's inner width,
-not by width thresholds. Level 0 is the Video/Audio/Subs trio, level 1 the merged Tracks pill, and
-level 1 + n folds the first n of `FoldGroups` into the **More controls** tray: shortcuts and
-mini-player, info and speed, audio device, the chapter pair, the jump pair, quality, then the
-queue. A group folds whole. Play/pause, next/previous, mute and volume, the track pills and
-fullscreen are never in it. Because every width is a natural width, independent of the current
-decision, the levels cannot oscillate; returning to a lower level needs 12 extra units. A group
-with nothing shown (no chapters, one audio device) folds nothing and is skipped. The state line
-logs `folded=<n>`.
-
-The tray is an in-tree `WrapPanel` in a zero-size `Canvas` at the overflow button, not a Popup: a
-flyout opened from a control inside a `StaysOpen=False` popup would close that popup and lose its
-anchor. Folded controls are the same elements, moved, so their AutomationIds, handlers and
-anchored flyouts survive, and they return to their declared slot in the DockPanel. The tray grows
-leftwards and wraps at the overlay's left edge, measured against the LeftToRight-pinned
-`ControlsPanel` rather than the root, which mirrors under a right-to-left language. Escape, a press on the video, mini mode or a fit
-that folds nothing closes it; a flyout anchored to a control inside it closes with it. Unlike a
-flyout, the open tray leaves other keys to playback.
-
-### Legibility over video
-
-The SyncPlay status and icon, and the buffering indicator, sit on `LwScrimBrush` (storm-0 at 0.72
-alpha), which keeps text-1 at 7.2:1 over pure white without adding light over HDR video. Queue rows
-set explicit text colours (text-2 for the number and title, text-1 for the playing row), because
-`LwOsdFlyoutItem` replaces the theme's ListBoxItem style and the rows used to inherit whatever the
-window resolved to. The SyncPlay count is users, not devices: the server builds
-`GroupInfoDto.Participants` with `Select(UserName).Distinct()` and no API reports a session count.
-Counting `UserJoined`/`UserLeft` instead would drift on reconnects.
-
-The browse toast sits bottom-right at most 360 wide, stacked above the update banner, clear of the
-header row and the library's A–Z rail.
 
 ## v2 full screen
 
@@ -439,12 +193,9 @@ is undone too; the reassertion ignores the style change it makes itself.
 
 ## v2 Home layout and the Downloads row
 
-`home-layout.json` (`Settings/HomeLayoutStore.cs`) is shared by the 1.x WPF Home and v2. Each
-shows only some of the ids: `Libraries` is the WPF app's alone, `Downloads` v2's alone, and the
-WPF Home throws on an id it has no rail for, so it drops `Downloads` when it loads. `Save` keeps
-every saved entry the caller left out, after the given ones, so saving from either app keeps the
-other's row and its switch. A section missing from the file is appended as
-`EnabledByDefault` has it: on, except `Downloads`. Reset writes `Defaults()`.
+`home-layout.json` (`LightWeaver.Core/Settings/HomeLayoutStore.cs`) keeps the existing persisted
+row ids and per-profile format. The retired WPF `Libraries` slot remains compatible with older
+settings but is hidden by WinUI. `Save` preserves supplied known ids; Reset writes `Defaults()`.
 
 The Downloads row (`HomePage.ShowDownloads`) is built from `DownloadManager.Snapshot()` through
 `DownloadsModel.HomeItems`: completed downloads of the profile's server, newest first, each as its
@@ -683,8 +434,15 @@ A new load releases a stale append's loading flag, so the new query's first appe
 A WinUI window has one UI thread, so animations stay smooth while artwork loads by keeping both
 off it where possible.
 
-- **Player grow and shrink** (`Player/LayerTransition.cs`, math in `LayerMotion.Frame`): the
-  layer is laid out once at the end rect; its handoff visual gets a scale about the layout's
+Card playback retains its `PlayOrigin` and page identity in `MainWindow.Player.cs`. Back or
+Escape outside OS fullscreen restores the window before `player_shrink_card`, retargets the
+source artwork on layout changes, and stops playback only on completion. Replacement playback
+or a fullscreen takeover cancels the pending exit. The source card receives focus again. During animation the layer stays at the window
+origin with an identity XAML transform; `LayerMotion.FrameAtOrigin` supplies its full compositor
+translation. Card offsets therefore never pass through the compositor scale.
+
+- **Player grow and shrink** (`Player/LayerTransition.cs`, math in `LayerMotion.FrameAtOrigin`): the
+  layer is laid out once at the end size at the window origin; its handoff visual gets a scale about its
   centre, a `Translation` and a clip, from 60 keyframes over the 180 ms cubic ease-out. The clip is
   a `CompositionGeometricClip` over a `CompositionRoundedRectangleGeometry` whose `Offset`, `Size`
   and `CornerRadius` animate: a `RectangleClip`'s corner radii cannot be animated (`StartAnimation`
@@ -745,6 +503,9 @@ The detail page (`Pages/DetailPage.xaml.cs`) decides its geometry in its own `Me
 in the pass that gives it its size, from inputs that are all known before any lookup answers.
 Nothing that arrives later is an input, so a page is laid out once per size (2026-10-22; before,
 it re-laid itself out up to five times after opening).
+The page first measures its content to materialize the row control templates, then computes the
+frame from the rows' desired height and measures the resulting frame before returning. This keeps
+the first preview from taking space needed by the lower rows until a later window resize.
 
 - **Preview shape**: `DetailModel.PreviewAspect`, fixed in the constructor from the `MediaItem`
   the page was opened with. List requests ask for `ItemFields.Width` and `Height`
@@ -852,7 +613,7 @@ Three 1.x features, ported for 2.0 (2026-10-23).
 - **Collections**: `MainWindow.OpenItem` opens a `BoxSet` as a `LibraryPage` under the key
   `collection:<id>` (kept like a library, `reuse: true`), so the top bar selects no destination
   and keeps its Libraries label. `LibraryLoader` pages the box set's children with `ParentId` and
-  shares the browse folder cache with the WPF app, as for a library. A box set's titles are
+  uses the browse folder cache, as for a library. A box set's titles are
   linked children, so its genre filter lists the genres of the loaded titles instead of asking
   `/Genres` for the folder.
 - **Shuffle**: `DetailModel.ShuffleQueue` keeps the playable episodes, then the unwatched ones
@@ -929,7 +690,7 @@ Ported from the WPF player in 2.0.
   Playback › Up Next sets the global lead (5 to 300 s) and the countdown (3 to 120 s, the WPF
   range). The detail page's Up Next button on a show, season or episode (`DetailUpNextLead`) opens
   `UpNextLeadFlyout`: Global, 15, 30 or 60 s, or Custom with a 5 to 300 s number box, saved at once
-  into `ShowUpNextLeadSeconds` under the WPF app's show key, so both apps share the per-show values.
+  into `ShowUpNextLeadSeconds` under the existing show key, preserving saved per-show values.
   Custom saves only once its number changes, so choosing it never replaces the current lead.
 - **Subtitle carry-over.** `PlayerViewModel.SubtitleChosen` (a pick in the subtitle flyout or `S`)
   is kept as a `SubtitleCarryOver` for the rest of the session: off, or language, title and forced
@@ -997,8 +758,14 @@ cache reads use the saved profile identity during offline startup and are genera
 before replacing page content. `DownloadTracks` maps per-download audio/subtitle choices to each
 file and to its eventual mpv tracks; these choices are saved with the download record.
 The Downloads page passes the selected download record through an explicit playback route,
-so the active browse server cannot replace its owner. With the owner not signed in, the file
-plays with no session behind it: no metadata, negotiation or SyncPlay. A verified local file
+so the active browse server cannot replace its owner. Each row also passes its thumbnail element
+and current image through `PlayOrigin` to `OpenFull`, sharing the card grow transition and the
+full-screen-on-play setting. The image is held until the first frame; missing or unloaded origins
+retain the immediate-open fallback.
+Home's offline Downloads-card invocation also carries the current card's `PlayOrigin` through
+`CardRow.Open` into `Play`, so clicking the card animates just as its Play button does. Online
+card clicks continue to open the detail page.
+With the owner not signed in, the file plays with no session behind it: no metadata, negotiation or SyncPlay. A verified local file
 remains playable after server deletion. Partial files retain the same track policy, and
 completed episodes can load online continuation without delaying the local file. An episode
 deleted while its show's episode list loads does not start. Batch subtitle matching preserves
@@ -1036,7 +803,7 @@ claimed for the source-only development gates.
 
 ## v2 updater
 
-v2 runs the WPF app's `UpdateService` (compiled into `LightWeaver.Core`) through one static owner,
+`UpdateService` lives in `LightWeaver.Core` and runs through one static owner,
 `Services.Updater`. `App.OnLaunched` starts it right after the window is activated and does not wait
 for the session restore, so an offline media server never delays it. The service is created on the
 thread pool: its constructor clears stale setups and parts from `%LOCALAPPDATA%\LightWeaver\updates`
@@ -1050,12 +817,21 @@ automatic download when switching to notify-only and resumes a found one when sw
 Settings › Updates shows and offers for a status and policy is `UpdatePane.For`, and when a toast
 tells about an update is `UpdateNotices` (once per version: found under notify-only or without an
 installer, and ready to install), both in `LightWeaver.Core/Updates` and tested in
-`tests/Updates.Tests`. A notice counts as told only once it is toasted or Settings › Updates (not a
+`tests/Updates.Tests`. Each notice carries the `UpdatePane` action and localized label, so its button
+downloads/installs directly instead of navigating to Settings. Before invoking it, the window checks
+that the version, actionable phase and policy still match; a stale toast cannot install a replacement
+release. `tools/update-fixture.py` serves a slow loopback synthetic release for Debug testing through
+the existing API/hash overrides and recorded installer launcher, using a fresh temporary profile.
+Failed notification actions show an error toast with the updater's localized error and guarded Retry
+action; repeated failures keep recovery available outside Settings.
+Update action toasts have no timeout. Moving into Updates or the full player, or starting a download,
+removes the old action toast.
+A notice counts as told only once it is toasted or Settings › Updates (not a
 search) shows it; on Login it waits, and the window asks again after every status change and every
 page shown, so an update found before sign-in is told on the first page after it. The pane updates
 everything in place, "Last checked" included, so an open policy list stays open. Download and
 install, and Install now, queue the installer and close the window; the installer arguments are the
-WPF app's (`UpdateInstallerLauncher`). At launch, in both apps, the service opens the staged setup
+existing ones (`UpdateInstallerLauncher`). At launch, the service opens the staged setup
 read-only with `FileShare.Read`, hashes it through that handle, checks its signature and starts it
 while still holding it, so it cannot be replaced or deleted between the check and the start; a setup
 it cannot open is discarded.
@@ -1065,7 +841,7 @@ window placement, `Updater.OnExit` starts the installer when Install now queued 
 automatic-install policy has a staged update, then disposes the service. A subclass on the window
 sets `Updater.SessionEnding` on `WM_QUERYENDSESSION` and clears it when `WM_ENDSESSION` says the
 session goes on, so a logoff, a shutdown or the Restart Manager closing the app never starts an
-installer, as WPF's `SessionEnding` does.
+installer.
 
 ## SyncPlay drift and group audio
 
@@ -1141,21 +917,20 @@ hosts or memory on this machine (2026-10 security review):
   access to the user's own mpv folder.
 - **Image tokens.** The image cache and the v2 `ImageLoader` send a token only when a signed-in
   session owns the URL (`JellyfinService.OwnsUrl`): same scheme, host and port, no user info,
-  under its base path at a segment boundary. Anything else is fetched without one. In both apps
-  responses stop at 32 MiB after decompression, a decode that would exceed 40 megapixels at the
+  under its base path at a segment boundary. Anything else is fetched without one. Responses stop at 32 MiB after decompression, a decode that would exceed 40 megapixels at the
   requested width is refused from the frame header, and no image is decoded wider than its source
   (`ImageLimits`).
 - **Bounds on server numbers.** A SyncPlay unpause pre-roll is capped at 30 s and computed in
   server time, so no `When` overflows the timer or the date conversion. Trickplay buckets need
   1-4096 px thumbnails and 1-100 tiles per side. A remote `Play` keeps at most 500 ids around its
   start item; a dashboard message is one line of at most 300 characters and names its server
-  (`RemoteCommand`, used by both apps).
+  (`RemoteCommand`).
 - **Sign-in.** A bare server address is completed with `http://`, so the login form shows the
   plain-HTTP warning for it as well. An explicit logout, and the v2 sign-out, first removes that
   session's own profile, closes the session and shows Login or the next profile; only then does
   `/Sessions/Logout` go out, with the token captured beforehand (best-effort, 3 s, not awaited),
   so a slow server cannot leave a second sign-out or a switch acting on stale state. The v2
-  profile menu runs switches and sign-out under the same account gate as the WPF shell. Release
+  profile menu runs switches and sign-out under the same account gate as other account operations. Release
   builds only: the Debug profile holds a copy of the installed app's credentials.
 - **Updates.** Besides the pinned signer, the installer's signed product version must equal the
   release version, so an older signed installer cannot ride a newer tag. `release.ps1` runs the
@@ -1166,7 +941,7 @@ hosts or memory on this machine (2026-10 security review):
   header change that carries the token. "Copy stream URL" still includes the token by design,
   since external players need it.
 
-`PlaybackHarness --security` asserts these rules without a window or a server.
+The WPF-only playback harness was retired with the legacy app.
 
 ## Diagnostics and log privacy
 
@@ -1246,8 +1021,7 @@ requested one-off run through the VM queue.
 2.0 ships the WinUI 3 app. `src/LightWeaver.WinUI` builds as `LightWeaver.exe` (AssemblyName
 `LightWeaver`, Product and title `LightWeaver`, the app icon embedded and set on the window), the
 1.x exe name, so taskbar pins, GPU driver profiles, the process name and the installer's exe carry
-over. The WPF project's assembly is also `LightWeaver`; no project references both, so each keeps
-its own `bin` folder, and only the WinUI project is published.
+over. The WinUI project is the only application project and the only publish target.
 
 - **One version.** `Directory.Build.props` holds it for every project. The scripts read it there;
   the update check (`GitHubUpdateClient.CurrentVersion`) and the Jellyfin client version read
@@ -1272,17 +1046,16 @@ its own `bin` folder, and only the WinUI project is published.
 
 ```powershell
 dotnet build LightWeaver.slnx -warnaserror
-dotnet build tests/PlaybackHarness/PlaybackHarness.csproj -warnaserror
+dotnet run --project tests/Contracts.Tests
+dotnet run --project tests/FastUi.Tests -- .
 dotnet run --project tests/LocalizationAudit
 dotnet run --project tests/LocalizationRuntime
 dotnet run --project tests/TranslationEditor.Tests
 ```
 
-`PlaybackHarness --settings-shell-contract` covers alias-aware rebinding and the store's
-failure reasons, including an ACL-denied file left byte for byte. `--settings-shell-ui` is
-guest-only (route `lw-app-shell-settings`): the login password reveal, the save banner for both
-failure kinds, alias capture through the production button, cache readouts on return, slider
-save counts and flush points, and 700x480 fit.
+Run the model and service checks under `tests/*.Tests` before merging. The WPF-only
+PlaybackHarness and its UI fixtures have been removed; use the current WinUI guest suites for
+native UI acceptance.
 
 The runtime checks compile the production resolver with synthetic embedded packs without
 opening a window. They cover parent-locale selection, culture-specific formatting, unchanged

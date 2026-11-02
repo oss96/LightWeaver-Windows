@@ -58,7 +58,7 @@ public interface IAppShell
     void Play(MediaItem item, PlaybackChoice choice, bool fullscreen);
 
     /// <summary>Plays a saved download from its file, under the server it came from.</summary>
-    void PlayDownload(DownloadItem download);
+    void PlayDownload(DownloadItem download, PlayOrigin? from = null);
 
     /// <summary>"Cast and crew →": everyone credited on the item.</summary>
     void OpenCast(MediaItem item);

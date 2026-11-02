@@ -3,8 +3,25 @@ using LightWeaver.Settings;
 
 namespace LightWeaver.Updates;
 
-/// <summary>An update toast: its text, and whether the update is downloaded and ready to install.</summary>
-public sealed record UpdateNotice(string Message, bool Ready);
+/// <summary>An update toast with the action offered for its version.</summary>
+public sealed record UpdateNotice(string Message, Version Version, UpdateAction Action, string ActionLabel, UpdatePhase Phase)
+{
+    public bool CanRemain(UpdateStatus status, UpdatePolicy policy, UpdateNoticePlace place)
+        => place == UpdateNoticePlace.Elsewhere && CanRun(status, policy);
+
+    public bool CanRun(UpdateStatus status, UpdatePolicy policy)
+        => status.Update?.Version == Version
+            && status.Phase == Phase
+            && Phase is UpdatePhase.Available or UpdatePhase.ReadyToInstall or UpdatePhase.Error
+            && UpdatePane.For(status, policy) is { ActionEnabled: true } pane && pane.Action == Action;
+
+    public static UpdateNotice? Failure(UpdateStatus status, UpdatePolicy policy)
+    {
+        if (status is not { Phase: UpdatePhase.Error, Update: { } update }) return null;
+        var pane = UpdatePane.For(status, policy);
+        return new(pane.Status, update.Version, pane.Action, pane.ActionLabel, status.Phase);
+    }
+}
 
 /// <summary>Where the window is when an update could be told about.</summary>
 public enum UpdateNoticePlace
@@ -54,8 +71,9 @@ public sealed class UpdateNotices
         if (!ready && !found || place == UpdateNoticePlace.Login || !_told.Add((update.Version, ready))) return null;
         if (place == UpdateNoticePlace.UpdatesPane) return null;
         var version = update.DisplayVersion;
+        var pane = UpdatePane.For(status, policy);
         return new(!ready ? L.Format("Settings.UpdateAvailable", version)
             : policy == UpdatePolicy.AutoDownloadAndInstall ? L.Format("SettingsView.VersionIsReadyItWillInstallWhen.15e2a08e", version)
-            : L.Format("SettingsView.VersionIsVerifiedAndReadyToInstall.a3763580", version), ready);
+            : L.Format("SettingsView.VersionIsVerifiedAndReadyToInstall.a3763580", version), update.Version, pane.Action, pane.ActionLabel, status.Phase);
     }
 }

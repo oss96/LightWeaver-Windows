@@ -37,7 +37,7 @@ public sealed partial class ServerUnreachableView : UserControl
             () => OpenDownloadsRequested?.Invoke(this, EventArgs.Empty), CardKind.Poster, 140, new UserDataOverrides())
         {
             CardSubtitle = i => sizes.GetValueOrDefault(i.Id, ""),
-            Open = i => shell.Play(i),
+            Open = (item, origin) => shell.Play(item, from: origin),
             ShowCardActions = false,
         };
         row.SetItems([.. downloaded.Select(d => new MediaItem { Id = d.ItemId, Name = d.Title })]);

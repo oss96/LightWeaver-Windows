@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Hosting;
 namespace LightWeaver.WinUI.Player;
 
 /// <summary>The player's grow and shrink on the compositor: the layer is laid out once at the end
-/// rect and its visual is scaled, moved and clipped so that it shows each frame's rect of
+/// size at the window origin and its visual is scaled, moved and clipped so that it shows each frame's rect of
 /// <see cref="LayerMotion"/>, so a busy UI thread cannot stall it. The picture keeps its shape
 /// (<see cref="LayerContent"/>) and the corners stay the given radius on screen; the clip is a
 /// rounded-rectangle geometry, since a <see cref="RectangleClip"/>'s corner radii cannot be animated.
@@ -80,7 +80,7 @@ internal sealed class LayerTransition
         ElementCompositionPreview.SetIsTranslationEnabled(_layer, true);
         _visual.Clip = _clip;
         if (!_from.IsUsable || !_layout.IsUsable) return;
-        Apply(LayerMotion.Frame(_from, _layout, _content, _radius));
+        Apply(LayerMotion.FrameAtOrigin(_from, _layout, _content, _radius));
         PlaceBackdrop(_from);
         if (_backdropHost is not null) ElementCompositionPreview.SetElementChildVisual(_backdropHost, _backdrop);
     }
@@ -126,7 +126,7 @@ internal sealed class LayerTransition
             return;
         }
         var rects = plan.Times.Select(t => LayerMotion.At(_from, _layout, t)).ToArray();
-        var frames = rects.Select(r => LayerMotion.Frame(r, _layout, _content, _radius)).ToArray();
+        var frames = rects.Select(r => LayerMotion.FrameAtOrigin(r, _layout, _content, _radius)).ToArray();
         if (!frames.All(f => f.IsValid))
         {
             Diagnostics.AppLog.Info("player", "event=layer_transition outcome=snapped reason=invalid_frame");
@@ -220,7 +220,7 @@ internal sealed class LayerTransition
         StopAnimations();
         if (_layout.IsUsable)
         {
-            Apply(LayerMotion.Frame(_layout, _layout, _content, _radius));
+            Apply(LayerMotion.FrameAtOrigin(_layout, _layout, _content, _radius));
             PlaceBackdrop(_layout);
         }
         _layer.DispatcherQueue.TryEnqueue(Finish);

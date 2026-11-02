@@ -4,7 +4,7 @@ Input: a JSON file mapping each key to its English text, a context line and the 
     {"TopBar.Home": {"text": "Home", "context": "Top bar navigation item", "de": "Start", "ar": "..."}}
 
 For every key the script writes the catalog entry (text, context, and `sources` = the files that
-use the key, found by scanning src/LightWeaver, src/LightWeaver.Core and src/LightWeaver.WinUI for L.Text/L.Format
+use the key, found by scanning src/LightWeaver.Core and src/LightWeaver.WinUI for L.Text/L.Format
 calls and {loc:Text ...} XAML references), and each translation with its source hash
 (sha256 of the English text), so the translation editor and the runtime treat it as current.
 
@@ -19,7 +19,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-SCAN = [ROOT / "src" / "LightWeaver", ROOT / "src" / "LightWeaver.Core", ROOT / "src" / "LightWeaver.WinUI"]
+SCAN = [ROOT / "src" / "LightWeaver.Core", ROOT / "src" / "LightWeaver.WinUI"]
 USE = re.compile(r'L\.(?:Text|Format|Resolve)\(\s*"([^"]+)"|\{loc:Text\s+(?:Key=)?([^}\s]+)\s*\}')
 
 

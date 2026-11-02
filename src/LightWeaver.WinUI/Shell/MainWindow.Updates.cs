@@ -1,19 +1,18 @@
 using System.Runtime.InteropServices;
-using LightWeaver.Localization;
 using LightWeaver.Updates;
 using LightWeaver.WinUI.Pages;
 using LightWeaver.WinUI.Services;
 
 namespace LightWeaver.WinUI.Shell;
 
-/// <summary>The updater in the window: the update toasts, Settings › Updates from them, and the hand-off
-/// to the installer when the window closes, which a logoff or shutdown skips (a cancelled one does not).</summary>
+/// <summary>Update notifications with direct actions and installer handoff on normal window close.</summary>
 public sealed partial class MainWindow
 {
     private const uint WmQueryEndSession = 0x0011, WmEndSession = 0x0016;
     private const nuint EndSessionSubclassId = 0x4C57_5550;
     private const string ProgressToastKey = "update-progress";
     private readonly UpdateNotices _updateNotices = new();
+    private UpdateNotice? _visibleUpdateNotice;
 
     private unsafe void InitializeUpdates()
     {
@@ -34,6 +33,7 @@ public sealed partial class MainWindow
     private void OnToastDismissed(string key)
     {
         if (key == ProgressToastKey) _updateNotices.DismissProgress(Updater.Status);
+        if (key == "update") _visibleUpdateNotice = null;
     }
 
     /// <summary>Tells about an update as the WPF app's update banner did: a lasting toast with the
@@ -47,17 +47,24 @@ public sealed partial class MainWindow
             : UpdateNoticePlace.Elsewhere;
         if (_updateNotices.Progress(Updater.Status, place) is { } progress) ToastHost.ShowLasting(ToastKind.Download, progress, ProgressToastKey);
         else ToastHost.Remove(ProgressToastKey);
+        if (_visibleUpdateNotice is { } visible && !visible.CanRemain(Updater.Status, App.Settings.UpdatePolicy, place))
+        {
+            ToastHost.Remove("update");
+            _visibleUpdateNotice = null;
+        }
+        if (place is UpdateNoticePlace.Login or UpdateNoticePlace.FullPlayer) return;
         if (_updateNotices.Next(Updater.Status, App.Settings.UpdatePolicy, place) is not { } notice) return;
-        if (notice.Ready)
-            ToastHost.Show(ToastKind.Info, notice.Message, L.Text("SettingsView.InstallNow.e4cf6a26"), () => _ = Updater.RunAsync(UpdateAction.InstallNow, Quit), "update");
-        else
-            ToastHost.Show(ToastKind.Info, notice.Message, L.Text("Toast.Open"), OpenUpdates, "update");
+        _visibleUpdateNotice = notice;
+        ToastHost.Show(ToastKind.Info, notice.Message, notice.ActionLabel, () => _ = RunUpdateNoticeAsync(notice), "update", lasting: true);
     }
 
-    private void OpenUpdates()
+    private async Task RunUpdateNoticeAsync(UpdateNotice notice)
     {
-        if (_nav.CurrentPage is SettingsPage settings) settings.ShowSection("updates");
-        else _nav.Go("settings", () => NewSettingsPage("updates"));
+        if (!notice.CanRun(Updater.Status, App.Settings.UpdatePolicy)) return;
+        await Updater.RunAsync(notice.Action, Quit);
+        if (UpdateNotice.Failure(Updater.Status, App.Settings.UpdatePolicy) is not { } failure) return;
+        _visibleUpdateNotice = failure;
+        ToastHost.Show(ToastKind.Error, failure.Message, failure.ActionLabel, () => _ = RunUpdateNoticeAsync(failure), "update");
     }
 
     /// <summary>A Settings page that tells the window when Settings › Updates comes into or leaves view.</summary>
