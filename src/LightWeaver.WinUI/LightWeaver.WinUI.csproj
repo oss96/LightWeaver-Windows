@@ -32,10 +32,10 @@
   <ItemGroup>
     <!-- Only the Windows App SDK parts the shell uses. The Microsoft.WindowsAppSDK meta-package
          also pulls in AI, ML, Search and Widgets (onnxruntime, DirectML and more, about 60 MB). -->
-    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.4" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.6.4" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.6.4" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.4" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.6.5" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
   </ItemGroup>
 

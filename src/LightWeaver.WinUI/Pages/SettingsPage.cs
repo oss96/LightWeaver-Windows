@@ -510,6 +510,10 @@ public sealed partial class SettingsPage : Grid, INavPage
             new Row(L.Text("Settings.Countdown"), L.Text("Settings.CountdownHint"), Theme.Icons.Timer, Stepper(_settings.AutoPlayCountdownSeconds, UpNextPreferences.MinimumCountdownSeconds, UpNextPreferences.MaximumCountdownSeconds, v => _settings.AutoPlayCountdownSeconds = v), "SettingsCountdown"),
             new Row(L.Text("SettingsView.UpNextLeadTitle"), L.Text("Settings.UpNextLeadHint"), Theme.Icons.Clock, Stepper(_settings.UpNextLeadSeconds, UpNextPreferences.MinimumLeadSeconds, UpNextPreferences.MaximumLeadSeconds, v => _settings.UpNextLeadSeconds = v), "SettingsUpNextLead"),
         ]);
+        yield return new Group(L.Text("Settings.FullScreen"),
+        [
+            new Row(L.Text("Settings.BorderlessFullscreen"), L.Text("Settings.BorderlessFullscreenHint"), Theme.Icons.FullScreen, Toggle(_settings.BorderlessFullscreen, v => _settings.BorderlessFullscreen = v), "SettingsBorderlessFullscreen"),
+        ]);
         (TransportAction, string)[] transport =
         [
             (TransportAction.QueueStep, L.Text("Settings.TransportQueue")),

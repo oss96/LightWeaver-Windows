@@ -111,8 +111,8 @@ public sealed class AppSettings
     public double SubtitleBorderSize { get; set; } = 3.0;
     /// <summary>mpv sub-shadow-offset (default 0 = no shadow).</summary>
     public double SubtitleShadowOffset { get; set; }
-    /// <summary>Resting vertical position (mpv sub-pos percent, 100 = bottom). The
-    /// control-bar lift composes against this value.</summary>
+    /// <summary>Resting vertical position of subtitles, in percent of the shown video's
+    /// height (100 = bottom).</summary>
     public int SubtitleBasePosition { get; set; } = 100;
 
     // Audio
@@ -173,6 +173,9 @@ public sealed class AppSettings
     public bool AutoPlayNextEpisode { get; set; } = true;
     /// <summary>v2: Play on a detail page opens the video full screen instead of in the preview.</summary>
     public bool AutoFullscreen { get; set; }
+    /// <summary>Full screen grows the video from the player straight to the whole screen, and shrinks it
+    /// back on leaving, instead of growing it to the window before the window covers the screen.</summary>
+    public bool BorderlessFullscreen { get; set; }
     private int _autoPlayCountdownSeconds = 10;
     public int AutoPlayCountdownSeconds
     {

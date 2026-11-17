@@ -1461,23 +1461,6 @@ public sealed class PlayerViewModel : ObservableObject
     /// per keypress so settings edits apply immediately).</summary>
     public void Configure(AppSettings settings) => _settings = settings;
 
-    /// <summary>Passes the overlay's subtitle lift through to mpv (100 = default bottom).</summary>
-    public void SetSubtitlePosition(int percent) => _player?.SetSubtitlePosition(percent);
-
-    /// <summary>The user's resting sub-pos (settings); the control-bar lift composes
-    /// against this instead of a hardcoded 100.</summary>
-    public int SubtitleBasePosition => Math.Clamp(_settings?.SubtitleBasePosition ?? 100, 0, 150);
-
-    /// <summary>Raised when settings live-apply changed <see cref="SubtitleBasePosition"/>.
-    /// <see cref="Views.OverlayWindow"/> listens and recomposes, which is what makes it the
-    /// ONE writer of sub-pos: settings used to call <see cref="SetSubtitlePosition"/> directly
-    /// and the next bar show/hide immediately overwrote it (Phase 10 M4).</summary>
-    public event Action? SubtitleBasePositionChanged;
-
-    /// <summary>Settings changed the resting subtitle position — ask the overlay to recompose
-    /// rather than writing sub-pos here.</summary>
-    public void NotifySubtitleBasePositionChanged() => SubtitleBasePositionChanged?.Invoke();
-
     /// <summary>Raised by the rebindable <see cref="Player.PlayerAction.ToggleFullscreen"/>.
     /// Fullscreen is a window operation and <c>MainWindow.ToggleFullscreen</c> owns it, but
     /// <see cref="Player.PlayerActionDispatcher.Dispatch"/> is handed only this view-model — so the

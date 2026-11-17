@@ -110,6 +110,12 @@ Requires("Shell/MainWindow.Updates.cs", "UpdateNotice.Failure(Updater.Status, Ap
 Requires("Pages/SettingsPage.cs", "UpdatePane.For(", "Updater.OnPolicyChanged();", "Updater.RunAsync(pane.Action");
 
 Requires("Player/PlayerView.xaml", "PlayerPositionButton", "PlayerTimeEdit", "OnTimeEditKeyDown", "OnTimeEditLostFocus");
+Requires("Player/PlayerView.xaml", "PlayerPreviousChapter", "PlayerNextChapter", "Icons.PreviousChapter", "Icons.NextChapter",
+    "AllowFocusOnInteraction=\"False\" Click=\"OnPreviousChapter\"", "AllowFocusOnInteraction=\"False\" Click=\"OnNextChapter\"",
+    "PlayerPrevious", "Icons.Previous}", "AllowFocusOnInteraction=\"False\" Click=\"OnPrevious\"");
+Requires("Player/PlayerView.xaml.cs", "PreviousChapterButton.Visibility = NextChapterButton.Visibility = vm.HasChapters", "Vm?.PreviousChapter()", "Vm?.NextChapter()",
+    "L.Text(\"Player.PreviousChapter\")", "L.Text(\"Player.NextChapter\")",
+    "PreviousButton.Visibility = vm.CanGoPrevious", "Vm?.GoPrevious()", "L.Text(\"Player.Previous\")");
 Requires("Player/PlayerView.xaml.cs", "TimeInput.TryParse(", "vm.Seek(TimeInput.Target(");
 Requires("Player/PlaybackController.cs", "UpNextLead.For(", "SubtitleCarryOver");
 Requires("Player/PlaybackController.cs", "Start(slice[0], choice, session, intentTaken: true)", "Start(episode, choice, session, intentTaken: true)", "if (!intentTaken) _intent++;");
@@ -217,6 +223,11 @@ Requires("Player/PlayerView.xaml.cs", "protected override AutomationPeer OnCreat
 // 10. In a SyncPlay group a click on the video waits out the double-click time and a second press
 //     cancels it, so a double-click for full screen never pauses and resumes the whole group.
 Requires("Player/PlayerView.xaml.cs", "if (vm.SyncPlay is not null)", "_groupClick.Start();", "if (_groupClick.IsRunning)");
+
+// 11. The detail preview's compact bar idle-hides as the full player's does; only the mini player
+//     pins it.
+Requires("Player/PlayerView.xaml.cs", "if (!_barPinned) _idle.Start();", "if (_barPinned || _timeEditing ||");
+Requires("Shell/MainWindow.Files.cs", "SetCompact(_miniPlayer, barPinned: _miniPlayer)");
 
 // 9. A XamlRoot's ContentIslandEnvironment is null while its window tears down, and pointer events
 //    still arrive then; it is read through a pattern, never dereferenced directly.

@@ -268,8 +268,8 @@ public static partial class PlayerActionDispatcher
             case PlayerAction.SpeedDown: vm.DecreaseSpeed(); break;
             // Fullscreen is a WINDOW operation and this method only has the view-model, so the
             // request is raised as an event and MainWindow does the work. That is the codebase's
-            // established bridge for exactly this (QueuePlayRequested, EpisodeStepRequested,
-            // SubtitleBasePositionChanged) and it keeps every caller of Dispatch — keys today,
+            // established bridge for exactly this (QueuePlayRequested, EpisodeStepRequested)
+            // and it keeps every caller of Dispatch — keys today,
             // SMTC or an OSD button tomorrow — working without its own special case.
             case PlayerAction.ToggleFullscreen: vm.RequestFullscreen(); break;
             case PlayerAction.OpenStream: vm.RequestOpenStream(); break;

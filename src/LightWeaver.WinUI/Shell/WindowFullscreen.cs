@@ -184,11 +184,22 @@ internal sealed partial class WindowFullscreen
     /// <summary>Turns DWM's minimize, maximize and restore animations for the window off or on.</summary>
     public static void SetTransitionsEnabled(nint hwnd, bool enabled) => SetDwmInt(hwnd, DwmTransitionsForceDisabled, enabled ? 0 : 1);
 
-    private static ScreenRect MonitorRect(nint hwnd)
+    /// <summary>The rect of the monitor <paramref name="hwnd"/> is on (the one it overlaps most).</summary>
+    public static ScreenRect MonitorRect(nint hwnd)
     {
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
         GetMonitorInfoW(MonitorFromWindow(hwnd, MonitorDefaultToNearest), ref info);
         return info.Monitor.ToScreen();
+    }
+
+    /// <summary>The window that hosts the XAML content of <paramref name="hwnd"/>, which takes its keys; 0 if none.</summary>
+    public static nint ContentWindow(nint hwnd) => FindWindowExW(hwnd, 0, ContentBridgeClass, null);
+
+    /// <summary>Where the XAML content of <paramref name="hwnd"/> is on screen: its content window's rect.</summary>
+    public static ScreenRect ContentRect(nint hwnd)
+    {
+        var content = FindWindowExW(hwnd, 0, ContentBridgeClass, null);
+        return WindowRect(content != 0 ? content : hwnd);
     }
 
     private static ScreenRect WindowRect(nint hwnd)

@@ -3891,6 +3891,13 @@
         "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
       ]
     },
+    "Player.NextChapter": {
+      "text": "Next chapter (])",
+      "context": "Player button accessible name",
+      "sources": [
+        "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
+      ]
+    },
     "Player.Pause": {
       "text": "Pause (Space)",
       "context": "Player button accessible name",
@@ -3922,6 +3929,20 @@
     "Player.PlayOtherVersion": {
       "text": "Play another version",
       "context": "Player failure panel button",
+      "sources": [
+        "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
+      ]
+    },
+    "Player.Previous": {
+      "text": "Previous (P)",
+      "context": "Player button accessible name",
+      "sources": [
+        "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
+      ]
+    },
+    "Player.PreviousChapter": {
+      "text": "Previous chapter ([)",
+      "context": "Player button accessible name",
       "sources": [
         "src/LightWeaver.WinUI/Player/PlayerView.xaml.cs"
       ]
@@ -5675,6 +5696,20 @@
         "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
       ]
     },
+    "Settings.BorderlessFullscreen": {
+      "text": "Borderless full screen",
+      "context": "Settings full screen row: the switch between the two full screen versions",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
+      ]
+    },
+    "Settings.BorderlessFullscreenHint": {
+      "text": "The video grows from the player straight to the whole screen, and shrinks back to it",
+      "context": "Settings full screen row description",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
+      ]
+    },
     "Settings.BrowseCache": {
       "text": "Library cache",
       "context": "Settings storage row: the saved library listings",
@@ -5847,6 +5882,13 @@
     "Settings.Font": {
       "text": "Font",
       "context": "Subtitle font setting",
+      "sources": [
+        "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
+      ]
+    },
+    "Settings.FullScreen": {
+      "text": "Full screen",
+      "context": "Settings playback group heading",
       "sources": [
         "src/LightWeaver.WinUI/Pages/SettingsPage.cs"
       ]

@@ -678,6 +678,7 @@ internal sealed class PlaybackController : IDisposable
         // last title must be judged on the title that ended.
         _player.EndReached += OnEndReached;
         _surface.Attach(_player);
+        _surface.SetSubtitleBase(_settings.SubtitleBasePosition);
         ViewModel.Attach(_player);
         SyncPlay?.AttachPlayer(_player);
         ViewModel.ApplyRtxDefaults(_settings);
@@ -696,7 +697,7 @@ internal sealed class PlaybackController : IDisposable
     private void ApplySettings()
     {
         ViewModel.NotifyTransportConfigChanged();
-        ViewModel.NotifySubtitleBasePositionChanged();
+        _surface.SetSubtitleBase(_settings.SubtitleBasePosition);
         ViewModel.ApplyRtxDefaults(_settings);
         if (_player is not { } player || _applied is not { } applied) return;
         _applied = applied.ApplyChanges(LiveSettings.Of(_settings), group => group switch

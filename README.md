@@ -45,7 +45,7 @@ episode cards after the server accepts the change. Failed changes restore the pr
 
 ### Player
 
-- **Preview and full screen**: Play on a detail page plays in the preview. The preview has the video's shape, decided when the page opens from the size the list it was opened from carried (an anamorphic DVD is 16:9 or 4:3 rather than its stored 1.25:1; a show, a season or a title without a known size is 16:9), and keeps it: a video of another shape plays letterboxed inside it. It is as large as fits beside the info panel while it and the "More like this" row below it and the "Cast and crew" row below the info panel stay in the window; when the window is too short for that, the info panel takes the spare width. The rows never press the preview under 300 DIP tall; in a shorter window the page scrolls them into view. Before playback the preview carries the player's own bar: its seek bar sets where Play starts, back and forward move that start, a version drop-down (when the title has two or more versions) and the audio, subtitle and quality buttons set what plays, with the quality menu offering the player's tiers and "Always transcode", Info shows the media info and full screen plays straight into full screen. Full screen (the bar's button, `F` or a
+- **Preview and full screen**: Play on a detail page plays in the preview. The preview has the video's shape, decided when the page opens from the size the list it was opened from carried (an anamorphic DVD is 16:9 or 4:3 rather than its stored 1.25:1; a show, a season or a title without a known size is 16:9), and keeps it: a video of another shape plays letterboxed inside it. It is as large as fits beside the info panel while it and the "More like this" row below it and the "Cast and crew" row below the info panel stay in the window; when the window is too short for that, the info panel takes the spare width. The rows never press the preview under 300 DIP tall; in a shorter window the page scrolls them into view. Before playback the preview carries the player's own bar: its seek bar sets where Play starts, back and forward move that start, a version drop-down (when the title has two or more versions) and the audio, subtitle and quality buttons set what plays, with the quality menu offering the player's tiers and "Always transcode", Info shows the media info and full screen plays straight into full screen. While a video plays in the preview its bar hides after 2.5 s without input, as in full screen, and comes back when the pointer moves over the video, a key is pressed or the video pauses. Subtitles stay inside what the preview or window shows, at the top as at the bottom, whatever its shape and the video's: in the letterbox band while enough of it shows, else on the picture. Full screen (the bar's button, `F` or a
   double-click on the video) grows it to fill the screen and back again, playing or paused as it
   was; the preview's "Auto full screen" switch opens every Play full screen. Esc leaves full screen;
   Back returns to the preview, paused. Full screen covers the whole monitor the window is on,
@@ -55,7 +55,11 @@ episode cards after the server accepts the change. Failed changes restore the pr
   step (a maximized window is maximized again and never passes through its restored size; a
   restored or snapped one returns to its exact rect), and
   the video then shrinks onto the preview. Either way the page is laid out for the new size
-  before the window changes, so the old layout never shows in the new window. A click on the video pauses and resumes at once, and the
+  before the window changes, so the old layout never shows in the new window. With Settings ›
+  Playback › Borderless full screen on, the video instead grows from where the player is (the
+  preview, a card's artwork or the window) straight to the whole screen, past the window's edges,
+  and shrinks from the screen straight back there on leaving; the window covers the monitor, or
+  goes back, hidden under the moving video. A click on the video pauses and resumes at once, and the
   player's shortcuts work whenever it is on screen. Audio and subtitles have a button each; where the bar is too narrow for both of its groups on one row (the preview in a small window) they fold into one Tracks button whose flyout lists audio and subtitles side by side. The player's flyouts open above the whole bar, so the seek bar and the times stay in view. Tracks that the file names only by a language code are listed by the language's name. Its tooltips open when you point at a control or reach it with the keyboard, not when the bar appears under a mouse that has not moved. Played
   from a card anywhere else (its play button or its menu) the player grows out of the card's
   artwork across the window in the same 180 ms. A new title never shows the previous one's last
@@ -64,7 +68,7 @@ episode cards after the server accepts the change. Failed changes restore the pr
   of room, its options move to a row above instead of being pushed out of reach. The seek preview
   keeps the thumbnails' own shape, as large as fits above the bar, and stays inside the player at
   its edges. The bar has a seek bar with chapters, buffer and trickplay previews, back/forward (Settings ›
-  Playback), next, volume, and flyouts for audio and subtitles (with a 0.1 s subtitle offset),
+  Playback), previous/next chapter when the item has chapters, previous and next, volume, and flyouts for audio and subtitles (with a 0.1 s subtitle offset),
   quality and version, speed, the queue and live stats, drawn as dim glass over the video; Skip intro, the Up Next card, keyboard
   shortcuts and an idle hide. The wheel over the player changes the volume; every volume or mute change shows the level
   in a readout at the top right for a moment, without bringing up the bar.
@@ -86,12 +90,13 @@ episode cards after the server accepts the change. Failed changes restore the pr
 - Settings › Playback: skip intros and credits automatically, the back and forward jumps (5 to
   30 s back, 10 to 60 s forward), Up Next auto-play with a 3 to 120 s countdown, how long
   before the end the Up Next card appears in an episode without a credits marker (5 to 300 s; a
-  show can have its own, from its detail page), the preferred
+  show can have its own, from its detail page), which full screen to use (growing to the window
+  first, or borderless: straight from the player to the whole screen), the preferred
   audio and subtitle languages, and what the media keys' next and previous do (next title,
   chapter, or a 5 to 300 s seek). What plays shows in the Windows media overlay with its artwork,
   and the media keys play, pause, stop and step
 - Settings › Subtitles styles subtitles with a live preview: font, size, five colours, border
-  (none, thin, thick), shadow and vertical position. The subtitle flyout, `Z` and `X` shift
+  (none, thin, thick), shadow and vertical position (100 is the bottom of the shown video, lower values sit higher). The subtitle flyout, `Z` and `X` shift
   subtitles by 0.1 s
 
 ### Jellyfin integration

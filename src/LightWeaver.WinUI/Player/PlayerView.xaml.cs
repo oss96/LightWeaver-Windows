@@ -119,19 +119,22 @@ public sealed partial class PlayerView : UserControl
     }
 
     private bool _compact;
+    private bool _barPinned;
 
-    /// <summary>In the detail preview the player shows only its bar, always, standing in for the
-    /// page's preselection bar; full, it has the title, Back and the idle hide.</summary>
-    public void SetCompact(bool compact)
+    /// <summary>Compact, the player shows only its bar, standing in for the detail preview's
+    /// preselection bar; it idle-hides as in the full player unless <paramref name="barPinned"/>
+    /// keeps it, as in the mini player. Full, it has the title, Back and the idle hide.</summary>
+    public void SetCompact(bool compact, bool barPinned = false)
     {
         _compact = compact;
+        _barPinned = barPinned;
         EndTimeEdit();
         TopArea.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         VolumePill.Margin = compact ? new Thickness(0, 10, 12, 0) : new Thickness(0, 72, 16, 0);
-        if (compact)
+        if (compact) _openFlyout?.Hide();
+        if (barPinned)
         {
             _idle.Stop();
-            _openFlyout?.Hide();
             SetChromeShown(true);
             ShowCursor(true);
         }
@@ -289,7 +292,7 @@ public sealed partial class PlayerView : UserControl
         ShowCursor(true);
         PlaceOverlays();
         _idle.Stop();
-        if (!_compact) _idle.Start();
+        if (!_barPinned) _idle.Start();
     }
 
     /// <summary>Idle-hidden controls stay in the tree, invisible and click-through, so keyboard
@@ -308,7 +311,7 @@ public sealed partial class PlayerView : UserControl
 
     private void HideChromeIfIdle()
     {
-        if (_compact || _timeEditing || Vm is not { } vm || vm.IsPaused || _openFlyout is not null || Visibility != Visibility.Visible) return;
+        if (_barPinned || _timeEditing || Vm is not { } vm || vm.IsPaused || _openFlyout is not null || Visibility != Visibility.Visible) return;
         SetChromeShown(false);
         TrickplayPopup.IsOpen = false;
         if (PointerOverVideo()) ShowCursor(false);
@@ -348,6 +351,8 @@ public sealed partial class PlayerView : UserControl
         SetName(MuteButton, vm.IsMuted ? L.Text("Player.Unmute") : L.Text("Player.Mute"));
         SpeedText.Text = vm.SpeedDisplay;
         SetName(SpeedButton, L.Format("Player.SpeedIs", vm.SpeedDisplay));
+        PreviousChapterButton.Visibility = NextChapterButton.Visibility = vm.HasChapters ? Visibility.Visible : Visibility.Collapsed;
+        PreviousButton.Visibility = vm.CanGoPrevious ? Visibility.Visible : Visibility.Collapsed;
         NextButton.Visibility = vm.CanGoNext ? Visibility.Visible : Visibility.Collapsed;
         QueueButton.Visibility = vm.HasQueue ? Visibility.Visible : Visibility.Collapsed;
         QualityButton.Visibility = vm.QualityVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -650,6 +655,9 @@ public sealed partial class PlayerView : UserControl
     private void OnPlayPause(object sender, RoutedEventArgs e) => Vm?.TogglePauseCommand.Execute(null);
     private void OnJumpBack(object sender, RoutedEventArgs e) => Vm?.JumpBack();
     private void OnJumpForward(object sender, RoutedEventArgs e) => Vm?.JumpForwardLarge();
+    private void OnPreviousChapter(object sender, RoutedEventArgs e) => Vm?.PreviousChapter();
+    private void OnNextChapter(object sender, RoutedEventArgs e) => Vm?.NextChapter();
+    private void OnPrevious(object sender, RoutedEventArgs e) => Vm?.GoPrevious();
     private void OnNext(object sender, RoutedEventArgs e) => Vm?.GoNext();
     private void OnMute(object sender, RoutedEventArgs e) => Vm?.ToggleMute();
     private void OnFullscreen(object sender, RoutedEventArgs e) => FullscreenRequested?.Invoke(this, EventArgs.Empty);
@@ -1030,6 +1038,9 @@ public sealed partial class PlayerView : UserControl
         SetName(TimeEditBox, L.Text("Player.GoToTime"), L.Text("OverlayWindow.SsMmSsOrHhMmSs.f3d1e5a4"));
         SetName(JumpBackButton, L.Format("Player.JumpBackBy", App.Settings.SkipBackwardSeconds));
         SetName(JumpForwardButton, L.Format("Player.JumpForwardBy", App.Settings.LargeSkipSeconds));
+        SetName(PreviousChapterButton, L.Text("Player.PreviousChapter"));
+        SetName(NextChapterButton, L.Text("Player.NextChapter"));
+        SetName(PreviousButton, L.Text("Player.Previous"));
         SetName(NextButton, L.Text("Player.Next"));
         SetName(AudioButton, L.Text("Player.Audio"));
         SetName(SubtitlesButton, L.Text("Player.Subtitles"));

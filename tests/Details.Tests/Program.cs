@@ -130,6 +130,31 @@ Check(Math.Abs(1080 * pillar.ScaleY * 4.0 / 3 - Math.Min(1280, 800 * 4.0 / 3)) <
 var unknown = SurfaceFit.Of(1280, 800, 1920, 1080, null);
 Check(Math.Abs(unknown.ScaleX - 1280.0 / 1920) < 1e-9 && Math.Abs(unknown.ScaleY - 800.0 / 1080) < 1e-9 && unknown.TranslateX == 0, "without a shape the buffer covers the surface");
 
+// --- Subtitles stay on the shown part of the buffer -----------------------------------------------
+SubtitlePlacement Placed(double width, double height, double aspect, int basePosition = 100)
+    => SubtitlePlacement.For(SurfaceFit.Of(width, height, 3840, 2160, aspect), height, 3840, 2160, aspect, basePosition);
+Check(Placed(1296, 648, 2.0) == new SubtitlePlacement(false, 100),
+    "a 2:1 preview crops the whole band of a 16:9 buffer, so subtitles, top and bottom, sit on the picture: " + Placed(1296, 648, 2.0));
+Check(Placed(1296, 648, 2.0, 80).Position == 80, "and the user's position is taken across the picture");
+Check(Placed(3840, 2160, 2.39) == new SubtitlePlacement(true, 100) && Placed(3840, 2160, 2.39, 80) == new SubtitlePlacement(true, 80),
+    "on a surface of the buffer's shape subtitles keep mpv's own place in the band, at the user's position");
+var wideWindow = Placed(1920, 1032, 2.39);
+Check(wideWindow.UseMargins && wideWindow.Position == 97.8,
+    "a window a little wider than the display crops less of the band than the margin: subtitles stay in it, lifted onto the shown part: " + wideWindow);
+Check(Placed(1920, 1032, 2.39, 50).Position == 50, "half way down the shown part is half way down the buffer here, as the crop is even");
+var authored = SubtitlePlacement.For(SurfaceFit.Of(1920, 1032, 3840, 2160, 2.39), 1032, 3840, 2160, 2.39, 100, authoredMargins: true);
+Check(authored == new SubtitlePlacement(false, 100),
+    "an ASS track sets its own margins, which may be smaller than the 48 cropped rows, so the same shallow crop puts it on the picture: " + authored);
+Check(SubtitlePlacement.For(SurfaceFit.Of(1920, 1080, 3840, 2160, 2.39), 1080, 3840, 2160, 2.39, 100, authoredMargins: true).UseMargins,
+    "an ASS track on a surface of the buffer's shape keeps the bands");
+Check(!SubtitlePlacement.For(SurfaceFit.Of(3840, 2158, 3840, 2160, 2.39), 2158, 3840, 2160, 2.39, 100, authoredMargins: true).UseMargins,
+    "one physical row cropped at each edge is a crop for an ASS track");
+Check(SubtitlePlacement.HasAuthoredMargins([new MpvTrack(1, "sub", null, null, true, false, false, "ass"), new MpvTrack(2, "sub", null, null, false, false, false, "subrip")])
+    && !SubtitlePlacement.HasAuthoredMargins([new MpvTrack(1, "sub", null, null, false, false, false, "ass"), new MpvTrack(2, "sub", null, null, true, false, false, "subrip")]),
+    "only the selected subtitle track's format counts");
+Check(Placed(800, 600, 4.0 / 3) == new SubtitlePlacement(true, 100), "a surface cropping the buffer only at the sides leaves subtitles where they are");
+Check(SubtitlePlacement.Uncropped(130).Position == 100, "a position past the bottom would put subtitles under the shown edge, so it stops there");
+
 // --- The player's grow and shrink ----------------------------------------------------------------
 var card = new LayerRect(312, 540, 160, 240);
 var window = new LayerRect(0, 0, 1920, 1032);
@@ -320,6 +345,22 @@ Check(FullscreenIntent.Toggle(growingIntoFullscreen: true, osFullscreen: false) 
     "the toggle during a grow into full screen ends the grow in the window, not in full screen again");
 Check(FullscreenIntent.Toggle(false, osFullscreen: true) == FullscreenToggle.Exit, "in full screen the toggle leaves it");
 Check(FullscreenIntent.Toggle(false, osFullscreen: false) == FullscreenToggle.Enter, "out of full screen, a shrink included, the toggle enters it");
+Check(FullscreenIntent.Toggle(growingIntoFullscreen: true, osFullscreen: false, screenBusy: false) == FullscreenToggle.CancelGrow,
+    "the toggle during a borderless grow sends it back to the player");
+Check(FullscreenIntent.Toggle(false, osFullscreen: true, screenBusy: true) == FullscreenToggle.Ignore
+    && FullscreenIntent.Toggle(false, osFullscreen: false, screenBusy: true) == FullscreenToggle.Ignore,
+    "while the window changes under the overlay or the video shrinks back, the toggle waits");
+Check(FullscreenIntent.Escape(growingOnScreen: true, osFullscreen: false) == PlayerEscape.CancelGrow, "Esc during a borderless grow sends the video back instead of being ignored");
+Check(FullscreenIntent.Escape(false, osFullscreen: true) == PlayerEscape.ExitFullscreen && FullscreenIntent.Escape(false, false) == PlayerEscape.Leave,
+    "Esc leaves full screen first, and the player from the window");
+
+var screen = new ScreenRect(-2560, 0, 0, 1440);
+var content = new ScreenRect(-2400, 120, -1100, 920);
+Check(ScreenPlacement.OnMonitor(new LayerRect(40, 60, 640, 360), content, screen, 1.25) == new LayerRect(40 + 160 / 1.25, 60 + 120 / 1.25, 640, 360),
+    "a rect in the window lands on the overlay at the window's offset on its monitor, in the same DIPs, on a monitor left of the main one too");
+Check(ScreenPlacement.Whole(screen, 1.25) == new LayerRect(0, 0, 2560 / 1.25, 1440 / 1.25), "the whole screen is the overlay's whole rect");
+Check(ScreenPlacement.Mirrored(new LayerRect(40, 60, 640, 360), 1040) == new LayerRect(360, 60, 640, 360),
+    "in a right-to-left window a rect 40 from the right edge is 360 from the left on the left-to-right overlay");
 
 Check(HistoryGestures.Back(playerFull: true, miniPlayer: false, transitionRunning: false) == HistoryAction.LeavePlayer,
     "back in the full player leaves it the way its Back button does, instead of moving the page history behind it");

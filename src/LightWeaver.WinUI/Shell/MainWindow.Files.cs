@@ -42,6 +42,8 @@ public sealed partial class MainWindow
         };
         Closed += (_, _) =>
         {
+            AbortScreenMove();
+            _overlay?.Close();
             FlushWindowChange();
             SavePlacement();
         };
@@ -278,13 +280,13 @@ public sealed partial class MainWindow
     /// small bar; again (or Esc) returns.</summary>
     private void ToggleMiniPlayer()
     {
-        if (!_miniPlayer && _playerMode != PlayerMode.Full) return;
+        if ((!_miniPlayer && _playerMode != PlayerMode.Full) || _screenMove != ScreenMove.None) return;
         SetOsFullscreen(false);
         FlushWindowChange();
         SuppressWindowTransitions();
         _miniPlayer = !_miniPlayer;
         AppWindow.SetPresenter(_miniPlayer ? AppWindowPresenterKind.CompactOverlay : AppWindowPresenterKind.Default);
-        _playerView?.SetCompact(_miniPlayer);
+        _playerView?.SetCompact(_miniPlayer, barPinned: _miniPlayer);
         if (_playerZoom is not null) _playerZoom.FollowsZoom = !_miniPlayer;
         BarZoom.Visibility = _miniPlayer ? Visibility.Collapsed : Visibility.Visible;
         _playerView?.Focus(FocusState.Programmatic);

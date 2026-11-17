@@ -56,7 +56,11 @@ the chrome stays quiet. Speed is part of the look: states snap, nothing glows, n
   full screen, and the content is laid out for the new size before the window changes, so the old
   layout never shows in the new window rect. Into full screen the video first grows to the window
   and the window then covers the monitor; out of it the window comes back first and the video then
-  shrinks onto the preview, so the window change never runs inside either 180 ms. Every animation runs on the compositor, never as a
+  shrinks onto the preview, so the window change never runs inside either 180 ms. With Settings ›
+  Playback › Borderless full screen on, the same 180 ms runs from the player's rect on screen (the
+  preview, the card's artwork or the window) straight to the whole monitor and back, on a
+  transparent topmost window over the monitor that shows the same video; the window changes under
+  it and the controls come back once the window shows the same picture. Every animation runs on the compositor, never as a
   per-frame layout on the UI thread. Artwork from disk or the network waits (at most 250 ms) while
   the grow, shrink or the nav morph's opening runs; artwork already in memory shows in a page's
   first frame, and a page switch never holds artwork back.
@@ -159,6 +163,65 @@ Paths in the Code column are under `src/LightWeaver.WinUI/`; design files are un
   drawn 64 px and labels trim at 60.
 
 ## Changes
+
+### 2026-11-16 · Player: previous and next chapter buttons, and Previous
+- What changed: the bar's left group has Previous chapter and Next chapter after Forward, then
+  Previous and Next. All are 38 × 38 `LwSubtleButton`s with their glyph at 18. The chapter pair
+  uses `Icons.PreviousChapter` and `Icons.NextChapter` (the outline double triangles, so they
+  read apart from Previous |◁ and Next ▷|), shows only while the item has chapters
+  (`PlayerViewModel.HasChapters`) and steps as `[` and `]` do. Previous (`Icons.Previous`) shows
+  while there is somewhere to go back to (`PlayerViewModel.CanGoPrevious`: the queue entry
+  before, else the previous episode in series order) and goes there as `P` does, as Next mirrors
+  `N`. Names and tooltips carry those keys. A click on any of the three leaves keyboard focus
+  where it was, as on the RTX toggles, so Space and the other player keys still reach the
+  player. They count toward the row's fit, so a narrow bar folds Audio and Subtitles into Tracks
+  earlier.
+- Why: the 1.x player had both the chapter pair and the previous/next pair, and 13 left out the
+  chapter pair and Previous; the owner reported both missing.
+- Proposal: none; the 1.x buttons restored in 13's button style.
+- Chosen option: applied at once at the owner's request.
+
+### 2026-11-11 · Player: subtitles stay inside the shown video
+- What changed: mpv draws into a display-sized buffer and anchors subtitles to its edges, in the
+  letterbox bands. Wherever the player shows that buffer cropped (the detail preview, a window of
+  another shape than the display) the surface's fit decides the placement
+  (`SubtitlePlacement`): while the crop is smaller than the subtitle margin (22/720 of the
+  picture's height) subtitles stay in the band, the bottom ones lifted onto the shown part with
+  mpv `sub-pos`; a deeper crop puts subtitles, top and bottom, on the picture, which is always
+  shown whole. An ASS or SSA track sets its own margins, which may be smaller, so any vertical
+  crop puts it on the picture. On a surface of the buffer's shape nothing moves. Settings › Subtitles › Vertical
+  position, which no longer reached mpv in v2, now applies, live, across the shown part.
+- Why: the owner's screenshot of a 2:1 episode in the detail preview showed its subtitles cut at
+  the preview's bottom edge, while full screen showed them whole; top-placed subtitles were cut
+  the same way at the top edge.
+- Proposal: none; a fix that keeps 13's subtitle placement.
+- Chosen option: applied at once at the owner's request, for every surface and video shape.
+
+### 2026-11-11 · Player: the detail preview's bar idle-hides
+- What changed: while a video plays in the detail page's preview, the player's compact bar hides
+  after 2.5 s without input and the cursor hides over the video, as in the full player and full
+  screen; moving the pointer over the video, a key or a pause brings the bar back. The mini player
+  keeps its bar shown at all times.
+- Why: the owner asked for the preview's controls to disappear while the video plays, as they do
+  in full screen.
+- Proposal: none; the idle hide is 13's existing behaviour, now also in the preview.
+- Chosen option: applied at once at the owner's request.
+
+### 2026-11-10 · Player: borderless full screen
+- What changed: Settings › Playback has a Full screen group with one switch, Borderless full
+  screen (`SettingsBorderlessFullscreen`, `Icons.FullScreen`), off by default. Off, full screen is
+  unchanged: the video grows to the window, then the window covers the monitor. On, the video grows
+  in the same 180 ms, cubic ease-out, from where the player is on screen (the preview with its
+  corners, a card's artwork, or the full window) straight to the whole monitor, and leaving shrinks
+  it from the monitor straight back to the preview, the card or the window. The controls stay
+  hidden during the move as in the grow to the window. The toggle or Esc pressed during the grow sends the
+  video back where it came from; pressed while the window changes or the video shrinks, the toggle waits.
+  Esc then leaves the player as it does in the window: paused in the preview, stopped on the card. A full
+  screen asked for while the window is not in front (a remote command) changes the window without the move.
+- Why: the owner asked for full screen to animate from the player area to the whole screen and
+  back, without the window's own jump to full screen in between.
+- Proposal: none; the switch is an existing Settings row, and the motion reuses 13's grow.
+- Chosen option: applied at once at the owner's request.
 
 ### 2026-11-01 · Upcoming episodes: quiet corner badge
 - What changed: upcoming episode cards show a clock and localized Upcoming label in a leading

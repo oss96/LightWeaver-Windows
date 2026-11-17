@@ -77,11 +77,16 @@ public sealed partial class MainWindow
         _playerView.LeaveRequested += (_, _) => LeavePlayer();
         _playerView.EscapeRequested += (_, _) =>
         {
-            if (IsOsFullscreen) ExitVideoFullscreen();
-            else LeavePlayer();
+            switch (FullscreenIntent.Escape(ScreenGrowing, IsOsFullscreen))
+            {
+                case PlayerEscape.CancelGrow: EscapeScreenGrow(); break;
+                case PlayerEscape.ExitFullscreen: ExitVideoFullscreen(); break;
+                default: LeavePlayer(); break;
+            }
         };
         _playerView.FullscreenRequested += (_, _) => ToggleVideoFullscreen();
         _playback.Stopped += (_, _) => HidePlayer();
+        Microsoft.UI.Xaml.Input.FocusManager.GotFocus += OnFocusMoved;
         InitializeMediaControls(_playback);
         ToastHost.OverVideo = (kind, text, mergeKey) =>
         {
@@ -115,6 +120,20 @@ public sealed partial class MainWindow
             if (_playerMode == PlayerMode.Preview && !ReferenceEquals(_nav.CurrentPage, _previewPage)) _playback?.Stop();
         };
         return _playback;
+    }
+
+    /// <summary>While the player is on screen, the window's content takes the Win32 focus back on the next
+    /// turn when it dropped to the bare window, where keys reach no XAML.</summary>
+    private void OnFocusMoved(object? sender, Microsoft.UI.Xaml.Input.FocusManagerGotFocusEventArgs e)
+    {
+        if (e.NewFocusedElement is not null || _playerMode == PlayerMode.Hidden) return;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_playerMode == PlayerMode.Hidden || _playerView is null || !WindowFocus.Restore(WindowHandle, 0)) return;
+            Diagnostics.AppLog.Info("focus", $"event=focus_repair mode={_playerMode}");
+            if (Root.XamlRoot is not { } root || Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(root) is null)
+                _playerView.Focus(FocusState.Programmatic);
+        });
     }
 
     /// <summary>The wheel over the full or mini player steps the volume as Up and Down do, shown by the
@@ -423,16 +442,20 @@ public sealed partial class MainWindow
         _leavingCard = false;
         _cardOrigin = from;
         _cardPage = _nav.CurrentPage;
+        if (_screenMove == ScreenMove.Growing) return;
+        AbortScreenMove();
         if (_playerMode == PlayerMode.Hidden && from is not null && OriginBounds(from) is { } rect)
         {
             _surface!.SeeThrough = false;
             _playerLayer!.CornerRadius = Controls.Ui.Resource<CornerRadius>("LwCardRadius");
-            if (fullscreen) GrowIntoFullscreen(then => GrowFrom("player_grow_card", rect, then), null);
+            if (fullscreen && Borderless) GrowCardOnScreen(rect, from);
+            else if (fullscreen) GrowIntoFullscreen(then => GrowFrom("player_grow_card", rect, then), null);
             else GrowFrom("player_grow_card", rect, null);
             return;
         }
         ShowFull();
-        if (fullscreen) SetOsFullscreen(true);
+        if (fullscreen && Borderless) GrowWindowOnScreen();
+        else if (fullscreen) SetOsFullscreen(true);
     }
 
     /// <summary>The card's artwork in window coordinates; null once it has left the window.</summary>
@@ -447,17 +470,19 @@ public sealed partial class MainWindow
     /// stop. The shrink starts once the window is back.</summary>
     private void LeavePlayer()
     {
-        if (_playerMode != PlayerMode.Full || _leavingCard) return;
+        if (_playerMode != PlayerMode.Full || _leavingCard || _screenMove != ScreenMove.None) return;
         if (CanReturnToPreview(out _) && _playback is { Failure: null, Player: { } player })
         {
             player.Pause = true;
-            SetOsFullscreen(false, ShrinkToPreview);
+            if (Borderless && IsOsFullscreen) LeaveOnScreen(ArriveInWindow, 0);
+            else SetOsFullscreen(false, ShrinkToPreview);
         }
         else if (_cardOrigin is { } origin && CardReturnBounds(origin) is not null)
         {
             _leavingCard = true;
             if (_playback?.Player is { } playing) playing.Pause = true;
-            SetOsFullscreen(false, () => ShrinkToCard(origin));
+            if (Borderless && IsOsFullscreen) LeaveOnScreen(() => LeaveForCard(origin), Controls.Ui.Resource<CornerRadius>("LwCardRadius").TopLeft, () => LandOnCard(origin));
+            else SetOsFullscreen(false, () => ShrinkToCard(origin));
         }
         else
         {
@@ -480,15 +505,35 @@ public sealed partial class MainWindow
         }
         _playerLayer!.CornerRadius = Controls.Ui.Resource<CornerRadius>("LwCardRadius");
         _playerView?.SetChromeHidden(true);
-        Animate("player_shrink_card", () => WindowBounds, () => CardReturnBounds(origin) ?? target, () =>
-        {
-            _playback?.Stop();
-            for (DependencyObject? node = origin.Art; node is not null; node = VisualTreeHelper.GetParent(node))
-                if (node is Control control && control.Focus(FocusState.Programmatic)) return;
-            var host = HomeHost.Visibility == Visibility.Visible ? HomeHost : PageHost;
-            host.IsTabStop = true;
-            if (!host.Focus(FocusState.Programmatic)) host.IsTabStop = false;
-        });
+        Animate("player_shrink_card", () => WindowBounds, () => CardReturnBounds(origin) ?? target, () => ReturnToCard(origin));
+    }
+
+    /// <summary>The borderless leave onto a card: the card's page shows under the shrinking video, which
+    /// lands on the card's artwork; nowhere when the card is gone or something else plays by now.</summary>
+    private Func<Windows.Foundation.Rect?> LeaveForCard(PlayOrigin origin)
+    {
+        if (!LeavingFor(origin) || CardReturnBounds(origin) is null) return () => null;
+        _playerLayer!.Visibility = Visibility.Collapsed;
+        return () => CardReturnBounds(origin);
+    }
+
+    private bool LeavingFor(PlayOrigin origin) => _leavingCard && ReferenceEquals(_cardOrigin, origin) && _playerMode == PlayerMode.Full;
+
+    /// <summary>The borderless move onto a card ended: playback stops unless something else plays by now.</summary>
+    private void LandOnCard(PlayOrigin origin)
+    {
+        if (LeavingFor(origin)) ReturnToCard(origin);
+    }
+
+    /// <summary>The video landed on the card it came from: playback stops and the card takes the keyboard.</summary>
+    private void ReturnToCard(PlayOrigin origin)
+    {
+        _playback?.Stop();
+        for (DependencyObject? node = origin.Art; node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is Control control && control.Focus(FocusState.Programmatic)) return;
+        var host = HomeHost.Visibility == Visibility.Visible ? HomeHost : PageHost;
+        host.IsTabStop = true;
+        if (!host.Focus(FocusState.Programmatic)) host.IsTabStop = false;
     }
 
     /// <summary>The full player shrinks onto the preview it came from, when that page is still shown.</summary>
@@ -509,9 +554,12 @@ public sealed partial class MainWindow
     private void ToggleVideoFullscreen()
     {
         if (_playerMode == PlayerMode.Hidden) return;
-        switch (FullscreenIntent.Toggle(_fullscreenGrow is not null && ReferenceEquals(_fullscreenGrow, _transition), IsOsFullscreen))
+        var growing = ScreenGrowing || (_fullscreenGrow is not null && ReferenceEquals(_fullscreenGrow, _transition));
+        switch (FullscreenIntent.Toggle(growing, IsOsFullscreen, ScreenBusy))
         {
+            case FullscreenToggle.CancelGrow when ScreenGrowing: _screenGrowCancelled = true; break;
             case FullscreenToggle.CancelGrow: _fullscreenGrow = null; break;
+            case FullscreenToggle.Ignore: break;
             case FullscreenToggle.Exit: ExitVideoFullscreen(); break;
             default: EnterVideoFullscreen(); break;
         }
@@ -519,9 +567,15 @@ public sealed partial class MainWindow
 
     private void EnterVideoFullscreen()
     {
+        if (_screenMove != ScreenMove.None) return;
         if (_playerMode == PlayerMode.Preview)
         {
-            GrowIntoFullscreen(Grow, ShrinkToPreview);
+            if (Borderless && _previewPage is { } page) GrowPreviewOnScreen(page);
+            else GrowIntoFullscreen(Grow, ShrinkToPreview);
+        }
+        else if (Borderless && !IsOsFullscreen && _transition is null && !_miniPlayer)
+        {
+            GrowWindowOnScreen();
         }
         else
         {
@@ -558,7 +612,12 @@ public sealed partial class MainWindow
         if (!ended) started = _fullscreenGrow = _transition;
     }
 
-    private void ExitVideoFullscreen() => SetOsFullscreen(false, ShrinkToPreview);
+    private void ExitVideoFullscreen()
+    {
+        if (_screenMove != ScreenMove.None) return;
+        if (Borderless && IsOsFullscreen) LeaveOnScreen(ArriveInWindow, 0);
+        else SetOsFullscreen(false, ShrinkToPreview);
+    }
 
     private void ShowFull()
     {
@@ -770,6 +829,7 @@ public sealed partial class MainWindow
         _cardOrigin = null;
         _cardPage = null;
         LeaveMiniPlayer();
+        AbortScreenMove();
         StopTransition();
         _playerView?.ReleaseChromeHold();
         if (_playerLayer is not null) _playerLayer.Visibility = Visibility.Collapsed;
@@ -797,7 +857,7 @@ public sealed partial class MainWindow
     /// leaves it, onto the detail page it came from; elsewhere the page history goes back.</summary>
     private void GoBack()
     {
-        switch (HistoryGestures.Back(_playerMode == PlayerMode.Full, _miniPlayer, _transition is not null))
+        switch (HistoryGestures.Back(_playerMode == PlayerMode.Full, _miniPlayer, _transition is not null || _screenMove != ScreenMove.None))
         {
             case HistoryAction.Navigate: _nav.Back(); break;
             case HistoryAction.LeaveMiniPlayer: LeaveMiniPlayer(); break;

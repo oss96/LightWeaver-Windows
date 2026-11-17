@@ -41,6 +41,8 @@ public static class Icons
     public const string SkipForward30 = "\uED3D";
     public const string Next = "\uE893";
     public const string Previous = "\uE892";
+    public const string PreviousChapter = "\uEB9E";
+    public const string NextChapter = "\uEB9D";
     public const string Volume = "\uE767";
     public const string Mute = "\uE74F";
     public const string Subtitles = "\uE7F0";

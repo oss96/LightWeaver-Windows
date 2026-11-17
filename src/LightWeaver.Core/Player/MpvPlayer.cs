@@ -312,8 +312,9 @@ public sealed class MpvPlayer : IDisposable
             //
             // sub-pos is NOT a lever into the band: values above 100 push the text below the
             // visible surface, where it is clipped and renders nowhere at all (measured: 110, 125
-            // and 150 all produced no subtitle). sub-pos stays what it has always been — the
-            // 0..100 control-bar lift the overlay composes. \pos-tagged ASS events are unaffected
+            // and 150 all produced no subtitle). sub-pos stays at 100 or below. Where the video
+            // surface crops the buffer, it lowers sub-pos onto the shown part, and switches this
+            // pair off once the crop reaches the subtitle margin (VideoSurface.PlaceSubtitles). \pos-tagged ASS events are unaffected
             // by any of this (measured constant at rows 249..279 across every configuration), so
             // typeset signs stay where the author put them.
             SetOption(ctx, "sub-use-margins", "yes");
@@ -1490,10 +1491,19 @@ public sealed class MpvPlayer : IDisposable
         LibMpv.mpv_set_property_string(_ctx, "sub-scale", scale.ToString(CultureInfo.InvariantCulture));
     }
 
+    /// <summary>Whether text subtitles may sit in the letterbox bands (sub-use-margins and
+    /// sub-ass-force-margins) or stay on the picture.</summary>
+    public void SetSubtitleMargins(bool use)
+    {
+        CheckAlive();
+        var value = use ? "yes" : "no";
+        LibMpv.mpv_set_property_string(_ctx, "sub-use-margins", value);
+        LibMpv.mpv_set_property_string(_ctx, "sub-ass-force-margins", value);
+    }
+
     /// <summary>Vertical position of mpv-rendered subtitles in percent of the window
-    /// height (mpv sub-pos; 100 = bottom). Lifts subtitles above the overlay control
-    /// bar while it is visible. No effect on burned-in subtitles.</summary>
-    public void SetSubtitlePosition(int percent)
+    /// height (mpv sub-pos; 100 = bottom). No effect on burned-in subtitles.</summary>
+    public void SetSubtitlePosition(double percent)
     {
         CheckAlive();
         LibMpv.mpv_set_property_string(_ctx, "sub-pos",

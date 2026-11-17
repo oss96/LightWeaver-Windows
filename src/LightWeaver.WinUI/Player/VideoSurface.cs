@@ -38,6 +38,12 @@ internal sealed partial class VideoSurface : Grid
     private (int Width, int Height) _requested;
     private (int Width, int Height) _drawn;
     private double? _fittedAspect;
+    private int _subtitleBase = 100;
+    private bool _authoredSubtitles;
+    private SubtitlePlacement _placement = SubtitlePlacement.Uncropped(100);
+    private SubtitlePlacement? _placed;
+    private VideoSurface? _source;
+    private double? _sourceAspect;
 
     public VideoSurface()
     {
@@ -67,6 +73,11 @@ internal sealed partial class VideoSurface : Grid
             OnScaleMaybeChanged();
         };
     }
+
+    /// <summary>The held video showed its first frame and is fading in.</summary>
+    public event Action<VideoSurface>? Revealed;
+
+    private double? Aspect => _source is not null ? _sourceAspect : _player?.VideoAspect;
 
     private double DisplayScale => XamlRoot?.RasterizationScale is > 0 and var scale ? scale : 1;
 
@@ -103,6 +114,10 @@ internal sealed partial class VideoSurface : Grid
         player.OsdWidthChanged += OnOsdGeometryChanged;
         player.VideoStateChanged += OnVideoStateChanged;
         player.PlaybackRestarted += OnPlaybackRestarted;
+        player.TracksChanged += OnTracksChanged;
+        _authoredSubtitles = SubtitlePlacement.HasAuthoredMargins(player.Tracks);
+        _placed = null;
+        PlaceSubtitles(_placement);
         PushSize();
     }
 
@@ -129,6 +144,7 @@ internal sealed partial class VideoSurface : Grid
         _player.OsdWidthChanged -= OnOsdGeometryChanged;
         _player.VideoStateChanged -= OnVideoStateChanged;
         _player.PlaybackRestarted -= OnPlaybackRestarted;
+        _player.TracksChanged -= OnTracksChanged;
     }
 
     /// <summary>A new title was asked for: the video stays hidden until its first frame, and
@@ -212,7 +228,7 @@ internal sealed partial class VideoSurface : Grid
     public LayerContent Content
         => _art.Visibility == Visibility.Visible && _art.Source is Microsoft.UI.Xaml.Media.Imaging.BitmapSource { PixelWidth: > 0, PixelHeight: > 0 } art
             ? new LayerContent((double)art.PixelWidth / art.PixelHeight, _art.Stretch == Stretch.UniformToFill)
-            : _player?.VideoAspect is { } aspect ? new LayerContent(aspect) : LayerContent.Stretched;
+            : Aspect is { } aspect ? new LayerContent(aspect) : LayerContent.Stretched;
 
     private void ShowArt()
         => _art.Visibility = _gate.IsHeld && !_seeThrough && _art.Source is not null ? Visibility.Visible : Visibility.Collapsed;
@@ -224,6 +240,12 @@ internal sealed partial class VideoSurface : Grid
         if (_player is not { } player || !_gate.TryRelease(generation, player.LoadGeneration)) return;
         ShowRing();
         Fit();
+        FadeIn();
+        Revealed?.Invoke(this);
+    }
+
+    private void FadeIn()
+    {
         var fade = new DoubleAnimation { From = 0, To = 1, Duration = RevealFade };
         Storyboard.SetTarget(fade, _video);
         Storyboard.SetTargetProperty(fade, nameof(UIElement.Opacity));
@@ -268,6 +290,77 @@ internal sealed partial class VideoSurface : Grid
         }
     }
 
+    /// <summary>Shows what <paramref name="source"/> shows now, on its swapchain and without a player:
+    /// the fitted video, or the stand-in artwork, which fades into the video when the source's does.</summary>
+    public void Mirror(VideoSurface source)
+    {
+        StopMirror();
+        _source = source;
+        _sourceAspect = source.Aspect;
+        (_buffer, _requested, _drawn) = (source._buffer, source._requested, source._drawn);
+        _seeThrough = false;
+        Background = _black;
+        _reveal?.Stop();
+        _reveal = null;
+        if (source._gate.IsHeld) _gate.Hold(int.MaxValue);
+        else _gate.Clear();
+        _video.Opacity = source._gate.IsHeld ? 0 : 1;
+        SetArt(source._art.Source, source._art.Stretch);
+        source.Revealed += OnSourceRevealed;
+        ShareSwapChain(source);
+        Fit();
+    }
+
+    private void ShareSwapChain(VideoSurface source)
+    {
+        if (source._swapChain == 0 || source._swapChain == _swapChain) return;
+        try
+        {
+            SwapChainInterop.SetSwapChain(_panel, source._swapChain);
+            _swapChain = source._swapChain;
+        }
+        catch (COMException ex)
+        {
+            Diagnostics.AppLog.Error("player", $"event=mirror_swapchain outcome=failure hr=0x{ex.HResult:X8}");
+        }
+    }
+
+    /// <summary>Lets go of the mirrored swapchain and artwork.</summary>
+    public void StopMirror()
+    {
+        if (_source is not { } source) return;
+        source.Revealed -= OnSourceRevealed;
+        _source = null;
+        _reveal?.Stop();
+        _reveal = null;
+        if (_swapChain != 0)
+        {
+            try
+            {
+                SwapChainInterop.SetSwapChain(_panel, 0);
+            }
+            catch (COMException)
+            {
+            }
+            _swapChain = 0;
+        }
+        _gate.Clear();
+        _video.Opacity = 1;
+        SetArt(null, Stretch.Uniform);
+        (_buffer, _requested, _drawn) = (default, default, default);
+    }
+
+    private void OnSourceRevealed(VideoSurface source)
+    {
+        if (!ReferenceEquals(_source, source) || !_gate.IsHeld) return;
+        _gate.Clear();
+        _sourceAspect = source.Aspect;
+        (_buffer, _requested, _drawn) = (source._buffer, source._requested, source._drawn);
+        ShareSwapChain(source);
+        Fit();
+        FadeIn();
+    }
+
     private void PushSize()
     {
         var size = BufferPixels;
@@ -294,7 +387,7 @@ internal sealed partial class VideoSurface : Grid
 
     private void ApplyScale()
     {
-        if (_swapChain == 0) return;
+        if (_swapChain == 0 || _source is not null) return;
         SwapChainInterop.SetMatrixTransform(_swapChain, (float)(1 / DisplayScale), (float)(1 / DisplayScale));
     }
 
@@ -302,7 +395,7 @@ internal sealed partial class VideoSurface : Grid
     /// where mpv will draw it at the surface's size: centred and fitted, by the video's shape.</summary>
     private void Fit()
     {
-        _fittedAspect = _player?.VideoAspect;
+        _fittedAspect = Aspect;
         if (_drawn == default || _drawn == Pixels)
         {
             _panel.Width = _panel.Height = double.NaN;
@@ -310,6 +403,7 @@ internal sealed partial class VideoSurface : Grid
             _panel.VerticalAlignment = VerticalAlignment.Stretch;
             _fit.ScaleX = _fit.ScaleY = 1;
             _fit.TranslateX = _fit.TranslateY = 0;
+            PlaceSubtitles(SubtitlePlacement.Uncropped(_subtitleBase));
             return;
         }
         var bufferWidth = _drawn.Width / DisplayScale;
@@ -323,5 +417,39 @@ internal sealed partial class VideoSurface : Grid
         _fit.ScaleY = fit.ScaleY;
         _fit.TranslateX = fit.TranslateX;
         _fit.TranslateY = fit.TranslateY;
+        var surfaceHeight = ActualHeight * DisplayScale;
+        var physical = SurfaceFit.Of(ActualWidth * DisplayScale, surfaceHeight, _drawn.Width, _drawn.Height, _fittedAspect);
+        PlaceSubtitles(SubtitlePlacement.For(physical, surfaceHeight, _drawn.Width, _drawn.Height, _fittedAspect, _subtitleBase, _authoredSubtitles));
+    }
+
+    /// <summary>A switch to or from an ASS track changes which crop its subtitles survive.</summary>
+    private void OnTracksChanged(int generation)
+    {
+        if (_player is null) return;
+        var authored = SubtitlePlacement.HasAuthoredMargins(_player.Tracks);
+        if (authored == _authoredSubtitles) return;
+        _authoredSubtitles = authored;
+        Fit();
+    }
+
+    /// <summary>The user's subtitle position (Settings › Subtitles, 100 = bottom), taken across the
+    /// part of the video the surface shows.</summary>
+    public void SetSubtitleBase(int percent)
+    {
+        if (percent == _subtitleBase) return;
+        _subtitleBase = percent;
+        Fit();
+    }
+
+    /// <summary>mpv anchors subtitles to the buffer's edges, which the surface crops wherever its shape
+    /// differs from the buffer's (the preview, a window of another shape than the display); the
+    /// placement keeps them on what is shown, at any surface and video shape.</summary>
+    private void PlaceSubtitles(SubtitlePlacement placement)
+    {
+        _placement = placement;
+        if (_player is null || _source is not null || placement == _placed) return;
+        if (_placed?.UseMargins != placement.UseMargins) _player.SetSubtitleMargins(placement.UseMargins);
+        if (_placed?.Position != placement.Position) _player.SetSubtitlePosition(placement.Position);
+        _placed = placement;
     }
 }

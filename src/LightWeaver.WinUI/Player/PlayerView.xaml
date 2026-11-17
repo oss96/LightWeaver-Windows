@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The player's controls over the video (design 13): title and Back on top, the transport bar at
-     the bottom (seek bar with chapters, buffer and trickplay; play/pause, back, forward, next,
-     volume; RTX VSR and RTX HDR, audio and subtitles, quality, speed, queue, info, full screen), Skip
+     the bottom (seek bar with chapters, buffer and trickplay; play/pause, back, forward, previous
+     and next chapter, previous, next, volume; RTX VSR and RTX HDR, audio and subtitles, quality, speed, queue, info, full screen), Skip
      intro, the Up Next card and the volume readout. Where the row is too narrow for both groups, audio
      and subtitles fold into one Tracks button (13c). Clicking the position opens a field in its place to type one.
      Flyouts open inside the window above the bar. After 2.5 s without input during playback the
@@ -88,6 +88,18 @@
                             <Button x:Name="JumpForwardButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnJumpForward"
                                     AutomationProperties.AutomationId="PlayerJumpForward">
                                 <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.SkipForward30}" />
+                            </Button>
+                            <Button x:Name="PreviousChapterButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" AllowFocusOnInteraction="False" Click="OnPreviousChapter"
+                                    Visibility="Collapsed" AutomationProperties.AutomationId="PlayerPreviousChapter">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.PreviousChapter}" />
+                            </Button>
+                            <Button x:Name="NextChapterButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" AllowFocusOnInteraction="False" Click="OnNextChapter"
+                                    Visibility="Collapsed" AutomationProperties.AutomationId="PlayerNextChapter">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.NextChapter}" />
+                            </Button>
+                            <Button x:Name="PreviousButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" AllowFocusOnInteraction="False" Click="OnPrevious"
+                                    Visibility="Collapsed" AutomationProperties.AutomationId="PlayerPrevious">
+                                <FontIcon Style="{StaticResource LwIcon}" FontSize="18" Glyph="{x:Bind t:Icons.Previous}" />
                             </Button>
                             <Button x:Name="NextButton" Style="{StaticResource LwSubtleButton}" Width="38" Height="38" Foreground="White" Click="OnNext"
                                     AutomationProperties.AutomationId="PlayerNext">

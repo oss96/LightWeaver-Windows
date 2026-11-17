@@ -54,7 +54,7 @@ static string FindRepository()
 {
     foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
         for (var dir = new DirectoryInfo(start); dir is not null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "localization", "catalog.json")) && Directory.Exists(Path.Combine(dir.FullName, "src", "LightWeaver"))) return dir.FullName;
+            if (File.Exists(Path.Combine(dir.FullName, "localization", "catalog.json")) && Directory.Exists(Path.Combine(dir.FullName, "src", "LightWeaver.Core"))) return dir.FullName;
     throw new DirectoryNotFoundException("Run this editor from the LightWeaver checkout.");
 }
 public sealed record LanguageRequest(string Language);
