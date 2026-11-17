@@ -67,8 +67,10 @@ episode cards after the server accepts the change. Failed changes restore the pr
   backdrop) stands in, and the video then fades in over 120 ms. When the player's bar or the preview's bar runs out
   of room, its options move to a row above instead of being pushed out of reach. The seek preview
   keeps the thumbnails' own shape, as large as fits above the bar, and stays inside the player at
-  its edges. The bar has a seek bar with chapters, buffer and trickplay previews, back/forward (Settings ›
-  Playback), previous/next chapter when the item has chapters, previous and next, volume, and flyouts for audio and subtitles (with a 0.1 s subtitle offset),
+  its edges. The bar has a seek bar with chapters, buffer and trickplay previews, volume at the left, and
+  Play/Pause in the middle with the buttons that go back on its left and those that go forward on its right, each
+  side ordered back/forward (Settings › Playback), previous/next chapter when the item has chapters, then previous
+  and next; on the right, flyouts for audio and subtitles (with a 0.1 s subtitle offset),
   quality and version, speed, the queue and live stats, drawn as dim glass over the video; Skip intro, the Up Next card, keyboard
   shortcuts and an idle hide. The wheel over the player changes the volume; every volume or mute change shows the level
   in a readout at the top right for a moment, without bringing up the bar.

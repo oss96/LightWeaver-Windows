@@ -117,6 +117,15 @@ Requires("Player/PlayerView.xaml.cs", "PreviousChapterButton.Visibility = NextCh
     "L.Text(\"Player.PreviousChapter\")", "L.Text(\"Player.NextChapter\")",
     "PreviousButton.Visibility = vm.CanGoPrevious", "Vm?.GoPrevious()", "L.Text(\"Player.Previous\")");
 Requires("Player/PlayerView.xaml.cs", "TimeInput.TryParse(", "vm.Seek(TimeInput.Target(");
+string[] Ids(XElement e) => e.DescendantsAndSelf().Select(d => d.Attributes().FirstOrDefault(a => a.Name.LocalName == "AutomationProperties.AutomationId")?.Value)
+    .OfType<string>().ToArray();
+var barGroups = XDocument.Load(Path.Combine(app, "Player/PlayerView.xaml")).Descendants()
+    .Single(e => e.Attributes().Any(a => a.Name.LocalName == "Name" && a.Value == "ButtonRow")).Elements().ToArray();
+var transport = barGroups.ElementAtOrDefault(1);
+if (barGroups.Length != 3 || !Ids(barGroups[0]).SequenceEqual(["PlayerMute", "PlayerVolume"]) || transport?.Name.LocalName != "PivotRow"
+    || transport.Attribute("FlowDirection")?.Value != "LeftToRight" || Ids(transport.Elements().ElementAt(1)).SingleOrDefault() != "PlayerPlayPause"
+    || !Ids(transport).SequenceEqual(["PlayerPrevious", "PlayerPreviousChapter", "PlayerJumpBack", "PlayerPlayPause", "PlayerJumpForward", "PlayerNextChapter", "PlayerNext"]))
+    failures.Add("Player/PlayerView.xaml: the bar is not volume first, then Play centred between back (item, chapter, time) and forward (time, chapter, item), left to right");
 Requires("Player/PlaybackController.cs", "UpNextLead.For(", "SubtitleCarryOver");
 Requires("Player/PlaybackController.cs", "Start(slice[0], choice, session, intentTaken: true)", "Start(episode, choice, session, intentTaken: true)", "if (!intentTaken) _intent++;");
 Requires("Pages/SettingsPage.cs", "UpNextPreferences.MaximumCountdownSeconds", "SettingsUpNextLead", "SettingsZoomLimit", "KeyChords.IsZoomChord(");

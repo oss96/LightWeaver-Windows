@@ -394,6 +394,11 @@ Check(PlayerBar.FoldsTracks(506, 530, folded: false, 40), "a 900 x 600 preview's
 Check(PlayerBar.FoldsTracks(506, 490, folded: true, 40), "and stays folded while unfolding would wrap again");
 Check(!PlayerBar.FoldsTracks(560, 490, folded: true, 40), "a wider preview unfolds them once both fit");
 Check(!PlayerBar.FoldsTracks(double.PositiveInfinity, 9000, folded: false, 40), "an unmeasured row folds nothing");
+Check(PlayerBar.MiddleStart(1920, 136, 320, 520, 8) == 800, "a wide bar centres the transport on the row");
+Check(PlayerBar.MiddleStart(1100, 136, 320, 520, 8) == 1100 - 520 - 8 - 320, "a narrower one moves it off the end group rather than overlap it");
+Check(PlayerBar.MiddleStart(600, 300, 320, 0, 8) == 308, "and off the start group the same way");
+Check(PlayerBar.MiddleStart(700, 136, 320, 520, 8) == 144, "the start group wins when the row cannot keep both gaps");
+Check(PlayerBar.MiddleStart(500, 0, 320, 0, 8) == 90, "with no group beside it the transport is simply centred");
 
 Check(!PlayerTooltips.Opens(keyboardFocus: false, pointerMovedSinceShown: false), "the bar shown again under a resting pointer opens no tooltip (Play, paused in full screen)");
 Check(PlayerTooltips.Opens(false, true) && PlayerTooltips.Opens(true, false), "a pointer that moved there, or keyboard focus, does");

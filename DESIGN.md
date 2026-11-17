@@ -164,6 +164,22 @@ Paths in the Code column are under `src/LightWeaver.WinUI/`; design files are un
 
 ## Changes
 
+### 2026-11-17 · Player: volume at the start, the transport centred around Play
+- What changed: the bar's button row has three groups. Mute and the volume slider stand alone at
+  the start. Play/Pause is centred on the row, the buttons that go back on its left and those that
+  go forward on its right, each side ordered from Play outwards by reach: Back and Forward (time in
+  the item), then Previous chapter and Next chapter, then Previous and Next (the item). Both sides
+  take the wider side's width (`PivotRow`), so Play stays put while Previous or the chapter pair
+  are hidden. Where the end group crowds it, the transport moves towards the start just enough to
+  keep the 8 px gap (`PlayerBar.MiddleStart`); where the row stacks, the end group goes on top as
+  before and the transport stays centred beside the volume. The transport runs left to right in
+  every language, like the seek row above it; the volume and end groups still mirror right to
+  left. The right group is unchanged.
+- Why: the owner wanted the volume to the far left and the media controls in the middle, ordered
+  back and forward around Play, as their mockup showed.
+- Proposal: none; the owner's mockup.
+- Chosen option: applied at once at the owner's request.
+
 ### 2026-11-16 · Player: previous and next chapter buttons, and Previous
 - What changed: the bar's left group has Previous chapter and Next chapter after Forward, then
   Previous and Next. All are 38 × 38 `LwSubtleButton`s with their glyph at 18. The chapter pair
